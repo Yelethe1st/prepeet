@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en" data-theme-default="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session processing · Prepeet</title>
+<meta name="description" content="What happens to your interview after you finish: upload, transcription, evidence extraction and either your feedback or delivery to the hiring team.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* Page-unique: the minimal post-interview header. */
+.done-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.done-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none !important; font-weight: 700; font-size: 17px; letter-spacing: -.02em; }
+</style>
+</head>
+
+<body>
+
+<header class="done-top">
+  <a class="done-brand" href="candidate-dashboard.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <div class="cluster">
+    <a class="btn btn-sm btn-ghost" href="candidate-dashboard.html"><i data-lucide="arrow-left" class="ic ic-sm"></i>Back to dashboard</a>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</header>
+
+<main class="centered" id="main-content">
+
+  <div style="margin-bottom:var(--sp-5)">
+    <p class="eyebrow" id="page-eyebrow">Session finished</p>
+    <h1 style="font-size:var(--text-2xl)" id="page-h1">Processing your interview</h1>
+    <p class="page-desc" id="page-sub" style="margin-top:6px">This usually takes under a minute. You can leave this page open or close the tab — processing continues either way.</p>
+    <div class="cluster" style="margin-top:12px">
+      <span class="badge badge-mode practice" id="mode-badge">Practice</span>
+      <span class="badge badge-outline mono" id="ref-chip">ses_7Kq2XA</span>
+      <span class="badge badge-outline mono" id="route-chip">/candidate/session/ses_7Kq2XA/complete</span>
+    </div>
+  </div>
+
+  <!-- ══════════ Preview state switcher (prototype affordance) ══════════ -->
+  <div class="card card-subtle" style="margin-bottom:var(--sp-5)">
+    <div class="card-body" style="padding:12px 14px">
+      <div class="between">
+        <span class="hint"><strong>Preview state</strong> · prototype control, not product UI</span>
+      </div>
+      <div class="scroll-x" style="margin-top:8px">
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="processing" aria-pressed="true">Processing</button>
+          <button type="button" data-state-btn="complete-practice" aria-pressed="false">Complete · practice</button>
+          <button type="button" data-state-btn="complete-screen" aria-pressed="false">Complete · screen</button>
+          <button type="button" data-state-btn="failed" aria-pressed="false">Failed</button>
+          <button type="button" data-state-btn="delayed" aria-pressed="false">Delayed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ PROCESSING ══════════════════ -->
+  <div data-state="processing">
+    <section class="card" aria-labelledby="proc-h">
+      <div class="card-header">
+        <div>
+          <h2 id="proc-h">What is happening now</h2>
+          <p class="hint" style="margin-top:3px">Each step runs on the server. Nothing here needs you.</p>
+        </div>
+        <span class="badge badge-info"><i data-lucide="loader" class="ic-sm ic"></i><span id="proc-badge">Running</span></span>
+      </div>
+      <div class="card-body stack">
+        <div>
+          <div class="between" style="margin-bottom:6px">
+            <span style="font-size:var(--text-sm);font-weight:600" id="proc-step-label">Step 1 of 6</span>
+            <span class="tnum text-muted" style="font-size:var(--text-xs)" id="proc-pct">0%</span>
+          </div>
+          <div class="progress" role="progressbar" id="proc-bar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Overall processing progress"><span style="width:0%"></span></div>
+        </div>
+        <p class="sr-only" role="status" id="proc-live"></p>
+        <ol class="stages" id="stages"></ol>
+      </div>
+      <div class="card-footer">
+        <p class="hint"><i data-lucide="shield-check" class="ic ic-sm" style="vertical-align:-3px;color:var(--primary)"></i> Your recording is encrypted in transit and at rest. You can delete this session from <a href="candidate-settings.html#privacy">privacy settings</a> at any time.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ══════════════════ COMPLETE · PRACTICE ══════════════════ -->
+  <div data-state="complete-practice" hidden>
+    <section class="card card-accent" aria-labelledby="cp-h" style="margin-bottom:var(--sp-4)">
+      <div class="card-body">
+        <h2 id="cp-h" class="sr-only">Session result</h2>
+        <div style="display:flex;gap:var(--sp-6);align-items:center;flex-wrap:wrap">
+          <div class="ring ring-lg" data-score="74" data-sub="Solid" data-label="Overall session score"></div>
+          <div style="flex:1;min-width:220px" class="stack-sm">
+            <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">
+              <strong>Solid session.</strong> Your data-modelling and consistency answers carried it. Failure modes and the queueing answer were thinner, and you contradicted yourself once on sharding before correcting it.
+            </p>
+            <div class="cluster">
+              <span class="badge badge-neutral"><i data-lucide="message-circle" class="ic-sm ic"></i>6 of 6 questions answered</span>
+              <span class="badge badge-neutral"><i data-lucide="clock" class="ic-sm ic"></i>38 minutes</span>
+              <span class="badge badge-neutral"><i data-lucide="user-round" class="ic-sm ic"></i>Ravi</span>
+            </div>
+          </div>
+        </div>
+        <hr style="margin:var(--sp-5) 0">
+        <div class="cluster">
+          <a class="btn btn-primary" id="cp-review" href="candidate-session-review.html?id=ses_7Kq2XA"><i data-lucide="book-open" class="ic ic-sm"></i>Open review</a>
+          <a class="btn btn-secondary" id="cp-results" href="candidate-session-results.html?id=ses_7Kq2XA"><i data-lucide="bar-chart-3" class="ic ic-sm"></i>See results &amp; evidence</a>
+        </div>
+        <p class="hint" style="margin-top:10px">The review walks you through each answer with coaching. Results show the competency scores and the exact evidence behind them.</p>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="cp-again-h" style="margin-bottom:var(--sp-4)">
+      <div class="card-body">
+        <div class="between" style="align-items:flex-start">
+          <div style="min-width:220px">
+            <h2 id="cp-again-h" style="font-size:var(--text-base)">Practise the weak spot again</h2>
+            <p class="hint" style="margin-top:6px;line-height:1.55">Failure modes and back-pressure came up twice today and both answers stopped early. A 25-minute case session on incident response would give you two or three more examples on record.</p>
+          </div>
+          <a class="btn btn-soft" href="candidate-start-interview.html?shape=shape_case&amp;focus=debugging"><i data-lucide="circle-play" class="ic ic-sm"></i>Set that up</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="accordion" data-accordion-single>
+      <div class="accordion-item">
+        <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="cp-pipeline">
+          How this session was processed<i data-lucide="chevron-down" class="ic"></i>
+        </button>
+        <div class="accordion-panel" id="cp-pipeline" hidden>
+          <ol class="stages" id="stages-done"></ol>
+          <p class="hint" style="margin-top:10px">Total processing time <span class="mono" id="total-time">10.4s</span>. Scores are a practice signal from this one conversation, not a prediction of hiring outcomes.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="hint" style="margin-top:var(--sp-4)"><a href="candidate-sessions.html">All your sessions</a> · <a href="candidate-dashboard.html">Back to dashboard</a></p>
+  </div>
+
+  <!-- ══════════════════ COMPLETE · SCREEN ══════════════════ -->
+  <div data-state="complete-screen" hidden>
+    <div class="banner banner-success" style="margin-bottom:var(--sp-4)" role="status">
+      <i data-lucide="check-circle-2" class="ic"></i>
+      <div><strong>Submitted to Northwind Health System.</strong> Your interview was delivered to the hiring team on 23 August 2026 at 19:14 (Europe/London).</div>
+    </div>
+
+    <section class="card" aria-labelledby="cs-h" style="margin-bottom:var(--sp-4)">
+      <div class="card-header"><h2 id="cs-h">Your screening interview</h2></div>
+      <div class="card-body">
+        <dl class="kv">
+          <dt>Employer</dt><dd>Northwind Health System</dd>
+          <dt>Role</dt><dd>Registered Nurse — Intensive Care</dd>
+          <dt>Format</dt><dd>Panel simulation with Lena · 8 questions</dd>
+          <dt>Submitted</dt><dd>23 August 2026, 19:14</dd>
+          <dt>Questions answered</dt><dd>8 of 8</dd>
+          <dt>Reference</dt><dd class="mono">ses_4Bz9QD</dd>
+          <dt>Data retention</dt><dd>18 months, then deleted automatically</dd>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="cs-next-h" style="margin-bottom:var(--sp-4)">
+      <div class="card-header"><h2 id="cs-next-h">What happens next</h2></div>
+      <div class="card-body">
+        <ol class="timeline">
+          <li class="tl-item done"><div class="tl-title">Interview completed</div><div class="tl-meta">Today, 19:11</div></li>
+          <li class="tl-item done"><div class="tl-title">Transcript and evidence prepared</div><div class="tl-meta">Today, 19:14</div></li>
+          <li class="tl-item active"><div class="tl-title">With the Northwind Health hiring team</div><div class="tl-meta">From today</div><div class="tl-body">Reviewers read your answers alongside the transcript and make their own decision. Most teams respond within ten working days.</div></li>
+          <li class="tl-item"><div class="tl-title">Outcome communicated by the employer</div><div class="tl-meta">Northwind Health will email you directly</div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="card card-subtle" aria-labelledby="cs-why-h" style="margin-bottom:var(--sp-4)">
+      <div class="card-body">
+        <div class="cluster" style="margin-bottom:8px"><i data-lucide="lock" class="ic" style="color:var(--primary)"></i><h2 id="cs-why-h" style="font-size:var(--text-sm)">Why there is no score on this page</h2></div>
+        <p class="hint" style="line-height:1.6">A screening evaluation is written for the hiring team. It sets out the evidence — what you actually said — next to the competencies Northwind Health asked about, including where the evidence is thin. The team weighs that themselves and makes the decision; Prepeet does not.</p>
+        <p class="hint" style="line-height:1.6;margin-top:8px">Showing you a number here would suggest Prepeet had decided something it has not. So no score, no band, no competency chart, no coaching and no recommendation is shown to you for a screening interview — in this or any other screen.</p>
+        <p class="hint" style="line-height:1.6;margin-top:8px">You can still ask for a copy of everything held about you, including your transcript.</p>
+        <div class="cluster" style="margin-top:12px">
+          <a class="btn btn-sm btn-secondary" href="candidate-settings.html#privacy">Request your data</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="cluster">
+      <a class="btn btn-primary" href="candidate-dashboard.html"><i data-lucide="arrow-left" class="ic ic-sm"></i>Back to dashboard</a>
+      <a class="btn btn-ghost" href="candidate-start-interview.html?mode=practice">Practise for your next interview</a>
+    </div>
+  </div>
+
+  <!-- ══════════════════ FAILED (recoverable) ══════════════════ -->
+  <div data-state="failed" hidden>
+    <div class="banner banner-danger" style="margin-bottom:var(--sp-4)" role="status">
+      <i data-lucide="alert-triangle" class="ic"></i>
+      <div><strong>The evaluation service could not finish.</strong> Your audio and transcript are safe — only the scoring step failed, and it can be run again.</div>
+    </div>
+
+    <section class="card" aria-labelledby="fl-h" style="margin-bottom:var(--sp-4)">
+      <div class="card-header"><h2 id="fl-h">Where it stopped</h2></div>
+      <div class="card-body stack">
+        <ol class="stages" id="stages-failed"></ol>
+        <dl class="kv">
+          <dt>Failed at</dt><dd>Evaluating competencies</dd>
+          <dt>Reference id</dt><dd class="mono">evl_9F2K7T</dd>
+          <dt>Time</dt><dd>23 August 2026, 19:16</dd>
+          <dt>Your recording</dt><dd>Stored and complete — 38 minutes</dd>
+          <dt>Your transcript</dt><dd>Stored and complete — 14 turns</dd>
+        </dl>
+      </div>
+      <div class="card-footer">
+        <div class="cluster">
+          <button class="btn btn-primary" type="button" id="btn-retry"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Retry evaluation</button>
+          <button class="btn btn-secondary" type="button" data-toast="We will email you when it is ready" data-toast-desc="daniel.okonkwo@example.com · usually within an hour" data-toast-kind="success"><i data-lucide="bell" class="ic ic-sm"></i>Notify me when it is ready</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-copy="evl_9F2K7T"><i data-lucide="copy" class="ic ic-sm"></i>Copy reference id</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="hint">Nothing is lost and you do not need to redo the interview. If a retry fails twice, quote <span class="mono">evl_9F2K7T</span> in <a href="candidate-settings.html#help">help &amp; accessibility</a> and a person will pick it up.</p>
+  </div>
+
+  <!-- ══════════════════ DELAYED ══════════════════ -->
+  <div data-state="delayed" hidden>
+    <div class="banner banner-warning" style="margin-bottom:var(--sp-4)" role="status">
+      <i data-lucide="hourglass" class="ic"></i>
+      <div><strong>Queued behind other sessions.</strong> Everything uploaded and transcribed fine. Evaluation is waiting for capacity.</div>
+    </div>
+
+    <section class="card" aria-labelledby="dl-h" style="margin-bottom:var(--sp-4)">
+      <div class="card-header"><h2 id="dl-h">Estimated wait</h2></div>
+      <div class="card-body stack">
+        <div class="metrics-row">
+          <div class="metric card card-subtle">
+            <span class="metric-label">Estimated wait</span>
+            <span class="metric-value">12<small>min</small></span>
+            <span class="metric-foot">Based on the queue right now</span>
+          </div>
+          <div class="metric card card-subtle">
+            <span class="metric-label">Queue position</span>
+            <span class="metric-value">4th</span>
+            <span class="metric-foot">Of 11 sessions waiting</span>
+          </div>
+        </div>
+        <div>
+          <div class="between" style="margin-bottom:6px">
+            <span style="font-size:var(--text-sm);font-weight:600">Waiting for the evaluation worker</span>
+          </div>
+          <div class="progress indeterminate" role="progressbar" aria-label="Waiting in the evaluation queue"><span></span></div>
+        </div>
+        <ol class="stages" id="stages-delayed"></ol>
+      </div>
+      <div class="card-footer">
+        <div class="cluster">
+          <button class="btn btn-primary" type="button" data-toast="We will email you when it is ready" data-toast-desc="daniel.okonkwo@example.com · no need to keep this tab open" data-toast-kind="success"><i data-lucide="mail" class="ic ic-sm"></i>Email me when it is ready</button>
+          <button class="btn btn-secondary" type="button" data-loading-sim="1400" data-loading-done="Still queued — you are now 3rd in line" data-loading-kind="info"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Check again</button>
+          <a class="btn btn-ghost" href="candidate-dashboard.html">Back to dashboard</a>
+        </div>
+      </div>
+    </section>
+
+    <p class="hint"><strong>You can close this tab.</strong> Processing carries on without you and the session will be waiting in <a href="candidate-sessions.html">your sessions</a> when it is done.</p>
+  </div>
+
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var P = window.Prepeet;
+  var mode = P.getMode();
+  var isScreen = mode === 'screen';
+  var sid = P.query.get('id') || (isScreen ? P.ids.screenSession : P.ids.session);
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ───────────────── header chips ───────────────── */
+  $('brandmark').innerHTML = P.logoSvg;
+  $('ref-chip').textContent = sid;
+  $('route-chip').textContent = '/candidate/session/' + sid + '/complete';
+  var modeBadge = $('mode-badge');
+  modeBadge.className = 'badge badge-mode ' + (isScreen ? 'screen' : 'practice');
+  modeBadge.textContent = isScreen ? 'Screening' : 'Practice';
+  $('cp-review').setAttribute('href', 'candidate-session-review.html?id=' + sid);
+  $('cp-results').setAttribute('href', 'candidate-session-results.html?id=' + sid);
+
+  /* ───────────────── stage definitions ───────────────── */
+  var STAGES = [
+    { key: 'upload', icon: 'upload-cloud', name: 'Uploading audio', sub: 'Encrypted transfer of the recording from your browser.', ms: 1400 },
+    { key: 'transcribe', icon: 'file-text', name: 'Transcribing', sub: 'Speech to text, with the two speakers separated.', ms: 2600 },
+    { key: 'evidence', icon: 'search-check', name: 'Extracting evidence', sub: 'Finding the spans of what you actually said that relate to each competency.', ms: 2200 },
+    { key: 'evaluate', icon: 'scale', name: 'Evaluating competencies', sub: isScreen
+        ? 'Scoring each competency against the rubric Northwind Health set, with a confidence range for the reviewers.'
+        : 'Scoring each competency against the rubric, with a confidence range.', ms: 2600 },
+    { key: 'deliver', icon: isScreen ? 'send' : 'sparkles',
+      name: isScreen ? 'Delivering to the hiring team' : 'Preparing feedback',
+      sub: isScreen ? 'Handing the evaluation and transcript to Northwind Health System.' : 'Writing the per-answer coaching and the model rewrites.', ms: 1600 },
+    { key: 'complete', icon: 'check', name: 'Complete', sub: isScreen ? 'Delivered.' : 'Your review and results are ready.', ms: 0 }
+  ];
+  var times = [];
+
+  function stageMarkup(i, cls, timeText) {
+    var s = STAGES[i];
+    var icon = cls === 'active' ? '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>'
+      : cls === 'done' ? '<i data-lucide="check" class="ic"></i>'
+      : cls === 'failed' ? '<i data-lucide="x" class="ic"></i>'
+      : cls === 'delayed' ? '<i data-lucide="hourglass" class="ic"></i>'
+      : '<i data-lucide="' + s.icon + '" class="ic"></i>';
+    return '<li class="stage ' + cls + '">' +
+      '<span class="stage-icon">' + icon + '</span>' +
+      '<span><span class="stage-name">' + s.name + '</span><span class="stage-sub">' + s.sub + '</span></span>' +
+      '<span class="stage-time">' + (timeText || '') + '</span></li>';
+  }
+
+  /* opts: {done: n, current: i|null, mark: 'active'|'failed'|'delayed', showTimes: bool} */
+  function renderStages(host, opts) {
+    if (!host) return;
+    var html = '';
+    for (var i = 0; i < STAGES.length; i++) {
+      var cls = '', t = '';
+      if (i < opts.done) { cls = 'done'; t = opts.showTimes && times[i] ? times[i] : ''; }
+      else if (i === opts.current) { cls = opts.mark || 'active'; t = opts.mark === 'failed' ? 'failed' : opts.mark === 'delayed' ? 'queued' : ''; }
+      html += stageMarkup(i, cls, t);
+    }
+    host.innerHTML = html;
+    P.init();
+  }
+
+  /* ───────────────── the pipeline ───────────────── */
+  var pipeTimer = null, doneCount = 0, curIdx = 0, startedAt = 0;
+
+  function paintProgress() {
+    var pct = Math.round((doneCount / (STAGES.length - 1)) * 100);
+    $('proc-bar').querySelector('span').style.width = pct + '%';
+    $('proc-bar').setAttribute('aria-valuenow', String(pct));
+    $('proc-pct').textContent = pct + '%';
+    $('proc-step-label').textContent = 'Step ' + Math.min(curIdx + 1, STAGES.length) + ' of ' + STAGES.length;
+  }
+
+  function runPipeline(from) {
+    clearTimeout(pipeTimer);
+    doneCount = from; curIdx = from;
+    for (var j = 0; j < from; j++) if (!times[j]) times[j] = (STAGES[j].ms / 1000).toFixed(1) + 's';
+    step();
+  }
+
+  function step() {
+    if (curIdx >= STAGES.length - 1) {
+      doneCount = STAGES.length; curIdx = STAGES.length - 1;
+      times[STAGES.length - 1] = '';
+      renderStages($('stages'), { done: STAGES.length, current: null, showTimes: true });
+      paintProgress();
+      $('proc-badge').textContent = 'Finished';
+      $('proc-live').textContent = 'Processing complete.';
+      P.announce('Processing complete.');
+      pipeTimer = setTimeout(function () { apply(isScreen ? 'complete-screen' : 'complete-practice'); }, 900);
+      return;
+    }
+    var s = STAGES[curIdx];
+    renderStages($('stages'), { done: doneCount, current: curIdx, mark: 'active', showTimes: true });
+    paintProgress();
+    $('proc-live').textContent = s.name + ' — step ' + (curIdx + 1) + ' of ' + STAGES.length + '.';
+    P.announce(s.name + ', step ' + (curIdx + 1) + ' of ' + STAGES.length + '.');
+    startedAt = Date.now();
+    pipeTimer = setTimeout(function () {
+      times[curIdx] = ((Date.now() - startedAt) / 1000).toFixed(1) + 's';
+      doneCount = curIdx + 1; curIdx++;
+      step();
+    }, s.ms);
+  }
+
+  function stopPipeline() { clearTimeout(pipeTimer); }
+
+  /* ───────────────── state machine ───────────────── */
+  var COPY = {
+    'processing': ['Session finished', 'Processing your interview', 'This usually takes under a minute. You can leave this page open or close the tab — processing continues either way.'],
+    'complete-practice': ['Practice session · 23 August 2026', 'Your session is ready', 'Systems design deep-dive with Ravi. Here is the headline — the detail is in the review.'],
+    'complete-screen': ['Screening interview · 23 August 2026', 'Screening submitted', 'Your answers are now with the Northwind Health System hiring team. There is nothing else for you to do.'],
+    'failed': ['Session finished · processing problem', 'We could not finish your evaluation', 'Your interview is safe. One step failed and can be run again — you do not need to redo anything.'],
+    'delayed': ['Session finished · queued', 'Your evaluation is queued', 'Your interview uploaded and transcribed normally. The evaluation step is waiting behind other sessions.']
+  };
+
+  function apply(s) {
+    if (!COPY[s]) s = 'processing';
+    document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+    $('page-eyebrow').textContent = COPY[s][0];
+    $('page-h1').textContent = COPY[s][1];
+    $('page-sub').textContent = COPY[s][2];
+    document.title = COPY[s][1] + ' · Prepeet';
+    P.query.set({ state: s === 'processing' ? null : s, id: sid }, true);
+
+    stopPipeline();
+    if (s === 'processing') {
+      times = [];
+      runPipeline(0);
+    } else if (s === 'complete-practice' || s === 'complete-screen') {
+      if (!times.length) for (var i = 0; i < STAGES.length; i++) times[i] = i === STAGES.length - 1 ? '' : (STAGES[i].ms / 1000).toFixed(1) + 's';
+      var total = STAGES.reduce(function (a, b) { return a + b.ms; }, 0) / 1000;
+      var tt = $('total-time'); if (tt) tt.textContent = total.toFixed(1) + 's';
+      renderStages($('stages-done'), { done: STAGES.length, current: null, showTimes: true });
+      P.announce(s === 'complete-screen' ? 'Your screening interview has been submitted.' : 'Your practice session is ready.');
+    } else if (s === 'failed') {
+      renderStages($('stages-failed'), { done: 3, current: 3, mark: 'failed' });
+      P.announce('Processing failed at the evaluation step. Your audio and transcript are safe.');
+    } else if (s === 'delayed') {
+      renderStages($('stages-delayed'), { done: 3, current: 3, mark: 'delayed' });
+      P.announce('Your evaluation is queued. Estimated wait about 12 minutes.');
+    }
+    P.init();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-state-btn]');
+    if (b) apply(b.getAttribute('data-state-btn'));
+  });
+
+  /* Retry from the failed state: re-runs only the steps that did not finish. */
+  $('btn-retry').addEventListener('click', function () {
+    P.toast({ title: 'Retrying the evaluation', desc: 'Picking up from “Evaluating competencies” — the transcript is reused.', kind: 'info' });
+    apply('processing');
+    stopPipeline();
+    times = [];
+    runPipeline(3);
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    P.favicon();
+    apply(P.query.get('state', 'processing'));
+  });
+})();
+</script>
+</body>
+</html>

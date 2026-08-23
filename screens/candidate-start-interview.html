@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start an interview · Prepeet</title>
+<meta name="description" content="Configure a practice interview: role, shape, interviewer persona, length and difficulty, then review and start.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: wizard chrome only */
+  .wiz fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  .wiz legend { padding: 0; display: block; width: 100%; }
+  .wiz legend h2 { font-size: var(--text-md); }
+  .step-btn { display: flex; align-items: center; gap: 10px; min-width: 0; text-align: left; }
+  .option-card .option-desc { display: block; }
+  .option-card .option-title { padding-right: 30px; }
+  .option-card .stretch::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-lg); }
+  .option-card .above { position: relative; z-index: 1; }
+  .review-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+  .review-row:last-child { border-bottom: 0; }
+  @media (max-width: 1100px) { .wiz-aside { order: -1; } }
+  @media (min-width: 1101px) { #sum-body[hidden] { display: block !important; } .sum-toggle { display: none; } }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="start" data-title="Start an interview" data-crumbs="Candidate>candidate-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Interview setup</p>
+        <h1>Start an interview</h1>
+        <p class="page-desc" data-mode-view="practice">Five short steps. Nothing you set here is shared with an employer — practice sessions stay in your account.</p>
+        <p class="page-desc" data-mode-view="screen" hidden>Screening interviews are configured by the employer who invited you, so there is nothing to set up here.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono">/candidate/start-interview</span>
+          <span class="badge badge-mode practice" data-mode-view="practice">Practice</span>
+          <span class="badge badge-mode screen" data-mode-view="screen" hidden>Screening</span>
+        </div>
+      </div>
+      <div class="page-actions" data-mode-view="practice">
+        <a class="btn btn-secondary" href="candidate-dashboard.html">Cancel</a>
+        <button class="btn btn-ghost" type="button" id="save-later"><i data-lucide="bookmark" class="ic ic-sm"></i>Save and finish later</button>
+      </div>
+    </div>
+
+    <!-- ══════════ PRACTICE MODE — the wizard ══════════ -->
+    <div data-mode-view="practice">
+
+      <nav class="card card-subtle" aria-label="Setup progress" style="padding:14px 18px;margin-bottom:var(--sp-5)">
+        <ol class="stepper" id="stepper">
+          <li><button class="step-btn" type="button" data-goto="1"><span class="step-dot">1</span><span class="step-label">Role &amp; focus</span></button></li>
+          <li><button class="step-btn" type="button" data-goto="2"><span class="step-dot">2</span><span class="step-label">Interview shape</span></button></li>
+          <li><button class="step-btn" type="button" data-goto="3"><span class="step-dot">3</span><span class="step-label">Interviewer</span></button></li>
+          <li><button class="step-btn" type="button" data-goto="4"><span class="step-dot">4</span><span class="step-label">Length &amp; difficulty</span></button></li>
+          <li><button class="step-btn" type="button" data-goto="5"><span class="step-dot">5</span><span class="step-label">Review &amp; start</span></button></li>
+        </ol>
+      </nav>
+
+      <form class="grid grid-main-aside wiz" id="wizard" novalidate>
+
+        <div class="stack">
+
+          <!-- ───────── STEP 1 ───────── -->
+          <section class="card" data-step="1">
+            <div class="card-body">
+              <fieldset id="fs-1">
+                <legend>
+                  <h2>Role &amp; focus</h2>
+                </legend>
+                <p class="hint" style="margin-top:6px;line-height:1.55">Questions, scenarios and follow-ups are drawn from the role you pick. You can change it on any later session.</p>
+
+                <div class="field" style="margin-top:var(--sp-4)">
+                  <label class="label" for="role-search">Search the role library</label>
+                  <div class="input-wrap">
+                    <i data-lucide="search" class="ic ic-sm"></i>
+                    <input class="input" id="role-search" type="search" placeholder="Try nurse, product, finance, teaching…" autocomplete="off">
+                  </div>
+                  <p class="hint" id="role-count">8 roles across 6 domains.</p>
+                </div>
+
+                <div id="role-groups" class="stack" style="margin-top:var(--sp-4)"></div>
+
+                <div id="role-empty" class="state state-compact" hidden>
+                  <div class="state-icon"><i data-lucide="search-x" class="ic"></i></div>
+                  <h3>No roles match that search</h3>
+                  <p>Clear the search, or paste the job description instead and we will read the competencies out of it.</p>
+                  <div class="actions"><button class="btn btn-sm btn-secondary" type="button" id="clear-search">Clear search</button></div>
+                </div>
+
+                <hr style="margin:var(--sp-5) 0">
+
+                <label class="option-card" id="jd-card">
+                  <input type="radio" name="role" value="jd" id="role-jd">
+                  <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+                  <span class="option-title"><i data-lucide="clipboard-paste" class="ic ic-sm"></i>Paste a job description</span>
+                  <span class="option-desc">For a role that is not in the library. We pull the competencies out of the text — you can drop any that do not belong.</span>
+                </label>
+
+                <div id="jd-panel" hidden style="margin-top:var(--sp-4)">
+                  <div class="field">
+                    <label class="label" for="jd-text">Job description<span class="optional">— paste the responsibilities and requirements</span></label>
+                    <textarea class="textarea" id="jd-text" rows="6" placeholder="Paste the advert here. Around 40 words is enough for us to find the competencies."></textarea>
+                    <p class="hint">Nothing is sent to the employer. The text is used once, to build your question set.</p>
+                  </div>
+                  <div id="jd-result" hidden style="margin-top:var(--sp-4)">
+                    <p class="label" style="margin-bottom:8px"><i data-lucide="sparkles" class="ic ic-sm"></i>Competencies read from that description</p>
+                    <div class="cluster" id="jd-chips"></div>
+                    <p class="hint" style="margin-top:8px">Deselect anything the interview should skip. These become the question themes.</p>
+                  </div>
+                </div>
+
+                <hr style="margin:var(--sp-5) 0">
+
+                <p class="label">Focus competency <span class="optional">— optional</span></p>
+                <p class="hint" style="margin-bottom:10px">Pick one and roughly half the questions will pull on it. Useful when a skill page or your dashboard sent you here.</p>
+                <div class="cluster" id="focus-chips"></div>
+
+                <p class="error-text" id="err-1" hidden style="margin-top:var(--sp-4)"><i data-lucide="alert-circle" class="ic ic-sm"></i><span>Choose a role from the library, or paste at least a few lines of a job description.</span></p>
+              </fieldset>
+            </div>
+          </section>
+
+          <!-- ───────── STEP 2 ───────── -->
+          <section class="card" data-step="2" hidden>
+            <div class="card-body">
+              <fieldset id="fs-2">
+                <legend>
+                  <h2>Interview shape</h2>
+                </legend>
+                <p class="hint" style="margin-top:6px;line-height:1.55">The shape decides what gets drilled and how the interviewer follows up. Length options change with it.</p>
+                <div class="grid grid-2" id="shape-cards" style="margin-top:var(--sp-4)"></div>
+                <p class="error-text" id="err-2" hidden style="margin-top:var(--sp-4)"><i data-lucide="alert-circle" class="ic ic-sm"></i><span>Choose an interview shape to continue.</span></p>
+              </fieldset>
+            </div>
+          </section>
+
+          <!-- ───────── STEP 3 ───────── -->
+          <section class="card" data-step="3" hidden>
+            <div class="card-body">
+              <fieldset id="fs-3">
+                <legend>
+                  <h2>Interviewer</h2>
+                </legend>
+                <p class="hint" style="margin-top:6px;line-height:1.55">Four interviewing styles. Hear a sample before you commit — the pressure level is the point of the choice.</p>
+
+                <div class="stack" id="persona-cards" style="margin-top:var(--sp-4)"></div>
+
+                <div class="card card-subtle" style="margin-top:var(--sp-5)">
+                  <div class="card-body">
+                    <div class="cluster" style="margin-bottom:8px">
+                      <i data-lucide="info" class="ic" style="color:var(--primary)"></i>
+                      <h3 style="font-size:var(--text-sm)">How personas work</h3>
+                    </div>
+                    <p class="hint" style="line-height:1.6">A persona is an <strong>interview style</strong> — pacing, how hard the follow-ups push, how much silence you get. It is never a judgement about you, and it does not describe what kind of candidate we think you are.</p>
+                    <ul class="plus-minus" style="margin-top:10px">
+                      <li class="plus"><i data-lucide="check" class="ic"></i><span>The same rubric and the same evidence standard apply whichever persona you pick.</span></li>
+                      <li class="plus"><i data-lucide="check" class="ic"></i><span>Choosing Marcus will not lower your score, and choosing Ama will not raise it.</span></li>
+                      <li class="minus"><i data-lucide="alert-triangle" class="ic"></i><span>Samples are synthesised voices reading a scripted line. No recordings of real interviewers are used.</span></li>
+                    </ul>
+                  </div>
+                </div>
+
+                <p class="error-text" id="err-3" hidden style="margin-top:var(--sp-4)"><i data-lucide="alert-circle" class="ic ic-sm"></i><span>Choose an interviewer to continue.</span></p>
+              </fieldset>
+            </div>
+          </section>
+
+          <!-- ───────── STEP 4 ───────── -->
+          <section class="card" data-step="4" hidden>
+            <div class="card-body">
+              <fieldset id="fs-4">
+                <legend>
+                  <h2>Length &amp; difficulty</h2>
+                </legend>
+                <p class="hint" style="margin-top:6px;line-height:1.55">Shorter sessions still score, but fewer answers means wider confidence ranges on your competencies.</p>
+
+                <div class="field" style="margin-top:var(--sp-4)">
+                  <span class="label" id="dur-label">Duration</span>
+                  <div class="segmented" role="group" aria-labelledby="dur-label" id="dur-seg"></div>
+                  <p class="hint" id="dur-hint"></p>
+                </div>
+
+                <div class="grid grid-2" style="margin-top:var(--sp-5)">
+                  <div class="field">
+                    <label class="label" for="seniority">Seniority to interview at</label>
+                    <select class="select" id="seniority">
+                      <option value="mid">Mid — 3 to 5 years</option>
+                      <option value="senior" selected>Senior — 5 to 9 years</option>
+                      <option value="staff">Staff / principal</option>
+                      <option value="lead">Lead / manager</option>
+                    </select>
+                    <p class="hint">Sets how much the interviewer expects you to own the trade-offs rather than describe them.</p>
+                  </div>
+                  <div class="field">
+                    <span class="label">Your profile says</span>
+                    <div class="card card-subtle" style="padding:12px 14px">
+                      <p class="hint" style="line-height:1.55">Backend engineer · 6 years · Manchester, UK. Senior is the level your last nine sessions were scored at.</p>
+                      <a class="link" style="font-size:var(--text-xs);margin-top:6px;display:inline-block" href="candidate-profile.html">Update your profile</a>
+                    </div>
+                  </div>
+                </div>
+
+                <hr style="margin:var(--sp-5) 0">
+
+                <p class="label" style="margin-bottom:12px">During the interview</p>
+                <div class="stack">
+                  <label class="switch"><input type="checkbox" id="opt-captions" checked>
+                    <span><span style="font-weight:600">Live captions</span><span class="hint" style="display:block">Everything the interviewer says appears as text as it is spoken.</span></span>
+                  </label>
+                  <label class="switch"><input type="checkbox" id="opt-ptt">
+                    <span><span style="font-weight:600">Push to talk</span><span class="hint" style="display:block">Hold the space bar while you answer instead of leaving the microphone open. Good in a shared room.</span></span>
+                  </label>
+                  <label class="switch"><input type="checkbox" id="opt-redo" checked>
+                    <span><span style="font-weight:600">Let me redo questions <span class="badge badge-mode practice">Practice only</span></span><span class="hint" style="display:block">Retake an answer once per question. Redone answers are the ones scored, and both are kept in your transcript.</span></span>
+                  </label>
+                </div>
+
+                <p class="error-text" id="err-4" hidden style="margin-top:var(--sp-4)"><i data-lucide="alert-circle" class="ic ic-sm"></i><span>Choose a duration to continue.</span></p>
+              </fieldset>
+            </div>
+          </section>
+
+          <!-- ───────── STEP 5 ───────── -->
+          <section class="card" data-step="5" hidden>
+            <div class="card-body">
+              <fieldset id="fs-5">
+                <legend>
+                  <h2>Review &amp; start</h2>
+                </legend>
+                <p class="hint" style="margin-top:6px;line-height:1.55">Check it over. You can still change anything, and you get a device check before the interview begins.</p>
+
+                <div id="review" style="margin-top:var(--sp-4)"></div>
+
+                <div class="card card-subtle" style="margin-top:var(--sp-5)">
+                  <div class="card-body">
+                    <div class="cluster" style="margin-bottom:8px"><i data-lucide="list-checks" class="ic" style="color:var(--primary)"></i><h3 style="font-size:var(--text-sm)">What this session will look like</h3></div>
+                    <p class="hint" id="review-est" style="line-height:1.6"></p>
+                  </div>
+                </div>
+
+                <div class="banner banner-info" style="margin-top:var(--sp-4)">
+                  <i data-lucide="shield-check" class="ic"></i>
+                  <div>
+                    <strong>This is a practice session.</strong> The recording, transcript and scores are visible only to you, are never sent to an employer, and you can delete them at any time from
+                    <a href="candidate-settings.html#privacy">privacy &amp; data settings</a>. Audio is kept for 18 months so your progression chart keeps working.
+                  </div>
+                </div>
+
+                <!-- Recording preference — collected at composition, agreed again
+                     on the device-check screen before anything is captured. -->
+                <fieldset class="card" style="margin-top:var(--sp-4)">
+                  <div class="card-body">
+                    <legend class="cluster" style="margin-bottom:10px">
+                      <i data-lucide="mic" class="ic" style="color:var(--primary)"></i>
+                      <h3 style="font-size:var(--text-sm)">What we keep from this session</h3>
+                    </legend>
+                    <div class="stack-sm">
+                      <label class="radio"><input type="radio" name="recording" value="audio" checked>
+                        <span><strong>The audio and the transcript</strong><span class="hint">Needed for replay and for delivery coaching — pace, pauses and fillers can only be measured from the recording.</span></span></label>
+                      <label class="radio"><input type="radio" name="recording" value="transcript">
+                        <span><strong>The transcript only</strong><span class="hint">Audio is discarded the moment the session ends. You keep your score, evidence and coaching; you lose replay and delivery measurement for this session.</span></span></label>
+                    </div>
+                    <p class="hint" style="margin-top:12px">Either way, you agree to recording once more on the device-check screen. Nothing is captured before that.</p>
+                  </div>
+                </fieldset>
+
+                <p class="error-text" id="err-5" hidden style="margin-top:var(--sp-4)"><i data-lucide="alert-circle" class="ic ic-sm"></i><span>Something above is still missing.</span></p>
+              </fieldset>
+            </div>
+          </section>
+
+          <!-- ───────── WIZARD NAV ───────── -->
+          <div class="card">
+            <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <button class="btn btn-secondary" type="button" id="btn-back"><i data-lucide="arrow-left" class="ic ic-sm"></i>Back</button>
+              <span class="hint" id="step-count" style="margin:0 4px">Step 1 of 5</span>
+              <span style="flex:1"></span>
+              <button class="btn btn-ghost" type="button" id="save-later-2"><i data-lucide="bookmark" class="ic ic-sm"></i>Save and finish later</button>
+              <button class="btn btn-primary" type="button" id="btn-next">Next<i data-lucide="arrow-right" class="ic ic-sm"></i></button>
+              <a class="btn btn-primary btn-lg" id="btn-continue" hidden href="candidate-session-prepare.html?id=ses_7Kq2XA"><i data-lucide="circle-play" class="ic ic-sm"></i>Continue to preparation</a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ───────── SUMMARY ASIDE ───────── -->
+        <aside class="wiz-aside stack sticky-aside" aria-label="Setup summary">
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size:var(--text-sm)">Your setup</h2>
+              <button class="btn btn-sm btn-ghost sum-toggle" type="button" data-toggle-target="sum-body" aria-expanded="true" aria-controls="sum-body">Hide</button>
+            </div>
+            <div class="card-body" id="sum-body">
+              <dl class="kv kv-row" id="summary"></dl>
+              <hr style="margin:var(--sp-4) 0">
+              <p class="hint" id="sum-est"></p>
+              <div class="progress" style="margin-top:12px"><span id="sum-bar" style="width:20%"></span></div>
+              <p class="hint" style="margin-top:6px" id="sum-progress">Step 1 of 5</p>
+            </div>
+          </div>
+
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="mic" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Before you start</strong></div>
+              <p class="hint" style="line-height:1.55">You will get a microphone, speaker and connection check on the next screen. Headphones help — the interviewer stops talking when it hears you.</p>
+              <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-settings.html#help">Accessibility options</a>
+            </div>
+          </div>
+        </aside>
+
+      </form>
+    </div>
+
+    <!-- ══════════ SCREEN MODE — configuration is locked ══════════ -->
+    <div data-mode-view="screen" hidden>
+      <div class="grid grid-main-aside">
+        <div class="stack-lg">
+
+          <section class="card card-accent" aria-labelledby="locked-h">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:12px">
+                <span class="badge badge-mode screen">Screening</span>
+                <span class="badge badge-warning"><i data-lucide="lock" class="ic-sm ic"></i>Configured by the employer</span>
+              </div>
+              <h2 id="locked-h" style="font-size:var(--text-lg)">You cannot set up a screening interview yourself</h2>
+              <p class="text-2" style="font-size:var(--text-sm);margin-top:8px;line-height:1.6">
+                Northwind Health System chose the role, the interview shape, the interviewer, the question set and the time limit for this screening. Every candidate for the post answers the same questions under the same conditions — that is what makes the comparison fair, so nothing here is adjustable.
+              </p>
+              <dl class="kv" style="margin-top:var(--sp-4)">
+                <dt>Role</dt><dd>Registered Nurse — Intensive Care</dd>
+                <dt>Employer</dt><dd>Northwind Health System</dd>
+                <dt>Shape</dt><dd>Panel simulation · Lena (panel chair)</dd>
+                <dt>Length</dt><dd>Up to 40 minutes · 8 questions</dd>
+                <dt>Complete by</dt><dd>26 August 2026, 23:59 (Europe/London)</dd>
+                <dt>Reference</dt><dd class="mono">inv_QX72HL</dd>
+              </dl>
+              <div class="cluster" style="margin-top:var(--sp-5)">
+                <a class="btn btn-primary" href="invitation-accept.html"><i data-lucide="mail-open" class="ic ic-sm"></i>Open your invitation</a>
+                <a class="btn btn-secondary" href="candidate-session-prepare.html?id=ses_4Bz9QD&amp;mode=screen">Go to the interview brief</a>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="whatyoucan-h">
+            <div class="card-header"><h2 id="whatyoucan-h">What you can still change</h2></div>
+            <div class="card-body">
+              <ul class="plus-minus">
+                <li class="plus"><i data-lucide="check" class="ic"></i><span>Captions, push-to-talk and extra thinking time — accessibility settings are yours, and never reported to the employer.</span></li>
+                <li class="plus"><i data-lucide="check" class="ic"></i><span>When you sit the interview, any time before the deadline.</span></li>
+                <li class="plus"><i data-lucide="check" class="ic"></i><span>Your device — you can run the microphone and connection checks as many times as you like.</span></li>
+                <li class="minus"><i data-lucide="x" class="ic"></i><span>The questions, the interviewer, the length and the scoring rubric. Those come from Northwind Health.</span></li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="practice-instead-h">
+            <div class="card-body">
+              <h2 id="practice-instead-h" style="font-size:var(--text-base)">Want to rehearse first?</h2>
+              <p class="hint" style="margin-top:6px;line-height:1.55">Practice mode is completely separate. You choose everything, you get scores and per-answer coaching, and Northwind Health never sees any of it. Practising does not affect your screening.</p>
+              <a class="btn btn-primary btn-sm" style="margin-top:14px" href="candidate-start-interview.html?mode=practice"><i data-lucide="circle-play" class="ic ic-sm"></i>Set up a practice interview</a>
+            </div>
+          </section>
+        </div>
+
+        <aside class="stack sticky-aside" aria-label="Screening invitation">
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Pending invitation</h2></div>
+            <div class="card-body">
+              <p style="font-weight:600;font-size:var(--text-sm)">Registered Nurse — Intensive Care</p>
+              <p class="hint" style="margin-top:2px">Northwind Health System · invited 12 August 2026</p>
+              <div class="cluster" style="margin-top:12px">
+                <span class="badge badge-warning"><i data-lucide="clock" class="ic-sm ic"></i>3 days left</span>
+                <span class="badge badge-outline mono">ses_4Bz9QD</span>
+              </div>
+              <a class="btn btn-sm btn-primary btn-block" style="margin-top:14px" href="invitation-accept.html">Review the invitation</a>
+            </div>
+          </div>
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="scale" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Why it is locked</strong></div>
+              <p class="hint" style="line-height:1.55">If candidates could pick their own questions, interviewer or length, the hiring team would be comparing different interviews. A locked set-up is the only way the evidence stays comparable — and it protects you as much as it protects them.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, Q = Prepeet.query, TOTAL = 5;
+
+  var state = {
+    step: 1, role: null, jd: '', jdComps: [], focus: null, shape: null, persona: null,
+    minutes: null, seniority: 'senior', captions: true, ptt: false, redo: true
+  };
+
+  var PACE = { shape_behavioural: 5, shape_technical: 6.5, shape_case: 8, shape_screen: 4, shape_panel: 5 };
+  var SAMPLE = {
+    per_ama:    'Take your time with this one. Tell me about a piece of work you were genuinely responsible for, start to finish.',
+    per_ravi:   'Thanks for making the time. I want to spend most of today on one system, so — where would you start?',
+    per_lena:   'Question one of eight. You have four minutes. Describe a situation where you escalated a concern about patient safety.',
+    per_marcus: 'I have read the summary and I am not convinced. Why should we believe that number was down to your team?'
+  };
+  var JD_RULES = [
+    { re: /incident|on-call|outage|postmortem|root cause/i, name: 'Debugging & incident response' },
+    { re: /stakeholder|cross-functional|influence|partner/i, name: 'Stakeholder management' },
+    { re: /mentor|coach|line manage|develop the team/i, name: 'People development' },
+    { re: /roadmap|prioriti|backlog|discovery/i, name: 'Prioritisation' },
+    { re: /patient|clinical|ward|safeguard/i, name: 'Patient safety' },
+    { re: /handover|escalat|deteriorat|huddle/i, name: 'Escalation & handover' },
+    { re: /pupil|curriculum|lesson|classroom/i, name: 'Subject pedagogy' },
+    { re: /pipeline|quota|forecast|close|revenue/i, name: 'Commercial qualification' },
+    { re: /forecast|variance|budget|model|controls/i, name: 'Financial modelling' },
+    { re: /architect|\bscal|distributed|latency|system design/i, name: 'Systems design' },
+    { re: /communicat|write|document|present/i, name: 'Technical communication' }
+  ];
+
+  /* the URL is the source of truth for the step, but replaceState can be refused
+     (a file:// URL in some browsers) — never let that break the wizard */
+  function qset(o) { try { Q.set(o, true); } catch (e) {} }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function roleById(id) { return D.roleLibrary.filter(function (r) { return r.id === id; })[0]; }
+  function shapeById(id) { return D.shapes.filter(function (s) { return s.id === id; })[0]; }
+  function personaById(id) { return D.personas.filter(function (p) { return p.id === id; })[0]; }
+  function compById(id) { return D.competencies.filter(function (c) { return c.id === id; })[0]; }
+
+  /* ─────────────────────────── mode ─────────────────────────── */
+  function applyMode() {
+    var mode = Prepeet.getMode();
+    document.querySelectorAll('[data-mode-view]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-mode-view') !== mode;
+    });
+    return mode;
+  }
+
+  /* ─────────────────────── step 1: roles ─────────────────────── */
+  function renderRoles(filter) {
+    var host = document.getElementById('role-groups');
+    var f = (filter || '').trim().toLowerCase();
+    var list = D.roleLibrary.filter(function (r) {
+      if (!f) return true;
+      return (r.title + ' ' + r.domain + ' ' + r.org + ' ' + r.comps.join(' ')).toLowerCase().indexOf(f) > -1;
+    });
+    var order = [], groups = {};
+    list.forEach(function (r) { if (!groups[r.domain]) { groups[r.domain] = []; order.push(r.domain); } groups[r.domain].push(r); });
+
+    host.innerHTML = order.map(function (dom) {
+      return '<div><h3 class="nav-group-label" style="padding-left:0">' + esc(dom) + '</h3><div class="grid grid-2">' +
+        groups[dom].map(function (r) {
+          return '<label class="option-card">' +
+            '<input type="radio" name="role" value="' + r.id + '"' + (state.role === r.id ? ' checked' : '') + '>' +
+            '<span class="option-check"><i data-lucide="check" class="ic"></i></span>' +
+            '<span class="option-title">' + esc(r.title) + '</span>' +
+            '<span class="option-desc">' + esc(r.org) + '</span>' +
+            '<span class="cluster" style="margin-top:10px">' + r.comps.slice(0, 3).map(function (c) {
+              return '<span class="badge badge-neutral">' + esc(c) + '</span>';
+            }).join('') + (r.comps.length > 3 ? '<span class="badge badge-outline">+' + (r.comps.length - 3) + '</span>' : '') + '</span>' +
+            '</label>';
+        }).join('') + '</div></div>';
+    }).join('');
+
+    document.getElementById('role-empty').hidden = list.length > 0;
+    document.getElementById('role-count').textContent = f
+      ? list.length + ' of ' + D.roleLibrary.length + ' roles match “' + filter + '”.'
+      : D.roleLibrary.length + ' roles across ' + order.length + ' domains.';
+    Prepeet.init(host);
+  }
+
+  function renderFocusChips() {
+    document.getElementById('focus-chips').innerHTML = D.competencies.map(function (c) {
+      return '<button class="chip" type="button" data-focus="' + c.id + '" aria-pressed="' + (state.focus === c.id) + '">' +
+        esc(c.name) + (c.band === 'insufficient' ? ' <span class="badge badge-outline">no evidence yet</span>' : '') + '</button>';
+    }).join('');
+  }
+
+  function parseJd() {
+    var text = document.getElementById('jd-text').value || '';
+    state.jd = text;
+    if (text.trim().length < 40) { document.getElementById('jd-result').hidden = true; state.jdComps = []; updateAll(); return; }
+    var found = [];
+    JD_RULES.forEach(function (r) { if (r.re.test(text) && found.indexOf(r.name) < 0) found.push(r.name); });
+    if (!found.length) found = ['Role-specific judgement', 'Communication', 'Collaboration', 'Prioritisation'];
+    state.jdComps = found.slice(0, 6);
+    document.getElementById('jd-chips').innerHTML = state.jdComps.map(function (n) {
+      return '<button class="chip" type="button" data-jdchip="' + esc(n) + '" aria-pressed="true">' + esc(n) + '<i data-lucide="x" class="ic-sm ic x"></i></button>';
+    }).join('');
+    document.getElementById('jd-result').hidden = false;
+    Prepeet.init(document.getElementById('jd-result'));
+    Prepeet.announce(state.jdComps.length + ' competencies read from the job description.');
+    updateAll();
+  }
+
+  /* ─────────────────────── step 2: shapes ─────────────────────── */
+  function renderShapes() {
+    document.getElementById('shape-cards').innerHTML = D.shapes.map(function (s) {
+      return '<label class="option-card">' +
+        '<input type="radio" name="shape" value="' + s.id + '"' + (state.shape === s.id ? ' checked' : '') + '>' +
+        '<span class="option-check"><i data-lucide="check" class="ic"></i></span>' +
+        '<span class="option-title"><i data-lucide="' + s.icon + '" class="ic ic-sm"></i>' + esc(s.name) + '</span>' +
+        '<span class="option-desc">' + esc(s.desc) + '</span>' +
+        '<span class="cluster" style="margin-top:10px">' +
+          '<span class="badge badge-outline"><i data-lucide="clock" class="ic-sm ic"></i>' + s.minutes.join(' / ') + ' min</span>' +
+          '<span class="badge badge-neutral">≈ ' + estQuestions(s.id, s.minutes[0]) + '–' + estQuestions(s.id, s.minutes[s.minutes.length - 1]) + ' questions</span>' +
+        '</span></label>';
+    }).join('');
+    Prepeet.init(document.getElementById('shape-cards'));
+  }
+
+  /* ────────────────────── step 3: personas ────────────────────── */
+  function renderPersonas() {
+    document.getElementById('persona-cards').innerHTML = D.personas.map(function (p) {
+      return '<div class="option-card">' +
+        '<input type="radio" name="persona" id="pr-' + p.id + '" value="' + p.id + '"' + (state.persona === p.id ? ' checked' : '') + '>' +
+        '<span class="option-check"><i data-lucide="check" class="ic"></i></span>' +
+        '<div style="display:flex;gap:14px;align-items:flex-start">' +
+          '<span class="avatar avatar-persona avatar-lg">' + esc(p.initials) + '</span>' +
+          '<div style="min-width:0;flex:1">' +
+            '<label class="option-title stretch" for="pr-' + p.id + '">' + esc(p.name) + '<span class="badge badge-outline">' + esc(p.style) + '</span></label>' +
+            '<p class="option-desc">' + esc(p.desc) + '</p>' +
+            '<dl class="kv" style="margin-top:10px;grid-template-columns:auto 1fr;gap:3px 10px;font-size:var(--text-xs)">' +
+              '<dt>Voice</dt><dd>' + esc(p.voice) + '</dd>' +
+              '<dt>Best for</dt><dd>' + esc(p.best) + '</dd>' +
+            '</dl>' +
+            '<button class="btn btn-sm btn-secondary above" type="button" data-sample-toggle="' + p.id + '" aria-expanded="false" aria-controls="smp-' + p.id + '" style="margin-top:12px">' +
+              '<i data-lucide="volume-2" class="ic ic-sm"></i>Hear a sample</button>' +
+            '<div class="player above" id="smp-' + p.id + '" hidden style="margin-top:12px">' +
+              '<button class="play" type="button" data-play="' + p.id + '" aria-pressed="false" aria-label="Play the ' + esc(p.name) + ' voice sample"><i data-lucide="play" class="ic"></i></button>' +
+              '<div style="display:flex;flex-direction:column;gap:6px;min-width:0">' +
+                '<div class="waveform" data-bars="20" style="height:32px;overflow:hidden"></div>' +
+                '<div class="progress sm"><span style="width:0%"></span></div>' +
+                '<div class="times"><span data-cur>0:00</span><span>0:08</span></div>' +
+              '</div>' +
+              '<span class="badge badge-outline">8 s</span>' +
+            '</div>' +
+            '<p class="hint above" style="margin-top:8px;font-style:italic">“' + esc(SAMPLE[p.id]) + '”</p>' +
+          '</div>' +
+        '</div></div>';
+    }).join('');
+    Prepeet.init(document.getElementById('persona-cards'));
+  }
+
+  /* sample playback simulation (no audio file — a scripted, visible mock) */
+  var playing = null, timer = null;
+  function stopSample(announceIt) {
+    if (timer) { clearInterval(timer); timer = null; }
+    if (playing) {
+      var pl = document.getElementById('smp-' + playing);
+      if (pl) {
+        pl.querySelector('.progress > span').style.width = '0%';
+        pl.querySelector('[data-cur]').textContent = '0:00';
+        pl.querySelector('.waveform').classList.remove('is-ai');
+        var b = pl.querySelector('[data-play]');
+        b.setAttribute('aria-pressed', 'false');
+        b.innerHTML = '<i data-lucide="play" class="ic"></i>';
+        Prepeet.init(b);
+      }
+      if (announceIt) Prepeet.announce('Sample stopped.');
+      playing = null;
+    }
+  }
+  function playSample(id) {
+    if (playing === id) { stopSample(true); return; }
+    stopSample(false);
+    var pl = document.getElementById('smp-' + id);
+    if (!pl) return;
+    playing = id;
+    var bar = pl.querySelector('.progress > span'), cur = pl.querySelector('[data-cur]');
+    var btn = pl.querySelector('[data-play]');
+    btn.setAttribute('aria-pressed', 'true');
+    btn.innerHTML = '<i data-lucide="pause" class="ic"></i>';
+    pl.querySelector('.waveform').classList.add('is-ai');
+    Prepeet.init(btn);
+    Prepeet.announce('Playing the ' + personaById(id).name + ' sample: ' + SAMPLE[id]);
+    var t = 0;
+    timer = setInterval(function () {
+      t += 0.2;
+      if (t >= 8) { stopSample(false); return; }
+      bar.style.width = (t / 8 * 100).toFixed(1) + '%';
+      cur.textContent = '0:0' + Math.floor(t);
+    }, 200);
+  }
+
+  /* ─────────────────── step 4: duration options ─────────────────── */
+  function allowedMinutes() {
+    var s = shapeById(state.shape);
+    return s ? s.minutes : [15, 25, 40, 60];
+  }
+  function renderDurations() {
+    var allowed = allowedMinutes(), all = [15, 25, 40, 60];
+    if (state.minutes == null || allowed.indexOf(state.minutes) < 0) state.minutes = allowed[Math.min(1, allowed.length - 1)];
+    document.getElementById('dur-seg').innerHTML = all.map(function (m) {
+      var ok = allowed.indexOf(m) > -1;
+      return '<button type="button" data-min="' + m + '" aria-pressed="' + (state.minutes === m) + '"' +
+        (ok ? '' : ' disabled aria-disabled="true" title="Not available for this interview shape"') + '>' + m + ' min</button>';
+    }).join('');
+    var s = shapeById(state.shape);
+    document.getElementById('dur-hint').textContent = s
+      ? s.name + ' runs at ' + allowed.slice(0, -1).join(', ') + ' or ' + allowed[allowed.length - 1] + ' minutes. Greyed-out lengths do not give that shape enough room.'
+      : 'Pick an interview shape first to see the lengths it supports.';
+  }
+
+  /* ───────────────────────── summary ───────────────────────── */
+  function estQuestions(shapeId, minutes) {
+    var per = PACE[shapeId] || 6;
+    return Math.max(3, Math.round(minutes / per));
+  }
+  function roleLabel() {
+    if (state.role === 'jd') return state.jdComps.length ? 'From your pasted job description' : 'Pasted job description (incomplete)';
+    var r = roleById(state.role);
+    return r ? r.title : 'Not chosen yet';
+  }
+  function compsForSetup() {
+    if (state.role === 'jd') return state.jdComps;
+    var r = roleById(state.role);
+    return r ? r.comps : [];
+  }
+  function estText() {
+    if (!state.shape || !state.minutes) return 'Pick a shape and a length to see how many questions to expect.';
+    var s = shapeById(state.shape), n = estQuestions(state.shape, state.minutes);
+    var p = state.persona ? personaById(state.persona) : null;
+    return 'About ' + n + ' questions in ' + state.minutes + ' minutes' + (p ? ', led by ' + p.name : '') + '. ' +
+      (s.id === 'shape_technical' ? 'Expect fewer questions and much longer follow-ups.'
+        : s.id === 'shape_panel' ? 'Three viewpoints rotate, so the subject changes sharply between questions.'
+        : 'Every answer gets at least one follow-up before the interviewer moves on.');
+  }
+
+  function renderSummary() {
+    var focus = state.focus ? compById(state.focus) : null;
+    var p = state.persona ? personaById(state.persona) : null;
+    var s = state.shape ? shapeById(state.shape) : null;
+    var opts = [];
+    if (state.captions) opts.push('captions');
+    if (state.ptt) opts.push('push to talk');
+    if (state.redo) opts.push('redo allowed');
+    var rows = [
+      ['Role', roleLabel()],
+      ['Focus', focus ? focus.name : 'None — spread across the role'],
+      ['Shape', s ? s.name : 'Not chosen yet'],
+      ['Interviewer', p ? p.name + ' · ' + p.style.toLowerCase() : 'Not chosen yet'],
+      ['Length', state.minutes ? state.minutes + ' minutes' : '—'],
+      ['Level', document.getElementById('seniority').selectedOptions[0].textContent],
+      ['During', opts.length ? opts.join(', ') : 'no extras']
+    ];
+    document.getElementById('summary').innerHTML = rows.map(function (r) {
+      return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>';
+    }).join('');
+    document.getElementById('sum-est').textContent = estText();
+    document.getElementById('sum-bar').style.width = (state.step / TOTAL * 100) + '%';
+    document.getElementById('sum-progress').textContent = 'Step ' + state.step + ' of ' + TOTAL;
+    document.getElementById('step-count').textContent = 'Step ' + state.step + ' of ' + TOTAL;
+  }
+
+  function renderReview() {
+    var focus = state.focus ? compById(state.focus) : null;
+    var p = state.persona ? personaById(state.persona) : null;
+    var s = state.shape ? shapeById(state.shape) : null;
+    var comps = compsForSetup();
+    var rows = [
+      [1, 'Role', roleLabel(), comps.length ? comps.map(function (c) { return '<span class="badge badge-neutral">' + esc(c) + '</span>'; }).join(' ') : ''],
+      [1, 'Focus competency', focus ? focus.name : 'None', focus ? '<span class="hint">Roughly half the questions will pull on it.</span>' : ''],
+      [2, 'Shape', s ? s.name : '—', s ? '<span class="hint">' + esc(s.desc) + '</span>' : ''],
+      [3, 'Interviewer', p ? p.name : '—', p ? '<span class="hint">' + esc(p.style) + ' · ' + esc(p.voice) + '</span>' : ''],
+      [4, 'Length &amp; level', state.minutes + ' minutes · ' + document.getElementById('seniority').selectedOptions[0].textContent, ''],
+      [4, 'During the interview', (state.captions ? 'Captions on' : 'Captions off') + ' · ' + (state.ptt ? 'push to talk' : 'open microphone') + ' · ' + (state.redo ? 'redo allowed' : 'no redo'), '']
+    ];
+    document.getElementById('review').innerHTML = rows.map(function (r) {
+      return '<div class="review-row"><div style="min-width:0">' +
+        '<div class="hint">' + r[1] + '</div>' +
+        '<div style="font-weight:600;font-size:var(--text-sm);margin-top:2px">' + esc(r[2]) + '</div>' +
+        (r[3] ? '<div class="cluster" style="margin-top:6px">' + r[3] + '</div>' : '') +
+        '</div><button class="btn btn-sm btn-ghost" type="button" data-goto="' + r[0] + '">Edit<span class="sr-only"> ' + r[1].replace('&amp;', 'and') + '</span><i data-lucide="pencil" class="ic ic-sm"></i></button></div>';
+    }).join('');
+    document.getElementById('review-est').textContent = estText() +
+      ' You will be able to see the question count and the competencies being assessed on the preparation screen before anything is recorded.';
+    Prepeet.init(document.getElementById('review'));
+  }
+
+  /* ───────────────────── step navigation ───────────────────── */
+  function stepValid(n) {
+    if (n === 1) return state.role === 'jd' ? (state.jd.trim().length >= 40) : !!state.role;
+    if (n === 2) return !!state.shape;
+    if (n === 3) return !!state.persona;
+    if (n === 4) return !!state.minutes;
+    return true;
+  }
+  function showError(n, show) {
+    var err = document.getElementById('err-' + n), fs = document.getElementById('fs-' + n);
+    if (!err) return;
+    err.hidden = !show;
+    if (show) { fs.setAttribute('aria-describedby', 'err-' + n); } else { fs.removeAttribute('aria-describedby'); }
+  }
+  function focusStep(n) {
+    var sec = document.querySelector('[data-step="' + n + '"]');
+    var el = sec.querySelector('input:not([disabled]), button:not([disabled]), select, textarea');
+    if (el) el.focus();
+  }
+  function setStep(n, focusIt) {
+    state.step = n;
+    document.querySelectorAll('[data-step]').forEach(function (sec) {
+      sec.hidden = Number(sec.getAttribute('data-step')) !== n;
+    });
+    document.querySelectorAll('#stepper li').forEach(function (li, i) {
+      var idx = i + 1;
+      li.classList.toggle('is-active', idx === n);
+      li.classList.toggle('is-done', idx < n && stepValid(idx));
+      var b = li.querySelector('.step-btn');
+      if (idx === n) { b.setAttribute('aria-current', 'step'); } else { b.removeAttribute('aria-current'); }
+      b.querySelector('.step-dot').innerHTML = (idx < n && stepValid(idx)) ? '<i data-lucide="check" class="ic ic-sm"></i>' : String(idx);
+    });
+    document.getElementById('btn-back').disabled = n === 1;
+    document.getElementById('btn-next').hidden = n === TOTAL;
+    document.getElementById('btn-continue').hidden = n !== TOTAL;
+    if (n === TOTAL) renderReview();
+    if (n === 4) renderDurations();
+    qset({ step: n === 1 ? null : n });
+    renderSummary();
+    Prepeet.init(document.getElementById('stepper'));
+    if (focusIt) focusStep(n);
+    Prepeet.announce('Step ' + n + ' of ' + TOTAL + '.');
+  }
+  function goto(n) {
+    n = Math.max(1, Math.min(TOTAL, n));
+    if (n <= state.step) { showError(state.step, false); setStep(n, true); return; }
+    for (var i = state.step; i < n; i++) {
+      if (!stepValid(i)) {
+        setStep(i, false); showError(i, true); focusStep(i);
+        Prepeet.announce('Step ' + i + ' still needs an answer.');
+        return;
+      }
+      showError(i, false);
+    }
+    setStep(n, true);
+  }
+
+  function updateAll() { renderSummary(); if (state.step === TOTAL) renderReview(); }
+
+  /* ───────────────────────── wiring ───────────────────────── */
+  function wire() {
+    var form = document.getElementById('wizard');
+
+    form.addEventListener('change', function (e) {
+      var t = e.target;
+      if (t.name === 'role') {
+        state.role = t.value;
+        document.getElementById('jd-panel').hidden = t.value !== 'jd';
+        if (t.value === 'jd') { setTimeout(function () { document.getElementById('jd-text').focus(); }, 0); }
+        showError(1, false);
+      }
+      if (t.name === 'shape') { state.shape = t.value; renderDurations(); showError(2, false); }
+      if (t.name === 'persona') { state.persona = t.value; showError(3, false); }
+      if (t.id === 'seniority') state.seniority = t.value;
+      if (t.id === 'opt-captions') state.captions = t.checked;
+      if (t.id === 'opt-ptt') state.ptt = t.checked;
+      if (t.id === 'opt-redo') state.redo = t.checked;
+      updateAll();
+    });
+
+    document.getElementById('role-search').addEventListener('input', function (e) { renderRoles(e.target.value); });
+    document.getElementById('clear-search').addEventListener('click', function () {
+      var i = document.getElementById('role-search'); i.value = ''; renderRoles(''); i.focus();
+    });
+    document.getElementById('jd-text').addEventListener('input', function (e) { state.jd = e.target.value; });
+    document.getElementById('jd-text').addEventListener('blur', parseJd);
+
+    document.addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-focus]'))) {
+        var id = t.getAttribute('data-focus');
+        state.focus = state.focus === id ? null : id;
+        document.querySelectorAll('[data-focus]').forEach(function (c) {
+          c.setAttribute('aria-pressed', String(c.getAttribute('data-focus') === state.focus));
+        });
+        updateAll();
+        Prepeet.announce(state.focus ? compById(id).name + ' set as the focus competency.' : 'Focus competency cleared.');
+      }
+      if ((t = e.target.closest('[data-jdchip]'))) {
+        var name = t.getAttribute('data-jdchip'), on = t.getAttribute('aria-pressed') === 'true';
+        t.setAttribute('aria-pressed', String(!on));
+        state.jdComps = on ? state.jdComps.filter(function (c) { return c !== name; }) : state.jdComps.concat([name]);
+        updateAll();
+      }
+      if ((t = e.target.closest('[data-sample-toggle]'))) {
+        var pid = t.getAttribute('data-sample-toggle'), pl = document.getElementById('smp-' + pid);
+        var open = t.getAttribute('aria-expanded') === 'true';
+        t.setAttribute('aria-expanded', String(!open));
+        pl.hidden = open;
+        if (open) { if (playing === pid) stopSample(false); }
+        else { playSample(pid); }
+      }
+      if ((t = e.target.closest('[data-play]'))) playSample(t.getAttribute('data-play'));
+      if ((t = e.target.closest('[data-min]:not([disabled])'))) {
+        state.minutes = Number(t.getAttribute('data-min'));
+        renderDurations(); showError(4, false); updateAll();
+      }
+      if ((t = e.target.closest('[data-goto]'))) goto(Number(t.getAttribute('data-goto')));
+    });
+
+    document.getElementById('btn-next').addEventListener('click', function () { goto(state.step + 1); });
+    document.getElementById('btn-back').addEventListener('click', function () { goto(state.step - 1); });
+
+    ['save-later', 'save-later-2'].forEach(function (id) {
+      document.getElementById(id).addEventListener('click', function () {
+        Prepeet.toast({
+          title: 'Setup saved',
+          desc: roleLabel() + ' · ' + (state.shape ? shapeById(state.shape).name : 'shape not chosen') + '. Pick it up from your dashboard.',
+          kind: 'success'
+        });
+        setTimeout(function () { location.href = 'candidate-dashboard.html'; }, 1500);
+      });
+    });
+
+    document.querySelector('.sum-toggle').addEventListener('click', function () {
+      this.textContent = this.getAttribute('aria-expanded') === 'true' ? 'Show' : 'Hide';
+    });
+  }
+
+  /* ───────────────────────── boot ───────────────────────── */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (applyMode() === 'screen') { Prepeet.init(); return; }
+
+    var qShape = Q.get('shape'), qFocus = Q.get('focus'), qRole = Q.get('role'), qStep = Number(Q.get('step', '1'));
+    if (qShape && shapeById(qShape)) state.shape = qShape;
+    if (qFocus && compById(qFocus)) state.focus = qFocus;
+    if (qRole && roleById(qRole)) state.role = qRole;
+
+    renderRoles(''); renderFocusChips(); renderShapes(); renderPersonas(); renderDurations();
+    wire();
+
+    var start = isNaN(qStep) ? 1 : Math.max(1, Math.min(TOTAL, qStep));
+    for (var i = 1; i < start; i++) { if (!stepValid(i)) { start = i; break; } }
+    setStep(start, false);
+    Prepeet.init();
+
+    if (qFocus || qShape) {
+      Prepeet.toast({
+        title: 'Setup pre-filled',
+        desc: (qFocus && compById(qFocus) ? compById(qFocus).name + ' set as your focus. ' : '') + (qShape && shapeById(qShape) ? shapeById(qShape).name + ' shape selected.' : ''),
+        kind: 'info', duration: 6000
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>

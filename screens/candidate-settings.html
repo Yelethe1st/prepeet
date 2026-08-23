@@ -1,0 +1,1098 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · Prepeet</title>
+<meta name="description" content="Account, notifications, accessibility, privacy and interview defaults for your Prepeet candidate account.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-unique: sticky unsaved-changes bar + QR placeholder */
+  .savebar {
+    position: sticky; bottom: 0; z-index: 40; margin-top: var(--sp-6);
+    display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+    padding: 12px 16px; border: 1px solid var(--primary-border); border-radius: var(--r-lg);
+    background: var(--surface); box-shadow: var(--shadow-lg);
+  }
+  .savebar .savebar-text { font-size: var(--text-sm); font-weight: 600; }
+  .savebar .savebar-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 768px) { .savebar { bottom: 72px; } .savebar .savebar-actions { margin-left: 0; width: 100%; } .savebar .savebar-actions .btn { flex: 1; } }
+  .qr-frame { width: 168px; height: 168px; padding: 10px; background: #fff; border: 1px solid var(--border-strong); border-radius: var(--r-md); flex: 0 0 auto; }
+  .qr-frame svg { width: 100%; height: 100%; }
+  .matrix th.chan { text-align: center; }
+  .matrix td.chan { text-align: center; }
+  .matrix .switch { justify-content: center; }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="settings" data-title="Settings" data-crumbs="Candidate>candidate-dashboard.html" data-search="off">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Account</p>
+        <h1>Settings</h1>
+        <p class="page-desc">Your account, how we contact you, how Prepeet adapts to you, what happens to your data, and the defaults every new interview starts from.</p>
+      </div>
+      <div class="page-actions">
+        <span class="badge badge-outline mono" style="align-self:center">/candidate/settings</span>
+        <a class="btn btn-secondary" href="candidate-profile.html"><i data-lucide="user-round" class="ic ic-sm"></i>Profile &amp; résumé</a>
+      </div>
+    </div>
+
+    <div data-tabs data-tabs-param="tab">
+      <div class="tabs" role="tablist" aria-label="Settings sections">
+        <button class="tab" role="tab" id="tb-account" data-tab="account" aria-controls="account" aria-selected="true"><i data-lucide="user-cog" class="ic ic-sm"></i>Account</button>
+        <button class="tab" role="tab" id="tb-notifications" data-tab="notifications" aria-controls="notifications" aria-selected="false"><i data-lucide="bell" class="ic ic-sm"></i>Notifications</button>
+        <button class="tab" role="tab" id="tb-accessibility" data-tab="accessibility" aria-controls="accessibility" aria-selected="false"><i data-lucide="accessibility" class="ic ic-sm"></i>Accessibility</button>
+        <button class="tab" role="tab" id="tb-privacy" data-tab="privacy" aria-controls="privacy" aria-selected="false"><i data-lucide="shield" class="ic ic-sm"></i>Privacy &amp; data</button>
+        <button class="tab" role="tab" id="tb-defaults" data-tab="interview-defaults" aria-controls="interview-defaults" aria-selected="false"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Interview defaults</button>
+      </div>
+
+      <div id="settings-forms">
+
+      <!-- ══════════════════════════ ACCOUNT ══════════════════════════ -->
+      <div class="tab-panel stack-lg" role="tabpanel" id="account" aria-labelledby="tb-account" tabindex="0" style="padding-top:var(--sp-6)">
+
+        <section class="card" aria-labelledby="acc-email-h">
+          <div class="card-header"><h2 id="acc-email-h">Sign-in email</h2></div>
+          <div class="card-body">
+            <div class="between">
+              <div>
+                <p style="font-weight:650;font-size:var(--text-sm)">daniel.okonkwo@example.com</p>
+                <p class="hint" style="margin-top:3px"><i data-lucide="badge-check" class="ic ic-sm" style="vertical-align:-3px;color:var(--success)"></i> Verified 11 July 2026 · used for sign-in and every notification</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" type="button" data-dialog-open="dlg-email">Change email</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="acc-pw-h">
+          <div class="card-header">
+            <div>
+              <h2 id="acc-pw-h">Password</h2>
+              <p class="hint" style="margin-top:3px">Last changed 11 July 2026.</p>
+            </div>
+          </div>
+          <form class="card-body stack" id="form-password" data-no-savebar>
+            <div class="field" style="max-width:380px">
+              <label class="label" for="pw-current">Current password</label>
+              <input class="input" id="pw-current" type="password" autocomplete="current-password" required>
+            </div>
+            <div class="field" style="max-width:380px">
+              <label class="label" for="pw-new">New password</label>
+              <input class="input" id="pw-new" type="password" autocomplete="new-password" minlength="12" required aria-describedby="pw-new-hint">
+              <p class="hint" id="pw-new-hint">At least 12 characters. A short sentence you can remember beats a scrambled word.</p>
+            </div>
+            <div class="field" style="max-width:380px">
+              <label class="label" for="pw-confirm">Confirm new password</label>
+              <input class="input" id="pw-confirm" type="password" autocomplete="new-password" required aria-describedby="pw-confirm-err">
+              <p class="error-text" id="pw-confirm-err" hidden><i data-lucide="alert-circle" class="ic ic-sm"></i>The two passwords do not match.</p>
+            </div>
+            <div class="cluster">
+              <button class="btn btn-primary" type="submit">Update password</button>
+              <span class="hint">Changing your password signs out every other device.</span>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="acc-conn-h">
+          <div class="card-header">
+            <div>
+              <h2 id="acc-conn-h">Connected accounts</h2>
+              <p class="hint" style="margin-top:3px">Alternative ways to sign in. Prepeet reads your name and email address only — never your calendar, files or contacts.</p>
+            </div>
+          </div>
+          <div class="card-body stack">
+            <div class="between" style="padding-bottom:var(--sp-3);border-bottom:1px solid var(--border-subtle)">
+              <div class="row">
+                <span class="avatar avatar-square" aria-hidden="true" style="background:var(--surface-3);color:var(--fg-2)">G</span>
+                <div>
+                  <p style="font-weight:650;font-size:var(--text-sm)">Google</p>
+                  <p class="hint">Connected as daniel.okonkwo@example.com · linked 11 July 2026</p>
+                </div>
+              </div>
+              <div class="cluster">
+                <span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Connected</span>
+                <button class="btn btn-sm btn-danger-soft" type="button" data-dialog-open="dlg-disconnect">Disconnect</button>
+              </div>
+            </div>
+            <div class="between">
+              <div class="row">
+                <span class="avatar avatar-square" aria-hidden="true" style="background:var(--surface-3);color:var(--fg-2)">M</span>
+                <div>
+                  <p style="font-weight:650;font-size:var(--text-sm)">Microsoft</p>
+                  <p class="hint">Not connected. Useful if your work account is a Microsoft one.</p>
+                </div>
+              </div>
+              <div class="cluster">
+                <span class="badge badge-neutral">Not connected</span>
+                <button class="btn btn-sm btn-secondary" type="button" data-loading-sim="1100" data-loading-done="Microsoft account connected" data-loading-kind="success">Connect</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="acc-2fa-h">
+          <div class="card-header">
+            <div>
+              <h2 id="acc-2fa-h">Two-factor authentication</h2>
+              <p class="hint" style="margin-top:3px">A six-digit code from an authenticator app, on top of your password.</p>
+            </div>
+            <span class="badge badge-warning" id="tfa-badge"><i data-lucide="shield-off" class="ic-sm ic"></i>Off</span>
+          </div>
+          <div class="card-body">
+            <div class="between">
+              <p class="hint" style="max-width:520px;line-height:1.55">Your account holds interview recordings and transcripts. If someone else signs in, they can read all of it. Two-factor authentication is the single most useful thing you can turn on here.</p>
+              <button class="btn btn-primary btn-sm" type="button" data-dialog-open="dlg-2fa" id="btn-2fa">Turn on two-factor</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="acc-sessions-h">
+          <div class="card-header">
+            <div>
+              <h2 id="acc-sessions-h">Where you are signed in</h2>
+              <p class="hint" style="margin-top:3px">Revoke anything you do not recognise, then change your password.</p>
+            </div>
+            <button class="btn btn-sm btn-danger-soft" type="button" data-toast="Signed out everywhere else" data-toast-desc="3 other sessions were revoked." data-toast-kind="warning">Revoke all others</button>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="table table-responsive">
+                <caption class="sr-only">Devices currently signed in to your Prepeet account</caption>
+                <thead>
+                  <tr><th scope="col">Device</th><th scope="col">Location</th><th scope="col">Last active</th><th scope="col"><span class="sr-only">Action</span></th></tr>
+                </thead>
+                <tbody id="session-rows">
+                  <tr>
+                    <td data-label="Device" class="td-primary">Chrome on macOS <span class="badge badge-primary" style="margin-left:6px">This device</span><span class="td-sub">Sonoma 14.6 · MacBook Pro</span></td>
+                    <td data-label="Location">Manchester, United Kingdom</td>
+                    <td data-label="Last active">Now</td>
+                    <td class="td-actions"><span class="hint">Current session</span></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Device" class="td-primary">Prepeet for iPhone<span class="td-sub">iOS 19.1 · iPhone 15</span></td>
+                    <td data-label="Location">Manchester, United Kingdom</td>
+                    <td data-label="Last active">Yesterday, 22:14</td>
+                    <td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-revoke="Prepeet for iPhone">Revoke</button></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Device" class="td-primary">Firefox on Windows<span class="td-sub">Windows 11</span></td>
+                    <td data-label="Location">Leeds, United Kingdom</td>
+                    <td data-label="Last active">18 August, 08:02</td>
+                    <td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-revoke="Firefox on Windows">Revoke</button></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Device" class="td-primary">Safari on iPad<span class="td-sub">iPadOS 19</span></td>
+                    <td data-label="Location">Manchester, United Kingdom</td>
+                    <td data-label="Last active">4 August, 19:35</td>
+                    <td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-revoke="Safari on iPad">Revoke</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="hint" style="margin-top:var(--sp-3)" role="status" aria-live="polite" id="revoke-status"></p>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="acc-danger-h" style="border-color:var(--danger-border)">
+          <div class="card-header" style="border-color:var(--danger-border)">
+            <div>
+              <h2 id="acc-danger-h" style="color:var(--danger-fg)">Danger zone</h2>
+              <p class="hint" style="margin-top:3px">Both of these are permanent in different ways. Read the wording before you click.</p>
+            </div>
+          </div>
+          <div class="card-body stack">
+            <div class="between" style="padding-bottom:var(--sp-3);border-bottom:1px solid var(--border-subtle)">
+              <div>
+                <p style="font-weight:650;font-size:var(--text-sm)">Export everything</p>
+                <p class="hint" style="max-width:460px">A ZIP containing your profile, CV, every transcript, every evaluation and your evidence bank. Audio is included as separate files. Ready within 24 hours.</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" type="button" id="btn-export-2" data-toast="Export requested" data-toast-desc="We will email a download link to daniel.okonkwo@example.com within 24 hours." data-toast-kind="success">Request export</button>
+            </div>
+            <div class="between">
+              <div>
+                <p style="font-weight:650;font-size:var(--text-sm);color:var(--danger-fg)">Delete your account</p>
+                <p class="hint" style="max-width:460px">Removes your profile, CV, all 12 sessions, recordings, transcripts and evaluations. Screening interviews you already submitted stay with the employer who commissioned them — we cannot recall those.</p>
+              </div>
+              <button class="btn btn-danger btn-sm" type="button" data-dialog-open="dlg-delete">Delete account</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ══════════════════════════ NOTIFICATIONS ══════════════════════════ -->
+      <div class="tab-panel stack-lg" role="tabpanel" id="notifications" aria-labelledby="tb-notifications" tabindex="0" hidden style="padding-top:var(--sp-6)">
+
+        <section class="card" aria-labelledby="nt-matrix-h">
+          <div class="card-header">
+            <div>
+              <h2 id="nt-matrix-h">What we tell you about</h2>
+              <p class="hint" style="margin-top:3px">Choose a channel per event. Screening invitations are always sent by email — an employer is waiting on you and we will not let that one go quiet.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="table matrix table-responsive">
+                <caption class="sr-only">Notification channels for each event type</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Event</th>
+                    <th scope="col" class="chan">Email</th>
+                    <th scope="col" class="chan">In-app</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td data-label="Event" class="td-primary">Review ready<span class="td-sub">Your evaluation has finished processing</span></td>
+                    <td data-label="Email" class="chan"><label class="switch"><input type="checkbox" checked><span class="sr-only">Email me when a review is ready</span></label></td>
+                    <td data-label="In-app" class="chan"><label class="switch"><input type="checkbox" checked><span class="sr-only">Show an in-app notification when a review is ready</span></label></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Event" class="td-primary">Goal reminders<span class="td-sub">You are behind on a goal you set</span></td>
+                    <td data-label="Email" class="chan"><label class="switch"><input type="checkbox"><span class="sr-only">Email me goal reminders</span></label></td>
+                    <td data-label="In-app" class="chan"><label class="switch"><input type="checkbox" checked><span class="sr-only">Show in-app goal reminders</span></label></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Event" class="td-primary">Weekly progress digest<span class="td-sub">What moved, and what to do next week</span></td>
+                    <td data-label="Email" class="chan"><label class="switch"><input type="checkbox" checked><span class="sr-only">Email me the weekly progress digest</span></label></td>
+                    <td data-label="In-app" class="chan"><label class="switch"><input type="checkbox"><span class="sr-only">Show the weekly progress digest in-app</span></label></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Event" class="td-primary">Screening invitations<span class="td-sub">An employer has invited you to a screening interview</span></td>
+                    <td data-label="Email" class="chan"><label class="switch"><input type="checkbox" checked disabled><span class="sr-only">Email me screening invitations (always on)</span></label></td>
+                    <td data-label="In-app" class="chan"><label class="switch"><input type="checkbox" checked><span class="sr-only">Show screening invitations in-app</span></label></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Event" class="td-primary">Product updates<span class="td-sub">New personas, interview shapes and features</span></td>
+                    <td data-label="Email" class="chan"><label class="switch"><input type="checkbox"><span class="sr-only">Email me product updates</span></label></td>
+                    <td data-label="In-app" class="chan"><label class="switch"><input type="checkbox" checked><span class="sr-only">Show product updates in-app</span></label></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="hint" style="margin-top:var(--sp-3)">Screening invitation emails cannot be switched off while your account can receive invitations. You can stop receiving invitations entirely under <a href="#privacy" data-goto-tab="privacy">Privacy &amp; data</a>.</p>
+          </div>
+        </section>
+
+        <div class="grid grid-2">
+          <section class="card" aria-labelledby="nt-quiet-h">
+            <div class="card-header"><h2 id="nt-quiet-h">Quiet hours</h2></div>
+            <div class="card-body stack">
+              <label class="switch"><input type="checkbox" id="quiet-on" checked><span>Hold notifications overnight</span></label>
+              <div class="grid grid-2">
+                <div class="field">
+                  <label class="label" for="quiet-from">From</label>
+                  <input class="input" id="quiet-from" type="time" value="22:00">
+                </div>
+                <div class="field">
+                  <label class="label" for="quiet-to">Until</label>
+                  <input class="input" id="quiet-to" type="time" value="07:30">
+                </div>
+              </div>
+              <p class="hint">Times are in Europe/London, taken from your profile. Anything that arrives inside this window is delivered when it ends — except screening invitations with a deadline inside 48 hours.</p>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="nt-digest-h">
+            <div class="card-header"><h2 id="nt-digest-h">Digest frequency</h2></div>
+            <div class="card-body stack">
+              <div class="field">
+                <label class="label" for="digest-freq">Send my progress digest</label>
+                <select class="select" id="digest-freq">
+                  <option>Every Monday morning</option>
+                  <option selected>Every Sunday evening</option>
+                  <option>Fortnightly</option>
+                  <option>Only when something changes</option>
+                  <option>Never</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="digest-detail">Level of detail</label>
+                <select class="select" id="digest-detail">
+                  <option>Headline only — readiness and streak</option>
+                  <option selected>Standard — plus what changed and one suggestion</option>
+                  <option>Full — every competency and every session</option>
+                </select>
+              </div>
+              <p class="hint">Your last digest went out on Sunday 17 August at 18:00.</p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════ ACCESSIBILITY ══════════════════════════ -->
+      <div class="tab-panel stack-lg" role="tabpanel" id="accessibility" aria-labelledby="tb-accessibility" tabindex="0" hidden style="padding-top:var(--sp-6)">
+
+        <div class="banner banner-info">
+          <i data-lucide="info" class="ic"></i>
+          <div>Everything on this tab applies the moment you change it — there is nothing to save. Accessibility settings are yours alone: they are never disclosed to an employer and never recorded in an evaluation.</div>
+        </div>
+
+        <div class="grid grid-2">
+          <section class="card" aria-labelledby="a11y-theme-h">
+            <div class="card-header"><h2 id="a11y-theme-h">Theme</h2></div>
+            <div class="card-body">
+              <fieldset style="border:0;padding:0;margin:0">
+                <legend class="sr-only">Colour theme</legend>
+                <div class="stack-sm">
+                  <label class="radio"><input type="radio" name="theme-pref" value="light" data-theme-radio><span>Light<span class="hint">Default for the app.</span></span></label>
+                  <label class="radio"><input type="radio" name="theme-pref" value="dark" data-theme-radio><span>Dark<span class="hint">Also used automatically inside a live interview, whatever you pick here.</span></span></label>
+                  <label class="radio"><input type="radio" name="theme-pref" value="system" id="theme-system"><span>Follow system setting<span class="hint">Match whatever your operating system is doing right now.</span></span></label>
+                </div>
+              </fieldset>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="a11y-motion-h">
+            <div class="card-header"><h2 id="a11y-motion-h">Motion and text</h2></div>
+            <div class="card-body stack">
+              <label class="switch"><input type="checkbox" id="reduce-motion"><span>Reduce motion<span class="hint">Removes animated waveforms, sliding panels and progress shimmer.</span></span></label>
+              <hr>
+              <div class="field">
+                <label class="label" for="text-size">Text size</label>
+                <select class="select" id="text-size">
+                  <option value="15">Standard (15px base)</option>
+                  <option value="16">Large (16px base)</option>
+                  <option value="18">Larger (18px base)</option>
+                  <option value="20">Largest (20px base)</option>
+                </select>
+                <p class="hint">Applies across Prepeet immediately. Your browser's own zoom still works on top of this.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="card" aria-labelledby="a11y-int-h">
+          <div class="card-header">
+            <div>
+              <h2 id="a11y-int-h">During an interview</h2>
+              <p class="hint" style="margin-top:3px">These apply to practice and to screening interviews alike.</p>
+            </div>
+          </div>
+          <div class="card-body stack">
+            <label class="switch"><input type="checkbox" id="a11y-captions" checked><span>Live captions on by default<span class="hint">Every word the interviewer says, printed under the persona as it is spoken.</span></span></label>
+            <hr>
+            <div class="field" style="max-width:420px">
+              <label class="label" for="think-time">Extra thinking time before each answer</label>
+              <select class="select" id="think-time">
+                <option value="0">None — start when I start</option>
+                <option value="10">10 seconds</option>
+                <option value="20" selected>20 seconds</option>
+                <option value="30">30 seconds</option>
+                <option value="60">60 seconds</option>
+              </select>
+              <p class="hint">The interviewer waits this long after finishing a question before treating silence as a pause.</p>
+            </div>
+            <div class="banner banner-success">
+              <i data-lucide="shield-check" class="ic"></i>
+              <div><strong>Extra thinking time does not affect your evaluation.</strong> Response latency is not measured, not scored, and not shown to a reviewer. The evaluation reads what you said, not how long you took to start saying it.</div>
+            </div>
+            <hr>
+            <label class="switch"><input type="checkbox" id="a11y-ptt"><span>Push-to-talk by default<span class="hint">Hold the space bar to speak instead of leaving the microphone open. Useful in a shared or noisy room.</span></span></label>
+            <hr>
+            <label class="switch"><input type="checkbox" id="a11y-sr"><span>Screen-reader-optimised transcript view<span class="hint">Renders reviews as a plain heading-and-paragraph document: evidence highlights become described text, score rings become sentences, and charts are replaced by their data tables.</span></span></label>
+          </div>
+        </section>
+
+        <section class="card card-subtle" aria-labelledby="a11y-more-h">
+          <div class="card-body">
+            <h2 id="a11y-more-h" style="font-size:var(--text-sm)">Something still in your way?</h2>
+            <p class="hint" style="margin-top:6px;line-height:1.55">If a part of Prepeet is hard to use, tell us what you were trying to do and we will treat it as a bug, not a request. We aim to reply within two working days.</p>
+            <div class="cluster" style="margin-top:12px">
+              <a class="btn btn-sm btn-secondary" href="#help">Support and shortcuts</a>
+              <a class="btn btn-sm btn-ghost ext" href="https://prepeet.example/accessibility" target="_blank" rel="noopener noreferrer">Accessibility statement</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ══════════════════════════ PRIVACY & DATA ══════════════════════════ -->
+      <div class="tab-panel stack-lg" role="tabpanel" id="privacy" aria-labelledby="tb-privacy" tabindex="0" hidden style="padding-top:var(--sp-6)">
+
+        <div class="banner banner-success">
+          <i data-lucide="lock" class="ic"></i>
+          <div><strong>Practice data is never shared with employers.</strong> Practice recordings, transcripts, scores, competency bands, coaching notes and your progression history are visible only to you. Employers see screening interviews they commissioned, and the profile fields you agreed to share when you accepted their invitation — nothing else, ever.</div>
+        </div>
+
+        <div class="grid grid-2">
+          <section class="card" aria-labelledby="pv-rec-h">
+            <div class="card-header"><h2 id="pv-rec-h">Keep my recordings for</h2></div>
+            <div class="card-body">
+              <fieldset style="border:0;padding:0;margin:0">
+                <legend class="sr-only">Recording retention</legend>
+                <div class="stack-sm">
+                  <label class="radio"><input type="radio" name="rec-ret" value="30"><span>30 days<span class="hint">Long enough to re-listen to a session while it is fresh.</span></span></label>
+                  <label class="radio"><input type="radio" name="rec-ret" value="365" checked><span>12 months<span class="hint">Current setting. Lets you hear how you sounded six months ago.</span></span></label>
+                  <label class="radio"><input type="radio" name="rec-ret" value="forever"><span>Until I delete them<span class="hint">Nothing expires automatically.</span></span></label>
+                </div>
+              </fieldset>
+              <p class="hint" style="margin-top:var(--sp-3)">Deleting audio does not delete the transcript or the evaluation — those are separate below.</p>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="pv-tr-h">
+            <div class="card-header"><h2 id="pv-tr-h">Keep my transcripts for</h2></div>
+            <div class="card-body">
+              <fieldset style="border:0;padding:0;margin:0">
+                <legend class="sr-only">Transcript retention</legend>
+                <div class="stack-sm">
+                  <label class="radio"><input type="radio" name="tr-ret" value="30"><span>30 days</span></label>
+                  <label class="radio"><input type="radio" name="tr-ret" value="365"><span>12 months</span></label>
+                  <label class="radio"><input type="radio" name="tr-ret" value="forever" checked><span>Until I delete them<span class="hint">Current setting. Your progression chart needs transcripts to stay comparable over time.</span></span></label>
+                </div>
+              </fieldset>
+              <p class="hint" style="margin-top:var(--sp-3)">If a transcript is deleted, the session still appears in your history with its score, but you can no longer open the evidence behind it.</p>
+            </div>
+          </section>
+        </div>
+
+        <section class="card" aria-labelledby="pv-improve-h">
+          <div class="card-header">
+            <div>
+              <h2 id="pv-improve-h">Using your practice data to improve Prepeet</h2>
+              <p class="hint" style="margin-top:3px">Off unless you turn it on. We will not ask you again.</p>
+            </div>
+            <span class="badge badge-neutral" id="improve-badge">Off</span>
+          </div>
+          <div class="card-body stack">
+            <label class="switch"><input type="checkbox" id="improve-optin"><span>Let Prepeet learn from my practice sessions</span></label>
+            <div class="prose" style="font-size:var(--text-sm)">
+              <p><strong>In plain English:</strong> if you turn this on, a small number of your practice transcripts may be read by Prepeet staff, and used to check whether our evaluations are fair and accurate — for example, whether we score the same answer the same way for two different people.</p>
+              <p><strong>What that means concretely.</strong> Transcripts are stripped of your name, employer names and any other identifying detail before anyone reads them. Audio is never used. Screening interviews are never used. Your data is not sold, not shared with employers, and not used to advertise to you.</p>
+              <p><strong>What you get out of it.</strong> Nothing directly, and your own scores do not change either way. This is not a trade — leaving it off costs you nothing and we will not nag you.</p>
+              <p>You can turn it off later. Turning it off stops future use immediately and removes your transcripts from the review pool within 30 days.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="pv-del-h">
+          <div class="card-header"><h2 id="pv-del-h">Delete specific things</h2></div>
+          <div class="card-body stack">
+            <div class="between" style="padding-bottom:var(--sp-3);border-bottom:1px solid var(--border-subtle)">
+              <div>
+                <p style="font-weight:650;font-size:var(--text-sm)">One session at a time</p>
+                <p class="hint" style="max-width:460px">Open any session and delete its audio, its transcript, or the whole session. This is the right tool if there is one conversation you would rather not keep.</p>
+              </div>
+              <a class="btn btn-secondary btn-sm" href="candidate-sessions.html">Go to your sessions<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+            <div class="between">
+              <div>
+                <p style="font-weight:650;font-size:var(--text-sm)">All practice audio</p>
+                <p class="hint" style="max-width:460px">Deletes the audio for all 10 completed practice sessions and keeps the transcripts and evaluations.</p>
+              </div>
+              <button class="btn btn-danger-soft btn-sm" type="button" data-toast="Practice audio deleted" data-toast-desc="Audio for 10 sessions has been removed. Transcripts are unchanged." data-toast-kind="warning">Delete all audio</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="pv-dl-h">
+          <div class="card-header">
+            <div>
+              <h2 id="pv-dl-h">Download my data</h2>
+              <p class="hint" style="margin-top:3px">A machine-readable copy of everything Prepeet holds about you, plus your files.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" type="button" id="btn-request-data"><i data-lucide="download" class="ic ic-sm"></i>Request my data</button>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="table table-dense table-responsive">
+                <caption class="sr-only">Data export requests</caption>
+                <thead>
+                  <tr><th scope="col">Requested</th><th scope="col">Contents</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Action</span></th></tr>
+                </thead>
+                <tbody id="export-rows">
+                  <tr>
+                    <td data-label="Requested" class="td-primary">4 August 2026</td>
+                    <td data-label="Contents">Profile, 11 sessions, transcripts, evaluations</td>
+                    <td data-label="Status"><span class="badge badge-neutral">Expired</span></td>
+                    <td class="td-actions"><span class="hint">Links expire after 7 days</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="hint" style="margin-top:var(--sp-3)" role="status" aria-live="polite" id="export-status"></p>
+          </div>
+        </section>
+
+        <section class="card card-subtle" aria-labelledby="pv-where-h">
+          <div class="card-body">
+            <h2 id="pv-where-h" style="font-size:var(--text-sm)">Where your data lives</h2>
+            <dl class="kv" style="margin-top:10px">
+              <dt>Storage region</dt><dd>EU (Frankfurt)</dd>
+              <dt>Encryption</dt><dd>Encrypted in transit and at rest</dd>
+              <dt>Screening evaluations</dt><dd>Held by the employer who commissioned them, under their own retention policy</dd>
+              <dt>Practice evaluations</dt><dd>Held by you, under the retention choices above</dd>
+            </dl>
+            <p class="hint" style="margin-top:12px">A screening interview you have already submitted cannot be recalled — the employer holds their copy. Deleting your Prepeet account does not delete theirs.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- ══════════════════════════ INTERVIEW DEFAULTS ══════════════════════════ -->
+      <div class="tab-panel stack-lg" role="tabpanel" id="interview-defaults" aria-labelledby="tb-defaults" tabindex="0" hidden style="padding-top:var(--sp-6)">
+
+        <div class="banner">
+          <i data-lucide="info" class="ic"></i>
+          <div>These are the values every new practice interview starts from. You can change any of them per session on the <a href="candidate-start-interview.html">start screen</a>. Screening interviews use the employer's configuration, not yours — except your accessibility settings, which always apply.</div>
+        </div>
+
+        <form class="grid grid-2" id="form-defaults">
+          <section class="card" aria-labelledby="df-who-h">
+            <div class="card-header"><h2 id="df-who-h">Who interviews you</h2></div>
+            <div class="card-body stack">
+              <div class="field">
+                <label class="label" for="df-persona">Default persona</label>
+                <select class="select" id="df-persona">
+                  <option value="per_ama">Ama — warm and structured</option>
+                  <option value="per_ravi" selected>Ravi — direct and technical</option>
+                  <option value="per_lena">Lena — panel chair</option>
+                  <option value="per_marcus">Marcus — sceptical stakeholder</option>
+                </select>
+                <p class="hint">Ravi matches most of your sessions so far. Ama is the gentler option if you are out of practice.</p>
+              </div>
+              <div class="field">
+                <label class="label" for="df-lang">Language and accent</label>
+                <select class="select" id="df-lang">
+                  <option selected>English — British (Received Pronunciation)</option>
+                  <option>English — British (Northern)</option>
+                  <option>English — Irish</option>
+                  <option>English — American</option>
+                  <option>English — Nigerian</option>
+                  <option>English — Indian</option>
+                  <option>English — Australian</option>
+                </select>
+                <p class="hint">Changes the interviewer's voice only. Your own accent is never assessed and never mentioned in an evaluation.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="df-shape-h">
+            <div class="card-header"><h2 id="df-shape-h">Shape of the session</h2></div>
+            <div class="card-body stack">
+              <div class="field">
+                <label class="label" for="df-shape">Default interview shape</label>
+                <select class="select" id="df-shape">
+                  <option value="shape_behavioural">Behavioural</option>
+                  <option value="shape_technical" selected>Technical deep-dive</option>
+                  <option value="shape_case">Case / scenario</option>
+                  <option value="shape_screen">Recruiter screen</option>
+                  <option value="shape_panel">Panel simulation</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="df-duration">Default duration</label>
+                <select class="select" id="df-duration">
+                  <option>15 minutes</option>
+                  <option>25 minutes</option>
+                  <option selected>40 minutes</option>
+                  <option>60 minutes</option>
+                </select>
+                <p class="hint">Scores stabilise around the 25-minute mark. Below 15 minutes there is rarely enough evidence to band a competency.</p>
+              </div>
+              <div class="field">
+                <label class="label" for="df-seniority">Default seniority</label>
+                <select class="select" id="df-seniority">
+                  <option>Graduate / early career</option>
+                  <option>Mid-level</option>
+                  <option selected>Senior</option>
+                  <option>Staff / Principal</option>
+                  <option>First-line management</option>
+                </select>
+                <p class="hint">Taken from your <a href="candidate-profile.html#career">career context</a>. Changing it here does not change your profile.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="df-captions" checked><span>Start with captions on<span class="hint">Mirrors your accessibility setting. Turning it off here leaves the accessibility setting alone.</span></span></label>
+            </div>
+          </section>
+        </form>
+
+        <div class="cluster">
+          <button class="btn btn-secondary" type="button" id="btn-reset-defaults"><i data-lucide="rotate-ccw" class="ic ic-sm"></i>Reset to Prepeet defaults</button>
+          <span class="hint">Prepeet defaults are Ama, behavioural, 25 minutes, mid-level, captions on.</span>
+        </div>
+      </div>
+
+      </div><!-- /#settings-forms -->
+    </div><!-- /data-tabs -->
+
+    <!-- sticky unsaved-changes bar -->
+    <div class="savebar" id="savebar" hidden role="status" aria-live="polite">
+      <i data-lucide="circle-alert" class="ic" style="color:var(--primary)"></i>
+      <span class="savebar-text">You have unsaved changes<span class="hint" style="display:block;font-weight:500" id="savebar-detail">1 setting changed</span></span>
+      <div class="savebar-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-discard">Discard</button>
+        <button class="btn btn-primary btn-sm" type="button" id="btn-save">Save changes</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════ HELP ══════════════════════════ -->
+    <section class="card" aria-labelledby="help-h" id="help" style="margin-top:var(--sp-10);scroll-margin-top:calc(var(--topbar-h) + 16px)">
+      <div class="card-header">
+        <div>
+          <h2 id="help-h">Help &amp; accessibility</h2>
+          <p class="hint" style="margin-top:3px">Support, keyboard shortcuts and our accessibility commitments.</p>
+        </div>
+        <span class="badge badge-outline mono" style="align-self:center">#help</span>
+      </div>
+      <div class="card-body grid grid-2">
+
+        <div class="stack">
+          <h3 class="section-title" style="font-size:var(--text-sm);margin-bottom:0">Get help</h3>
+          <ul class="stack-sm" style="font-size:var(--text-sm)">
+            <li class="row"><i data-lucide="life-buoy" class="ic ic-sm" style="color:var(--fg-3)"></i><a class="ext" href="https://help.prepeet.example/candidates" target="_blank" rel="noopener noreferrer">Candidate help centre</a></li>
+            <li class="row"><i data-lucide="mail" class="ic ic-sm" style="color:var(--fg-3)"></i><a class="ext" href="https://help.prepeet.example/contact" target="_blank" rel="noopener noreferrer">Contact candidate support</a> <span class="hint">— replies within 2 working days</span></li>
+            <li class="row"><i data-lucide="mic-off" class="ic ic-sm" style="color:var(--fg-3)"></i><a class="ext" href="https://help.prepeet.example/audio-troubleshooting" target="_blank" rel="noopener noreferrer">Microphone and audio troubleshooting</a></li>
+            <li class="row"><i data-lucide="gavel" class="ic ic-sm" style="color:var(--fg-3)"></i><a class="ext" href="https://help.prepeet.example/request-a-re-review" target="_blank" rel="noopener noreferrer">Ask for a screening to be re-reviewed by a person</a></li>
+            <li class="row"><i data-lucide="file-text" class="ic ic-sm" style="color:var(--fg-3)"></i><a class="ext" href="https://prepeet.example/how-evaluation-works" target="_blank" rel="noopener noreferrer">How evaluation works, in detail</a></li>
+          </ul>
+
+          <hr>
+
+          <h3 class="section-title" style="font-size:var(--text-sm);margin-bottom:0">Our accessibility commitment</h3>
+          <p class="hint" style="line-height:1.6">Prepeet targets WCAG 2.2 AA across the candidate experience, including the live interview screen. Every chart has a text summary and a data table. Captions are available in every interview. Nothing is communicated by colour alone. If you find something that falls short, it is a bug and we will fix it.</p>
+          <div class="cluster">
+            <a class="btn btn-sm btn-secondary ext" href="https://prepeet.example/accessibility" target="_blank" rel="noopener noreferrer">Read the accessibility statement</a>
+            <a class="btn btn-sm btn-ghost" href="#accessibility" data-goto-tab="accessibility">Your accessibility settings</a>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="section-title" style="font-size:var(--text-sm)">Keyboard shortcuts</h3>
+          <div class="table-wrap">
+            <table class="table table-dense">
+              <caption class="sr-only">Keyboard shortcuts available in Prepeet</caption>
+              <thead><tr><th scope="col">Key</th><th scope="col">Does</th></tr></thead>
+              <tbody>
+                <tr><td><kbd>Space</kbd></td><td>Hold to talk, when push-to-talk is on</td></tr>
+                <tr><td><kbd>M</kbd></td><td>Mute or unmute your microphone</td></tr>
+                <tr><td><kbd>C</kbd></td><td>Show or hide live captions</td></tr>
+                <tr><td><kbd>?</kbd></td><td>Open this shortcuts list from any screen</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Close a dialog, drawer or menu</td></tr>
+                <tr><td><kbd>G</kbd> then <kbd>D</kbd></td><td>Go to your dashboard</td></tr>
+                <tr><td><kbd>G</kbd> then <kbd>S</kbd></td><td>Go to your sessions</td></tr>
+                <tr><td><kbd>G</kbd> then <kbd>P</kbd></td><td>Go to progression</td></tr>
+                <tr><td><kbd>/</kbd></td><td>Focus the search box</td></tr>
+                <tr><td><kbd>Tab</kbd></td><td>Move through the page; the first stop is always “Skip to main content”</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="hint" style="margin-top:var(--sp-3)">Shortcuts never fire while you are typing in a field. During a live interview only <kbd>Space</kbd>, <kbd>M</kbd> and <kbd>C</kbd> are active, so nothing can navigate you away mid-answer.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ══════════════════════════ DIALOGS ══════════════════════════ -->
+
+<dialog class="dialog" id="dlg-email" aria-labelledby="dlg-email-h">
+  <form class="dialog-panel" method="dialog" id="form-email">
+    <div class="dialog-header">
+      <h2 id="dlg-email-h">Change your sign-in email</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>We will send a confirmation link to the new address. Your current address keeps working until you click it.</p>
+      <div class="field">
+        <label class="label" for="em-current">Current email</label>
+        <input class="input" id="em-current" type="email" value="daniel.okonkwo@example.com" disabled>
+      </div>
+      <div class="field">
+        <label class="label" for="em-new">New email</label>
+        <input class="input" id="em-new" type="email" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label class="label" for="em-pw">Confirm with your password</label>
+        <input class="input" id="em-pw" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="banner banner-warning">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>Any screening invitation already sent to your old address stays valid — employers see your account, not the email string.</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Send confirmation link</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dialog" id="dlg-disconnect" aria-labelledby="dlg-dc-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 id="dlg-dc-h">Disconnect Google?</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body">
+      <p>You will no longer be able to sign in with Google. Make sure you know your Prepeet password first — it is the only way in after this.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Keep it connected</button>
+      <button class="btn btn-danger" type="button" data-dialog-close data-toast="Google disconnected" data-toast-kind="warning">Disconnect</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-2fa" aria-labelledby="dlg-2fa-h">
+  <form class="dialog-panel wide" method="dialog" id="form-2fa">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dlg-2fa-h">Set up two-factor authentication</h2>
+        <p class="hint" style="margin-top:4px">Step 1 of 2 — scan, then confirm.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body">
+      <div style="display:flex;gap:var(--sp-5);flex-wrap:wrap">
+        <div class="qr-frame">
+          <svg viewBox="0 0 29 29" role="img" aria-label="A QR code containing your two-factor setup key. If you cannot scan it, use the setup key printed beside it.">
+            <rect width="29" height="29" fill="#ffffff"/>
+            <g fill="#171512">
+              <!-- finder patterns -->
+              <path d="M0 0h7v7H0zM1 1v5h5V1z M2 2h3v3H2z"/>
+              <path d="M22 0h7v7h-7zM23 1v5h5V1z M24 2h3v3h-3z"/>
+              <path d="M0 22h7v7H0zM1 23v5h5v-5z M2 24h3v3H2z"/>
+              <!-- timing lines -->
+              <rect x="8" y="6" width="1" height="1"/><rect x="10" y="6" width="1" height="1"/>
+              <rect x="12" y="6" width="1" height="1"/><rect x="14" y="6" width="1" height="1"/>
+              <rect x="16" y="6" width="1" height="1"/><rect x="18" y="6" width="1" height="1"/><rect x="20" y="6" width="1" height="1"/>
+              <rect x="6" y="8" width="1" height="1"/><rect x="6" y="10" width="1" height="1"/>
+              <rect x="6" y="12" width="1" height="1"/><rect x="6" y="14" width="1" height="1"/>
+              <rect x="6" y="16" width="1" height="1"/><rect x="6" y="18" width="1" height="1"/><rect x="6" y="20" width="1" height="1"/>
+              <!-- alignment pattern -->
+              <path d="M20 20h5v5h-5zM21 21v3h3v-3z M22 22h1v1h-1z"/>
+              <!-- data modules -->
+              <rect x="9" y="1" width="1" height="1"/><rect x="11" y="1" width="2" height="1"/><rect x="15" y="1" width="1" height="1"/><rect x="18" y="1" width="2" height="1"/>
+              <rect x="8" y="2" width="1" height="2"/><rect x="10" y="2" width="1" height="1"/><rect x="13" y="2" width="2" height="1"/><rect x="17" y="2" width="1" height="2"/><rect x="20" y="2" width="1" height="1"/>
+              <rect x="11" y="3" width="1" height="1"/><rect x="14" y="3" width="1" height="2"/><rect x="16" y="3" width="1" height="1"/><rect x="19" y="3" width="1" height="1"/>
+              <rect x="9" y="4" width="2" height="1"/><rect x="12" y="4" width="1" height="1"/><rect x="16" y="4" width="2" height="1"/><rect x="20" y="4" width="1" height="2"/>
+              <rect x="8" y="5" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/><rect x="13" y="5" width="1" height="1"/><rect x="15" y="5" width="1" height="1"/><rect x="18" y="5" width="1" height="1"/>
+              <rect x="1" y="8" width="2" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/><rect x="10" y="8" width="2" height="1"/><rect x="14" y="8" width="1" height="1"/><rect x="16" y="8" width="1" height="2"/><rect x="19" y="8" width="2" height="1"/><rect x="23" y="8" width="1" height="1"/><rect x="26" y="8" width="2" height="1"/>
+              <rect x="0" y="9" width="1" height="1"/><rect x="3" y="9" width="1" height="2"/><rect x="9" y="9" width="1" height="2"/><rect x="12" y="9" width="1" height="1"/><rect x="14" y="9" width="1" height="1"/><rect x="18" y="9" width="1" height="1"/><rect x="22" y="9" width="1" height="1"/><rect x="25" y="9" width="1" height="1"/><rect x="28" y="9" width="1" height="2"/>
+              <rect x="1" y="10" width="1" height="1"/><rect x="5" y="10" width="1" height="1"/><rect x="11" y="10" width="1" height="1"/><rect x="13" y="10" width="2" height="1"/><rect x="17" y="10" width="1" height="1"/><rect x="20" y="10" width="1" height="1"/><rect x="24" y="10" width="2" height="1"/><rect x="27" y="10" width="1" height="1"/>
+              <rect x="2" y="11" width="1" height="1"/><rect x="4" y="11" width="2" height="1"/><rect x="8" y="11" width="1" height="1"/><rect x="10" y="11" width="1" height="2"/><rect x="12" y="11" width="1" height="1"/><rect x="15" y="11" width="1" height="1"/><rect x="18" y="11" width="2" height="1"/><rect x="21" y="11" width="1" height="1"/><rect x="23" y="11" width="1" height="2"/><rect x="26" y="11" width="1" height="1"/>
+              <rect x="0" y="12" width="2" height="1"/><rect x="3" y="12" width="1" height="1"/><rect x="7" y="12" width="1" height="1"/><rect x="9" y="12" width="1" height="1"/><rect x="14" y="12" width="1" height="1"/><rect x="16" y="12" width="1" height="1"/><rect x="19" y="12" width="1" height="1"/><rect x="22" y="12" width="1" height="1"/><rect x="25" y="12" width="1" height="1"/><rect x="27" y="12" width="2" height="1"/>
+              <rect x="2" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="1"/><rect x="8" y="13" width="2" height="1"/><rect x="11" y="13" width="1" height="1"/><rect x="13" y="13" width="1" height="1"/><rect x="17" y="13" width="2" height="1"/><rect x="21" y="13" width="1" height="2"/><rect x="24" y="13" width="1" height="1"/><rect x="26" y="13" width="1" height="1"/>
+              <rect x="0" y="14" width="1" height="1"/><rect x="4" y="14" width="1" height="1"/><rect x="7" y="14" width="1" height="2"/><rect x="10" y="14" width="1" height="1"/><rect x="12" y="14" width="2" height="1"/><rect x="15" y="14" width="1" height="1"/><rect x="18" y="14" width="1" height="1"/><rect x="20" y="14" width="1" height="1"/><rect x="23" y="14" width="1" height="1"/><rect x="27" y="14" width="1" height="1"/>
+              <rect x="1" y="15" width="1" height="1"/><rect x="3" y="15" width="1" height="1"/><rect x="9" y="15" width="1" height="1"/><rect x="11" y="15" width="1" height="1"/><rect x="14" y="15" width="1" height="2"/><rect x="16" y="15" width="2" height="1"/><rect x="19" y="15" width="1" height="1"/><rect x="22" y="15" width="2" height="1"/><rect x="25" y="15" width="1" height="1"/><rect x="28" y="15" width="1" height="1"/>
+              <rect x="0" y="16" width="1" height="2"/><rect x="4" y="16" width="2" height="1"/><rect x="8" y="16" width="1" height="1"/><rect x="10" y="16" width="1" height="1"/><rect x="12" y="16" width="1" height="1"/><rect x="18" y="16" width="1" height="2"/><rect x="21" y="16" width="1" height="1"/><rect x="24" y="16" width="1" height="1"/><rect x="26" y="16" width="1" height="2"/>
+              <rect x="2" y="17" width="1" height="1"/><rect x="5" y="17" width="1" height="1"/><rect x="7" y="17" width="1" height="1"/><rect x="11" y="17" width="2" height="1"/><rect x="15" y="17" width="1" height="1"/><rect x="17" y="17" width="1" height="1"/><rect x="20" y="17" width="1" height="1"/><rect x="23" y="17" width="1" height="1"/><rect x="25" y="17" width="1" height="1"/><rect x="28" y="17" width="1" height="1"/>
+              <rect x="1" y="18" width="1" height="1"/><rect x="3" y="18" width="2" height="1"/><rect x="9" y="18" width="1" height="1"/><rect x="13" y="18" width="1" height="1"/><rect x="16" y="18" width="1" height="1"/><rect x="19" y="18" width="2" height="1"/><rect x="22" y="18" width="1" height="1"/><rect x="27" y="18" width="1" height="1"/>
+              <rect x="0" y="19" width="1" height="1"/><rect x="2" y="19" width="1" height="1"/><rect x="6" y="19" width="1" height="1"/><rect x="8" y="19" width="2" height="1"/><rect x="12" y="19" width="1" height="1"/><rect x="14" y="19" width="1" height="1"/><rect x="17" y="19" width="1" height="1"/><rect x="24" y="19" width="1" height="1"/><rect x="26" y="19" width="1" height="1"/>
+              <rect x="4" y="20" width="1" height="1"/><rect x="7" y="20" width="1" height="1"/><rect x="10" y="20" width="1" height="1"/><rect x="13" y="20" width="2" height="1"/><rect x="16" y="20" width="1" height="1"/><rect x="18" y="20" width="1" height="1"/><rect x="27" y="20" width="2" height="1"/>
+              <rect x="8" y="21" width="1" height="1"/><rect x="11" y="21" width="1" height="1"/><rect x="14" y="21" width="1" height="1"/><rect x="17" y="21" width="2" height="1"/><rect x="26" y="21" width="1" height="1"/>
+              <rect x="9" y="22" width="2" height="1"/><rect x="12" y="22" width="1" height="1"/><rect x="15" y="22" width="1" height="1"/><rect x="18" y="22" width="1" height="1"/><rect x="27" y="22" width="1" height="2"/>
+              <rect x="8" y="23" width="1" height="1"/><rect x="10" y="23" width="1" height="1"/><rect x="13" y="23" width="1" height="1"/><rect x="16" y="23" width="2" height="1"/><rect x="19" y="23" width="1" height="1"/><rect x="26" y="23" width="1" height="1"/>
+              <rect x="9" y="24" width="1" height="1"/><rect x="11" y="24" width="2" height="1"/><rect x="14" y="24" width="1" height="1"/><rect x="17" y="24" width="1" height="1"/><rect x="19" y="24" width="1" height="1"/><rect x="28" y="24" width="1" height="1"/>
+              <rect x="8" y="25" width="1" height="1"/><rect x="10" y="25" width="1" height="1"/><rect x="13" y="25" width="1" height="1"/><rect x="15" y="25" width="1" height="1"/><rect x="18" y="25" width="1" height="1"/><rect x="21" y="25" width="1" height="1"/><rect x="23" y="25" width="2" height="1"/><rect x="27" y="25" width="1" height="1"/>
+              <rect x="9" y="26" width="2" height="1"/><rect x="12" y="26" width="1" height="1"/><rect x="14" y="26" width="1" height="1"/><rect x="16" y="26" width="1" height="1"/><rect x="20" y="26" width="1" height="1"/><rect x="22" y="26" width="1" height="1"/><rect x="25" y="26" width="1" height="1"/><rect x="28" y="26" width="1" height="1"/>
+              <rect x="8" y="27" width="1" height="1"/><rect x="11" y="27" width="1" height="1"/><rect x="13" y="27" width="2" height="1"/><rect x="17" y="27" width="1" height="1"/><rect x="19" y="27" width="1" height="1"/><rect x="21" y="27" width="2" height="1"/><rect x="24" y="27" width="1" height="1"/><rect x="26" y="27" width="1" height="1"/>
+              <rect x="10" y="28" width="1" height="1"/><rect x="12" y="28" width="1" height="1"/><rect x="15" y="28" width="2" height="1"/><rect x="18" y="28" width="1" height="1"/><rect x="20" y="28" width="1" height="1"/><rect x="23" y="28" width="1" height="1"/><rect x="25" y="28" width="2" height="1"/>
+            </g>
+          </svg>
+        </div>
+        <div style="flex:1;min-width:230px" class="stack">
+          <div>
+            <p style="font-weight:650;font-size:var(--text-sm)">1. Scan this with your authenticator app</p>
+            <p class="hint" style="margin-top:4px">Google Authenticator, 1Password, Authy, Bitwarden — any of them will do.</p>
+          </div>
+          <div class="field">
+            <label class="label" for="tfa-key">Cannot scan? Type this setup key instead</label>
+            <div class="input-group">
+              <input class="input mono" id="tfa-key" type="text" value="JBSW Y3DP EHPK 3PXP QRST" readonly>
+              <button class="btn btn-secondary" type="button" data-copy="JBSWY3DPEHPK3PXPQRST" aria-label="Copy setup key"><i data-lucide="copy" class="ic ic-sm"></i></button>
+            </div>
+          </div>
+          <hr>
+          <div class="field">
+            <label class="label" for="tfa-code">2. Enter the six-digit code it shows</label>
+            <input class="input mono" id="tfa-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required aria-describedby="tfa-code-err" style="max-width:150px;letter-spacing:.25em">
+            <p class="error-text" id="tfa-code-err" hidden><i data-lucide="alert-circle" class="ic ic-sm"></i>Enter all six digits.</p>
+          </div>
+        </div>
+      </div>
+      <div class="banner banner-info" style="margin-top:var(--sp-4)">
+        <i data-lucide="key-round" class="ic"></i>
+        <div>Once this is on we will show you ten single-use recovery codes. Save them somewhere that is not your phone — they are the only way back in if you lose the device.</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Turn on two-factor</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dialog" id="dlg-delete" aria-labelledby="dlg-del-h">
+  <form class="dialog-panel" method="dialog" id="form-delete">
+    <div class="dialog-header">
+      <h2 id="dlg-del-h" style="color:var(--danger-fg)">Delete your Prepeet account</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="banner banner-danger">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>This cannot be undone. There is no 30-day grace period and no recovery.</div>
+      </div>
+      <div>
+        <p style="font-weight:650;font-size:var(--text-sm);color:var(--fg)">What is deleted immediately</p>
+        <ul class="stack-sm" style="margin-top:6px;font-size:var(--text-sm);color:var(--fg-2)">
+          <li>· Your profile, CV and evidence bank</li>
+          <li>· All 12 sessions, including recordings and transcripts</li>
+          <li>· Every practice evaluation and your whole progression history</li>
+        </ul>
+      </div>
+      <div>
+        <p style="font-weight:650;font-size:var(--text-sm);color:var(--fg)">What we cannot delete</p>
+        <ul class="stack-sm" style="margin-top:6px;font-size:var(--text-sm);color:var(--fg-2)">
+          <li>· The screening interview you submitted to Northwind Health System on 16 August. They hold their own copy under their retention policy. Contact them directly.</li>
+        </ul>
+      </div>
+      <p class="hint">Consider <button class="btn btn-sm btn-ghost" type="button" data-dialog-close data-toast="Export requested" data-toast-desc="We will email a download link within 24 hours." data-toast-kind="success" style="padding:0 4px;min-height:auto">requesting an export</button> first — it takes 24 hours and you keep everything.</p>
+      <div class="field">
+        <label class="label" for="del-confirm">Type <span class="mono" style="background:var(--surface-3);padding:1px 6px;border-radius:4px">delete my account</span> to confirm</label>
+        <input class="input" id="del-confirm" type="text" autocomplete="off" aria-describedby="del-err" placeholder="delete my account">
+        <p class="error-text" id="del-err" hidden><i data-lucide="alert-circle" class="ic ic-sm"></i>That does not match. Type it exactly, in lower case.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Keep my account</button>
+      <button class="btn btn-danger" type="submit" id="btn-confirm-delete" disabled>Delete everything</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var LS = {
+    get: function (k, d) { try { var v = localStorage.getItem('prepeet.' + k); return v === null ? d : v; } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem('prepeet.' + k, v); } catch (e) {} },
+    del: function (k) { try { localStorage.removeItem('prepeet.' + k); } catch (e) {} }
+  };
+
+  /* ---------------- unsaved-changes bar ---------------- */
+  var dirty = 0;
+  function refreshBar() {
+    var bar = document.getElementById('savebar');
+    bar.hidden = dirty === 0;
+    document.getElementById('savebar-detail').textContent = dirty + ' setting' + (dirty === 1 ? '' : 's') + ' changed';
+  }
+  function initSaveBar() {
+    var scope = document.getElementById('settings-forms');
+    var seen = [];
+    scope.addEventListener('change', function (e) {
+      var el = e.target;
+      if (!el.matches('input, select, textarea')) return;
+      if (el.closest('[data-instant]') || el.closest('[data-no-savebar]')) return;
+      if (seen.indexOf(el) === -1) { seen.push(el); dirty++; refreshBar(); }
+    });
+    document.getElementById('btn-save').addEventListener('click', function () {
+      Prepeet.toast({ title: 'Settings saved', desc: dirty + ' change' + (dirty === 1 ? '' : 's') + ' applied to your account.', kind: 'success' });
+      Prepeet.announce('Settings saved.');
+      seen = []; dirty = 0; refreshBar();
+    });
+    document.getElementById('btn-discard').addEventListener('click', function () {
+      seen = []; dirty = 0; refreshBar();
+      Prepeet.toast({ title: 'Changes discarded', kind: 'default' });
+      Prepeet.announce('Changes discarded.');
+    });
+    refreshBar();
+  }
+
+  /* ---------------- accessibility (live) ---------------- */
+  function initA11y() {
+    /* theme: light / dark handled by theme.js; "system" handled here */
+    var sys = document.getElementById('theme-system');
+    sys.closest('.card-body').setAttribute('data-instant', '');
+    sys.addEventListener('change', function () {
+      if (!sys.checked) return;
+      LS.set('themeMode', 'system');
+      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      window.PrepeetTheme.set(dark ? 'dark' : 'light');
+      sys.checked = true;
+      Prepeet.announce('Theme now follows your system setting.');
+    });
+    document.querySelectorAll('[data-theme-radio]').forEach(function (r) {
+      r.addEventListener('change', function () { if (r.checked) LS.del('themeMode'); });
+    });
+    if (LS.get('themeMode') === 'system') { sys.checked = true; }
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (ev) {
+        if (LS.get('themeMode') === 'system') { window.PrepeetTheme.set(ev.matches ? 'dark' : 'light'); sys.checked = true; }
+      });
+    }
+
+    /* reduced motion */
+    var rm = document.getElementById('reduce-motion');
+    rm.checked = document.documentElement.getAttribute('data-motion') === 'reduced';
+    rm.addEventListener('change', function () {
+      window.PrepeetTheme.setMotion(rm.checked ? 'reduced' : 'normal');
+      Prepeet.announce(rm.checked ? 'Reduced motion on.' : 'Reduced motion off.');
+    });
+
+    /* text size */
+    var ts = document.getElementById('text-size');
+    var savedSize = LS.get('textSize', '15');
+    ts.value = savedSize;
+    applySize(savedSize);
+    ts.addEventListener('change', function () { LS.set('textSize', ts.value); applySize(ts.value); Prepeet.announce('Text size set to ' + ts.value + ' pixels.'); });
+    function applySize(px) { document.documentElement.style.setProperty('--text-base', (Number(px) / 16) + 'rem'); }
+
+    /* interview accessibility prefs — persisted so they really stick */
+    [['a11y-captions', 'captions', true], ['a11y-ptt', 'ptt', false], ['a11y-sr', 'srTranscript', false]].forEach(function (p) {
+      var el = document.getElementById(p[0]);
+      var stored = LS.get(p[1]);
+      el.checked = stored === null || stored === undefined ? p[2] : stored === 'true';
+      el.addEventListener('change', function () { LS.set(p[1], String(el.checked)); Prepeet.announce(el.checked ? 'Turned on.' : 'Turned off.'); });
+    });
+    var tt = document.getElementById('think-time');
+    tt.value = LS.get('thinkTime', '20');
+    tt.addEventListener('change', function () { LS.set('thinkTime', tt.value); Prepeet.announce('Thinking time set to ' + tt.value + ' seconds. This does not affect your evaluation.'); });
+
+    /* nothing on this tab should trip the unsaved bar */
+    document.getElementById('accessibility').setAttribute('data-instant', '');
+  }
+
+  /* ---------------- account ---------------- */
+  function initAccount() {
+    document.getElementById('form-password').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var a = document.getElementById('pw-new'), b = document.getElementById('pw-confirm');
+      var err = document.getElementById('pw-confirm-err');
+      if (a.value !== b.value || !b.value) {
+        err.hidden = false; b.setAttribute('aria-invalid', 'true'); b.focus();
+        Prepeet.announce('The two passwords do not match.');
+        return;
+      }
+      err.hidden = true; b.setAttribute('aria-invalid', 'false');
+      this.reset();
+      Prepeet.toast({ title: 'Password updated', desc: 'Every other device has been signed out.', kind: 'success' });
+    });
+
+    document.getElementById('form-email').addEventListener('submit', function () {
+      var v = document.getElementById('em-new').value || 'the new address';
+      Prepeet.toast({ title: 'Confirmation link sent', desc: 'Click the link in the email we sent to ' + v + '.', kind: 'success' });
+    });
+
+    document.getElementById('form-2fa').addEventListener('submit', function (e) {
+      var code = document.getElementById('tfa-code');
+      var err = document.getElementById('tfa-code-err');
+      if (!/^[0-9]{6}$/.test(code.value)) {
+        e.preventDefault();
+        err.hidden = false; code.setAttribute('aria-invalid', 'true'); code.focus();
+        Prepeet.announce('Enter all six digits.');
+        return;
+      }
+      err.hidden = true;
+      var badge = document.getElementById('tfa-badge');
+      badge.className = 'badge badge-success';
+      badge.innerHTML = '<i data-lucide="shield-check" class="ic-sm ic"></i>On';
+      var btn = document.getElementById('btn-2fa');
+      btn.textContent = 'Manage two-factor';
+      btn.className = 'btn btn-secondary btn-sm';
+      Prepeet.init();
+      Prepeet.toast({ title: 'Two-factor authentication is on', desc: 'Your ten recovery codes are in the email we just sent.', kind: 'success' });
+    });
+
+    document.getElementById('session-rows').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-revoke]');
+      if (!b) return;
+      var name = b.getAttribute('data-revoke');
+      var row = b.closest('tr');
+      row.remove();
+      document.getElementById('revoke-status').textContent = name + ' was signed out.';
+      Prepeet.toast({ title: 'Session revoked', desc: name + ' has been signed out.', kind: 'warning' });
+    });
+
+    var del = document.getElementById('del-confirm'), delBtn = document.getElementById('btn-confirm-delete');
+    del.addEventListener('input', function () {
+      var ok = del.value === 'delete my account';
+      delBtn.disabled = !ok;
+      document.getElementById('del-err').hidden = ok || del.value.length === 0;
+    });
+    document.getElementById('form-delete').addEventListener('submit', function () {
+      Prepeet.toast({ title: 'Account scheduled for deletion', desc: 'You will be signed out in a moment.', kind: 'danger' });
+    });
+  }
+
+  /* ---------------- privacy ---------------- */
+  function initPrivacy() {
+    var optin = document.getElementById('improve-optin');
+    var badge = document.getElementById('improve-badge');
+    optin.checked = false;
+    optin.addEventListener('change', function () {
+      badge.textContent = optin.checked ? 'On' : 'Off';
+      badge.className = 'badge ' + (optin.checked ? 'badge-primary' : 'badge-neutral');
+      Prepeet.announce(optin.checked
+        ? 'Prepeet may now use anonymised practice transcripts to check evaluation quality.'
+        : 'Prepeet will not use your practice data.');
+    });
+
+    document.getElementById('btn-request-data').addEventListener('click', function () {
+      var tb = document.getElementById('export-rows');
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td data-label="Requested" class="td-primary">23 August 2026</td>' +
+        '<td data-label="Contents">Profile, CV, 12 sessions, transcripts, evaluations, evidence bank</td>' +
+        '<td data-label="Status"><span class="badge badge-info"><i data-lucide="loader" class="ic-sm ic"></i>Preparing</span></td>' +
+        '<td class="td-actions"><span class="hint">Ready within 24 hours</span></td>';
+      tb.insertBefore(tr, tb.firstChild);
+      document.getElementById('export-status').textContent = 'Request received. We will email daniel.okonkwo@example.com when the archive is ready.';
+      Prepeet.toast({ title: 'Data export requested', desc: 'We will email a download link within 24 hours.', kind: 'success' });
+      Prepeet.init();
+    });
+  }
+
+  /* ---------------- interview defaults ---------------- */
+  function initDefaults() {
+    document.getElementById('btn-reset-defaults').addEventListener('click', function () {
+      document.getElementById('df-persona').value = 'per_ama';
+      document.getElementById('df-shape').value = 'shape_behavioural';
+      document.getElementById('df-duration').selectedIndex = 1;
+      document.getElementById('df-seniority').selectedIndex = 1;
+      document.getElementById('df-captions').checked = true;
+      document.getElementById('df-lang').selectedIndex = 0;
+      Prepeet.toast({ title: 'Reset to Prepeet defaults', desc: 'Ama, behavioural, 25 minutes, mid-level, captions on.', kind: 'default' });
+      Prepeet.announce('Interview defaults reset.');
+    });
+  }
+
+  /* ---------------- in-page tab links ---------------- */
+  function initTabLinks() {
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest('[data-goto-tab]');
+      if (!a) return;
+      Prepeet.activateTab(a.getAttribute('data-goto-tab'));
+    });
+    /* honour a #help / #privacy hash arriving from another page */
+    if (location.hash === '#help') {
+      var h = document.getElementById('help');
+      if (h) setTimeout(function () { h.scrollIntoView(); h.setAttribute('tabindex', '-1'); h.focus(); }, 60);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    initSaveBar(); initA11y(); initAccount(); initPrivacy(); initDefaults(); initTabLinks();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

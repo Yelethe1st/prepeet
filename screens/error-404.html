@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found · Prepeet</title>
+<meta name="description" content="That page does not exist on Prepeet. Search, or jump to a candidate, hiring or platform screen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped: standalone centred error page. */
+  .err-wrap { width: 100%; max-width: 620px; margin: auto; padding: var(--sp-8) 0 var(--sp-12); }
+  .err-path { display: inline-block; max-width: 100%; overflow-wrap: anywhere; padding: 6px 10px; border-radius: var(--r-sm); background: var(--surface-inset); border: 1px solid var(--border); }
+  .dest-list li + li { border-top: 1px solid var(--border-subtle); }
+  .dest { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; color: inherit; text-decoration: none !important; border-radius: var(--r-md); }
+  .dest:hover { background: var(--surface-2); }
+</style>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<header class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+    <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+  </button>
+</header>
+
+<main id="main-content" class="err-wrap">
+
+  <div class="state state-page">
+    <div class="state-icon"><i data-lucide="map-pin-off" class="ic"></i></div>
+    <p class="eyebrow eyebrow--muted">404 · not found</p>
+    <h1>We could not find that page</h1>
+    <p>There is nothing at this address. It may have been renamed, the interview or candidate it pointed at may have been deleted, or the link may simply have a typo in it.</p>
+    <p class="mono err-path" id="path">/candidate/sessions/archive</p>
+  </div>
+
+  <section class="card" aria-labelledby="search-h" style="margin-top:var(--sp-2)">
+    <div class="card-body">
+      <h2 id="search-h" style="font-size:var(--text-base)">Search for it instead</h2>
+      <p class="hint" style="margin-top:4px;line-height:1.55">Search the full screen index — every candidate, hiring and platform screen in Prepeet, by name or by route.</p>
+      <form class="input-group" style="margin-top:12px" action="screens.html" method="get" id="search-form">
+        <label class="sr-only" for="q">Search Prepeet screens</label>
+        <input class="input" id="q" name="q" type="search" placeholder="e.g. sessions, rubrics, quotas, invitation…" autocomplete="off">
+        <button class="btn btn-primary" type="submit"><i data-lucide="search" class="ic ic-sm"></i>Search</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="dest-h" style="margin-top:var(--sp-4)">
+    <div class="card-header"><h2 id="dest-h">Likely destinations</h2></div>
+    <div class="card-body" style="padding:6px">
+      <ul class="dest-list">
+        <li>
+          <a class="dest" href="candidate-dashboard.html">
+            <i data-lucide="layout-dashboard" class="ic" style="color:var(--primary);margin-top:2px"></i>
+            <span><strong style="font-size:var(--text-sm)">Candidate dashboard</strong>
+            <span class="hint" style="display:block;margin-top:2px">Your readiness, recommended next session and recent feedback.</span></span>
+          </a>
+        </li>
+        <li>
+          <a class="dest" href="admin-recruiter.html">
+            <i data-lucide="users-round" class="ic" style="color:var(--primary);margin-top:2px"></i>
+            <span><strong style="font-size:var(--text-sm)">Candidates — hiring team</strong>
+            <span class="hint" style="display:block;margin-top:2px">Evidence-backed evaluations awaiting reviewer decisions.</span></span>
+          </a>
+        </li>
+        <li>
+          <a class="dest" href="admin-platform-analytics.html">
+            <i data-lucide="bar-chart-3" class="ic" style="color:var(--primary);margin-top:2px"></i>
+            <span><strong style="font-size:var(--text-sm)">Platform analytics</strong>
+            <span class="hint" style="display:block;margin-top:2px">Volume, evaluation quality and cost across every tenant.</span></span>
+          </a>
+        </li>
+        <li>
+          <a class="dest" href="design-system.html">
+            <i data-lucide="palette" class="ic" style="color:var(--primary);margin-top:2px"></i>
+            <span><strong style="font-size:var(--text-sm)">Design system</strong>
+            <span class="hint" style="display:block;margin-top:2px">Tokens, components and the accessibility rules they follow.</span></span>
+          </a>
+        </li>
+        <li>
+          <a class="dest" href="screens.html">
+            <i data-lucide="list" class="ic" style="color:var(--primary);margin-top:2px"></i>
+            <span><strong style="font-size:var(--text-sm)">Prototype index</strong>
+            <span class="hint" style="display:block;margin-top:2px">Every screen in this prototype with its route, in one list.</span></span>
+          </a>
+        </li>
+      </ul>
+    </div>
+    <div class="card-footer">
+      <p class="hint">If you followed a link from inside Prepeet and landed here, tell us — a broken internal link is a bug on our side. <a href="index.html#faq">How to reach us</a>.</p>
+    </div>
+  </section>
+
+  <p class="hint" style="text-align:center;margin-top:var(--sp-5)">
+    <a href="index.html">Prepeet home</a> · <a href="login.html">Sign in</a> · <a href="screens.html">All screens</a>
+  </p>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    if (Prepeet.favicon) Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+
+    var path = Prepeet.query.get('path', '') || '/candidate/sessions/archive';
+    /* Only ever render the attempted path as text — never as markup. */
+    document.getElementById('path').textContent = path;
+    document.title = 'Page not found · Prepeet';
+
+    var q = document.getElementById('q');
+    var guess = path.split(/[/?#]/).filter(Boolean).pop() || '';
+    if (guess && !/^[a-z]{3}_/.test(guess)) q.value = guess.replace(/[-_]+/g, ' ');
+
+    Prepeet.announce('Page not found. The address ' + path + ' does not exist.');
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check your email · Prepeet</title>
+<meta name="description" content="Prepeet has emailed you a single-use link. Open it to continue — or resend it once the cooldown has finished.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <div class="cluster">
+    <span class="hint sr-only">Preview which email was sent</span>
+    <div class="segmented" role="group" aria-label="Preview which email was sent">
+      <button type="button" data-for-btn="reset" aria-pressed="true">Reset</button>
+      <button type="button" data-for-btn="verify" aria-pressed="false">Verify</button>
+      <button type="button" data-for-btn="magic" aria-pressed="false">Magic link</button>
+    </div>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</div>
+
+<main class="auth-card" id="main-content">
+
+  <div class="state primary state-compact" style="padding:0 0 18px">
+    <div class="state-icon"><i data-lucide="mail-check" class="ic"></i></div>
+    <h1 id="ce-title" style="font-size:var(--text-xl)">Check your email</h1>
+    <p id="ce-lead">We have sent a single-use link to the address below.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-body" style="display:flex;gap:14px;align-items:center">
+      <span class="avatar avatar-square" style="background:var(--primary-soft);color:var(--primary-soft-fg)"><i data-lucide="at-sign" class="ic"></i></span>
+      <div style="min-width:0;flex:1">
+        <div class="hint">Sent to</div>
+        <div class="mono truncate" id="ce-email" style="font-weight:600;font-size:var(--text-base);color:var(--fg)">d•••••••••o@example.com</div>
+      </div>
+      <a class="btn btn-sm btn-ghost" href="forgot-password.html" id="ce-change">Wrong address?</a>
+    </div>
+  </div>
+
+  <dl class="kv" style="margin-bottom:18px">
+    <dt>From</dt><dd class="mono">no-reply@prepeet.example</dd>
+    <dt>Subject</dt><dd id="ce-subject">Set a new Prepeet password</dd>
+    <dt>Valid for</dt><dd id="ce-validity">60 minutes, and one use only</dd>
+    <dt>Sent at</dt><dd>23 August 2026, 21:07 (Europe/London)</dd>
+  </dl>
+
+  <!-- ─────────── Resend with cooldown ─────────── -->
+  <div class="card card-subtle" style="margin-bottom:18px">
+    <div class="card-body">
+      <div class="between" style="gap:12px">
+        <div style="min-width:0">
+          <strong style="font-size:var(--text-sm)">Nothing yet?</strong>
+          <p class="hint" style="margin-top:2px">You can send it again once the cooldown finishes. We limit resends to stop mailbox flooding.</p>
+        </div>
+        <button class="btn btn-secondary" type="button" id="resend-btn" disabled aria-describedby="resend-status">
+          <i data-lucide="send" class="ic ic-sm"></i><span id="resend-label">Resend in 45s</span>
+        </button>
+      </div>
+      <div class="progress sm" style="margin-top:12px" aria-hidden="true"><span id="resend-bar" style="width:0%"></span></div>
+      <p class="hint" id="resend-status" role="status" aria-live="polite" style="margin-top:8px">A new link can be requested in 45 seconds.</p>
+    </div>
+  </div>
+
+  <!-- ─────────── Continue (prototype convenience) ─────────── -->
+  <div class="banner banner-info" style="margin-bottom:18px">
+    <i data-lucide="mouse-pointer-click" class="ic"></i>
+    <div>
+      <strong>Prototype shortcut.</strong>
+      <p style="margin-top:4px;line-height:1.5">In the real product you would now click the link in your inbox. Here, this button opens the page that link leads to.</p>
+      <div class="cluster" style="margin-top:10px">
+        <a class="btn btn-sm btn-primary" id="ce-continue" href="reset-password.html">Open the link</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── Troubleshooting ─────────── -->
+  <section aria-labelledby="help-h">
+    <h2 id="help-h" class="section-title" style="font-size:var(--text-sm)">If it has not arrived</h2>
+    <div class="accordion" data-accordion-single>
+      <div class="accordion-item">
+        <button class="accordion-trigger" type="button" aria-expanded="true" aria-controls="help-1">
+          Give it two minutes, then check junk<i data-lucide="chevron-down" class="ic"></i>
+        </button>
+        <div class="accordion-panel" id="help-1">
+          Most messages land in under 30 seconds. Anything slower is usually a receiving mail server queuing us. Search your mailbox for <span class="mono">prepeet</span> rather than scrolling — filtered mail often skips the inbox entirely.
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="help-2">
+          Hospital, school and council mail filters<i data-lucide="chevron-down" class="ic"></i>
+        </button>
+        <div class="accordion-panel" id="help-2">
+          Clinical and public-sector mail gateways frequently quarantine first-time senders and rewrite links. Ask your IT team to allow <span class="mono">no-reply@prepeet.example</span> and the domain <span class="mono">prepeet.example</span>, or use a personal address for your candidate account — you can change it later in settings.
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="help-3">
+          The link says it has expired<i data-lucide="chevron-down" class="ic"></i>
+        </button>
+        <div class="accordion-panel" id="help-3">
+          Links last 60 minutes and stop working after one use. Some mail scanners open links before you do, which uses the link up. If that happens you will land on the expired page — request a fresh one from there.
+          <div class="cluster" style="margin-top:10px"><a class="btn btn-sm btn-secondary" href="auth-expired.html">See the expired-link page</a></div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="help-4">
+          You typed the wrong address<i data-lucide="chevron-down" class="ic"></i>
+        </button>
+        <div class="accordion-panel" id="help-4">
+          Nothing was sent to an account that does not exist, and no account was created. Start again with the correct address, or register if you have not signed up yet.
+          <div class="cluster" style="margin-top:10px">
+            <a class="btn btn-sm btn-secondary" href="forgot-password.html">Try another address</a>
+            <a class="btn btn-sm btn-ghost" href="register.html">Create an account</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr style="margin:22px 0">
+  <p class="hint">
+    <a href="login.html" style="font-weight:600">Back to sign in</a> ·
+    <a href="otp.html">Use a six-digit code instead</a>
+  </p>
+</main>
+
+<footer class="auth-foot" style="justify-content:center">
+  <span>© 2026 Prepeet</span>
+  <a href="index.html">About Prepeet</a>
+  <a href="login.html">Sign in</a>
+  <a href="screens.html">Prototype index</a>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var COOLDOWN = 45;
+
+  var PURPOSE = {
+    reset: {
+      title: 'Check your email',
+      lead: 'We have sent a single-use link that lets you choose a new password.',
+      subject: 'Set a new Prepeet password',
+      validity: '60 minutes, and one use only',
+      cta: 'Open the reset link',
+      href: 'reset-password.html',
+      change: 'forgot-password.html',
+      changeLabel: 'Wrong address?'
+    },
+    verify: {
+      title: 'Confirm your email address',
+      lead: 'Your account exists but is not confirmed yet. Open the link we just sent to finish setting it up.',
+      subject: 'Confirm your Prepeet email address',
+      validity: '7 days, and one use only',
+      cta: 'Open the confirmation link',
+      href: 'verify-email.html',
+      change: 'register.html',
+      changeLabel: 'Change address'
+    },
+    magic: {
+      title: 'Your sign-in link is on its way',
+      lead: 'No password needed. Open the link on this device and you will be signed straight in.',
+      subject: 'Your Prepeet sign-in link',
+      validity: '15 minutes, and one use only',
+      cta: 'Open the sign-in link',
+      href: 'magic-link.html',
+      change: 'login.html',
+      changeLabel: 'Use a different address'
+    }
+  };
+
+  function maskEmail(raw) {
+    if (!raw || raw.indexOf('@') === -1) return raw || '';
+    var parts = raw.split('@');
+    var local = parts[0];
+    if (local.length <= 2) return local.charAt(0) + '•@' + parts[1];
+    return local.charAt(0) + new Array(Math.max(local.length - 1, 3)).join('•') + local.charAt(local.length - 1) + '@' + parts[1];
+  }
+
+  var timer = null, remaining = COOLDOWN;
+
+  function tick() {
+    var btn = document.getElementById('resend-btn');
+    var label = document.getElementById('resend-label');
+    var status = document.getElementById('resend-status');
+    var bar = document.getElementById('resend-bar');
+
+    remaining -= 1;
+    bar.style.width = Math.round(((COOLDOWN - remaining) / COOLDOWN) * 100) + '%';
+
+    if (remaining > 0) {
+      label.textContent = 'Resend in ' + remaining + 's';
+      if (remaining === 30 || remaining === 15 || remaining === 5) {
+        status.textContent = 'A new link can be requested in ' + remaining + ' seconds.';
+      }
+      return;
+    }
+
+    clearInterval(timer); timer = null;
+    btn.disabled = false;
+    label.textContent = 'Send the link again';
+    bar.style.width = '100%';
+    status.textContent = 'You can request a new link now.';
+    Prepeet.announce('You can now request a new link.');
+  }
+
+  function startCooldown() {
+    var btn = document.getElementById('resend-btn');
+    remaining = COOLDOWN;
+    btn.disabled = true;
+    document.getElementById('resend-label').textContent = 'Resend in ' + COOLDOWN + 's';
+    document.getElementById('resend-bar').style.width = '0%';
+    document.getElementById('resend-status').textContent = 'A new link can be requested in ' + COOLDOWN + ' seconds.';
+    if (timer) clearInterval(timer);
+    timer = setInterval(tick, 1000);
+  }
+
+  function applyPurpose(kind) {
+    var p = PURPOSE[kind] || PURPOSE.reset;
+    document.getElementById('ce-title').textContent = p.title;
+    document.getElementById('ce-lead').textContent = p.lead;
+    document.getElementById('ce-subject').textContent = p.subject;
+    document.getElementById('ce-validity').textContent = p.validity;
+    var cta = document.getElementById('ce-continue');
+    cta.textContent = p.cta; cta.href = p.href;
+    var change = document.getElementById('ce-change');
+    change.href = p.change; change.textContent = p.changeLabel;
+    document.title = p.title + ' · Prepeet';
+    document.querySelectorAll('[data-for-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-for-btn') === kind));
+    });
+    Prepeet.query.set({ 'for': kind === 'reset' ? null : kind }, true);
+    Prepeet.init();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-for-btn]');
+    if (b) { applyPurpose(b.getAttribute('data-for-btn')); return; }
+    if (e.target.closest('#resend-btn')) {
+      Prepeet.toast({ title: 'Link sent again', desc: 'Check the same mailbox — the earlier link no longer works.', kind: 'success' });
+      Prepeet.announce('A new link has been sent. The previous link is now invalid.');
+      startCooldown();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+
+    var raw = Prepeet.query.get('email') || Prepeet.data.candidateUser.email;
+    document.getElementById('ce-email').textContent = maskEmail(raw);
+
+    var kind = Prepeet.query.get('for', 'reset');
+    applyPurpose(PURPOSE[kind] ? kind : 'reset');
+    startCooldown();
+  });
+})();
+</script>
+</body>
+</html>

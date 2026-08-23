@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campaigns · Prepeet</title>
+<meta name="description" content="Hiring campaigns for Northwind Health System: the role, the pinned interview configuration and the disclosure every candidate is asked to accept before an invitation can be issued.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-scoped: a metric card doubling as a status filter, and the funnel bar */
+  .metric-btn { text-align: left; width: 100%; display: block; }
+  .metric-btn[aria-pressed="true"] { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .metric-btn:hover { border-color: var(--border-strong); }
+  .funnel { display:flex; height: 8px; border-radius: var(--r-pill); overflow: hidden; background: var(--surface-inset); min-width: 120px; }
+  .funnel span { display:block; }
+  .funnel .fn-complete { background: var(--chart-1); }
+  .funnel .fn-open     { background: var(--chart-4); }
+  .funnel .fn-expired  { background: var(--fg-muted); }
+  .cfg { font-size: var(--text-xs); color: var(--fg-2); line-height: 1.45; }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="campaigns" data-title="Campaigns" data-crumbs="Hiring>admin-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Northwind Health System</p>
+        <h1>Campaigns</h1>
+        <p class="page-desc">A campaign is one role, one published interview configuration and one disclosure. Every invitation is issued under a campaign, so every candidate for a role answers the same interview and is reviewed against the same rubric version.</p>
+      </div>
+      <div class="cluster">
+        <a class="btn btn-secondary" href="admin-invitations.html"><i data-lucide="mail" class="ic ic-sm"></i>All invitations</a>
+        <button class="btn btn-primary" type="button" data-dialog-open="dlg-new" data-requires="recruiter"><i data-lucide="plus" class="ic ic-sm"></i>New campaign</button>
+      </div>
+    </div>
+
+    <!-- Scope note — a recruiter sees only the campaigns they are scoped to -->
+    <div class="banner banner-info" id="scope-note" hidden style="margin-bottom:var(--sp-5)">
+      <i data-lucide="user-round-check" class="ic"></i>
+      <div>
+        <strong>You are seeing three of six campaigns.</strong>
+        <p style="margin:4px 0 0">Your access is scoped to the campaigns you were added to. A tenant administrator can widen it — the list is filtered by the server, not hidden by this page.</p>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────── metrics / status filters ─────────────── -->
+    <div class="metrics-row" style="margin-bottom:var(--sp-5)">
+      <button class="metric metric-btn" type="button" data-status-btn="" aria-pressed="true">
+        <span class="metric-label"><i data-lucide="layers" class="ic ic-sm"></i>All campaigns</span>
+        <span class="metric-value tnum">6</span>
+        <span class="metric-foot">Across five roles</span>
+      </button>
+      <button class="metric metric-btn" type="button" data-status-btn="open" aria-pressed="false">
+        <span class="metric-label"><i data-lucide="play-circle" class="ic ic-sm"></i>Open</span>
+        <span class="metric-value tnum">3</span>
+        <span class="metric-foot">Accepting invitations</span>
+      </button>
+      <button class="metric metric-btn" type="button" data-status-btn="review" aria-pressed="false">
+        <span class="metric-label"><i data-lucide="inbox" class="ic ic-sm"></i>Awaiting review</span>
+        <span class="metric-value tnum">7</span>
+        <span class="metric-foot">Candidates, across all campaigns</span>
+      </button>
+      <button class="metric metric-btn" type="button" data-status-btn="draft" aria-pressed="false">
+        <span class="metric-label"><i data-lucide="file-clock" class="ic ic-sm"></i>Not yet issuable</span>
+        <span class="metric-value tnum">1</span>
+        <span class="metric-foot">Configuration still in draft</span>
+      </button>
+    </div>
+
+    <section class="card" aria-labelledby="list-h">
+      <div class="card-header">
+        <div>
+          <h2 id="list-h" class="section-title">Campaigns</h2>
+          <p class="hint" style="margin-top:4px" id="list-count">Six campaigns.</p>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <form class="filterbar" id="filters" role="search" aria-label="Filter campaigns">
+          <div class="input-wrap">
+            <i data-lucide="search" class="ic ic-sm"></i>
+            <label class="sr-only" for="f-q">Search by campaign or role</label>
+            <input class="input" id="f-q" name="q" type="search" placeholder="Search campaign or role…">
+          </div>
+          <div>
+            <label class="sr-only" for="f-status">Status</label>
+            <select class="select" id="f-status" name="status">
+              <option value="">Any status</option>
+              <option value="open">Open</option>
+              <option value="paused">Paused</option>
+              <option value="draft">Draft</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+          <div>
+            <label class="sr-only" for="f-owner">Owner</label>
+            <select class="select" id="f-owner" name="owner">
+              <option value="">Any owner</option>
+              <option value="Priya Raman">Priya Raman</option>
+              <option value="Jonas Brandt">Jonas Brandt</option>
+              <option value="Elena Vasquez">Elena Vasquez</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" type="button" id="f-clear">Clear</button>
+        </form>
+
+        <div class="table-wrap" style="margin-top:var(--sp-4)">
+          <table class="table table-responsive">
+            <caption class="sr-only">Campaigns with role, pinned interview configuration, invitation progress, reviewers and status.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Campaign</th>
+                <th scope="col">Pinned configuration</th>
+                <th scope="col">Invitations</th>
+                <th scope="col">Awaiting review</th>
+                <th scope="col">Reviewers</th>
+                <th scope="col">Status</th>
+                <th scope="col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+
+        <div id="empty" hidden>
+          <div class="state">
+            <div class="state-icon"><i data-lucide="layers" class="ic"></i></div>
+            <h3 style="font-size:var(--text-md)">No campaigns match those filters</h3>
+            <p>Clear the filters to see all six campaigns for this workspace.</p>
+            <div class="actions"><button class="btn btn-secondary" type="button" id="empty-clear">Clear filters</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── why campaigns exist ──────────────────── -->
+    <div class="grid grid-2" style="margin-top:var(--sp-6)">
+      <section class="card card-subtle"><div class="card-body">
+        <div class="cluster" style="margin-bottom:10px">
+          <i data-lucide="lock" class="ic" style="color:var(--primary)"></i>
+          <strong style="font-size:var(--text-sm)">Why an invitation needs a campaign</strong>
+        </div>
+        <p class="hint" style="line-height:var(--leading-relaxed)">
+          Comparing two candidates only means something if they were asked comparable questions and scored against the same published rubric. The campaign is where that is fixed. Publishing a new rubric version creates a new version — it never rewrites a campaign that has already issued invitations, and it never re-scores an interview a candidate has already sat.
+        </p>
+      </div></section>
+      <section class="card card-subtle"><div class="card-body">
+        <div class="cluster" style="margin-bottom:10px">
+          <i data-lucide="scale" class="ic" style="color:var(--primary)"></i>
+          <strong style="font-size:var(--text-sm)">What a campaign does not do</strong>
+        </div>
+        <ul class="stack-sm hint" style="line-height:var(--leading-normal)">
+          <li>It does not rank, shortlist or reject. Every decision on a campaign is recorded against a named reviewer.</li>
+          <li>It does not carry a candidate's practice history. Practice is candidate-owned and never attached to a screening.</li>
+          <li>It does not change once invitations are out. Editing an open campaign creates a new version for future invitations only.</li>
+        </ul>
+      </div></section>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══════════════════════════════ new campaign ═══════════════════════════ -->
+<dialog class="dialog" id="dlg-new" aria-labelledby="dlg-new-h">
+  <div class="dialog-panel wide">
+    <div class="dialog-header"><h2 id="dlg-new-h">New campaign</h2></div>
+    <div class="dialog-body stack">
+
+      <div class="field">
+        <label class="label" for="c-name">Campaign name</label>
+        <input class="input" id="c-name" type="text" placeholder="ICU night rotation — autumn intake">
+        <p class="hint">Internal only. Candidates never see this name.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="label" for="c-role">Role</label>
+          <select class="select" id="c-role">
+            <option>Registered Nurse — Intensive Care</option>
+            <option>Clinical Nurse Educator</option>
+            <option>Financial Analyst — FP&amp;A</option>
+            <option>Product Manager — Patient Apps</option>
+            <option>Software Engineer — Integrations</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="c-shape">Interview shape and length</label>
+          <select class="select" id="c-shape">
+            <option>Panel simulation · 40 minutes</option>
+            <option>Competency interview · 25 minutes</option>
+            <option>Case / scenario · 40 minutes</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="c-jd">Job context</label>
+        <textarea class="textarea" id="c-jd" rows="3" placeholder="Paste the job description, or the parts of it the interview should draw on."></textarea>
+        <p class="hint">Used to generate job-requirement evidence for reviewers. It is shown as evidenced, partial, not discussed or not assessable — never as a match percentage.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="c-config">Published configuration</label>
+        <select class="select" id="c-config">
+          <option>ICU Registered Nurse — rubric v4 · calibration v2 (published 4 Aug)</option>
+          <option>ICU Registered Nurse — rubric v3 · calibration v2 (published 12 Jun)</option>
+          <option disabled>ICU Registered Nurse — rubric v5 (draft — cannot be used until published)</option>
+        </select>
+        <p class="hint">Pinned at the moment each invitation is issued. A later publication does not move a campaign that is already running.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="label" for="c-persona">Interviewer</label>
+          <select class="select" id="c-persona">
+            <option>Lena · panel chair (approved for screening)</option>
+            <option>Ama · warm and structured (approved for screening)</option>
+          </select>
+          <p class="hint">Screening uses neutral approved personas only.</p>
+        </div>
+        <div class="field">
+          <label class="label" for="c-expiry">Invitation expiry</label>
+          <select class="select" id="c-expiry">
+            <option>7 days after sending</option>
+            <option>14 days after sending</option>
+            <option>21 days after sending</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="c-disclosure">Candidate disclosure</label>
+        <select class="select" id="c-disclosure">
+          <option>Northwind standard disclosure v3 (EU / UK)</option>
+          <option>Northwind standard disclosure v3 — plain-language variant</option>
+        </select>
+        <p class="hint">Tells the candidate who the employer is, that the interview is AI-conducted and recorded, who can access it, how long it is kept, what they will and will not be told, and that a person makes the decision.</p>
+      </div>
+
+      <div class="field">
+        <span class="label">Accommodations offered to every candidate</span>
+        <div class="stack-sm" style="margin-top:8px">
+          <label class="check"><input type="checkbox" checked><span>Captions and caption history</span></label>
+          <label class="check"><input type="checkbox" checked><span>Push-to-talk</span></label>
+          <label class="check"><input type="checkbox" checked><span>Extra thinking time</span></label>
+          <label class="check"><input type="checkbox" checked><span>An alternative path if voice is not accessible</span></label>
+        </div>
+        <p class="hint" style="margin-top:8px">None of these change the rubric, the anchors or the evaluation. Response timing is excluded from screening scoring in every case.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="c-reviewers">Reviewers</label>
+        <select class="select" id="c-reviewers">
+          <option>Priya Raman, Jonas Brandt</option>
+          <option>Priya Raman only</option>
+          <option>Clinical panel (4 members)</option>
+        </select>
+        <p class="hint">Only these members can open evidence for this campaign. Every open is audited.</p>
+      </div>
+
+      <div class="banner banner-info">
+        <i data-lucide="info" class="ic"></i>
+        <div>
+          <strong>What creating this does — and does not do.</strong>
+          <p style="margin:4px 0 0">It creates the campaign and pins the configuration. No candidate is contacted and no invitation is sent until you issue one, and you will see the exact email before it goes out.</p>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close="dlg-new">Cancel</button>
+      <button class="btn btn-primary" type="button" id="c-create"><i data-lucide="check" class="ic ic-sm"></i>Create campaign</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+  var CAMPAIGNS = [
+    { id: 'cmp_icu_autumn', name: 'ICU night rotation — autumn intake', role: 'Registered Nurse — Intensive Care',
+      rubric: 'rubric v4 · calibration v2', pinned: '4 Aug 2026', owner: 'Priya Raman',
+      sent: 24, complete: 17, open: 5, expired: 2, review: 3, reviewers: ['PR', 'JB'], status: 'open', scoped: true },
+    { id: 'cmp_cne_2026', name: 'Clinical educator — rolling', role: 'Clinical Nurse Educator',
+      rubric: 'rubric v2 · calibration v1', pinned: '12 Jun 2026', owner: 'Priya Raman',
+      sent: 9, complete: 7, open: 1, expired: 1, review: 1, reviewers: ['PR'], status: 'open', scoped: true },
+    { id: 'cmp_fpa_q3', name: 'FP&A analyst — Q3', role: 'Financial Analyst — FP&A',
+      rubric: 'rubric v3 · calibration v2', pinned: '28 Jul 2026', owner: 'Jonas Brandt',
+      sent: 14, complete: 11, open: 2, expired: 1, review: 2, reviewers: ['JB'], status: 'open', scoped: true },
+    { id: 'cmp_pm_apps', name: 'Patient apps — product', role: 'Product Manager — Patient Apps',
+      rubric: 'rubric v1 · calibration v1', pinned: '2 Jul 2026', owner: 'Elena Vasquez',
+      sent: 11, complete: 9, open: 0, expired: 2, review: 1, reviewers: ['EV', 'PR'], status: 'paused', scoped: false },
+    { id: 'cmp_swe_int', name: 'Integrations engineering', role: 'Software Engineer — Integrations',
+      rubric: 'rubric v2 · calibration v3', pinned: '19 Jun 2026', owner: 'Jonas Brandt',
+      sent: 18, complete: 16, open: 0, expired: 2, review: 0, reviewers: ['JB', 'EV'], status: 'closed', scoped: false },
+    { id: 'cmp_icu_winter', name: 'ICU winter intake', role: 'Registered Nurse — Intensive Care',
+      rubric: 'rubric v5 — draft', pinned: null, owner: 'Priya Raman',
+      sent: 0, complete: 0, open: 0, expired: 0, review: 0, reviewers: ['PR'], status: 'draft', scoped: false }
+  ];
+
+  var STATUS = {
+    open:   { label: 'Open', badge: 'badge-success', icon: 'play-circle' },
+    paused: { label: 'Paused', badge: 'badge-warning', icon: 'pause-circle' },
+    closed: { label: 'Closed', badge: 'badge-neutral', icon: 'circle-slash' },
+    draft:  { label: 'Draft', badge: 'badge-outline', icon: 'file-clock' }
+  };
+
+  var statusFilter = '';
+
+  function pct(n, total) { return total ? Math.round((n / total) * 100) : 0; }
+
+  function row(c) {
+    var s = STATUS[c.status];
+    var total = c.sent || 1;
+    var funnel = c.sent
+      ? '<div class="funnel" role="img" aria-label="' + c.complete + ' completed, ' + c.open + ' still open, ' + c.expired + ' expired, of ' + c.sent + ' sent">' +
+          '<span class="fn-complete" style="width:' + pct(c.complete, total) + '%"></span>' +
+          '<span class="fn-open" style="width:' + pct(c.open, total) + '%"></span>' +
+          '<span class="fn-expired" style="width:' + pct(c.expired, total) + '%"></span>' +
+        '</div><span class="hint" style="display:block;margin-top:4px">' + c.complete + ' of ' + c.sent + ' completed</span>'
+      : '<span class="hint">None issued</span>';
+
+    return '<tr>' +
+      '<td data-label="Campaign"><a class="link" style="font-weight:600" href="admin-campaign-detail.html?id=' + esc(c.id) + '">' + esc(c.name) + '</a>' +
+        '<span class="hint" style="display:block">' + esc(c.role) + ' · ' + esc(c.owner) + '</span></td>' +
+      '<td data-label="Pinned configuration"><span class="cfg">' + esc(c.rubric) + '<br>' +
+        (c.pinned ? '<span class="hint">pinned ' + esc(c.pinned) + '</span>' : '<span class="hint">not published — no invitation can be issued</span>') + '</span></td>' +
+      '<td data-label="Invitations">' + funnel + '</td>' +
+      '<td data-label="Awaiting review">' + (c.review ? '<a class="link" href="admin-recruiter.html?campaign=' + esc(c.id) + '">' + c.review + '</a>' : '<span class="hint">0</span>') + '</td>' +
+      '<td data-label="Reviewers"><span class="avatar-stack">' + c.reviewers.map(function (r) { return '<span class="avatar avatar-sm">' + esc(r) + '</span>'; }).join('') + '</span></td>' +
+      '<td data-label="Status"><span class="badge ' + s.badge + '"><i data-lucide="' + s.icon + '" class="ic ic-sm"></i>' + s.label + '</span></td>' +
+      '<td data-label="Actions"><a class="btn btn-sm btn-secondary" href="admin-campaign-detail.html?id=' + esc(c.id) + '">Open</a></td>' +
+    '</tr>';
+  }
+
+  function render() {
+    var q = document.getElementById('f-q').value.trim().toLowerCase();
+    var st = document.getElementById('f-status').value || statusFilter;
+    var owner = document.getElementById('f-owner').value;
+    var scoped = !Prepeet.can('tenant_admin');
+
+    var list = CAMPAIGNS.filter(function (c) {
+      if (scoped && !c.scoped) return false;
+      if (q && (c.name + ' ' + c.role).toLowerCase().indexOf(q) === -1) return false;
+      if (st === 'review') return c.review > 0;
+      if (st && c.status !== st) return false;
+      if (owner && c.owner !== owner) return false;
+      return true;
+    });
+
+    document.getElementById('rows').innerHTML = list.map(row).join('');
+    document.getElementById('empty').hidden = list.length > 0;
+    document.getElementById('list-count').textContent =
+      list.length === CAMPAIGNS.length ? 'Six campaigns.' : list.length + ' of ' + CAMPAIGNS.length + ' campaigns shown.';
+    document.getElementById('scope-note').hidden = !scoped;
+    Prepeet.icons();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    /* role gating: creating a campaign needs campaign.manage */
+    document.querySelectorAll('[data-requires]').forEach(function (el) {
+      if (!Prepeet.can(el.getAttribute('data-requires'))) el.hidden = true;
+    });
+
+    render();
+
+    document.getElementById('filters').addEventListener('input', function () { statusFilter = ''; syncButtons(); render(); });
+    document.getElementById('f-clear').addEventListener('click', function () {
+      document.getElementById('filters').reset(); statusFilter = ''; syncButtons(); render();
+    });
+    document.getElementById('empty-clear').addEventListener('click', function () {
+      document.getElementById('filters').reset(); statusFilter = ''; syncButtons(); render();
+    });
+
+    function syncButtons() {
+      document.querySelectorAll('[data-status-btn]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-status-btn') === statusFilter));
+      });
+    }
+
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-status-btn]');
+      if (b) {
+        statusFilter = b.getAttribute('data-status-btn');
+        document.getElementById('f-status').value = '';
+        syncButtons(); render();
+        Prepeet.announce(document.getElementById('list-count').textContent);
+      }
+    });
+
+    document.getElementById('c-create').addEventListener('click', function () {
+      Prepeet.closeDialog('dlg-new');
+      Prepeet.toast({ kind: 'success', title: 'Campaign created',
+        desc: 'No candidate has been contacted. Issue an invitation when you are ready.' });
+    });
+
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

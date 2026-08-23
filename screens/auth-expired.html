@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>This link has expired · Prepeet</title>
+<meta name="description" content="The Prepeet sign-in, reset or confirmation link you opened is no longer valid. Request a fresh one — it takes a few seconds.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <div class="cluster">
+    <span class="hint sr-only">Preview which link expired</span>
+    <div class="segmented" role="group" aria-label="Preview which kind of link expired">
+      <button type="button" data-for-btn="reset" aria-pressed="true">Password reset</button>
+      <button type="button" data-for-btn="magic" aria-pressed="false">Sign-in link</button>
+      <button type="button" data-for-btn="verify" aria-pressed="false">Email confirmation</button>
+      <button type="button" data-for-btn="invite" aria-pressed="false">Invitation</button>
+    </div>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</div>
+
+<main class="auth-card" id="main-content">
+
+  <div class="state warning" style="padding:var(--sp-6) 0 var(--sp-4)">
+    <div class="state-icon"><i data-lucide="link-2-off" class="ic"></i></div>
+    <h1 style="font-size:var(--text-xl)" id="ax-title">This password reset link has expired</h1>
+    <p id="ax-lead">Nothing has changed on your account, and nothing was signed in. Request a fresh link and it will be in your inbox within a minute.</p>
+    <p class="code mono" id="ax-code" style="font-size:var(--text-2xs);color:var(--fg-3)">token=tok_9Rm4Xs · type=password_reset · expired 23 Aug 2026 20:42</p>
+    <div class="actions">
+      <a class="btn btn-primary btn-lg" id="ax-primary" href="check-email.html?for=reset"><i data-lucide="send" class="ic ic-sm"></i>Send a new link</a>
+      <a class="btn btn-secondary btn-lg" href="login.html">Back to sign in</a>
+    </div>
+  </div>
+
+  <!-- Why links expire -->
+  <section class="card" aria-labelledby="why-h" style="margin-top:8px">
+    <div class="card-header"><h2 id="why-h" style="font-size:var(--text-sm)">Why Prepeet links expire</h2></div>
+    <div class="card-body">
+      <ul class="stack" style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.55">
+        <li class="row" style="gap:12px;align-items:flex-start">
+          <i data-lucide="timer" class="ic" style="color:var(--primary);margin-top:2px"></i>
+          <span><strong style="color:var(--fg)">A short window limits the damage of a leaked email.</strong> Forwarded messages, shared mailboxes and printed handovers are all common in the workplaces we serve. An hour-old link is a much smaller problem than a permanent one.</span>
+        </li>
+        <li class="row" style="gap:12px;align-items:flex-start">
+          <i data-lucide="repeat-1" class="ic" style="color:var(--primary);margin-top:2px"></i>
+          <span><strong style="color:var(--fg)">Each link works exactly once.</strong> Requesting a new link invalidates the previous one immediately, so only the newest email in your inbox is ever live.</span>
+        </li>
+        <li class="row" style="gap:12px;align-items:flex-start">
+          <i data-lucide="scan-eye" class="ic" style="color:var(--primary);margin-top:2px"></i>
+          <span><strong style="color:var(--fg)">Mail scanners sometimes open the link first.</strong> Many hospital and school gateways visit every URL before delivery. That consumes the single use and lands you here through no fault of your own.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Link lifetimes -->
+  <section class="card" aria-labelledby="life-h" style="margin-top:16px">
+    <div class="card-header"><h2 id="life-h" style="font-size:var(--text-sm)">How long each link lasts</h2></div>
+    <div class="table-wrap" style="border:0;border-radius:0">
+      <table class="table table-responsive table-dense">
+        <caption class="sr-only">Prepeet link types, how long they stay valid and where to request a new one.</caption>
+        <thead>
+          <tr><th scope="col">Link</th><th scope="col">Valid for</th><th scope="col">Get a new one</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-label="Link" class="td-primary">Password reset</td>
+            <td data-label="Valid for">60 minutes</td>
+            <td data-label="Get a new one"><a href="forgot-password.html">Reset your password</a></td>
+          </tr>
+          <tr>
+            <td data-label="Link" class="td-primary">One-time sign-in link</td>
+            <td data-label="Valid for">15 minutes</td>
+            <td data-label="Get a new one"><a href="check-email.html?for=magic">Send a sign-in link</a></td>
+          </tr>
+          <tr>
+            <td data-label="Link" class="td-primary">Email confirmation</td>
+            <td data-label="Valid for">7 days</td>
+            <td data-label="Get a new one"><a href="check-email.html?for=verify">Resend confirmation</a></td>
+          </tr>
+          <tr>
+            <td data-label="Link" class="td-primary">Screening invitation</td>
+            <td data-label="Valid for">Until the employer's deadline</td>
+            <td data-label="Get a new one"><a href="invitation-accept.html">Open your invitation</a></td>
+          </tr>
+          <tr>
+            <td data-label="Link" class="td-primary">Six-digit code</td>
+            <td data-label="Valid for">10 minutes</td>
+            <td data-label="Get a new one"><a href="otp.html">Enter a code</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="banner" style="margin-top:16px">
+    <i data-lucide="life-buoy" class="ic"></i>
+    <div>Still stuck after two fresh links? That usually means your mail gateway is rewriting them. <a href="access-denied.html">See who to contact at your organisation</a>, or sign in with a six-digit code from <a href="otp.html">the code page</a> instead.</div>
+  </div>
+
+  <hr style="margin:22px 0">
+  <p class="hint">
+    <a href="login.html" style="font-weight:600">Back to sign in</a> ·
+    <a href="register.html">Create an account</a> ·
+    <a href="index.html">About Prepeet</a>
+  </p>
+</main>
+
+<footer class="auth-foot" style="justify-content:center">
+  <span>© 2026 Prepeet</span>
+  <a href="index.html">About Prepeet</a>
+  <a href="login.html">Sign in</a>
+  <a href="screens.html">Prototype index</a>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var KINDS = {
+    reset: {
+      title: 'This password reset link has expired',
+      lead: 'Nothing has changed on your account, and nothing was signed in. Reset links last 60 minutes and work once.',
+      code: 'token=tok_9Rm4Xs · type=password_reset · expired 23 Aug 2026 20:42',
+      href: 'forgot-password.html',
+      cta: 'Send a new reset link'
+    },
+    magic: {
+      title: 'This sign-in link has expired',
+      lead: 'You were not signed in. One-time sign-in links last 15 minutes, which is deliberately short for a link that opens your account.',
+      code: 'token=mlink_5Yb3Kd · type=magic_link · expired 23 Aug 2026 21:06',
+      href: 'check-email.html?for=magic',
+      cta: 'Email me a new sign-in link'
+    },
+    verify: {
+      title: 'This confirmation link has expired',
+      lead: 'Your address is still unconfirmed, so invitations and password resets cannot reach it yet. Confirmation links last seven days.',
+      code: 'token=vtok_2Qw7Hs · type=email_verify · expired 11 Aug 2026 08:31',
+      href: 'check-email.html?for=verify',
+      cta: 'Resend the confirmation email'
+    },
+    invite: {
+      title: 'This invitation link is no longer valid',
+      lead: 'Screening invitations close at the deadline the employer set, or when they withdraw the role. The hiring team can issue a new one if the role is still open.',
+      code: 'invitation=inv_QX72HL · type=screening_invite · closed 26 Aug 2026 23:59',
+      href: 'invitation-accept.html?state=expired',
+      cta: 'See your invitation'
+    }
+  };
+
+  function apply(kind) {
+    var k = KINDS[kind] || KINDS.reset;
+    document.getElementById('ax-title').textContent = k.title;
+    document.getElementById('ax-lead').textContent = k.lead + ' Request a fresh one below — it takes a few seconds.';
+    document.getElementById('ax-code').textContent = k.code;
+    var primary = document.getElementById('ax-primary');
+    primary.href = k.href;
+    primary.innerHTML = '<i data-lucide="send" class="ic ic-sm"></i>' + k.cta;
+    document.title = k.title + ' · Prepeet';
+    document.querySelectorAll('[data-for-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-for-btn') === kind));
+    });
+    Prepeet.query.set({ 'for': kind === 'reset' ? null : kind }, true);
+    Prepeet.announce(k.title);
+    Prepeet.init();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-for-btn]');
+    if (b) apply(b.getAttribute('data-for-btn'));
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+    var kind = Prepeet.query.get('for', 'reset');
+    apply(KINDS[kind] ? kind : 'reset');
+  });
+})();
+</script>
+</body>
+</html>

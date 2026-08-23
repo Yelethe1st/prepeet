@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en" data-theme-default="light" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Super-admin console · Prepeet</title>
+<meta name="description" content="Restricted platform super-administrator console: tenant operations, feature flags, runtime policy versions and break-glass access. Every action is logged and attributed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped only — the elevation bar and a couple of dense-grid minimums. */
+  .elev-bar { position: sticky; top: var(--topbar-h); z-index: 40; background: var(--bg); padding: 8px 0; margin-bottom: var(--sp-4); }
+  .elev-bar .banner { box-shadow: var(--shadow-sm); }
+  .elev-count { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .state h2 { font-size: var(--text-md); }
+  .gd-table { min-width: 940px; }
+  .gd-table-sm { min-width: 720px; }
+  .confirm-code { font-family: var(--font-mono); font-weight: 600; background: var(--surface-inset); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 1px 6px; }
+  .dry-out { border: 1px dashed var(--border-strong); border-radius: var(--r-md); padding: 12px 14px; background: var(--surface-2); font-size: var(--text-xs); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="god" data-title="Super-admin console" data-crumbs="Platform>admin-platform-analytics.html|Restricted">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content dense" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow" style="color:var(--danger-fg)">Restricted · super administrator</p>
+        <h1>Super-admin console</h1>
+        <p class="page-desc">Cross-tenant operations that bypass normal tenant boundaries. Access is granted per incident, time-boxed, and every action on this page is written to the append-only audit log with your name, your ticket reference and your reason.</p>
+      </div>
+      <div class="page-actions" id="page-actions">
+        <a class="btn btn-secondary" href="admin-god-audit.html"><i data-lucide="scroll-text" class="ic ic-sm"></i>Audit log</a>
+        <a class="btn btn-secondary" href="admin-platform-system.html"><i data-lucide="server" class="ic ic-sm"></i>System health</a>
+      </div>
+    </div>
+
+    <!-- ══════════════════ PERMISSION DENIED (rendered when role < god) ══════════════════ -->
+    <section id="denied" hidden aria-labelledby="denied-h">
+      <div class="state state-page danger">
+        <div class="state-icon"><i data-lucide="shield-alert" class="ic"></i></div>
+        <h2 id="denied-h">The super-admin console is not available to your role</h2>
+        <p>You are signed in as <strong id="denied-role">Tenant admin</strong>. This console performs cross-tenant operations, so it requires <strong>super administrator</strong>.</p>
+        <p>Super-administrator access is not part of any standing role. It is granted separately by the Ops on-call rota against an incident or change ticket, it expires automatically, and everything done under it is attributed to the person who requested it.</p>
+        <p class="code">Required role: god · Your role: <span id="denied-role-code">tenant_admin</span></p>
+        <div class="actions">
+          <a class="btn btn-primary" href="admin-dashboard.html"><i data-lucide="layout-dashboard" class="ic ic-sm"></i>Back to overview</a>
+          <a class="btn btn-secondary" href="error-403.html?path=/admin/god&amp;required=god">Why was this refused?</a>
+        </div>
+        <p class="hint" style="margin-top:10px">Use the “Viewing as” switcher in the top bar to preview the console as a super administrator.</p>
+      </div>
+    </section>
+
+    <!-- ══════════════════ CONSOLE ══════════════════ -->
+    <div id="console" hidden>
+
+      <!-- Elevation banner ------------------------------------------------ -->
+      <div class="elev-bar">
+        <div class="banner banner-danger" data-state="default" role="status">
+          <i data-lucide="shield-alert" class="ic"></i>
+          <div>
+            <strong>Restricted console — elevated session active.</strong>
+            Every action below is logged and attributed to <span id="elev-who">Priya Raman</span> against ticket <span class="mono">INC-2291</span>.
+            Elevation ends in <span class="elev-count" id="elev-count" aria-live="off">41:00</span> (<span id="elev-until">10:22 UTC</span>), after which the console returns to read-only.
+            <span class="sr-only">The remaining time updates every second and is shown in minutes and seconds.</span>
+          </div>
+          <div class="banner-actions">
+            <a class="btn btn-sm btn-ghost" href="admin-god-audit.html?privileged=1">View my actions</a>
+            <button class="btn btn-sm btn-danger" type="button" data-dialog-open="dlg-end-elev"><i data-lucide="power" class="ic ic-sm"></i>End elevated session</button>
+          </div>
+        </div>
+
+        <div class="banner banner-warning" data-state="no-elevation" hidden role="status">
+          <i data-lucide="lock" class="ic"></i>
+          <div>
+            <strong>Restricted console — read only.</strong>
+            You have no active elevation window, so every privileged action on this page is disabled. You can still read the current state of the platform. Request elevation against an incident or change ticket to act.
+          </div>
+          <div class="banner-actions">
+            <a class="btn btn-sm btn-ghost" href="admin-god-audit.html">Audit log</a>
+            <button class="btn btn-sm btn-primary" type="button" data-dialog-open="dlg-request-elev"><i data-lucide="key-round" class="ic ic-sm"></i>Request elevation</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cluster" style="margin-bottom:var(--sp-4)">
+        <span class="badge badge-outline mono">/admin/god</span>
+        <span class="badge badge-privileged"><i data-lucide="shield-alert" class="ic-sm ic"></i>Privileged</span>
+        <span class="hint">Visible only at role <span class="mono">god</span>.</span>
+        <div class="cluster" style="margin-left:auto">
+          <span class="hint">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview screen state">
+            <button type="button" data-state-btn="default" aria-pressed="true">Elevated</button>
+            <button type="button" data-state-btn="no-elevation" aria-pressed="false">No elevation</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Elevation reason (read-only) ------------------------------------ -->
+      <section class="card card-accent" aria-labelledby="elev-h" style="margin-bottom:var(--sp-5);border-left-color:var(--danger)">
+        <div class="card-header">
+          <div>
+            <h2 id="elev-h">Elevation window</h2>
+            <p class="hint" style="margin-top:3px">Recorded when the grant was issued. It cannot be edited from this console.</p>
+          </div>
+          <span class="badge badge-privileged" id="elev-badge"><span class="dot"></span>Active</span>
+        </div>
+        <div class="card-body">
+          <dl class="kv">
+            <dt>Reason</dt><dd>INC-2291 — evaluation queue backlog investigation</dd>
+            <dt>Granted by</dt><dd>Ops on-call (Marek Ostrowski) · 23 August 2026, 09:41 UTC</dd>
+            <dt>Granted to</dt><dd id="elev-grantee">Priya Raman · super administrator (temporary)</dd>
+            <dt>Expires</dt><dd><span id="elev-expiry">41 minutes from now</span> · automatic, no extension without a new ticket</dd>
+            <dt>Scope</dt><dd>All tenants · read and write · excludes raw candidate audio</dd>
+            <dt>Grant id</dt><dd class="mono">elv_01K3ZC9Q4E7M</dd>
+          </dl>
+        </div>
+      </section>
+
+      <!-- Platform overview ----------------------------------------------- -->
+      <section aria-labelledby="ov-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="ov-h" class="section-title" style="margin:0">Platform overview</h2>
+          <a class="link" href="admin-platform-analytics.html">Full analytics<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        </div>
+        <div class="metrics-row">
+          <div class="card"><div class="metric metric-dense"><span class="metric-label">Tenants</span><span class="metric-value tnum">6</span><span class="metric-foot">5 contracted · 1 self-serve</span></div></div>
+          <div class="card"><div class="metric metric-dense"><span class="metric-label">Active sessions</span><span class="metric-value tnum">287</span><span class="metric-foot">Live interviews right now</span></div></div>
+          <div class="card"><div class="metric metric-dense"><span class="metric-label">Queue backlog</span><span class="metric-value tnum">412</span><span class="metric-delta down"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>Above the 150 threshold</span></div></div>
+          <div class="card"><div class="metric metric-dense"><span class="metric-label">Failed jobs (24h)</span><span class="metric-value tnum">14</span><span class="metric-foot">11 transcription · 3 rubric mapping</span></div></div>
+          <div class="card"><div class="metric metric-dense"><span class="metric-label">Error budget left</span><span class="metric-value tnum">62<small>%</small></span><span class="metric-foot">August window, resets 1 Sep</span></div></div>
+          <div class="card"><div class="metric metric-dense"><span class="metric-label">Flags overridden</span><span class="metric-value tnum">3</span><span class="metric-foot">2 global · 1 per-tenant</span></div></div>
+        </div>
+        <p class="chart-summary">Text summary: 6 tenants, 287 active sessions, 412 evaluations queued against a 150 threshold, 14 failed jobs in the last 24 hours, 62% of the August error budget remaining, and 3 feature flags currently held at a non-default value.</p>
+      </section>
+
+      <!-- Tenant operations ------------------------------------------------ -->
+      <section aria-labelledby="ten-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="ten-h" class="section-title" style="margin:0">Tenant operations <span class="count">6 tenants</span></h2>
+          <a class="link" href="admin-platform-quotas.html">Quotas &amp; limits<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        </div>
+        <p class="hint" style="margin-bottom:var(--sp-3)">This grid scrolls sideways rather than stacking into cards: plan, region and retention are only useful when you can compare tenants on one line.</p>
+        <div class="table-wrap scroll-x">
+          <table class="table table-dense gd-table">
+            <caption class="sr-only">All tenants with plan, status, sessions in the last 30 days, seats, monthly spend, data region and retention period, plus privileged per-tenant operations.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Tenant</th>
+                <th scope="col">Plan</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="num">Sessions 30d</th>
+                <th scope="col" class="num">Seats</th>
+                <th scope="col" class="num">Spend</th>
+                <th scope="col">Data region</th>
+                <th scope="col">Retention</th>
+                <th scope="col" class="td-actions">Operations</th>
+              </tr>
+            </thead>
+            <tbody id="tenant-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Feature flags ---------------------------------------------------- -->
+      <section aria-labelledby="flags-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="flags-h" class="section-title" style="margin:0">Feature flags <span class="count">8 flags · 3 overridden</span></h2>
+          <span class="badge badge-privileged"><i data-lucide="shield-alert" class="ic-sm ic"></i>Privileged</span>
+        </div>
+        <p class="hint" style="margin-bottom:var(--sp-3)">Overrides survive deploys until they are cleared. Anything left overridden for more than seven days is reported to the platform review.</p>
+        <div class="table-wrap scroll-x">
+          <table class="table table-dense gd-table-sm">
+            <caption class="sr-only">Feature flags with scope, current value, override state, who last changed them and a toggle action.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Flag</th>
+                <th scope="col">Scope</th>
+                <th scope="col">Value</th>
+                <th scope="col">Override</th>
+                <th scope="col">Last changed by</th>
+                <th scope="col" class="td-actions">Action</th>
+              </tr>
+            </thead>
+            <tbody id="flag-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="grid grid-2" style="margin-bottom:var(--sp-6);align-items:start">
+
+        <!-- Runtime policy versions ---------------------------------------- -->
+        <section class="card" aria-labelledby="pol-h">
+          <div class="card-header">
+            <div>
+              <h2 id="pol-h">Runtime policy versions</h2>
+              <p class="hint" style="margin-top:3px">What is actually executing right now, not what is merged.</p>
+            </div>
+            <span class="badge badge-privileged">Rollback is privileged</span>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="scroll-x">
+              <table class="table table-dense" style="min-width:560px">
+                <caption class="sr-only">Active runtime policies with version, content hash, activation date and a rollback action.</caption>
+                <thead>
+                  <tr><th scope="col">Component</th><th scope="col">Version</th><th scope="col">Hash</th><th scope="col">Activated</th><th scope="col" class="td-actions">Action</th></tr>
+                </thead>
+                <tbody id="policy-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer">
+            <p class="hint">Rolling a policy back re-evaluates nothing on its own. Use the re-run tool below if past evaluations need to be regenerated under the restored version.</p>
+          </div>
+        </section>
+
+        <!-- Data operations -------------------------------------------------- -->
+        <section class="card" aria-labelledby="data-h">
+          <div class="card-header">
+            <div>
+              <h2 id="data-h">Data operations</h2>
+              <p class="hint" style="margin-top:3px">Deletion requests, legal holds and bulk re-evaluation.</p>
+            </div>
+          </div>
+          <div class="card-body stack">
+            <div class="grid grid-3" style="gap:var(--sp-3)">
+              <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Pending deletions</span><span class="metric-value tnum">3</span><span class="metric-foot">Oldest: 6 days</span></div></div>
+              <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Legal holds</span><span class="metric-value tnum">1</span><span class="metric-foot">Blocks 1 deletion</span></div></div>
+              <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Export jobs</span><span class="metric-value tnum">4</span><span class="metric-foot">2 running · 2 done</span></div></div>
+            </div>
+
+            <div>
+              <h3 class="section-title" style="font-size:var(--text-sm);margin-bottom:8px">Pending deletion requests</h3>
+              <ul class="stack-sm" style="font-size:var(--text-xs)">
+                <li class="between" style="gap:8px"><span><span class="mono">dsr_KM52</span> · Meridian Schools Trust · 1 candidate, 5 sessions</span><span class="badge badge-warning">Due in 8 days</span></li>
+                <li class="between" style="gap:8px"><span><span class="mono">dsr_QT18</span> · Caldera Capital · 1 candidate, 2 sessions</span><span class="badge badge-danger"><i data-lucide="scale" class="ic-sm ic"></i>Blocked — legal hold</span></li>
+                <li class="between" style="gap:8px"><span><span class="mono">dsr_RN07</span> · Prepeet Practice (self-serve) · 1 candidate, 31 sessions</span><span class="badge badge-neutral">Queued</span></li>
+              </ul>
+              <p class="hint" style="margin-top:8px">Legal hold <span class="mono">lh_0031</span> (Caldera Capital, employment tribunal, opened 4 August 2026) suspends erasure until it is lifted by Legal. It cannot be lifted from this console.</p>
+            </div>
+
+            <hr>
+
+            <div>
+              <h3 class="section-title" style="font-size:var(--text-sm);margin-bottom:8px">Re-run evaluations <span class="badge badge-privileged">Privileged</span></h3>
+              <p class="hint" style="margin-bottom:10px">Regenerates evaluations for completed sessions under the current runtime policies. A dry run is required before a real run.</p>
+              <form id="rerun-form" class="stack-sm">
+                <div class="grid grid-2" style="gap:var(--sp-3)">
+                  <div class="field">
+                    <label class="label" for="rr-tenant">Tenant scope</label>
+                    <select class="select input-sm" id="rr-tenant"><option value="all">All tenants</option></select>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="rr-since">Sessions completed since</label>
+                    <input class="input input-sm" id="rr-since" type="date" value="2026-08-14">
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="label" for="rr-reason-scope">Only sessions evaluated under</label>
+                  <select class="select input-sm" id="rr-reason-scope">
+                    <option>Evaluation policy v12.3 (superseded)</option>
+                    <option>Evaluation policy v12.4 (current)</option>
+                    <option>Any version</option>
+                  </select>
+                </div>
+                <label class="switch" style="margin-top:4px">
+                  <input type="checkbox" id="rr-dry" checked>
+                  <span>Dry run — report what would change, write nothing</span>
+                </label>
+                <div class="cluster" style="margin-top:6px">
+                  <button class="btn btn-sm btn-secondary" type="submit" id="rr-run" data-priv>Run</button>
+                  <button class="btn btn-sm btn-danger-soft" type="button" id="rr-real" data-priv disabled>Run for real<span class="sr-only"> — requires a completed dry run</span></button>
+                </div>
+                <p class="hint" id="rr-hint" role="status" aria-live="polite">A real run is disabled until a dry run has completed in this session.</p>
+                <div class="dry-out" id="rr-out" hidden></div>
+              </form>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Break-glass ------------------------------------------------------- -->
+      <section class="card" aria-labelledby="bg-h" style="margin-bottom:var(--sp-6);border-color:var(--danger-border)">
+        <div class="card-header">
+          <div>
+            <h2 id="bg-h">Break-glass — pipeline artefacts</h2>
+            <p class="hint" style="margin-top:3px">Read-only metadata for a session that failed to complete evaluation. Opened against INC-2291.</p>
+          </div>
+          <span class="badge badge-privileged"><i data-lucide="shield-alert" class="ic-sm ic"></i>Privileged · read only</span>
+        </div>
+        <div class="card-body">
+          <div class="banner banner-danger" style="margin-bottom:var(--sp-4)">
+            <i data-lucide="mic-off" class="ic"></i>
+            <div>
+              <strong>Raw candidate audio is not accessible from this console.</strong>
+              Nothing here plays, downloads or transcodes a recording. Retrieving raw audio requires the separate dual-approved retrieval workflow: two named approvers, a legal or safety justification, and a fixed retrieval window. It cannot be started from here.
+            </div>
+          </div>
+
+          <div class="grid grid-2" style="align-items:start">
+            <div>
+              <h3 class="section-title" style="font-size:var(--text-sm)">Session <span class="mono">ses_QpendA</span></h3>
+              <dl class="kv">
+                <dt>Tenant</dt><dd>Prepeet Practice (self-serve)</dd>
+                <dt>Stage reached</dt><dd>Rubric mapping — failed after 3 retries</dd>
+                <dt>Failure</dt><dd class="mono">RubricMappingTimeout: competency set rl_em exceeded 30s</dd>
+                <dt>First failure</dt><dd>22 August 2026, 21:31 UTC</dd>
+                <dt>Correlation id</dt><dd class="mono">cor_7f21e9b4a0</dd>
+                <dt>Owning queue</dt><dd>evaluations-eu-2 (backlog 412)</dd>
+              </dl>
+            </div>
+            <div>
+              <h3 class="section-title" style="font-size:var(--text-sm)">Artefacts present (metadata only)</h3>
+              <div class="codeblock" style="white-space:pre-wrap">audio.manifest      present   19m04s · 4 segments · sha256:1d4a…8bc0 · NOT READABLE HERE
+transcript.jsonl    present   142 turns · 11,308 tokens · language en-GB
+diarisation.json    present   2 speakers · 0 unresolved overlaps
+evidence.spans      present   38 spans · 6 flagged low-confidence
+rubric.mapping      MISSING   job timed out before write
+scores.json         MISSING   not produced
+llm.calls           present   14 calls · 2 retries · 1 timeout (call_9d3b)</div>
+              <div class="cluster" style="margin-top:12px">
+                <button class="btn btn-sm btn-secondary" type="button" data-copy="ses_QpendA cor_7f21e9b4a0">Copy session + correlation id</button>
+                <button class="btn btn-sm btn-danger-soft" type="button" data-priv data-requeue="ses_QpendA">Requeue this session</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recent privileged activity ------------------------------------------ -->
+      <section class="card" aria-labelledby="act-h">
+        <div class="card-header">
+          <div>
+            <h2 id="act-h">Recent privileged activity</h2>
+            <p class="hint" style="margin-top:3px">Last 8 privileged actions across the platform. This feed is a view of the audit log, not a separate record.</p>
+          </div>
+          <a class="btn btn-sm btn-secondary" href="admin-god-audit.html?privileged=1"><i data-lucide="scroll-text" class="ic ic-sm"></i>Open audit log</a>
+        </div>
+        <div class="card-body">
+          <ol class="timeline" id="activity-feed"></ol>
+        </div>
+        <div class="card-footer">
+          <p class="hint">Audit entries are append-only, hash-chained and retained for 7 years. They survive tenant deletion.</p>
+        </div>
+      </section>
+
+    </div><!-- /#console -->
+  </div>
+</main>
+
+<!-- ══════════════════ DIALOGS ══════════════════ -->
+
+<!-- Generic privileged action confirmation -->
+<dialog class="dialog" id="dlg-priv" aria-labelledby="dlg-priv-h">
+  <div class="dialog-panel">
+    <form id="priv-form" novalidate>
+      <div class="dialog-header">
+        <div>
+          <span class="badge badge-privileged" style="margin-bottom:6px"><i data-lucide="shield-alert" class="ic-sm ic"></i>Privileged action</span>
+          <h2 id="dlg-priv-h">Confirm action</h2>
+        </div>
+        <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+      </div>
+      <div class="dialog-body stack">
+        <p id="priv-desc">This action is logged and attributed.</p>
+        <div class="banner banner-warning" id="priv-warn" hidden><i data-lucide="eye" class="ic"></i><div id="priv-warn-text"></div></div>
+
+        <div class="field">
+          <label class="label" for="priv-ticket">Ticket reference</label>
+          <input class="input" id="priv-ticket" name="ticket" required pattern="(INC|CHG|DSR)-[0-9]{4}" placeholder="INC-2291" autocomplete="off" aria-describedby="priv-ticket-hint priv-ticket-err">
+          <p class="hint" id="priv-ticket-hint">An incident, change or data-subject-request reference, e.g. INC-2291.</p>
+          <p class="error-text" id="priv-ticket-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter a reference in the form INC-2291, CHG-0884 or DSR-0412.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="priv-reason">Reason</label>
+          <textarea class="textarea" id="priv-reason" name="reason" required minlength="15" rows="3" placeholder="What are you doing and why does it need super-admin access?" aria-describedby="priv-reason-hint priv-reason-err"></textarea>
+          <p class="hint" id="priv-reason-hint">Written verbatim into the audit entry. At least 15 characters.</p>
+          <p class="error-text" id="priv-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Give a reason of at least 15 characters.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="priv-confirm">Typed confirmation</label>
+          <input class="input mono" id="priv-confirm" name="confirm" autocomplete="off" spellcheck="false" aria-describedby="priv-confirm-hint">
+          <p class="hint" id="priv-confirm-hint">Type <span class="confirm-code" id="priv-phrase">CONFIRM</span> exactly to enable the button.</p>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-danger" type="submit" id="priv-go" disabled>Confirm</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- Rollback: two-step -->
+<dialog class="dialog" id="dlg-rollback" aria-labelledby="dlg-rb-h">
+  <div class="dialog-panel">
+    <form id="rb-form" novalidate>
+      <div class="dialog-header">
+        <div>
+          <span class="badge badge-privileged" style="margin-bottom:6px">Privileged action</span>
+          <h2 id="dlg-rb-h">Roll back runtime policy</h2>
+          <p class="hint" style="margin-top:4px" id="rb-step-label">Step 1 of 2 · review and give a reason</p>
+        </div>
+        <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+      </div>
+
+      <div class="dialog-body stack" id="rb-step-1">
+        <dl class="kv">
+          <dt>Component</dt><dd id="rb-comp">Evaluation policy</dd>
+          <dt>Currently active</dt><dd id="rb-from">v12.4 · activated 14 August 2026</dd>
+          <dt>Rolling back to</dt><dd id="rb-to">v12.3 · activated 31 July 2026</dd>
+        </dl>
+        <div class="banner banner-warning"><i data-lucide="alert-triangle" class="ic"></i><div id="rb-impact">Evaluations already produced under v12.4 stay as they are. New evaluations will use v12.3 within about 90 seconds of activation.</div></div>
+        <div class="field">
+          <label class="label" for="rb-ticket">Change reference</label>
+          <input class="input" id="rb-ticket" required pattern="(INC|CHG)-[0-9]{4}" placeholder="CHG-0891" autocomplete="off" aria-describedby="rb-ticket-err">
+          <p class="error-text" id="rb-ticket-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter a reference in the form INC-2291 or CHG-0891.</p>
+        </div>
+        <div class="field">
+          <label class="label" for="rb-reason">Reason</label>
+          <textarea class="textarea" id="rb-reason" required minlength="15" rows="3" placeholder="Why is the current version being withdrawn?" aria-describedby="rb-reason-err"></textarea>
+          <p class="error-text" id="rb-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Give a reason of at least 15 characters.</p>
+        </div>
+      </div>
+
+      <div class="dialog-body stack" id="rb-step-2" hidden>
+        <div class="banner banner-danger"><i data-lucide="shield-alert" class="ic"></i><div>This changes what every tenant's evaluations execute against. Two people should be on the call before you continue.</div></div>
+        <dl class="kv">
+          <dt>Action</dt><dd id="rb-summary">Roll evaluation policy back to v12.3</dd>
+          <dt>Reference</dt><dd class="mono" id="rb-ticket-echo">—</dd>
+          <dt>Attributed to</dt><dd id="rb-who">Priya Raman</dd>
+        </dl>
+        <div class="field">
+          <label class="label" for="rb-confirm">Typed confirmation</label>
+          <input class="input mono" id="rb-confirm" autocomplete="off" spellcheck="false" aria-describedby="rb-confirm-hint">
+          <p class="hint" id="rb-confirm-hint">Type <span class="confirm-code" id="rb-phrase">ROLLBACK</span> exactly to enable the button.</p>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-secondary" type="button" id="rb-back" hidden>Back</button>
+        <button class="btn btn-danger" type="submit" id="rb-go">Continue</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- End elevated session -->
+<dialog class="dialog" id="dlg-end-elev" aria-labelledby="dlg-end-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-end-h">End elevated session?</h2></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body">
+      <p>The console stays visible but becomes read-only immediately. Any dry run you have already done is discarded. Getting elevation back needs a new request against a ticket.</p>
+      <p style="margin-top:10px">The end of the window is written to the audit log with the elapsed time.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Stay elevated</button>
+      <button class="btn btn-danger" type="button" id="end-elev-go">End session</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Request elevation -->
+<dialog class="dialog" id="dlg-request-elev" aria-labelledby="dlg-req-h">
+  <div class="dialog-panel">
+    <form id="req-form" novalidate>
+      <div class="dialog-header">
+        <div>
+          <h2 id="dlg-req-h">Request elevation</h2>
+          <p class="hint" style="margin-top:4px">Ops on-call is paged and approves or refuses. Nothing is granted automatically.</p>
+        </div>
+        <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+      </div>
+      <div class="dialog-body stack">
+        <div class="field">
+          <label class="label" for="req-ticket">Ticket reference</label>
+          <input class="input" id="req-ticket" required pattern="(INC|CHG|DSR)-[0-9]{4}" placeholder="INC-2291" autocomplete="off" aria-describedby="req-ticket-err">
+          <p class="error-text" id="req-ticket-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter a reference in the form INC-2291.</p>
+        </div>
+        <div class="field">
+          <label class="label" for="req-reason">Reason</label>
+          <textarea class="textarea" id="req-reason" required minlength="15" rows="3" placeholder="What do you need to do that your standing role cannot?" aria-describedby="req-reason-err"></textarea>
+          <p class="error-text" id="req-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Give a reason of at least 15 characters.</p>
+        </div>
+        <div class="field">
+          <label class="label" for="req-duration">Duration</label>
+          <select class="select" id="req-duration">
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60" selected>60 minutes</option>
+            <option value="120">2 hours — needs a second approver</option>
+          </select>
+          <p class="hint">Windows longer than an hour require a second named approver.</p>
+        </div>
+        <div class="banner banner-info"><i data-lucide="info" class="ic"></i><div>The request itself is audited, whether or not it is approved.</div></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Send request</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- Tenant operations drawer -->
+<dialog class="drawer" id="drawer-tenant" aria-labelledby="drawer-tenant-h">
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <div>
+        <span class="badge badge-privileged">Privileged operations</span>
+        <h2 id="drawer-tenant-h" style="margin-top:6px">Tenant</h2>
+        <p class="hint mono" id="drawer-tenant-id">tn_</p>
+      </div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close operations"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body stack" id="drawer-tenant-body"></div>
+    <div class="drawer-footer">
+      <a class="btn btn-sm btn-secondary" href="admin-tenant-settings.html">Tenant settings</a>
+      <button class="btn btn-sm btn-ghost" type="button" data-drawer-close>Close</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt;
+
+  /* Region + retention are not in data.js — the god console is the only screen
+     that needs them, so they live here keyed by tenant id. */
+  var TENANT_OPS = {
+    tn_northwind:  { region: 'EU (Frankfurt)',  retention: '18 months' },
+    tn_orbital:    { region: 'US (Virginia)',   retention: '12 months' },
+    tn_meridian:   { region: 'EU (Frankfurt)',  retention: '36 months' },
+    tn_caldera:    { region: 'US (Virginia)',   retention: '24 months' },
+    tn_brightpath: { region: 'EU (Dublin)',     retention: '12 months' },
+    tn_selfserve:  { region: 'EU (Frankfurt)',  retention: '6 months' }
+  };
+
+  var STATUS = {
+    healthy:  { label: 'Healthy',  badge: 'badge-success', icon: 'check-circle-2' },
+    degraded: { label: 'Degraded', badge: 'badge-warning', icon: 'alert-triangle' },
+    suspended:{ label: 'Suspended',badge: 'badge-danger',  icon: 'ban' }
+  };
+
+  var FLAGS = [
+    { key: 'eval_parallel_scoring',   scope: 'Global',                 value: 'On',  override: false, by: 'Marek Ostrowski · 12 Aug 2026' },
+    { key: 'rubric_v4_engine',        scope: 'Per-tenant · 2 tenants', value: 'Off', override: true,  by: 'Ines Duarte · 21 Aug 2026' },
+    { key: 'transcription_whisper_eu',scope: 'Per-tenant · 4 tenants', value: 'On',  override: false, by: 'Marek Ostrowski · 06 Aug 2026' },
+    { key: 'appeal_auto_reroute',     scope: 'Global',                 value: 'Off', override: false, by: 'Ines Duarte · 29 Jul 2026' },
+    { key: 'session_recording_replay',scope: 'Per-tenant · 1 tenant',  value: 'On',  override: true,  by: 'Ops on-call · 22 Aug 2026' },
+    { key: 'queue_backpressure_shed', scope: 'Global',                 value: 'On',  override: true,  by: 'Ops on-call · 23 Aug 2026' },
+    { key: 'llm_cost_guardrail',      scope: 'Global',                 value: 'On',  override: false, by: 'Marek Ostrowski · 01 Aug 2026' },
+    { key: 'candidate_export_v2',     scope: 'Per-tenant · 0 tenants', value: 'Off', override: false, by: 'Ines Duarte · 17 Jul 2026' }
+  ];
+
+  var POLICIES = [
+    { name: 'Evaluation policy',    version: 'v12.4',  prev: 'v12.3',  hash: 'sha256:9f2c41a7', date: '2026-08-14', impact: 'Evaluations already produced under v12.4 stay as they are. New evaluations use v12.3 within about 90 seconds.' },
+    { name: 'Rubric engine',        version: 'v4.1.2', prev: 'v4.0.9', hash: 'sha256:3b7e0d52', date: '2026-08-08', impact: 'Tenant rubrics published against v4.1 keep working; two Northwind rubrics fall back to their v4.0 mapping.' },
+    { name: 'Transcription routing',version: 'v3.0.7', prev: 'v3.0.6', hash: 'sha256:c81a4fe0', date: '2026-08-19', impact: 'EU sessions re-route to the Frankfurt provider. In-flight transcriptions finish on the current route.' },
+    { name: 'Safety policy',        version: 'v2.9.0', prev: 'v2.8.4', hash: 'sha256:5da6b219', date: '2026-08-02', impact: 'Withdrawing the current safety policy needs the safety on-call in the room. It relaxes two refusal categories.' },
+    { name: 'Retention policy',     version: 'v1.8.0', prev: 'v1.7.2', hash: 'sha256:e402c7d3', date: '2026-07-27', impact: 'Scheduled erasure jobs are recalculated. Anything already erased is not recoverable.' }
+  ];
+
+  var ACTIVITY = [
+    { when: '23 Aug 09:41 UTC', actor: 'Ops on-call (Marek Ostrowski)', action: 'Elevation granted — 60 minutes', target: 'Priya Raman', ticket: 'INC-2291', kind: 'active' },
+    { when: '23 Aug 09:38 UTC', actor: 'svc_oncall', action: 'Console access denied — role platform_admin', target: '/admin/god', ticket: 'INC-2291', kind: 'danger' },
+    { when: '23 Aug 08:29 UTC', actor: 'Ines Duarte', action: 'Impersonation ended — 17 minutes', target: 'Priya Raman · Northwind Health System', ticket: 'INC-2287', kind: 'done' },
+    { when: '23 Aug 08:12 UTC', actor: 'Ines Duarte', action: 'Impersonation started', target: 'Priya Raman · Northwind Health System', ticket: 'INC-2287', kind: 'warning' },
+    { when: '23 Aug 07:04 UTC', actor: 'Marek Ostrowski', action: 'Feature flag overridden — queue_backpressure_shed → on', target: 'Global', ticket: 'INC-2291', kind: 'warning' },
+    { when: '22 Aug 15:04 UTC', actor: 'Ines Duarte', action: 'Retention policy changed — 24 → 12 months', target: 'Brightpath Commercial', ticket: 'CHG-0884', kind: 'danger' },
+    { when: '22 Aug 13:47 UTC', actor: 'svc_dataops', action: 'Deletion request fulfilled — 1 candidate, 3 sessions', target: 'Meridian Schools Trust', ticket: 'DSR-0412', kind: 'done' },
+    { when: '22 Aug 10:15 UTC', actor: 'Marek Ostrowski', action: 'Caches purged — evaluation-render', target: 'Orbital Labs', ticket: 'INC-2284', kind: 'done' }
+  ];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function slug(t) { return t.id.replace('tn_', ''); }
+
+  /* ---------------------------------------------------------------- render */
+  function renderTenants() {
+    document.getElementById('tenant-rows').innerHTML = D.tenants.map(function (t) {
+      var x = TENANT_OPS[t.id] || { region: '—', retention: '—' };
+      var st = STATUS[t.status] || STATUS.healthy;
+      return '<tr>' +
+        '<td><span class="row-link">' + esc(t.name) + '</span><span class="td-sub mono">' + esc(t.id) + '</span></td>' +
+        '<td>' + esc(t.plan) + '</td>' +
+        '<td><span class="badge ' + st.badge + '"><i data-lucide="' + st.icon + '" class="ic-sm ic"></i>' + st.label + '</span></td>' +
+        '<td class="num tnum">' + F.num(t.sessions30) + '</td>' +
+        '<td class="num tnum">' + (t.seats || '—') + '</td>' +
+        '<td class="num tnum">' + F.money(t.spend) + '</td>' +
+        '<td>' + esc(x.region) + '</td>' +
+        '<td>' + esc(x.retention) + '</td>' +
+        '<td class="td-actions"><button class="btn btn-sm btn-danger-soft" type="button" data-tenant-ops="' + t.id + '">Operations<span class="sr-only"> for ' + esc(t.name) + '</span></button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function renderFlags() {
+    document.getElementById('flag-rows').innerHTML = FLAGS.map(function (f) {
+      var on = f.value === 'On';
+      return '<tr>' +
+        '<td class="mono">' + esc(f.key) + '</td>' +
+        '<td>' + esc(f.scope) + '</td>' +
+        '<td><span class="badge ' + (on ? 'badge-success' : 'badge-neutral') + '"><i data-lucide="' + (on ? 'toggle-right' : 'toggle-left') + '" class="ic-sm ic"></i>' + f.value + '</span></td>' +
+        '<td>' + (f.override
+          ? '<span class="badge badge-warning"><i data-lucide="alert-triangle" class="ic-sm ic"></i>Overridden</span>'
+          : '<span class="badge badge-outline">Default</span>') + '</td>' +
+        '<td class="text-muted">' + esc(f.by) + '</td>' +
+        '<td class="td-actions"><button class="btn btn-sm btn-secondary" type="button" data-priv data-flag="' + esc(f.key) + '">Set to ' + (on ? 'off' : 'on') + '<span class="sr-only"> — ' + esc(f.key) + '</span></button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function renderPolicies() {
+    document.getElementById('policy-rows').innerHTML = POLICIES.map(function (p, i) {
+      return '<tr>' +
+        '<td>' + esc(p.name) + '</td>' +
+        '<td class="mono">' + esc(p.version) + '</td>' +
+        '<td class="mono text-muted">' + esc(p.hash) + '</td>' +
+        '<td>' + F.date(p.date) + '</td>' +
+        '<td class="td-actions"><button class="btn btn-sm btn-danger-soft" type="button" data-priv data-rollback="' + i + '">Roll back<span class="sr-only"> ' + esc(p.name) + ' to ' + esc(p.prev) + '</span></button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function activityHtml(a) {
+    return '<li class="tl-item ' + a.kind + '">' +
+      '<div class="tl-title">' + esc(a.action) + ' <span class="badge badge-outline mono">' + esc(a.ticket) + '</span></div>' +
+      '<div class="tl-meta">' + esc(a.actor) + ' · ' + esc(a.target) + ' · ' + esc(a.when) + '</div>' +
+      '</li>';
+  }
+  function renderActivity() {
+    document.getElementById('activity-feed').innerHTML = ACTIVITY.map(activityHtml).join('');
+  }
+  function nowUtc() {
+    var d = new Date();
+    return String(d.getUTCDate()).padStart(2, '0') + ' Aug ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0') + ' UTC';
+  }
+  function addActivity(a) {
+    a.when = nowUtc();
+    ACTIVITY.unshift(a);
+    ACTIVITY.length = Math.min(ACTIVITY.length, 12);
+    renderActivity();
+    Prepeet.init();
+    Prepeet.announce('Audit entry added: ' + a.action);
+  }
+
+  /* --------------------------------------------------------- elevation state */
+  var elevated = true, expiresAt = 0, timer = null;
+
+  function fmtLeft(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+  function tick() {
+    var el = document.getElementById('elev-count');
+    if (!el) return;
+    var left = expiresAt - Date.now();
+    el.textContent = fmtLeft(left);
+    if (left <= 0) { clearInterval(timer); setElevated(false, true); }
+  }
+  function startCountdown(minutes) {
+    expiresAt = Date.now() + minutes * 60000;
+    var until = new Date(expiresAt);
+    document.getElementById('elev-until').textContent = String(until.getUTCHours()).padStart(2, '0') + ':' + String(until.getUTCMinutes()).padStart(2, '0') + ' UTC';
+    document.getElementById('elev-expiry').textContent = minutes + ' minutes from now';
+    clearInterval(timer);
+    tick();
+    timer = setInterval(tick, 1000);
+  }
+
+  function applyPrivDisabled() {
+    document.querySelectorAll('[data-priv]').forEach(function (b) { b.disabled = !elevated; });
+    var real = document.getElementById('rr-real');
+    if (real) real.disabled = !elevated || !dryRunDone;
+  }
+
+  function setElevated(on, expired) {
+    var changed = elevated !== on;
+    elevated = on;
+    document.querySelectorAll('[data-state]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-state') !== (on ? 'default' : 'no-elevation');
+    });
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === (on ? 'default' : 'no-elevation')));
+    });
+    applyPrivDisabled();
+    var badge = document.getElementById('elev-badge');
+    badge.className = 'badge ' + (on ? 'badge-privileged' : 'badge-neutral');
+    badge.innerHTML = '<span class="dot"></span>' + (on ? 'Active' : 'Expired');
+    document.getElementById('elev-grantee').textContent = Prepeet.data.adminUser.name + ' · super administrator ' + (on ? '(temporary)' : '(window closed)');
+    if (!on) { clearInterval(timer); document.getElementById('elev-expiry').textContent = 'Window closed'; }
+    if (changed) { dryRunDone = false; var o = document.getElementById('rr-out'); if (o) o.hidden = true; }
+    syncRerun();
+    Prepeet.query.set({ state: on ? null : 'no-elevation' }, true);
+    if (expired) Prepeet.toast({ title: 'Elevation expired', desc: 'The console is read-only again. Request a new window against a ticket.', kind: 'warning' });
+    Prepeet.init();
+  }
+
+  /* ------------------------------------------------------ privileged dialogs */
+  var pending = null;
+
+  function openPriv(cfg) {
+    pending = cfg;
+    document.getElementById('dlg-priv-h').textContent = cfg.title;
+    document.getElementById('priv-desc').textContent = cfg.desc;
+    var warn = document.getElementById('priv-warn');
+    warn.hidden = !cfg.warn;
+    if (cfg.warn) document.getElementById('priv-warn-text').innerHTML = cfg.warn;
+    document.getElementById('priv-phrase').textContent = cfg.phrase;
+    document.getElementById('priv-go').textContent = cfg.cta || 'Confirm';
+    document.getElementById('priv-go').disabled = true;
+    document.getElementById('priv-form').reset();
+    document.getElementById('priv-ticket-err').hidden = true;
+    document.getElementById('priv-reason-err').hidden = true;
+    Prepeet.openDialog('dlg-priv');
+  }
+
+  document.getElementById('priv-confirm').addEventListener('input', function () {
+    document.getElementById('priv-go').disabled = !pending || this.value.trim() !== pending.phrase;
+  });
+
+  document.getElementById('priv-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var ticket = document.getElementById('priv-ticket');
+    var reason = document.getElementById('priv-reason');
+    var okT = /^(INC|CHG|DSR)-[0-9]{4}$/.test(ticket.value.trim());
+    var okR = reason.value.trim().length >= 15;
+    ticket.setAttribute('aria-invalid', String(!okT));
+    reason.setAttribute('aria-invalid', String(!okR));
+    document.getElementById('priv-ticket-err').hidden = okT;
+    document.getElementById('priv-reason-err').hidden = okR;
+    if (!okT) { ticket.focus(); return; }
+    if (!okR) { reason.focus(); return; }
+    if (!pending) return;
+    var cfg = pending;
+    Prepeet.closeDialog('dlg-priv');
+    Prepeet.toast({ title: cfg.toast, desc: 'Logged against ' + ticket.value.trim() + ' and attributed to ' + Prepeet.data.adminUser.name + '.', kind: cfg.toastKind || 'warning' });
+    addActivity({ actor: Prepeet.data.adminUser.name, action: cfg.audit, target: cfg.target, ticket: ticket.value.trim(), kind: cfg.auditKind || 'warning' });
+    if (cfg.after) cfg.after();
+    pending = null;
+  });
+
+  /* ------------------------------------------------------------ tenant ops */
+  function tenantActions(t) {
+    var s = slug(t);
+    return [
+      { key: 'impersonate', label: 'Impersonate a tenant admin', icon: 'user-round-cog', desc: 'Sign in as a named tenant admin to reproduce what they are seeing. Read and write, in their name, for up to 30 minutes.',
+        cfg: {
+          title: 'Impersonate a tenant admin — ' + t.name,
+          desc: 'You will act as a named administrator of ' + t.name + '. Everything you do is recorded as done by you, on their behalf.',
+          warn: '<strong>This is visible to the tenant.</strong> The start and end of the impersonation are written to ' + esc(t.name) + '&rsquo;s own audit log, with your name and ticket reference. Candidate practice data is never exposed by impersonation — practice sessions stay invisible to tenant staff and to you.',
+          phrase: 'IMPERSONATE ' + s, cta: 'Start impersonation', toast: 'Impersonation started',
+          audit: 'Impersonation started', target: 'Tenant admin · ' + t.name, auditKind: 'warning'
+        } },
+      { key: 'suspend', label: 'Suspend tenant', icon: 'ban', desc: 'Blocks all sign-ins, invitations and interviews for this tenant. Candidates mid-interview are allowed to finish.',
+        cfg: { title: 'Suspend ' + t.name + '?', desc: 'Sign-ins, invitations and new interviews stop immediately. Interviews already in progress are allowed to finish and submit.',
+          warn: 'Suspension is visible to every user of this tenant as a full-page notice. Their account managers are emailed automatically.',
+          phrase: 'SUSPEND ' + s, cta: 'Suspend tenant', toast: 'Tenant suspended',
+          audit: 'Tenant suspended', target: t.name, auditKind: 'danger' } },
+      { key: 'reindex', label: 'Force re-index', icon: 'refresh-cw', desc: 'Rebuilds the search index for candidates, sessions and evidence spans. Search is degraded while it runs.',
+        cfg: { title: 'Force re-index — ' + t.name, desc: 'Rebuilds candidate, session and evidence indexes. Roughly 12 minutes for this tenant; search results are incomplete until it finishes.',
+          phrase: 'REINDEX ' + s, cta: 'Start re-index', toast: 'Re-index queued',
+          audit: 'Search re-index forced', target: t.name, auditKind: 'done' } },
+      { key: 'purge', label: 'Purge caches', icon: 'trash-2', desc: 'Drops rendered evaluations, rubric compilations and permission caches. Expect a slow first load per user.',
+        cfg: { title: 'Purge caches — ' + t.name, desc: 'Drops rendered evaluations, compiled rubrics and permission caches for this tenant. No stored data is deleted.',
+          phrase: 'PURGE ' + s, cta: 'Purge caches', toast: 'Caches purged',
+          audit: 'Caches purged', target: t.name, auditKind: 'done' } },
+      { key: 'export', label: 'Export tenant configuration', icon: 'download', desc: 'Produces a JSON snapshot of rubrics, roles, integrations and settings. Contains no candidate data.',
+        cfg: { title: 'Export configuration — ' + t.name, desc: 'Produces a signed JSON snapshot of rubrics, member roles, integrations and tenant settings. It contains no candidate answers, transcripts or scores.',
+          warn: 'The export itself is an audited data-access event, and the download link expires after one hour.',
+          phrase: 'EXPORT ' + s, cta: 'Generate export', toast: 'Configuration export queued',
+          audit: 'Tenant configuration exported', target: t.name, auditKind: 'warning' } }
+    ];
+  }
+
+  function openTenantDrawer(id) {
+    var t = D.tenants.filter(function (x) { return x.id === id; })[0];
+    if (!t) return;
+    document.getElementById('drawer-tenant-h').textContent = t.name;
+    document.getElementById('drawer-tenant-id').textContent = t.id + ' · ' + t.plan + ' · ' + (TENANT_OPS[t.id] || {}).region;
+    document.getElementById('drawer-tenant-body').innerHTML =
+      '<p class="hint">Every operation below needs a ticket reference, a written reason and a typed confirmation. ' +
+      (elevated ? 'They are enabled because your elevation window is open.' : 'They are disabled because you have no active elevation window.') + '</p>' +
+      tenantActions(t).map(function (a) {
+        return '<div class="card card-subtle"><div class="card-body">' +
+          '<div class="cluster" style="margin-bottom:6px"><i data-lucide="' + a.icon + '" class="ic ic-sm" style="color:var(--danger)"></i>' +
+          '<strong style="font-size:var(--text-sm)">' + esc(a.label) + '</strong>' +
+          '<span class="badge badge-privileged" style="margin-left:auto">Privileged</span></div>' +
+          '<p class="hint" style="line-height:1.5">' + esc(a.desc) + '</p>' +
+          '<button class="btn btn-sm btn-danger-soft" style="margin-top:10px" type="button" data-priv data-do="' + a.key + '" data-tid="' + t.id + '"' + (elevated ? '' : ' disabled') + '>' + esc(a.label) + '</button>' +
+          '</div></div>';
+      }).join('');
+    Prepeet.openDialog('drawer-tenant');
+    Prepeet.init();
+  }
+
+  /* ------------------------------------------------------------- rollback */
+  var rbIndex = 0, rbStep = 1;
+  function openRollback(i) {
+    rbIndex = i; rbStep = 1;
+    var p = POLICIES[i];
+    document.getElementById('rb-comp').textContent = p.name;
+    document.getElementById('rb-from').textContent = p.version + ' · activated ' + F.date(p.date);
+    document.getElementById('rb-to').textContent = p.prev + ' · previous release';
+    document.getElementById('rb-impact').textContent = p.impact;
+    document.getElementById('rb-summary').textContent = 'Roll ' + p.name.toLowerCase() + ' back to ' + p.prev;
+    document.getElementById('rb-phrase').textContent = 'ROLLBACK ' + p.prev;
+    document.getElementById('rb-who').textContent = Prepeet.data.adminUser.name;
+    document.getElementById('rb-form').reset();
+    showRbStep(1);
+    Prepeet.openDialog('dlg-rollback');
+  }
+  function showRbStep(n) {
+    rbStep = n;
+    document.getElementById('rb-step-1').hidden = n !== 1;
+    document.getElementById('rb-step-2').hidden = n !== 2;
+    document.getElementById('rb-back').hidden = n !== 2;
+    document.getElementById('rb-step-label').textContent = n === 1 ? 'Step 1 of 2 · review and give a reason' : 'Step 2 of 2 · confirm in writing';
+    var go = document.getElementById('rb-go');
+    go.textContent = n === 1 ? 'Continue' : 'Roll back now';
+    go.disabled = n === 2;
+  }
+  document.getElementById('rb-back').addEventListener('click', function () { showRbStep(1); });
+  document.getElementById('rb-confirm').addEventListener('input', function () {
+    document.getElementById('rb-go').disabled = this.value.trim() !== document.getElementById('rb-phrase').textContent;
+  });
+  document.getElementById('rb-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var p = POLICIES[rbIndex];
+    if (rbStep === 1) {
+      var t = document.getElementById('rb-ticket'), r = document.getElementById('rb-reason');
+      var okT = /^(INC|CHG)-[0-9]{4}$/.test(t.value.trim()), okR = r.value.trim().length >= 15;
+      t.setAttribute('aria-invalid', String(!okT)); r.setAttribute('aria-invalid', String(!okR));
+      document.getElementById('rb-ticket-err').hidden = okT;
+      document.getElementById('rb-reason-err').hidden = okR;
+      if (!okT) { t.focus(); return; }
+      if (!okR) { r.focus(); return; }
+      document.getElementById('rb-ticket-echo').textContent = t.value.trim();
+      showRbStep(2);
+      document.getElementById('rb-confirm').focus();
+      return;
+    }
+    var ticket = document.getElementById('rb-ticket').value.trim();
+    Prepeet.closeDialog('dlg-rollback');
+    Prepeet.toast({ title: p.name + ' rolled back to ' + p.prev, desc: 'Active within 90 seconds. Logged against ' + ticket + '.', kind: 'danger' });
+    addActivity({ actor: Prepeet.data.adminUser.name, action: p.name + ' rolled back — ' + p.version + ' → ' + p.prev, target: 'All tenants', ticket: ticket, kind: 'danger' });
+  });
+
+  /* --------------------------------------------------------- re-run tool */
+  var dryRunDone = false;
+  function syncRerun() {
+    var real = document.getElementById('rr-real');
+    if (!real) return;
+    real.disabled = !elevated || !dryRunDone;
+    document.getElementById('rr-hint').textContent = !elevated
+      ? 'Both buttons are disabled while the console is read-only.'
+      : (dryRunDone ? 'Dry run complete. A real run now needs a ticket reference, a reason and a typed confirmation.'
+                    : 'A real run is disabled until a dry run has completed in this session.');
+  }
+
+  document.getElementById('rerun-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!elevated) return;
+    var dry = document.getElementById('rr-dry').checked;
+    var tenantSel = document.getElementById('rr-tenant');
+    var scope = tenantSel.options[tenantSel.selectedIndex].text;
+    var out = document.getElementById('rr-out');
+    if (!dry) {
+      Prepeet.toast({ title: 'Dry run required', desc: 'Tick “Dry run”, run it, then use “Run for real”.', kind: 'warning' });
+      document.getElementById('rr-dry').checked = true;
+      return;
+    }
+    out.hidden = false;
+    out.innerHTML = '<strong>Dry run — nothing was written.</strong><br>' +
+      'Scope: ' + esc(scope) + ' · sessions completed on or after ' + esc(document.getElementById('rr-since').value) + '<br>' +
+      'Would re-evaluate <strong>1,284 sessions</strong> across 3 tenants (Northwind Health System 612, Orbital Labs 431, Caldera Capital 241).<br>' +
+      'Estimated cost $214.80 · estimated wall time 46 minutes · 118 sessions would change band.<br>' +
+      '<span class="mono">37 sessions are excluded: 31 under legal hold lh_0031, 6 pending erasure.</span>';
+    dryRunDone = true;
+    syncRerun();
+    Prepeet.announce('Dry run complete. 1,284 sessions would be re-evaluated.');
+  });
+
+  document.getElementById('rr-real').addEventListener('click', function (e) {
+    e.preventDefault();
+    if (this.disabled) return;
+    openPriv({
+      title: 'Re-run 1,284 evaluations for real',
+      desc: 'This writes new evaluations over the top of existing ones for 1,284 completed sessions. Reviewers who have already read an evaluation will see it change.',
+      warn: 'Candidates in screening mode are not notified and never see scores. Reviewers with an open decision on an affected candidate are emailed.',
+      phrase: 'RERUN 1284', cta: 'Start real run', toast: 'Re-run started',
+      audit: 'Bulk evaluation re-run started — 1,284 sessions', target: '3 tenants', auditKind: 'danger',
+      after: function () { dryRunDone = false; document.getElementById('rr-out').hidden = true; syncRerun(); }
+    });
+  });
+
+  /* ------------------------------------------------------------ delegation */
+  document.addEventListener('click', function (e) {
+    var b;
+    if ((b = e.target.closest('[data-tenant-ops]'))) { openTenantDrawer(b.getAttribute('data-tenant-ops')); return; }
+    if ((b = e.target.closest('[data-do]'))) {
+      var t = D.tenants.filter(function (x) { return x.id === b.getAttribute('data-tid'); })[0];
+      var act = tenantActions(t).filter(function (a) { return a.key === b.getAttribute('data-do'); })[0];
+      Prepeet.closeDialog('drawer-tenant');
+      openPriv(act.cfg);
+      return;
+    }
+    if ((b = e.target.closest('[data-flag]'))) {
+      var key = b.getAttribute('data-flag');
+      var f = FLAGS.filter(function (x) { return x.key === key; })[0];
+      var next = f.value === 'On' ? 'off' : 'on';
+      openPriv({
+        title: 'Change feature flag ' + key,
+        desc: 'Setting ' + key + ' to ' + next + ' for ' + f.scope.toLowerCase() + '. The change takes effect on the next request, not on sessions already running.',
+        warn: 'This creates an override that survives deploys until it is cleared. Overrides older than seven days are reported to the platform review.',
+        phrase: 'SET ' + key + ' ' + next.toUpperCase(), cta: 'Apply override', toast: 'Flag ' + key + ' set to ' + next,
+        audit: 'Feature flag overridden — ' + key + ' → ' + next, target: f.scope, auditKind: 'warning',
+        after: function () { f.value = next === 'on' ? 'On' : 'Off'; f.override = true; f.by = Prepeet.data.adminUser.name + ' · just now'; renderFlags(); applyPrivDisabled(); Prepeet.init(); }
+      });
+      return;
+    }
+    if ((b = e.target.closest('[data-requeue]'))) {
+      openPriv({
+        title: 'Requeue session ' + b.getAttribute('data-requeue'),
+        desc: 'Puts this session back on the evaluations-eu-2 queue at the head, so it is retried before the 412 items already waiting.',
+        warn: 'Requeueing does not read or move raw audio. If rubric mapping times out again the session is parked for manual review, not retried a fourth time.',
+        phrase: 'REQUEUE ' + b.getAttribute('data-requeue'), cta: 'Requeue session', toast: 'Session requeued',
+        audit: 'Failed session requeued — ' + b.getAttribute('data-requeue'), target: 'Prepeet Practice (self-serve)', auditKind: 'done'
+      });
+      return;
+    }
+    if ((b = e.target.closest('[data-rollback]'))) { openRollback(Number(b.getAttribute('data-rollback'))); return; }
+    if ((b = e.target.closest('[data-state-btn]'))) { setElevated(b.getAttribute('data-state-btn') === 'default'); if (elevated) startCountdown(41); return; }
+  });
+
+  document.getElementById('end-elev-go').addEventListener('click', function () {
+    Prepeet.closeDialog('dlg-end-elev');
+    setElevated(false);
+    Prepeet.toast({ title: 'Elevated session ended', desc: 'The console is read-only. The window close was written to the audit log.', kind: 'success' });
+    addActivity({ actor: Prepeet.data.adminUser.name, action: 'Elevation ended manually', target: 'Platform', ticket: 'INC-2291', kind: 'done' });
+  });
+
+  document.getElementById('req-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var t = document.getElementById('req-ticket'), r = document.getElementById('req-reason');
+    var okT = /^(INC|CHG|DSR)-[0-9]{4}$/.test(t.value.trim()), okR = r.value.trim().length >= 15;
+    t.setAttribute('aria-invalid', String(!okT)); r.setAttribute('aria-invalid', String(!okR));
+    document.getElementById('req-ticket-err').hidden = okT;
+    document.getElementById('req-reason-err').hidden = okR;
+    if (!okT) { t.focus(); return; }
+    if (!okR) { r.focus(); return; }
+    var mins = document.getElementById('req-duration').value;
+    Prepeet.closeDialog('dlg-request-elev');
+    Prepeet.toast({ title: 'Elevation requested', desc: 'Ops on-call has been paged for ' + mins + ' minutes against ' + t.value.trim() + '. You will be notified either way.', kind: 'info' });
+    addActivity({ actor: Prepeet.data.adminUser.name, action: 'Elevation requested — ' + mins + ' minutes', target: 'Ops on-call', ticket: t.value.trim(), kind: '' });
+  });
+
+  /* ------------------------------------------------------------------ init */
+  document.addEventListener('DOMContentLoaded', function () {
+    var role = Prepeet.getRole();
+    if (!Prepeet.can('god')) {
+      document.getElementById('denied').hidden = false;
+      document.getElementById('console').hidden = true;
+      document.getElementById('page-actions').hidden = true;
+      document.getElementById('denied-role').textContent = Prepeet.roles[role].label;
+      document.getElementById('denied-role-code').textContent = role;
+      Prepeet.init();
+      return;
+    }
+    document.getElementById('denied').hidden = true;
+    document.getElementById('console').hidden = false;
+    document.getElementById('elev-who').textContent = Prepeet.data.adminUser.name;
+
+    var sel = document.getElementById('rr-tenant');
+    D.tenants.forEach(function (t) { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o); });
+
+    renderTenants(); renderFlags(); renderPolicies(); renderActivity();
+
+    var initial = Prepeet.query.get('state', 'default');
+    setElevated(initial !== 'no-elevation');
+    if (elevated) startCountdown(41);
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

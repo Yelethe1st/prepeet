@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Prepeet</title>
+<meta name="description" content="Sign in to Prepeet to practise interviews or to complete a screening interview an employer has invited you to.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<!-- ══════════════════ LEFT: dark panel ══════════════════ -->
+<aside class="auth-side" aria-label="Why people practise with Prepeet">
+  <p class="eyebrow" style="color:var(--reef-300)">Why people practise here</p>
+  <blockquote class="quote" style="margin:18px 0 0">
+    “Eleven rejections and nobody would tell me why. The first thing Prepeet played back to me was my own answer about a deteriorating patient — I described the fix in nine seconds and never once said how I knew. I have not answered a question that way since.”
+  </blockquote>
+  <p class="quote-by">Amara Osei · Registered Nurse, Intensive Care · Manchester<br>
+    <span style="color:#9B958B">14 practice sessions before her Northwind Health screening</span></p>
+
+  <div class="side-foot">
+    <dl class="kv" style="grid-template-columns:1fr 1fr;gap:18px 24px;font-size:var(--text-sm);color:#C4BFB6">
+      <div>
+        <dt style="color:#9B958B;font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Practice sessions run</dt>
+        <dd style="margin:4px 0 0;color:#F3F0EA;font-size:var(--text-lg);font-weight:650" class="tnum">184,600</dd>
+      </div>
+      <div>
+        <dt style="color:#9B958B;font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:.08em;font-weight:700">Employers screening</dt>
+        <dd style="margin:4px 0 0;color:#F3F0EA;font-size:var(--text-lg);font-weight:650" class="tnum">312</dd>
+      </div>
+    </dl>
+    <div class="trust">
+      <span><i data-lucide="shield-check" class="ic"></i>EU data residency (Frankfurt)</span>
+      <span><i data-lucide="lock" class="ic"></i>Practice data never reaches employers</span>
+      <span><i data-lucide="accessibility" class="ic"></i>WCAG 2.2 AA</span>
+      <span><i data-lucide="file-check-2" class="ic"></i>SOC 2 Type II</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════════════ RIGHT: form ══════════════════ -->
+<main class="auth-main" id="main-content">
+
+  <div class="auth-top">
+    <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+    <div class="cluster">
+      <span class="hint sr-only">Preview state</span>
+      <div class="segmented" role="group" aria-label="Preview screen state">
+        <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+        <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+        <button type="button" data-state-btn="oauth-error" aria-pressed="false">OAuth error</button>
+      </div>
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+        <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="auth-card">
+    <span class="badge badge-outline mono" style="margin-bottom:12px">/login</span>
+    <h1>Sign in to Prepeet</h1>
+    <p class="lead">Practice sessions, screening invitations and your recruiter workspace all live behind one account.</p>
+
+    <!-- Password reset confirmation (arrives from reset-password.html) -->
+    <div class="banner banner-success" id="reset-banner" hidden role="status" style="margin-bottom:18px">
+      <i data-lucide="check-circle-2" class="ic"></i>
+      <div><strong>Password changed.</strong> Sign in with your new password. All other devices were signed out.</div>
+    </div>
+
+    <!-- OAuth failure -->
+    <div class="banner banner-danger" id="oauth-error" hidden role="alert" style="margin-bottom:18px">
+      <i data-lucide="shield-x" class="ic"></i>
+      <div>
+        <strong>Microsoft sign-in was cancelled.</strong>
+        <p style="margin-top:4px;line-height:1.5">The provider returned <span class="mono">access_denied</span> — either consent was declined on the Microsoft screen, or your organisation blocks Prepeet for your account. Nothing was shared with us.</p>
+        <div class="cluster" style="margin-top:10px">
+          <button class="btn btn-sm btn-danger-soft" type="button" id="oauth-retry"><i data-lucide="rotate-ccw" class="ic ic-sm"></i>Try Microsoft again</button>
+          <button class="btn btn-sm btn-ghost" type="button" id="oauth-dismiss">Use email and password</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Redirect note -->
+    <p class="hint" id="next-note" hidden style="margin-bottom:18px;display:flex;gap:8px;align-items:flex-start">
+      <i data-lucide="corner-down-right" class="ic ic-sm" style="margin-top:2px;color:var(--primary)"></i>
+      <span>You will be taken to <span class="mono" id="next-route"></span> as soon as you are signed in.</span>
+    </p>
+
+    <!-- ─────────── OAuth providers (rendered from JS) ─────────── -->
+    <section aria-labelledby="sso-h" style="margin-bottom:18px">
+      <h2 id="sso-h" class="sr-only">Single sign-on options</h2>
+      <div class="oauth-list" id="oauth-list" role="status" aria-live="polite" aria-busy="true"></div>
+      <p class="hint" id="sso-hint" style="margin-top:8px">Okta appears because your device was last used on the Northwind Health network.</p>
+    </section>
+
+    <div class="or" style="margin-bottom:18px">or sign in with email</div>
+
+    <!-- ─────────── Email + password ─────────── -->
+    <form id="login-form" data-validate="candidate-dashboard.html" data-validate-delay="800" aria-describedby="next-note">
+      <div class="field">
+        <label class="label" for="email">Work or personal email</label>
+        <div class="input-wrap">
+          <i data-lucide="mail" class="ic ic-sm"></i>
+          <input class="input" id="email" name="email" type="email" required autocomplete="username"
+                 placeholder="daniel.okonkwo@example.com" aria-describedby="email-err">
+        </div>
+        <p class="error-text" id="email-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter the email address you registered with.</p>
+      </div>
+
+      <div class="field">
+        <div class="between" style="gap:8px;flex-wrap:nowrap">
+          <label class="label" for="password">Password</label>
+          <a href="forgot-password.html" style="font-size:var(--text-xs);font-weight:600">Forgot your password?</a>
+        </div>
+        <div class="input-wrap">
+          <i data-lucide="lock" class="ic ic-sm"></i>
+          <input class="input" id="password" name="password" type="password" required autocomplete="current-password"
+                 minlength="8" placeholder="At least 8 characters" style="padding-right:44px" aria-describedby="password-err">
+          <button class="icon-btn icon-btn-sm input-trail" type="button" id="pw-toggle"
+                  aria-pressed="false" aria-controls="password" aria-label="Show password">
+            <i data-lucide="eye" class="ic ic-sm" data-pw-show></i>
+            <i data-lucide="eye-off" class="ic ic-sm" data-pw-hide hidden></i>
+          </button>
+        </div>
+        <p class="error-text" id="password-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Your password must be at least 8 characters.</p>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" name="remember" id="remember" checked>
+        <span>Keep me signed in for 30 days
+          <span class="hint">Leave this off on shared clinical or library workstations.</span>
+        </span>
+      </label>
+
+      <button class="btn btn-primary btn-lg btn-block" type="submit">Sign in</button>
+    </form>
+
+    <hr style="margin:22px 0">
+
+    <ul class="stack-sm" style="font-size:var(--text-sm)">
+      <li class="row" style="gap:8px"><i data-lucide="key-round" class="ic ic-sm" style="color:var(--fg-3)"></i>
+        <a href="otp.html">Sign in with a one-time code</a></li>
+      <li class="row" style="gap:8px"><i data-lucide="wand-sparkles" class="ic ic-sm" style="color:var(--fg-3)"></i>
+        <a href="magic-link.html">Email me a sign-in link instead</a></li>
+      <li class="row" style="gap:8px"><i data-lucide="mail-open" class="ic ic-sm" style="color:var(--fg-3)"></i>
+        <a href="invitation-accept.html">I was invited to a screening interview</a></li>
+    </ul>
+
+    <p class="hint" style="margin-top:22px">
+      New to Prepeet? <a href="register.html" style="font-weight:600">Create an account</a> — free for candidates, no card needed.
+    </p>
+  </div>
+
+  <footer class="auth-foot">
+    <span>© 2026 Prepeet</span>
+    <a href="index.html">About Prepeet</a>
+    <a href="access-denied.html">Trouble accessing a workspace?</a>
+    <a href="screens.html">Prototype index</a>
+  </footer>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  /* Providers arrive from the tenant discovery endpoint in the real app, so the
+     buttons below are rendered from data rather than hard-coded in the markup. */
+  var PROVIDERS = [
+    { id: 'google',    label: 'Google',                  letter: 'G', bg: '#FFFFFF', fg: '#3C4043', ring: '#DADCE0' },
+    { id: 'microsoft', label: 'Microsoft',               letter: 'M', bg: '#0067B8', fg: '#FFFFFF' },
+    { id: 'okta',      label: 'Okta (Northwind Health)', letter: 'O', bg: '#00297A', fg: '#FFFFFF' }
+  ];
+
+  /* Only routes that exist may be used as a post-sign-in destination. */
+  var ALLOWED = [
+    'candidate-dashboard.html', 'candidate-sessions.html', 'candidate-start-interview.html',
+    'candidate-session-prepare.html', 'candidate-session-review.html', 'candidate-session-results.html',
+    'candidate-profile.html', 'candidate-settings.html', 'invitation-accept.html',
+    'admin-dashboard.html', 'admin-recruiter.html', 'admin-invitations.html', 'access-denied.html'
+  ];
+  var DEFAULT_NEXT = 'candidate-dashboard.html';
+
+  function safeNext() {
+    var raw = Prepeet.query.get('next', '') || '';
+    var file = raw.split('?')[0].split('#')[0];
+    return ALLOWED.indexOf(file) === -1 ? DEFAULT_NEXT : raw;
+  }
+
+  var list = document.getElementById('oauth-list');
+  var ssoHint = document.getElementById('sso-hint');
+  var loadTimer = null;
+
+  function skeletons() {
+    list.setAttribute('aria-busy', 'true');
+    list.innerHTML = '<span class="sr-only">Loading the sign-in options for your organisation…</span>' +
+      '<div class="skeleton" style="height:40px;border-radius:var(--r-md)"></div>' +
+      '<div class="skeleton" style="height:40px;border-radius:var(--r-md)"></div>' +
+      '<div class="skeleton" style="height:40px;border-radius:var(--r-md)"></div>';
+    ssoHint.textContent = 'Checking which providers your organisation allows…';
+  }
+
+  function renderProviders() {
+    var next = safeNext();
+    list.setAttribute('aria-busy', 'false');
+    list.innerHTML = PROVIDERS.map(function (p) {
+      var mark = 'background:' + p.bg + ';color:' + p.fg + (p.ring ? ';box-shadow:inset 0 0 0 1px ' + p.ring : '');
+      return '<a class="btn btn-secondary btn-block oauth-btn" data-provider="' + p.id + '" href="' +
+        Prepeet.query.withParams('oauth-callback.html', { provider: p.id, next: next }) + '">' +
+        '<span class="provider-mark" style="' + mark + '" aria-hidden="true">' + p.letter + '</span>' +
+        '<span>Continue with ' + p.label + '</span></a>';
+    }).join('');
+    ssoHint.textContent = 'Okta appears because this device was last used on the Northwind Health network.';
+    Prepeet.init(list);
+    Prepeet.announce('Three single sign-on options are available: Google, Microsoft, and Okta for Northwind Health.');
+  }
+
+  /* ---------- states: default | loading | oauth-error ---------- */
+  function applyState(s) {
+    clearTimeout(loadTimer);
+    document.getElementById('oauth-error').hidden = (s !== 'oauth-error');
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+    });
+    Prepeet.query.set({ state: s === 'default' ? null : s, error: s === 'oauth-error' ? 'oauth_denied' : null }, true);
+
+    skeletons();
+    if (s === 'loading') {
+      Prepeet.announce('Sign-in options are still loading.');
+    } else {
+      loadTimer = setTimeout(renderProviders, 900);
+    }
+    Prepeet.init();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-state-btn]');
+    if (b) applyState(b.getAttribute('data-state-btn'));
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+
+    /* Post-sign-in destination -------------------------------------------- */
+    var next = safeNext();
+    var form = document.getElementById('login-form');
+    form.setAttribute('data-validate', next);
+    if (Prepeet.query.get('next')) {
+      document.getElementById('next-route').textContent = next;
+      document.getElementById('next-note').hidden = false;
+    }
+
+    /* Reset confirmation --------------------------------------------------- */
+    if (Prepeet.query.get('reset') === '1') {
+      document.getElementById('reset-banner').hidden = false;
+      document.getElementById('email').value = Prepeet.data.candidateUser.email;
+    }
+
+    /* Show / hide password -------------------------------------------------- */
+    var toggle = document.getElementById('pw-toggle');
+    toggle.addEventListener('click', function () {
+      var input = document.getElementById('password');
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggle.setAttribute('aria-pressed', String(show));
+      toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      toggle.querySelector('[data-pw-show]').hidden = show;
+      toggle.querySelector('[data-pw-hide]').hidden = !show;
+      Prepeet.announce(show ? 'Password is now visible.' : 'Password is hidden.');
+      input.focus();
+    });
+
+    /* OAuth error actions ---------------------------------------------------- */
+    document.getElementById('oauth-retry').addEventListener('click', function () {
+      location.href = Prepeet.query.withParams('oauth-callback.html', { provider: 'microsoft', next: safeNext() });
+    });
+    document.getElementById('oauth-dismiss').addEventListener('click', function () {
+      document.getElementById('oauth-error').hidden = true;
+      Prepeet.query.set({ error: null, state: null }, true);
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === 'default'));
+      });
+      document.getElementById('email').focus();
+    });
+
+    /* Initial state --------------------------------------------------------- */
+    var initial = Prepeet.query.get('state', null);
+    if (!initial) initial = Prepeet.query.get('error') === 'oauth_denied' ? 'oauth-error' : 'default';
+    applyState(initial);
+  });
+})();
+</script>
+</body>
+</html>

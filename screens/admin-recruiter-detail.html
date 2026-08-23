@@ -1,0 +1,1410 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Candidate review · Prepeet</title>
+<meta name="description" content="Evidence-backed review of a screening interview: competency signals, transcript evidence, coverage, contradictions, JD compatibility and the reviewer's decision.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped only — nothing here is generic enough for components.css */
+  .subject-bar {
+    position: sticky; top: var(--topbar-h); z-index: 40;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: var(--sp-3) 0 var(--sp-3); margin-bottom: var(--sp-5);
+    display: flex; gap: var(--sp-4); align-items: center; flex-wrap: wrap;
+  }
+  .subject-bar h1 { font-size: var(--text-xl); letter-spacing: -0.02em; }
+  .subject-bar .subject-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
+  .subject-nav { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  @media (max-width: 640px) { .subject-bar { position: static; } .subject-nav { margin-left: 0; width: 100%; } }
+
+  /* evidence spans are buttons so they are keyboard reachable */
+  button.ev { font: inherit; text-align: left; line-height: inherit; color: inherit; }
+  button.ev:focus-visible { box-shadow: var(--focus-ring); }
+  .transcript-scroll { max-height: 620px; overflow-y: auto; padding-right: 4px; scroll-behavior: smooth; }
+  .turn.is-flash { animation: ev-flash 1.4s var(--ease-out); }
+  @keyframes ev-flash { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
+
+  /* coverage grid */
+  .cov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 26px), 1fr)); gap: 5px; }
+  .cov-cell { height: 34px; border-radius: var(--r-xs); border: 1px solid var(--border); }
+  .cov-cell.full { background: var(--score-solid); border-color: var(--score-solid); }
+  .cov-cell.part { background: color-mix(in srgb, var(--score-developing) 55%, transparent); border-color: var(--score-developing); }
+  .cov-cell.none { background: repeating-linear-gradient(45deg, transparent 0 4px, var(--surface-3) 4px 8px); border-color: var(--border-strong); border-style: dashed; }
+
+  .conf-table td, .conf-table th { vertical-align: top; }
+  .player .wave-mini { max-width: 55%; overflow: hidden; }
+  @media (max-width: 420px) { .player .wave-mini { display: none; } }
+  .rail-form { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .decision-options { display: grid; gap: 8px; }
+  .quote-pair { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 900px) { .quote-pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="recruiter" data-title="Candidate review"
+      data-crumbs="Hiring>admin-dashboard.html|Candidates>admin-recruiter.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <!-- ════════════════════ STICKY SUBJECT HEADER ════════════════════ -->
+    <div class="subject-bar">
+      <span class="avatar avatar-lg" id="subj-initials">AO</span>
+      <div style="min-width:0">
+        <h1 id="subj-name">Amara Osei</h1>
+        <div class="subject-meta">
+          <span class="badge badge-outline" id="subj-role">Registered Nurse — Intensive Care</span>
+          <span class="badge badge-mode screen">Screening</span>
+          <span class="badge badge-warning" id="subj-status"><i data-lucide="clock" class="ic-sm ic"></i>Awaiting review</span>
+          <span class="badge badge-outline mono" id="subj-route">/admin/recruiter/cand_R4T9MP</span>
+        </div>
+      </div>
+      <div class="subject-nav">
+        <a class="btn btn-sm btn-secondary" id="nav-prev" href="admin-recruiter.html"><i data-lucide="chevron-left" class="ic ic-sm"></i>Previous</a>
+        <span class="hint tnum" id="nav-pos">1 of 12</span>
+        <a class="btn btn-sm btn-secondary" id="nav-next" href="admin-recruiter.html">Next<i data-lucide="chevron-right" class="ic ic-sm"></i></a>
+        <a class="btn btn-sm btn-ghost" href="admin-recruiter-compare.html?ids=cand_R4T9MP,cand_L7X2QN"><i data-lucide="columns-3" class="ic ic-sm"></i>Compare</a>
+      </div>
+    </div>
+
+    <div class="cluster" style="margin-bottom:var(--sp-5)">
+      <span class="hint">Preview state</span>
+      <div class="segmented" role="group" aria-label="Preview screen state">
+        <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+        <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+        <button type="button" data-state-btn="insufficient" aria-pressed="false">Insufficient evidence</button>
+        <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+      </div>
+    </div>
+
+    <!-- ════════════════════ LOADING ════════════════════ -->
+    <div data-state="loading" hidden>
+      <div class="grid grid-main-aside">
+        <div class="stack-lg">
+          <div class="card"><div class="card-body">
+            <div class="skeleton skeleton-text w-25"></div>
+            <div style="display:flex;gap:var(--sp-5);align-items:center;margin-top:var(--sp-4)">
+              <div class="skeleton skeleton-circle" style="width:140px;height:140px"></div>
+              <div style="flex:1"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text w-75"></div><div class="skeleton skeleton-text w-50"></div></div>
+            </div>
+          </div></div>
+          <div class="card"><div class="card-body">
+            <div class="skeleton skeleton-text w-25"></div>
+            <div class="skeleton skeleton-block" style="margin-top:12px"></div>
+          </div></div>
+        </div>
+        <div class="card"><div class="card-body">
+          <div class="skeleton skeleton-text w-50"></div>
+          <div class="skeleton skeleton-block" style="height:220px;margin-top:12px"></div>
+        </div></div>
+      </div>
+      <p class="hint" role="status" style="margin-top:var(--sp-4)">Loading the evaluation, transcript and audit history for this candidate…</p>
+    </div>
+
+    <!-- ════════════════════ ERROR ════════════════════ -->
+    <div data-state="error" hidden>
+      <div class="card"><div class="state danger">
+        <div class="state-icon"><i data-lucide="unplug" class="ic"></i></div>
+        <h2>We could not load this evaluation</h2>
+        <p>The evaluation record for <span class="mono">cand_R4T9MP</span> did not return within 15 seconds. The transcript and audio are unaffected — nothing has been changed and no decision has been recorded.</p>
+        <p class="mono" style="font-size:var(--text-xs);color:var(--fg-3)">ref: eval-fetch-timeout · 23 Aug 2026 10:14:52 UTC</p>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" data-loading-sim="1400" data-loading-done="Evaluation loaded">Try again</button>
+          <a class="btn btn-secondary" href="admin-recruiter.html">Back to candidates</a>
+          <a class="btn btn-ghost" href="admin-platform-system.html">System status</a>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ════════════════════ INSUFFICIENT EVIDENCE ════════════════════ -->
+    <div data-state="insufficient" hidden>
+      <div class="banner banner-warning" style="margin-bottom:var(--sp-5)">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>
+          <strong>No competency scores are shown for this evaluation.</strong>
+          The conversation reached 4 of 13 rubric areas (34% coverage) and produced 5 evidence spans. That is not enough to score a competency, so Prepeet has not produced one. Scoring on this much evidence would misrepresent what the candidate actually said.
+        </div>
+      </div>
+
+      <div class="grid grid-main-aside">
+        <div class="stack-lg">
+
+          <section class="card" aria-labelledby="ins-what-h">
+            <div class="card-header">
+              <div><h2 id="ins-what-h">What happened in this session</h2>
+              <p class="hint" style="margin-top:3px">Session <span class="mono">ses_MZ01</span> · Panel simulation · scheduled 25 minutes</p></div>
+            </div>
+            <div class="card-body stack">
+              <dl class="kv">
+                <dt>Submitted</dt><dd>20 August 2026, 10:12</dd>
+                <dt>Audio captured</dt><dd>12 min 04 s of a 25-minute screen</dd>
+                <dt>Questions answered</dt><dd>3 of 8 — the session ended during question 4</dd>
+                <dt>Ended by</dt><dd>Client disconnected. The candidate's browser reported a lost connection at 12:04 and did not reconnect.</dd>
+                <dt>Evidence spans</dt><dd>5 (2 supporting, 3 gaps)</dd>
+              </dl>
+              <div class="banner">
+                <i data-lucide="info" class="ic"></i>
+                <div>A dropped connection is not a signal about the candidate. Treat this as an incomplete recording, not an incomplete answer.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="ins-cov-h">
+            <div class="card-header"><h2 id="ins-cov-h">Coverage of the ICU rubric</h2></div>
+            <div class="card-body">
+              <div class="between" style="margin-bottom:8px">
+                <span style="font-size:var(--text-sm);font-weight:600">Rubric areas reached</span>
+                <span class="tnum text-muted" style="font-size:var(--text-xs)">4 of 13 · 34%</span>
+              </div>
+              <div class="progress warning"><span style="width:34%"></span></div>
+              <p class="chart-summary">Text summary: 4 of 13 rubric areas were reached (34%). Reached: recognition of deterioration, structured assessment, invasive ventilation, and — briefly — incident reporting. Not reached: escalation, handover, family communication, end-of-life conversations, team roles in an arrest, managing disagreement, preceptorship, medication safety, renal replacement therapy.</p>
+              <p class="hint" style="margin-top:var(--sp-4)">Because 9 of the 13 areas were never asked about, no competency in this rubric has enough evidence to score — including the ones that were partly discussed.</p>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="ins-next-h">
+            <div class="card-header"><h2 id="ins-next-h">What a reviewer should do next</h2></div>
+            <div class="card-body">
+              <ol class="timeline">
+                <li class="tl-item active"><div class="tl-title">Have a live conversation, or offer a new interview</div>
+                  <div class="tl-body">The fastest route to a fair decision here is a 20-minute call, or a fresh screening invitation. Either produces the evidence this record is missing.</div></li>
+                <li class="tl-item"><div class="tl-title">Ask the questions the session never reached</div>
+                  <div class="tl-body">Escalation and handover, family communication, team roles during a cardiac arrest, and medication safety were never put to this candidate.</div></li>
+                <li class="tl-item"><div class="tl-title">Record a decision with a written rationale</div>
+                  <div class="tl-body">Any outcome recorded from this record — including declining — needs a rationale, because there is no score to point at.</div></li>
+              </ol>
+            </div>
+          </section>
+        </div>
+
+        <aside class="stack sticky-aside" aria-label="Actions for an insufficient evaluation">
+          <div class="card card-accent">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Suggested next step</h2></div>
+            <div class="card-body stack">
+              <div class="ring ring-lg" data-score="" data-sub="No score" data-label="Overall evidence" style="margin:0 auto"></div>
+              <p class="hint" style="line-height:1.55">Prepeet is not recommending an outcome for this candidate. There is no evidence-backed basis for one.</p>
+              <hr>
+              <a class="btn btn-primary btn-block" href="admin-invitation-new.html?candidate=cand_T3W7KL"><i data-lucide="mail-plus" class="ic ic-sm"></i>Offer a new interview</a>
+              <button class="btn btn-secondary btn-block" type="button" data-toast="Live conversation requested" data-toast-desc="Mateusz Zielinski has been added to your call-back list for this week." data-toast-kind="success"><i data-lucide="phone-call" class="ic ic-sm"></i>Book a live conversation</button>
+              <a class="btn btn-ghost btn-block" href="admin-appeals.html"><i data-lucide="gavel" class="ic ic-sm"></i>Open the re-review queue</a>
+            </div>
+          </div>
+          <div class="card card-subtle"><div class="card-body">
+            <div class="cluster" style="margin-bottom:8px"><i data-lucide="scale" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Why there is no score</strong></div>
+            <p class="hint" style="line-height:1.55">A competency score is a summary of evidence. With 5 spans across 4 rubric areas there is nothing to summarise, and a low number would read as a judgement about the candidate rather than about the recording. Prepeet withholds the score instead.</p>
+          </div></div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ════════════════════ DEFAULT ════════════════════ -->
+    <div data-state="default">
+      <div class="banner banner-info" id="sample-note" hidden style="margin-bottom:var(--sp-5)">
+        <i data-lucide="flask-conical" class="ic"></i>
+        <div><strong>Prototype: sample evaluation content.</strong> The identity, route and queue position above are live for this candidate. The evidence, transcript and audio below are the seeded ICU screening for <a href="admin-recruiter-detail.html?id=cand_R4T9MP">Amara Osei</a>, which is the worked example in this prototype.</div>
+      </div>
+      <div class="grid grid-main-aside">
+
+        <!-- ══════════ MAIN: TABS ══════════ -->
+        <div data-tabs data-tabs-param="tab">
+          <div class="tabs" role="tablist" aria-label="Candidate review sections">
+            <button class="tab" role="tab" id="tab-summary" data-tab="summary" aria-controls="panel-summary" aria-selected="true" tabindex="0"><i data-lucide="file-text" class="ic ic-sm"></i>Summary</button>
+            <button class="tab" role="tab" id="tab-evidence" data-tab="evidence" aria-controls="panel-evidence" aria-selected="false" tabindex="-1"><i data-lucide="quote" class="ic ic-sm"></i>Evidence &amp; transcript<span class="count">22</span></button>
+            <button class="tab" role="tab" id="tab-jd" data-tab="jd" aria-controls="panel-jd" aria-selected="false" tabindex="-1"><i data-lucide="list-checks" class="ic ic-sm"></i>JD compatibility</button>
+            <button class="tab" role="tab" id="tab-decision" data-tab="decision" aria-controls="panel-decision" aria-selected="false" tabindex="-1"><i data-lucide="gavel" class="ic ic-sm"></i>Decision</button>
+            <button class="tab" role="tab" id="tab-activity" data-tab="activity" aria-controls="panel-activity" aria-selected="false" tabindex="-1"><i data-lucide="history" class="ic ic-sm"></i>Activity</button>
+          </div>
+
+          <!-- ───────── SUMMARY ───────── -->
+          <div class="tab-panel stack-lg" role="tabpanel" id="panel-summary" aria-labelledby="tab-summary" tabindex="0" style="padding-top:var(--sp-5)">
+
+            <section class="card card-accent" aria-labelledby="rec-h">
+              <div class="card-header">
+                <div>
+                  <h2 id="rec-h">Evidence summary</h2>
+                  <p class="hint" style="margin-top:3px">Generated 22 Aug 2026 09:31 · model <span class="mono">pp-eval-3.4.1</span> · rubric <span class="mono">icu-rn-v4.2</span></p>
+                </div>
+                <span class="badge badge-success badge-lg"><i data-lucide="circle-check-big" class="ic-sm ic"></i>Suggested band: Strong</span>
+              </div>
+              <div class="card-body">
+                <div style="display:flex;gap:var(--sp-6);align-items:center;flex-wrap:wrap">
+                  <div class="ring ring-lg" data-score="82" data-sub="Strong" data-label="Overall evidence signal"></div>
+                  <div style="flex:1;min-width:250px" class="stack-sm">
+                    <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">
+                      Across 22 evidence spans in a 41-minute panel screening, Amara Osei's answers <strong>consistently met the ICU rubric on clinical reasoning and patient safety</strong>, with specific, dated examples and named escalation routes. Two competencies rest on thinner evidence, and two pairs of answers differ from each other.
+                    </p>
+                    <div class="cluster">
+                      <span class="badge badge-success"><i data-lucide="shield-check" class="ic-sm ic"></i>High confidence overall</span>
+                      <span class="badge badge-primary"><i data-lucide="target" class="ic-sm ic"></i>92% rubric coverage</span>
+                      <span class="badge badge-warning"><i data-lucide="git-compare-arrows" class="ic-sm ic"></i>2 differences to clarify</span>
+                      <span class="badge badge-outline"><i data-lucide="help-circle" class="ic-sm ic"></i>3 unverified claims</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="banner banner-info" style="margin-top:var(--sp-5)">
+                  <i data-lucide="user-round-check" class="ic"></i>
+                  <div><strong>This is a summary of evidence, not a decision.</strong> Prepeet does not advance, hold or decline anyone. The band above describes how well the recorded answers met the written rubric — it says nothing about how this person would perform in the role, and it cannot see anything that was not asked about. The decision is yours to make and to sign.</div>
+                </div>
+
+                <div class="grid grid-2" style="margin-top:var(--sp-5)">
+                  <div>
+                    <h3 style="font-size:var(--text-sm)">What the band rests on</h3>
+                    <ul class="plus-minus" style="margin-top:8px">
+                      <li class="plus"><i data-lucide="plus" class="ic"></i><span>Four independent answers on clinical reasoning, each with a named framework and a concrete patient scenario.</span></li>
+                      <li class="plus"><i data-lucide="plus" class="ic"></i><span>A near-miss account that describes the reporting step, not only the fix — the part the rubric weights most heavily.</span></li>
+                      <li class="plus"><i data-lucide="plus" class="ic"></i><span>Handover answer follows a structure (SBAR) and names the three overnight risks unprompted.</span></li>
+                      <li class="plus"><i data-lucide="plus" class="ic"></i><span>Family communication answer uses plain language and checks understanding before informing.</span></li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 style="font-size:var(--text-sm)">Where the band is limited</h3>
+                    <ul class="plus-minus" style="margin-top:8px">
+                      <li class="minus"><i data-lucide="minus" class="ic"></i><span>Teamwork under pressure is scored from a <strong>single answer</strong>. One answer is not enough to be confident about a competency.</span></li>
+                      <li class="minus"><i data-lucide="minus" class="ic"></i><span>Medication safety was never asked about, so the rubric area is empty rather than weak.</span></li>
+                      <li class="minus"><i data-lucide="minus" class="ic"></i><span>Two answers about escalation timing differ; two answers about staffing ratio differ.</span></li>
+                      <li class="minus"><i data-lucide="minus" class="ic"></i><span>Three factual claims (a qualification, a preceptorship count, an outcome figure) cannot be corroborated from the conversation.</span></li>
+                    </ul>
+                  </div>
+                </div>
+
+                <p class="hint" style="margin-top:var(--sp-4)">The overall figure is a rubric-weighted combination, not an average: patient safety 30%, clinical reasoning 25%, escalation &amp; handover 20%, compassionate communication 15%, teamwork under pressure 10%.</p>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="comp-h">
+              <div class="card-header">
+                <div><h2 id="comp-h">Competency signals</h2>
+                <p class="hint" style="margin-top:3px">Five competencies from the Northwind ICU rubric. Every score prints its band word and how many evidence spans it rests on.</p></div>
+                <button class="btn btn-sm btn-ghost" type="button" data-goto-tab="evidence"><i data-lucide="quote" class="ic ic-sm"></i>See the evidence</button>
+              </div>
+              <div class="card-body">
+                <div class="comp-list" id="comp-list"></div>
+                <p class="chart-summary">Text summary: Patient safety 88 (strong, 3 spans), clinical reasoning 84 (strong, 4 spans), escalation &amp; handover 79 (solid, 3 spans), compassionate communication 76 (solid, 2 spans), teamwork under pressure 71 (solid, 1 span — single-answer evidence). Bracket marks show the range the score is likely to sit in given how much evidence there is; the wider the bracket, the less certain the number.</p>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="conf-h">
+              <div class="card-header">
+                <div><h2 id="conf-h">Confidence and evidence sufficiency</h2>
+                <p class="hint" style="margin-top:3px">Confidence is reported per competency. An overall figure hides the competencies that are thin.</p></div>
+              </div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table class="table table-responsive conf-table">
+                    <caption class="sr-only">Per-competency evidence sufficiency and confidence</caption>
+                    <thead><tr>
+                      <th scope="col">Competency</th><th scope="col">Spans</th><th scope="col">Distinct answers</th><th scope="col">Confidence</th><th scope="col">Sufficiency</th>
+                    </tr></thead>
+                    <tbody id="conf-rows"></tbody>
+                  </table>
+                </div>
+                <div class="banner banner-warning" style="margin-top:var(--sp-4)">
+                  <i data-lucide="alert-triangle" class="ic"></i>
+                  <div><strong>Teamwork under pressure rests on one supporting answer.</strong> A single answer cannot distinguish a competency from a well-rehearsed story. The score of 71 is shown for completeness — do not weigh it as heavily as the other four, and probe it directly if it matters for the role.</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="cov-h">
+              <div class="card-header">
+                <div><h2 id="cov-h">Coverage of the rubric</h2>
+                <p class="hint" style="margin-top:3px">Which parts of the ICU rubric the conversation actually reached — including what it did not.</p></div>
+                <span class="badge badge-primary badge-lg tnum">92% · 12 of 13 areas</span>
+              </div>
+              <div class="card-body">
+                <div class="cov-grid" id="cov-grid" role="img" aria-label="Coverage strip: 8 areas covered in depth, 4 touched briefly, 1 not reached"></div>
+                <div class="chart-legend" style="margin-top:12px">
+                  <span><i style="background:var(--score-solid)"></i>Covered in depth (8)</span>
+                  <span><i style="background:color-mix(in srgb, var(--score-developing) 55%, transparent)"></i>Touched briefly (4)</span>
+                  <span><i style="background:var(--surface-3);border:1px dashed var(--border-strong)"></i>Not reached (1)</span>
+                </div>
+                <p class="chart-summary">Text summary: 12 of 13 rubric areas were reached, 92%. Covered in depth: recognition of deterioration, structured assessment, invasive ventilation, incident reporting, structured handover, family communication, team roles in an arrest, preceptorship. Touched briefly: vasoactive infusion titration, renal replacement therapy, end-of-life conversations, managing disagreement in the team. Not reached at all: medication safety and controlled-drug checking.</p>
+
+                <div class="table-wrap" style="margin-top:var(--sp-4)">
+                  <table class="table table-responsive table-dense">
+                    <caption class="sr-only">Rubric areas and how far the conversation went into each</caption>
+                    <thead><tr><th scope="col">Rubric area</th><th scope="col">Reached</th><th scope="col">Where</th></tr></thead>
+                    <tbody id="cov-rows"></tbody>
+                  </table>
+                </div>
+
+                <div class="banner banner-warning" style="margin-top:var(--sp-4)">
+                  <i data-lucide="circle-slash" class="ic"></i>
+                  <div><strong>Not covered: medication safety and controlled-drug checking.</strong> No question in this session reached it, so there is no evidence either way. An empty area is not a weakness — but it is also not a pass. If it matters for this post, ask about it before deciding.</div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ───────── EVIDENCE & TRANSCRIPT ───────── -->
+          <div class="tab-panel stack-lg" role="tabpanel" id="panel-evidence" aria-labelledby="tab-evidence" tabindex="0" style="padding-top:var(--sp-5)" hidden>
+
+            <section class="card" aria-labelledby="audio-h">
+              <div class="card-header">
+                <div><h2 id="audio-h">Audio replay</h2>
+                <p class="hint" style="margin-top:3px">Session <span class="mono">ses_4Bz9QD</span> · 41 min 07 s · recorded 22 Aug 2026, 09:14 · retained until 22 Feb 2028</p></div>
+                <span class="badge badge-neutral"><i data-lucide="volume-2" class="ic-sm ic"></i>Audio only</span>
+              </div>
+              <div class="card-body stack">
+                <div class="player">
+                  <button class="play" type="button" id="pl-play" aria-label="Play the interview recording" aria-pressed="false">
+                    <i data-lucide="play" class="ic" data-icon-play></i><i data-lucide="pause" class="ic" data-icon-pause hidden></i>
+                  </button>
+                  <div class="timeline">
+                    <label class="sr-only" for="pl-scrub">Playback position</label>
+                    <input class="scrub" id="pl-scrub" type="range" min="0" max="2467" step="1" value="0" aria-valuetext="0:00 of 41:07">
+                    <div class="times"><span id="pl-cur">0:00</span><span class="wave-mini" id="pl-wave" aria-hidden="true"></span><span>41:07</span></div>
+                  </div>
+                  <div class="ctl">
+                    <button class="icon-btn" type="button" id="pl-back" aria-label="Rewind ten seconds"><i data-lucide="rotate-ccw" class="ic"></i></button>
+                    <button class="icon-btn" type="button" id="pl-fwd" aria-label="Forward ten seconds"><i data-lucide="rotate-cw" class="ic"></i></button>
+                    <div class="segmented" role="group" aria-label="Playback speed" id="pl-speed">
+                      <button type="button" data-rate="0.75" aria-pressed="false">0.75×</button>
+                      <button type="button" data-rate="1" aria-pressed="true">1×</button>
+                      <button type="button" data-rate="1.5" aria-pressed="false">1.5×</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="hint">This prototype simulates playback — no audio file is loaded. The playhead, waveform and transcript highlight behave as they would with the real recording.</p>
+                <div class="field">
+                  <label class="label" for="ev-jump"><i data-lucide="crosshair" class="ic ic-sm"></i>Jump to evidence</label>
+                  <select class="select" id="ev-jump">
+                    <option value="">Choose a marked moment…</option>
+                  </select>
+                  <p class="hint">Moves the playhead and scrolls the transcript to that moment.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="tr-h">
+              <div class="card-header">
+                <div><h2 id="tr-h">Transcript</h2>
+                <p class="hint" style="margin-top:3px">Full transcript, 23 turns. Highlighted spans are what the evaluation actually used — select one to see why it counted.</p></div>
+                <button class="btn btn-sm btn-secondary" type="button" data-copy="Transcript reference ses_4Bz9QD — Amara Osei, Registered Nurse ICU screening, 22 August 2026"><i data-lucide="copy" class="ic ic-sm"></i>Copy reference</button>
+              </div>
+              <div class="card-body">
+                <div class="transcript-toolbar">
+                  <div class="ev-legend">
+                    <span><i class="i-supporting"></i>Supporting evidence (13)</span>
+                    <span><i class="i-contradiction"></i>Answers that differ (4)</span>
+                    <span><i class="i-claim"></i>Unverified claim (3)</span>
+                    <span><i class="i-gap"></i>Gap in the answer (2)</span>
+                  </div>
+                  <span class="hint">Select a highlight to open the evidence panel</span>
+                </div>
+
+                <div class="transcript-scroll">
+                  <div class="transcript" id="transcript">
+
+                    <div class="turn ai" data-turn="t1" data-sec="0">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT0S">00:00</time></div>
+                      <p class="turn-text">Good morning, Amara. This is a structured screening for the ICU post at Northwind. I will ask eight questions, each with follow-ups, and I will keep us to time. There are no trick questions — where you are unsure, say so. Could you start with where you work now and what your caseload looks like?</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t2" data-sec="34">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT34S">00:34</time></div>
+                      <p class="turn-text">I am a band 6 on a sixteen-bed general intensive care unit and I have been there four years, so most of my practice is level 3 — ventilated patients, filtration, the occasional ECMO retrieval that goes out to the tertiary centre. I did <button class="ev ev-claim" type="button" data-ev="c2" data-tooltip="Unverified claim — ask directly">a critical care award in 2023 through the university programme</button>, which is where the ventilation and haemodynamics teaching came from. <button class="ev ev-contradiction" type="button" data-ev="x4" data-tooltip="Differs from a later answer — staffing ratio">We nurse ventilated patients one to one, always</button>, so my day is usually one patient and whatever the shift throws at the bay.</p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t3" data-sec="130">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT130S">02:10</time></div>
+                      <p class="turn-text">Thank you. First question. You come on to a night shift and take handover on a patient who was extubated six hours ago. An hour in, they look different to you but the observations are broadly within range. Walk me through what you do.</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t4" data-sec="141">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT141S">02:21</time></div>
+                      <p class="turn-text"><button class="ev ev-supporting" type="button" data-ev="s1" data-tooltip="Supporting evidence — Clinical reasoning">I go back to an ABCDE assessment before I go back to the monitor</button>, because "looks different" is usually airway or work of breathing and the numbers lag behind the patient. So: can they talk in full sentences, is there stridor, what is the respiratory pattern, are they using accessory muscles. Then a full set of observations by hand rather than trusting the trend line. <button class="ev ev-supporting" type="button" data-ev="s2" data-tooltip="Supporting evidence — Clinical reasoning">A post-extubation patient at six hours is in the window for laryngeal oedema, so I would specifically look for a change in voice and a rising respiratory rate before saturations fall</button> — saturations are the last thing to go.</p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t5" data-sec="302">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT302S">05:02</time></div>
+                      <p class="turn-text">The observations still come back normal. NEWS2 of 1. What now?</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t6" data-sec="314">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT314S">05:14</time></div>
+                      <p class="turn-text"><button class="ev ev-supporting" type="button" data-ev="s3" data-tooltip="Supporting evidence — Clinical reasoning">A single NEWS2 does not override what I can see, and the trend matters more than the reading</button> — if the respiratory rate has moved from 12 to 19 across three sets, that is a change even though it scores nothing. I would increase the frequency of observations to fifteen-minutely, sit them up, and tell the nurse in charge that I am not happy so somebody else has eyes on it. <button class="ev ev-supporting" type="button" data-ev="s4" data-tooltip="Supporting evidence — Clinical reasoning">I would also check the fluid balance and the noradrenaline requirement over the last two hours, because a quietly climbing pressor need is often the first hard number that agrees with you.</button></p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t7" data-sec="527">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT527S">08:47</time></div>
+                      <p class="turn-text">Second question. Tell me about a time you were involved in a near miss on the unit.</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t8" data-sec="542">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT542S">09:02</time></div>
+                      <p class="turn-text">In February I was second-checking a noradrenaline infusion and the concentration on the bag did not match what had been prescribed — it had been made up to the old unit standard. <button class="ev ev-supporting" type="button" data-ev="s5" data-tooltip="Supporting evidence — Patient safety">I stopped before it was connected, kept the syringe, and told the nurse in charge before I documented anything</button>, because the same batch could have been made up for other bays. <button class="ev ev-supporting" type="button" data-ev="s6" data-tooltip="Supporting evidence — Patient safety">I filed a Datix the same shift and asked for it to go to the Friday safety huddle rather than just closing it</button>. Pharmacy changed the label template about six weeks later. <button class="ev ev-claim" type="button" data-ev="c1" data-tooltip="Unverified claim — ask directly">Since we tightened the second-check, unplanned extubations on the unit went from around one a month to none over six months.</button></p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t9" data-sec="800">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT800S">13:20</time></div>
+                      <p class="turn-text">Third question. A patient is deteriorating, you have bleeped the registrar twice and had no response. Take me through it.</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t10" data-sec="816">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT816S">13:36</time></div>
+                      <p class="turn-text">This happened in March with a patient whose lactate was climbing. <button class="ev ev-supporting" type="button" data-ev="s7" data-tooltip="Supporting evidence — Patient safety">I put out a critical care outreach call rather than waiting, because the escalation policy allows any nurse to do that without the registrar's agreement</button>. <button class="ev ev-supporting" type="button" data-ev="s8" data-tooltip="Supporting evidence — Escalation &amp; handover">I used SBAR on the phone and I finished with a specific ask — I need someone at the bedside within ten minutes — rather than just describing the problem</button>. <button class="ev ev-contradiction" type="button" data-ev="x1" data-tooltip="Differs from a later answer — escalation timing">I escalated to the site matron within about ten minutes of the second bleep going unanswered.</button></p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t11" data-sec="1085">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT1085S">18:05</time></div>
+                      <p class="turn-text">Fourth. Describe how you hand over at the end of a night shift.</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t12" data-sec="1099">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT1099S">18:19</time></div>
+                      <p class="turn-text"><button class="ev ev-supporting" type="button" data-ev="s9" data-tooltip="Supporting evidence — Escalation &amp; handover">I hand over by system — neuro, respiratory, cardiovascular, renal, lines and skin — and then I say the three things I am worried about for the coming shift</button>, because the systems review tells you what happened and the three worries tell you what to watch. <button class="ev ev-supporting" type="button" data-ev="s10" data-tooltip="Supporting evidence — Escalation &amp; handover">I also hand over what is outstanding and who owns it: the CT that has not been booked, the family who have not been called, and I say the name of the person who agreed to do it</button>, otherwise it disappears at seven in the morning.</p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t13" data-sec="1360">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT1360S">22:40</time></div>
+                      <p class="turn-text">Fifth. A daughter arrives on the unit and asks you directly whether her mother is going to die. The consultant is in theatre. What do you say?</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t14" data-sec="1375">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT1375S">22:55</time></div>
+                      <p class="turn-text"><button class="ev ev-supporting" type="button" data-ev="s11" data-tooltip="Supporting evidence — Compassionate communication">I would take her somewhere with a door, sit down so we are at the same height, and start by asking what she has already been told and what she has understood from it</button> — otherwise I am either repeating something or contradicting it. <button class="ev ev-supporting" type="button" data-ev="s12" data-tooltip="Supporting evidence — Compassionate communication">If the picture is that her mother is dying, I say the word dying rather than deteriorating, because families tell us afterwards that they did not realise</button>. I would be clear about what I can and cannot say — I can describe what has changed today and what we are doing, and I would arrange for the consultant to speak to her before the end of the day rather than leaving it open.</p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t15" data-sec="1650">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT1650S">27:30</time></div>
+                      <p class="turn-text">Sixth. Tell me about your role during a cardiac arrest on the unit.</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t16" data-sec="1664">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT1664S">27:44</time></div>
+                      <p class="turn-text">We had one in April at about three in the morning. <button class="ev ev-contradiction" type="button" data-ev="x2" data-tooltip="Differs from an earlier answer — staffing ratio">I had two ventilated patients that night</button>, so the bay next to me went to the runner. <button class="ev ev-supporting" type="button" data-ev="s13" data-tooltip="Supporting evidence — Teamwork under pressure">I took the airway trolley and then called out the time since the last adrenaline out loud every cycle, so the team leader did not have to hold it in their head</button>. It is a small thing but it is the thing that slips at three in the morning.</p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t17" data-sec="1875">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT1875S">31:15</time></div>
+                      <p class="turn-text">Was there any disagreement in the team during that arrest, and how was it handled?</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t18" data-sec="1886">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT1886S">31:26</time></div>
+                      <p class="turn-text"><button class="ev ev-gap" type="button" data-ev="g1" data-tooltip="Gap — the answer does not reach the question">Not really, no. We all know each other well and we just got on with it.</button> Everyone did their job.</p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t19" data-sec="2042">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT2042S">34:02</time></div>
+                      <p class="turn-text">Coming back to the March escalation for a moment — I want to be precise about the timings. What was the sequence?</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t20" data-sec="2055">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT2055S">34:15</time></div>
+                      <p class="turn-text"><button class="ev ev-contradiction" type="button" data-ev="x3" data-tooltip="Differs from an earlier answer — escalation timing">I bleeped the registrar first, then again, and I gave it about forty minutes before I went to the site matron</button>. Looking back that was too long, and it is the reason I now put out the outreach call earlier.</p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t21" data-sec="2225">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT2225S">37:05</time></div>
+                      <p class="turn-text">Last question. Tell me about supporting junior colleagues, and about the parts of ICU practice you have done least of. This post is a rotating rota including nights — is that workable for you?</p></div>
+                    </div>
+
+                    <div class="turn" data-turn="t22" data-sec="2238">
+                      <span class="avatar avatar-sm">AO</span>
+                      <div><div class="turn-meta"><span class="who">Amara Osei</span><time datetime="PT2238S">37:18</time></div>
+                      <p class="turn-text"><button class="ev ev-claim" type="button" data-ev="c3" data-tooltip="Unverified claim — ask directly">I have precepted six newly qualified nurses this year</button> and I run the Thursday teaching slot on arterial lines. Nights are fine — I have worked a rotating rota for four years and I would want to keep doing so. <button class="ev ev-gap" type="button" data-ev="g2" data-tooltip="Gap — area only partly reached">Renal replacement is the one I have done least of, maybe four or five patients, and I would want a supernumerary shift before I ran a filter on my own.</button></p></div>
+                    </div>
+
+                    <div class="turn ai" data-turn="t23" data-sec="2324">
+                      <span class="avatar avatar-persona avatar-sm">LE</span>
+                      <div><div class="turn-meta"><span class="who">Lena · panel chair</span><time datetime="PT2324S">38:44</time></div>
+                      <p class="turn-text">That is everything from me. Thank you for being specific about the March escalation — that is genuinely useful. The Northwind team will be in touch directly about next steps.</p></div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="contra-h">
+              <div class="card-header">
+                <div><h2 id="contra-h">Answers that differ from each other</h2>
+                <p class="hint" style="margin-top:3px">Two pairs of statements in this conversation do not line up. Both could be true.</p></div>
+                <span class="badge badge-warning">2 pairs</span>
+              </div>
+              <div class="card-body stack">
+                <div class="banner">
+                  <i data-lucide="info" class="ic"></i>
+                  <div>Prepeet compares statements against each other, not against the truth. A difference means the two answers describe things differently — it is not a finding about honesty, and it is often explained by a person recalling a shift more precisely the second time. These are worth clarifying in a live conversation.</div>
+                </div>
+
+                <div class="ev-card contradiction">
+                  <div class="between" style="margin-bottom:8px">
+                    <strong>Escalation timing in the March case</strong>
+                    <span class="badge badge-outline">Escalation &amp; handover</span>
+                  </div>
+                  <div class="quote-pair">
+                    <div>
+                      <div class="ev-meta"><i data-lucide="clock" class="ic-sm ic"></i><span>13:36 · question 3</span></div>
+                      <blockquote>I escalated to the site matron within about ten minutes of the second bleep going unanswered.</blockquote>
+                    </div>
+                    <div>
+                      <div class="ev-meta"><i data-lucide="clock" class="ic-sm ic"></i><span>34:15 · follow-up</span></div>
+                      <blockquote>I bleeped the registrar first, then again, and I gave it about forty minutes before I went to the site matron.</blockquote>
+                    </div>
+                  </div>
+                  <p class="hint" style="margin-top:10px">These two answers differ on how long the escalation took — worth clarifying in a live conversation. The second answer is more detailed and self-critical, which often means it is the more considered recollection. It does not change the escalation route she describes, which is correct for the policy in both answers.</p>
+                  <div class="cluster" style="margin-top:10px">
+                    <button class="btn btn-sm btn-secondary" type="button" data-seek="816"><i data-lucide="play" class="ic ic-sm"></i>Play from 13:36</button>
+                    <button class="btn btn-sm btn-secondary" type="button" data-seek="2055"><i data-lucide="play" class="ic ic-sm"></i>Play from 34:15</button>
+                  </div>
+                </div>
+
+                <div class="ev-card contradiction">
+                  <div class="between" style="margin-bottom:8px">
+                    <strong>Nursing ratio for ventilated patients</strong>
+                    <span class="badge badge-outline">Teamwork under pressure</span>
+                  </div>
+                  <div class="quote-pair">
+                    <div>
+                      <div class="ev-meta"><i data-lucide="clock" class="ic-sm ic"></i><span>00:34 · opening</span></div>
+                      <blockquote>We nurse ventilated patients one to one, always.</blockquote>
+                    </div>
+                    <div>
+                      <div class="ev-meta"><i data-lucide="clock" class="ic-sm ic"></i><span>27:44 · question 6</span></div>
+                      <blockquote>I had two ventilated patients that night.</blockquote>
+                    </div>
+                  </div>
+                  <p class="hint" style="margin-top:10px">These two answers differ — worth clarifying in a live conversation. Surge staffing routinely breaks a one-to-one standard, so both statements can be accurate about different nights. The useful question is what the unit does when the ratio slips, which this conversation never asked.</p>
+                  <div class="cluster" style="margin-top:10px">
+                    <button class="btn btn-sm btn-secondary" type="button" data-seek="34"><i data-lucide="play" class="ic ic-sm"></i>Play from 00:34</button>
+                    <button class="btn btn-sm btn-secondary" type="button" data-seek="1664"><i data-lucide="play" class="ic ic-sm"></i>Play from 27:44</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="claims-h">
+              <div class="card-header">
+                <div><h2 id="claims-h">Claims Prepeet could not corroborate</h2>
+                <p class="hint" style="margin-top:3px">Statements of fact that nothing else in the conversation confirms.</p></div>
+                <span class="badge badge-outline">3 claims</span>
+              </div>
+              <div class="card-body stack">
+                <div class="banner banner-info">
+                  <i data-lucide="shield-question" class="ic"></i>
+                  <div><strong>Unverified does not mean untrue.</strong> Prepeet can only compare what was said with what else was said. It holds no registration data, no certificates and no employment records, so it cannot confirm any of these. Each one is a normal thing to check with the candidate or with a document — not a concern to hold against them.</div>
+                </div>
+
+                <div class="ev-card claim">
+                  <div class="between" style="margin-bottom:6px"><strong>Critical care award, 2023</strong><span class="badge badge-warning">Unverified — ask directly</span></div>
+                  <div class="ev-meta"><i data-lucide="clock" class="ic-sm ic"></i><span>00:34</span><span>·</span><span>Qualification</span></div>
+                  <blockquote>a critical care award in 2023 through the university programme</blockquote>
+                  <p class="hint">No certificate has been attached to this application and the qualification was not described in enough detail to identify the programme. Ask for the certificate, or check the NMC register entry and the awarding institution.</p>
+                  <div class="cluster" style="margin-top:10px"><button class="btn btn-sm btn-secondary" type="button" data-seek="34"><i data-lucide="play" class="ic ic-sm"></i>Play from 00:34</button></div>
+                </div>
+
+                <div class="ev-card claim">
+                  <div class="between" style="margin-bottom:6px"><strong>Unplanned extubations fell to zero over six months</strong><span class="badge badge-warning">Unverified — ask directly</span></div>
+                  <div class="ev-meta"><i data-lucide="clock" class="ic-sm ic"></i><span>09:02</span><span>·</span><span>Outcome figure</span></div>
+                  <blockquote>unplanned extubations on the unit went from around one a month to none over six months</blockquote>
+                  <p class="hint">A unit-level outcome that no one person owns, and the answer does not say what else changed in the same period. Worth asking what her specific contribution was, rather than treating the figure as hers or discounting it.</p>
+                  <div class="cluster" style="margin-top:10px"><button class="btn btn-sm btn-secondary" type="button" data-seek="542"><i data-lucide="play" class="ic ic-sm"></i>Play from 09:02</button></div>
+                </div>
+
+                <div class="ev-card claim">
+                  <div class="between" style="margin-bottom:6px"><strong>Precepted six newly qualified nurses this year</strong><span class="badge badge-warning">Unverified — ask directly</span></div>
+                  <div class="ev-meta"><i data-lucide="clock" class="ic-sm ic"></i><span>37:18</span><span>·</span><span>Caseload figure</span></div>
+                  <blockquote>I have precepted six newly qualified nurses this year</blockquote>
+                  <p class="hint">Not corroborated elsewhere in the conversation and the follow-up went to the rota instead. A reference from her practice educator would settle it in one line.</p>
+                  <div class="cluster" style="margin-top:10px"><button class="btn btn-sm btn-secondary" type="button" data-seek="2238"><i data-lucide="play" class="ic ic-sm"></i>Play from 37:18</button></div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ───────── JD COMPATIBILITY ───────── -->
+          <div class="tab-panel stack-lg" role="tabpanel" id="panel-jd" aria-labelledby="tab-jd" tabindex="0" style="padding-top:var(--sp-5)" hidden>
+            <section class="card" aria-labelledby="jd-h">
+              <div class="card-header">
+                <div>
+                  <h2 id="jd-h">Against the job description</h2>
+                  <p class="hint" style="margin-top:3px">Registered Nurse — Intensive Care, band 6 · Northwind Health System · JD version <span class="mono">jd-icu-rn-2026-06</span></p>
+                </div>
+                <a class="btn btn-sm btn-ghost" href="admin-rubrics.html?role=role_icu_rn_2026">Open the rubric<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+              <div class="card-body">
+                <div class="banner banner-info" style="margin-bottom:var(--sp-4)">
+                  <i data-lucide="percent" class="ic"></i>
+                  <div><strong>There is no single match percentage here, on purpose.</strong> A percentage would collapse eleven different requirements — some essential, some desirable, one never discussed — into one number that hides which is which. Read the rows instead.</div>
+                </div>
+
+                <div class="table-wrap">
+                  <table class="table table-responsive">
+                    <caption class="sr-only">Job description requirements, the evidence found for each, and its status</caption>
+                    <thead><tr>
+                      <th scope="col">Requirement</th>
+                      <th scope="col">Evidence found</th>
+                      <th scope="col">Coverage</th>
+                      <th scope="col">Status</th>
+                    </tr></thead>
+                    <tbody id="jd-rows"></tbody>
+                  </table>
+                </div>
+                <p class="chart-summary">Text summary: of 11 job description requirements, 6 are evidenced by the conversation, 4 are partially evidenced, and 1 (medication safety and controlled-drug checking) was not discussed at all. Three of the partially evidenced rows rest on a single sentence.</p>
+
+                <div class="grid grid-2" style="margin-top:var(--sp-5)">
+                  <div class="card card-subtle"><div class="card-body">
+                    <h3 style="font-size:var(--text-sm)">Essential requirements</h3>
+                    <p class="hint" style="margin-top:6px;line-height:1.55">6 of 7 essential requirements are evidenced. The seventh — medication safety — was never asked about. Registration status is an administrative check that Prepeet does not perform and never will.</p>
+                  </div></div>
+                  <div class="card card-subtle"><div class="card-body">
+                    <h3 style="font-size:var(--text-sm)">Desirable requirements</h3>
+                    <p class="hint" style="margin-top:6px;line-height:1.55">Renal replacement therapy and preceptorship are both listed as desirable and both sit at partially evidenced. The candidate volunteered renal replacement as her weakest area, which is useful information regardless of the outcome.</p>
+                  </div></div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ───────── DECISION ───────── -->
+          <div class="tab-panel stack-lg" role="tabpanel" id="panel-decision" aria-labelledby="tab-decision" tabindex="0" style="padding-top:var(--sp-5)" hidden>
+
+            <section class="card" aria-labelledby="before-h">
+              <div class="card-header"><h2 id="before-h">Before you decide</h2></div>
+              <div class="card-body">
+                <div class="grid grid-2">
+                  <div>
+                    <h3 style="font-size:var(--text-sm)">The evidence supports</h3>
+                    <ul class="plus-minus" style="margin-top:8px">
+                      <li class="plus"><i data-lucide="check" class="ic"></i><span>That she assesses a deteriorating patient systematically and does not defer to a normal score.</span></li>
+                      <li class="plus"><i data-lucide="check" class="ic"></i><span>That she reports near misses through the formal route and pushes them beyond a closed form.</span></li>
+                      <li class="plus"><i data-lucide="check" class="ic"></i><span>That she hands over in a structure and names owners for outstanding work.</span></li>
+                      <li class="plus"><i data-lucide="check" class="ic"></i><span>That she can hold a difficult family conversation within her scope and escalate the rest.</span></li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 style="font-size:var(--text-sm)">The evidence does not support</h3>
+                    <ul class="plus-minus" style="margin-top:8px">
+                      <li class="minus"><i data-lucide="x" class="ic"></i><span>Any conclusion about medication safety practice. It was not discussed.</span></li>
+                      <li class="minus"><i data-lucide="x" class="ic"></i><span>A confident view of how she works in a team under pressure — one answer only.</span></li>
+                      <li class="minus"><i data-lucide="x" class="ic"></i><span>Her qualification, her preceptorship count or the outcome figure she quoted.</span></li>
+                      <li class="minus"><i data-lucide="x" class="ic"></i><span>Anything at all about how she will perform in this post. No interview evidence can support that.</span></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="missing-h">
+              <div class="card-header">
+                <div><h2 id="missing-h">Missing evidence and what to probe</h2>
+                <p class="hint" style="margin-top:3px">Six questions that would close the gaps in this record. Copy them into your call notes.</p></div>
+                <button class="btn btn-sm btn-secondary" type="button" id="copy-questions"><i data-lucide="copy" class="ic ic-sm"></i>Copy all six</button>
+              </div>
+              <div class="card-body">
+                <div class="accordion" data-accordion-single id="probe-list"></div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="override-h">
+              <div class="card-header"><h2 id="override-h">Recording a decision that differs from the suggested band</h2></div>
+              <div class="card-body">
+                <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">The suggested band for this evaluation is <strong>Strong</strong>, which maps to <strong>Advance</strong> in the Northwind workflow. You may record any outcome you judge correct — reviewers overrule the suggested band regularly and that is the system working, not failing.</p>
+                <p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:10px">When your decision differs from the suggested band, Prepeet asks for an override reason. It is stored with the decision, shown in the audit trail, and included in the monthly calibration review so the rubric can be corrected where it is consistently wrong.</p>
+                <div class="cluster" style="margin-top:var(--sp-4)">
+                  <button class="btn btn-primary" type="button" id="goto-form"><i data-lucide="arrow-down" class="ic ic-sm"></i>Go to the decision form</button>
+                  <a class="btn btn-ghost" href="admin-recruiter-calibration.html">How overrides feed calibration<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ───────── ACTIVITY ───────── -->
+          <div class="tab-panel stack-lg" role="tabpanel" id="panel-activity" aria-labelledby="tab-activity" tabindex="0" style="padding-top:var(--sp-5)" hidden>
+
+            <div id="override-callout" hidden>
+              <div class="banner banner-warning">
+                <i data-lucide="flag" class="ic"></i>
+                <div><strong>Reviewer override recorded.</strong> <span id="override-callout-text"></span></div>
+              </div>
+            </div>
+
+            <section class="card" aria-labelledby="prev-h">
+              <div class="card-header">
+                <div><h2 id="prev-h">Previous review activity</h2>
+                <p class="hint" style="margin-top:3px">Who opened this record, for how long, and what they changed.</p></div>
+              </div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table class="table table-responsive">
+                    <caption class="sr-only">Reviewers who have opened this candidate record</caption>
+                    <thead><tr><th scope="col">Reviewer</th><th scope="col">Opened</th><th scope="col">Time on record</th><th scope="col">What changed</th></tr></thead>
+                    <tbody id="review-rows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="audit-h">
+              <div class="card-header">
+                <div><h2 id="audit-h">Audit history</h2>
+                <p class="hint" style="margin-top:3px">Append-only. Entries cannot be edited or deleted by anyone in this workspace, including tenant administrators.</p></div>
+                <div class="cluster" id="audit-actions">
+                  <a class="btn btn-sm btn-ghost" id="rubric-shortcut" href="admin-rubrics.html?version=icu-rn-v4.2"><i data-lucide="list-checks" class="ic ic-sm"></i>Edit rubric</a>
+                  <button class="btn btn-sm btn-secondary" id="audit-export" type="button" data-toast="Audit extract queued" data-toast-desc="A signed CSV for cand_R4T9MP will be emailed to priya.raman@northwindhealth.example." data-toast-kind="success"><i data-lucide="download" class="ic ic-sm"></i>Export</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <dl class="kv" style="margin-bottom:var(--sp-5)">
+                  <dt>Evaluation model</dt><dd class="mono">pp-eval-3.4.1</dd>
+                  <dt>Rubric version</dt><dd class="mono">icu-rn-v4.2 (published 14 Jul 2026)</dd>
+                  <dt>Prompt set</dt><dd class="mono">icu-panel-2026-07-14</dd>
+                  <dt>Transcription</dt><dd class="mono">pp-asr-2.9 · 2 low-confidence segments (07:12, 29:48)</dd>
+                  <dt>Record hash</dt><dd class="mono">sha256:9c41…b7e2</dd>
+                </dl>
+                <ol class="timeline" id="audit-log"></ol>
+                <p class="hint" id="audit-full-link-wrap" style="margin-top:var(--sp-4)" hidden>
+                  <a href="admin-god-audit.html?subject=cand_R4T9MP">Open the full platform audit log for this record<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                </p>
+                <p class="hint" id="audit-recruiter-note" style="margin-top:var(--sp-4)" hidden>
+                  Exporting the audit history and editing the rubric require tenant administrator access. Ask a tenant admin if you need a copy for a formal process.
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ══════════ DECISION RAIL ══════════ -->
+        <aside class="stack sticky-aside" aria-label="Reviewer decision" id="decision-rail">
+
+          <div class="card card-accent">
+            <div class="card-header">
+              <h2 style="font-size:var(--text-sm)">Your decision</h2>
+              <span class="badge badge-outline">Reviewer: Priya Raman</span>
+            </div>
+            <div class="card-body">
+              <div class="banner" style="margin-bottom:var(--sp-4)">
+                <i data-lucide="lightbulb" class="ic"></i>
+                <div style="font-size:var(--text-xs);line-height:1.5">Suggested band <strong>Strong</strong> → maps to <strong>Advance</strong>. You are not bound by it.</div>
+              </div>
+
+              <form class="rail-form" id="decision-form" novalidate>
+                <fieldset class="field">
+                  <legend class="label" style="margin-bottom:8px">Outcome <span class="sr-only">(required)</span></legend>
+                  <div class="decision-options">
+                    <label class="option-card" style="padding:12px 14px">
+                      <input type="radio" name="outcome" value="advance" required>
+                      <span class="option-title"><i data-lucide="circle-check-big" class="ic ic-sm"></i>Advance</span>
+                      <span class="option-desc">Invite to the ICU panel day.</span>
+                      <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+                    </label>
+                    <label class="option-card" style="padding:12px 14px">
+                      <input type="radio" name="outcome" value="hold">
+                      <span class="option-title"><i data-lucide="pause-circle" class="ic ic-sm"></i>Hold</span>
+                      <span class="option-desc">Keep open pending more information.</span>
+                      <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+                    </label>
+                    <label class="option-card" style="padding:12px 14px">
+                      <input type="radio" name="outcome" value="decline">
+                      <span class="option-title"><i data-lucide="x-circle" class="ic ic-sm"></i>Do not progress</span>
+                      <span class="option-desc">Close with feedback to the candidate.</span>
+                      <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+                    </label>
+                    <label class="option-card" style="padding:12px 14px">
+                      <input type="radio" name="outcome" value="rereview">
+                      <span class="option-title"><i data-lucide="gavel" class="ic ic-sm"></i>Request re-review</span>
+                      <span class="option-desc">Send to a second reviewer or re-run the evaluation.</span>
+                      <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+                    </label>
+                  </div>
+                  <p class="error-text" id="err-outcome" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Choose an outcome before recording your decision.</p>
+                </fieldset>
+
+                <div class="field" id="override-field" hidden>
+                  <label class="label" for="override-reason"><i data-lucide="flag" class="ic ic-sm" style="color:var(--warning)"></i>Override reason <span class="sr-only">(required)</span></label>
+                  <p class="hint">Your outcome differs from the suggested band. Say why, in your own words — this is stored in the audit trail and reviewed at calibration.</p>
+                  <textarea class="textarea" id="override-reason" name="override" rows="3" placeholder="e.g. Teamwork evidence is a single answer and the post is a 1:2 surge unit — I want that probed before advancing." aria-describedby="err-override"></textarea>
+                  <p class="error-text" id="err-override" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>An override reason is required when your decision differs from the suggested band.</p>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="rationale">Rationale <span class="sr-only">(required)</span></label>
+                  <p class="hint">What in the evidence led you here. Visible to the hiring team and to the candidate on request.</p>
+                  <textarea class="textarea" id="rationale" name="rationale" rows="4" required placeholder="e.g. Strong, specific evidence on deterioration and safety reporting. Escalation timing and staffing ratio to be clarified at panel." aria-describedby="err-rationale"></textarea>
+                  <p class="error-text" id="err-rationale" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>A written rationale is required for every decision.</p>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="decision-confidence">How confident are you in this decision?</label>
+                  <select class="select" id="decision-confidence" name="confidence">
+                    <option value="high">Confident — I have what I need</option>
+                    <option value="medium" selected>Reasonably confident — some questions remain</option>
+                    <option value="low">Not confident — I would like a second reviewer</option>
+                  </select>
+                  <p class="hint">Recorded alongside the decision. Low-confidence decisions are sampled for calibration.</p>
+                </div>
+
+                <button class="btn btn-primary btn-block" type="submit"><i data-lucide="check" class="ic ic-sm"></i>Record decision</button>
+                <p class="hint" style="text-align:center">Prepeet does not act on this. It notifies the hiring team and writes the audit entry.</p>
+              </form>
+
+              <div id="decision-recorded" hidden>
+                <div class="banner banner-success">
+                  <i data-lucide="check-circle-2" class="ic"></i>
+                  <div><strong id="rec-title">Decision recorded.</strong> <span id="rec-body"></span></div>
+                </div>
+                <div id="rec-override" hidden style="margin-top:var(--sp-3)">
+                  <div class="banner banner-warning">
+                    <i data-lucide="flag" class="ic"></i>
+                    <div><strong>Override reason:</strong> <span id="rec-override-text"></span></div>
+                  </div>
+                </div>
+                <div class="cluster" style="margin-top:var(--sp-4)">
+                  <button class="btn btn-sm btn-secondary" type="button" id="amend-decision"><i data-lucide="pencil" class="ic ic-sm"></i>Amend</button>
+                  <button class="btn btn-sm btn-ghost" type="button" data-goto-tab="activity">View in audit history</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">At a glance</h2></div>
+            <div class="card-body">
+              <dl class="kv kv-row">
+                <dt>Session</dt><dd class="mono">ses_4Bz9QD</dd>
+                <dt>Submitted</dt><dd>22 August 2026, 09:14</dd>
+                <dt>Interview</dt><dd>Panel simulation · Lena · 41 min</dd>
+                <dt>Evidence spans</dt><dd>22 across 12 rubric areas</dd>
+                <dt>Waiting</dt><dd>1 day 1 hour</dd>
+                <dt>Invitation</dt><dd><a href="admin-invitation-detail.html?id=inv_QX72HL">inv_QX72HL</a></dd>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card card-subtle"><div class="card-body">
+            <div class="cluster" style="margin-bottom:8px"><i data-lucide="scale" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">If the candidate asks</strong></div>
+            <p class="hint" style="line-height:1.55">Candidates can request a re-review and a copy of the evidence used. Requests arrive in the re-review queue and must be answered with a written rationale, whether or not the outcome changes.</p>
+            <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="admin-appeals.html">Open the re-review queue</a>
+          </div></div>
+        </aside>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ════════════════════ EVIDENCE DRAWER ════════════════════ -->
+<dialog class="drawer" id="ev-drawer" aria-labelledby="ev-drawer-title">
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <h2 id="ev-drawer-title">Evidence</h2>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close evidence panel"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body stack" id="ev-drawer-body"></div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary" type="button" id="ev-drawer-play"><i data-lucide="play" class="ic ic-sm"></i>Play from here</button>
+      <button class="btn btn-primary" type="button" data-drawer-close>Close</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data;
+
+  /* ─────────────────────────── subject / routing ─────────────────────────── */
+  var DEFAULT_ID = 'cand_R4T9MP';
+  var INSUFFICIENT_ID = 'cand_T3W7KL';
+  function byId(id) { return D.roster.filter(function (c) { return c.id === id; })[0]; }
+
+  function renderSubject(id) {
+    var c = byId(id) || byId(DEFAULT_ID);
+    var i = D.roster.indexOf(c);
+    var meta = D.statusMeta[c.status];
+    var initials = c.name.split(' ').map(function (p) { return p[0]; }).join('').slice(0, 2).toUpperCase();
+    document.getElementById('subj-initials').textContent = initials;
+    document.getElementById('subj-name').textContent = c.name;
+    document.getElementById('subj-role').textContent = c.role === 'Registered Nurse — ICU' ? 'Registered Nurse — Intensive Care' : c.role;
+    document.getElementById('subj-route').textContent = '/admin/recruiter/' + c.id;
+    var badge = document.getElementById('subj-status');
+    badge.className = 'badge ' + meta.badge;
+    badge.innerHTML = '<i data-lucide="' + meta.icon + '" class="ic-sm ic"></i>' + meta.label;
+    document.getElementById('nav-pos').textContent = (i + 1) + ' of ' + D.roster.length;
+    var prev = D.roster[i - 1], next = D.roster[i + 1];
+    var pa = document.getElementById('nav-prev'), na = document.getElementById('nav-next');
+    if (prev) { pa.href = 'admin-recruiter-detail.html?id=' + prev.id; pa.removeAttribute('aria-disabled'); pa.title = 'Previous: ' + prev.name; }
+    else { pa.href = 'admin-recruiter.html'; pa.setAttribute('aria-disabled', 'true'); pa.title = 'First in the review queue'; }
+    if (next) { na.href = 'admin-recruiter-detail.html?id=' + next.id; na.removeAttribute('aria-disabled'); na.title = 'Next: ' + next.name; }
+    else { na.href = 'admin-recruiter.html'; na.setAttribute('aria-disabled', 'true'); na.title = 'Last in the review queue'; }
+  }
+
+  /* ─────────────────────────── competencies ─────────────────────────── */
+  var COMPS = [
+    { id: 'patient-safety', name: 'Patient safety', score: 88, band: 'strong', ci: [83, 92], spans: 3, answers: 2, conf: 'High',
+      note: 'Reporting behaviour described, not only the corrective action.',
+      suff: 'Two separate answers, three spans. Enough to be confident.' },
+    { id: 'clinical-reasoning', name: 'Clinical reasoning', score: 84, band: 'strong', ci: [79, 88], spans: 4, answers: 3, conf: 'High',
+      note: 'Named frameworks with a concrete patient each time.',
+      suff: 'Three separate answers, four spans. The strongest-evidenced competency here.' },
+    { id: 'escalation', name: 'Escalation &amp; handover', score: 79, band: 'solid', ci: [70, 86], spans: 3, answers: 2, conf: 'Medium',
+      note: 'Correct route and structure; one unresolved difference about timing.',
+      suff: 'Two answers, but the two accounts of timing differ. Confidence reduced until that is clarified.' },
+    { id: 'compassionate', name: 'Compassionate communication', score: 76, band: 'solid', ci: [66, 84], spans: 2, answers: 1, conf: 'Medium',
+      note: 'Checks understanding first and stays within scope.',
+      suff: 'Both spans come from the same answer. One good answer, not a pattern.' },
+    { id: 'teamwork', name: 'Teamwork under pressure', score: 71, band: 'solid', ci: [56, 84], spans: 1, answers: 1, conf: 'Low',
+      note: 'One arrest example; the follow-up on disagreement did not land.',
+      suff: 'Single supporting answer. Not enough to be confident — probe directly.' }
+  ];
+
+  function renderComps() {
+    var host = document.getElementById('comp-list');
+    host.innerHTML = COMPS.map(function (c) {
+      var ci = '<span class="ci" style="left:' + c.ci[0] + '%;width:' + (c.ci[1] - c.ci[0]) + '%"></span>';
+      return '<div class="comp-row">' +
+        '<div class="comp-name">' + c.name + '<small>' + Prepeet.bandLabel(c.band) + ' · ' + c.spans + ' evidence span' + (c.spans === 1 ? '' : 's') +
+          (c.spans === 1 ? ' · single answer' : '') + '</small></div>' +
+        '<div class="comp-bar band-' + c.band + '"><span style="width:' + c.score + '%"></span>' + ci + '</div>' +
+        '<div class="comp-val">' + c.score + '</div></div>';
+    }).join('');
+
+    document.getElementById('conf-rows').innerHTML = COMPS.map(function (c) {
+      var badge = c.conf === 'High' ? 'badge-success' : (c.conf === 'Medium' ? 'badge-warning' : 'badge-danger');
+      return '<tr>' +
+        '<td class="td-primary" data-label="Competency"><strong>' + c.name + '</strong><span class="td-sub">' + c.note + '</span></td>' +
+        '<td class="num" data-label="Spans">' + c.spans + '</td>' +
+        '<td class="num" data-label="Distinct answers">' + c.answers + '</td>' +
+        '<td data-label="Confidence"><span class="badge ' + badge + '">' + c.conf + '</span></td>' +
+        '<td data-label="Sufficiency">' + c.suff + '</td></tr>';
+    }).join('');
+  }
+
+  /* ─────────────────────────── coverage ─────────────────────────── */
+  var COVERAGE = [
+    { area: 'Recognition &amp; escalation of deterioration', level: 'full', where: 'Q1 and follow-up · 02:21, 05:14' },
+    { area: 'Structured assessment (ABCDE, NEWS2)', level: 'full', where: 'Q1 · 02:21' },
+    { area: 'Invasive ventilation &amp; airway support', level: 'full', where: 'Opening and Q6 · 00:34, 27:44' },
+    { area: 'Vasoactive infusion titration', level: 'part', where: 'One sentence in the Q1 follow-up · 05:14' },
+    { area: 'Renal replacement therapy (CVVH)', level: 'part', where: 'Volunteered as her weakest area · 37:18' },
+    { area: 'Incident reporting &amp; near misses', level: 'full', where: 'Q2 · 09:02' },
+    { area: 'Structured handover (SBAR)', level: 'full', where: 'Q3 and Q4 · 13:36, 18:19' },
+    { area: 'Family communication &amp; breaking bad news', level: 'full', where: 'Q5 · 22:55' },
+    { area: 'End-of-life and organ donation conversations', level: 'part', where: 'Touched inside the Q5 answer only · 22:55' },
+    { area: 'Team roles during a cardiac arrest', level: 'full', where: 'Q6 · 27:44' },
+    { area: 'Managing disagreement within the team', level: 'part', where: 'Asked at 31:15; the answer did not reach it' },
+    { area: 'Preceptorship &amp; supporting junior staff', level: 'full', where: 'Q8 · 37:18' },
+    { area: 'Medication safety &amp; controlled-drug checking', level: 'none', where: 'No question reached this area' }
+  ];
+  var LEVEL_LABEL = { full: 'Covered in depth', part: 'Touched briefly', none: 'Not reached' };
+  var LEVEL_BADGE = { full: 'badge-success', part: 'badge-warning', none: 'badge-outline' };
+
+  function renderCoverage() {
+    document.getElementById('cov-grid').innerHTML = COVERAGE.map(function (c) {
+      return '<span class="cov-cell ' + c.level + '" title="' + c.area.replace(/&amp;/g, '&') + ' — ' + LEVEL_LABEL[c.level] + '"></span>';
+    }).join('');
+    document.getElementById('cov-rows').innerHTML = COVERAGE.map(function (c) {
+      return '<tr><td class="td-primary" data-label="Rubric area">' + c.area + '</td>' +
+        '<td data-label="Reached"><span class="badge ' + LEVEL_BADGE[c.level] + '">' + LEVEL_LABEL[c.level] + '</span></td>' +
+        '<td data-label="Where">' + c.where + '</td></tr>';
+    }).join('');
+  }
+
+  /* ─────────────────────────── JD table ─────────────────────────── */
+  var JD = [
+    { r: 'Current NMC registration in good standing', e: 'Not something an interview can evidence. Administrative check outside Prepeet.', c: 'n/a', s: 'Not discussed' },
+    { r: 'Two years or more post-registration ICU experience (essential)', e: '“Four years on a sixteen-bed general intensive care unit” · 00:34', c: '1 span', s: 'Evidenced' },
+    { r: 'Care of level 3 patients including invasive ventilation (essential)', e: 'Ventilated caseload described in the opening and in the arrest example · 00:34, 27:44', c: '2 spans', s: 'Evidenced' },
+    { r: 'Recognition and escalation of the deteriorating patient (essential)', e: 'ABCDE before the monitor; trend over single score; outreach call without waiting · 02:21, 05:14, 13:36', c: '5 spans', s: 'Evidenced' },
+    { r: 'Titration of vasoactive infusions to a target (essential)', e: 'One sentence about a climbing noradrenaline requirement. Never probed · 05:14', c: '1 span', s: 'Partially evidenced' },
+    { r: 'Continuous renal replacement therapy (desirable)', e: '“Four or five patients”, named by the candidate as her least-practised area · 37:18', c: '1 span', s: 'Partially evidenced' },
+    { r: 'Structured handover at shift change (essential)', e: 'By system, then three overnight concerns, with named owners for outstanding work · 18:19', c: '2 spans', s: 'Evidenced' },
+    { r: 'Communication with families in end-of-life care (essential)', e: 'Sits down, checks existing understanding, uses the word dying, escalates the rest · 22:55', c: '2 spans', s: 'Evidenced' },
+    { r: 'Working as part of a resuscitation team (essential)', e: 'One arrest example; the follow-up on disagreement produced nothing · 27:44, 31:26', c: '1 span + 1 gap', s: 'Partially evidenced' },
+    { r: 'Supporting and precepting newly qualified nurses (desirable)', e: 'Claim of six preceptees this year and a weekly teaching slot — not corroborated · 37:18', c: '1 unverified claim', s: 'Partially evidenced' },
+    { r: 'Medication safety and controlled-drug checking (essential)', e: 'No question reached this area. There is no evidence either way.', c: '0 spans', s: 'Not discussed' },
+    { r: 'Availability for a rotating rota including nights (essential)', e: '“Nights are fine — I have worked a rotating rota for four years” · 37:18', c: '1 span', s: 'Evidenced' }
+  ];
+  var JD_BADGE = { 'Evidenced': 'badge-success', 'Partially evidenced': 'badge-warning', 'Not discussed': 'badge-outline' };
+
+  function renderJd() {
+    document.getElementById('jd-rows').innerHTML = JD.map(function (row) {
+      return '<tr><td class="td-primary" data-label="Requirement">' + row.r + '</td>' +
+        '<td data-label="Evidence found" style="max-width:420px">' + row.e + '</td>' +
+        '<td data-label="Coverage" class="mono" style="font-size:var(--text-xs)">' + row.c + '</td>' +
+        '<td data-label="Status"><span class="badge ' + JD_BADGE[row.s] + '">' + row.s + '</span></td></tr>';
+    }).join('');
+  }
+
+  /* ─────────────────────────── probes ─────────────────────────── */
+  var PROBES = [
+    { q: 'Walk me through how you check a controlled drug with a colleague when the unit is two nurses short.', why: 'Medication safety is an essential requirement and the conversation never reached it. There is no evidence either way.' },
+    { q: 'In the March case, how long was it between your first bleep and the site matron arriving at the bedside?', why: 'Two answers give different timings (about ten minutes at 13:36, about forty minutes at 34:15). One question resolves it.' },
+    { q: 'On the night you had two ventilated patients, what was the staffing on the unit and who agreed that allocation?', why: 'The opening answer describes a strict one-to-one ratio; the arrest example describes two. Surge staffing would explain both.' },
+    { q: 'Tell me about a resuscitation that did not go smoothly, and what you did afterwards.', why: 'Teamwork under pressure rests on a single answer. A second, less flattering example is the fastest way to know more.' },
+    { q: 'Describe setting up a CVVH circuit, and the first two things you check when the filter keeps clotting.', why: 'Renal replacement therapy is desirable for this post and the candidate named it as her weakest area.' },
+    { q: 'Of the newly qualified nurses you precepted this year, which was hardest to support and why?', why: 'The count of six is unverified. This question tests the substance rather than the number, and is worth asking regardless.' }
+  ];
+  function renderProbes() {
+    document.getElementById('probe-list').innerHTML = PROBES.map(function (p, i) {
+      return '<div class="accordion-item">' +
+        '<button class="accordion-trigger" type="button" aria-expanded="' + (i === 0) + '" aria-controls="probe-' + i + '">' +
+        '<span>' + p.q + '</span><i data-lucide="chevron-down" class="ic"></i></button>' +
+        '<div class="accordion-panel" id="probe-' + i + '">Why this question: ' + p.why + '</div></div>';
+    }).join('');
+  }
+
+  /* ─────────────────────────── review activity + audit ─────────────────────────── */
+  var REVIEWS = [
+    { who: 'Jonas Brandt', role: 'Recruiter', when: '22 Aug 2026, 14:02', dur: '11 min 40 s', what: 'No changes. Played the transcript from 13:36 and 34:15.' },
+    { who: 'Jonas Brandt', role: 'Recruiter', when: '22 Aug 2026, 16:20', dur: '3 min 08 s', what: 'Added to the shortlist “ICU August intake”.' },
+    { who: 'Priya Raman', role: 'Talent acquisition lead', when: '23 Aug 2026, 08:41', dur: '4 min 12 s', what: 'Flagged the escalation-timing difference for the panel brief.' }
+  ];
+  function renderReviews() {
+    document.getElementById('review-rows').innerHTML = REVIEWS.map(function (r) {
+      return '<tr><td class="td-primary" data-label="Reviewer"><strong>' + r.who + '</strong><span class="td-sub">' + r.role + '</span></td>' +
+        '<td data-label="Opened">' + r.when + '</td><td data-label="Time on record" class="mono">' + r.dur + '</td>' +
+        '<td data-label="What changed">' + r.what + '</td></tr>';
+    }).join('');
+  }
+
+  var AUDIT = [
+    { cls: 'done', t: 'Interview submitted', m: '22 Aug 2026, 09:14:22 · Amara Osei (candidate)', b: 'Session <span class="mono">ses_4Bz9QD</span>, 41 min 07 s of audio.' },
+    { cls: 'done', t: 'Transcription completed', m: '22 Aug 2026, 09:16:04 · Prepeet media service', b: 'Model <span class="mono">pp-asr-2.9</span>. Two low-confidence segments retained and marked.' },
+    { cls: 'done', t: 'Evaluation generated', m: '22 Aug 2026, 09:31:47 · Prepeet evaluation service', b: 'Model <span class="mono">pp-eval-3.4.1</span> · rubric <span class="mono">icu-rn-v4.2</span> · prompt set <span class="mono">icu-panel-2026-07-14</span>.' },
+    { cls: 'done', t: 'Coverage and confidence computed', m: '22 Aug 2026, 09:31:49 · Prepeet evaluation service', b: '22 evidence spans across 12 of 13 rubric areas. Overall confidence high; teamwork under pressure flagged low.' },
+    { cls: 'done', t: 'Reviewer opened the evaluation', m: '22 Aug 2026, 14:02:10 · Jonas Brandt', b: '11 min 40 s on record. No changes.' },
+    { cls: 'done', t: 'Added to shortlist “ICU August intake”', m: '22 Aug 2026, 16:20:33 · Jonas Brandt' },
+    { cls: 'active', t: 'Reviewer opened the evaluation', m: '23 Aug 2026, 08:41:05 · Priya Raman', b: 'Current session.' }
+  ];
+  function renderAudit() {
+    document.getElementById('audit-log').innerHTML = AUDIT.map(function (a) {
+      return '<li class="tl-item ' + a.cls + '"><div class="tl-title">' + a.t + '</div>' +
+        '<div class="tl-meta">' + a.m + '</div>' + (a.b ? '<div class="tl-body">' + a.b + '</div>' : '') + '</li>';
+    }).join('');
+  }
+  function pushAudit(entry) { AUDIT.push(entry); renderAudit(); Prepeet.init(); }
+
+  /* ─────────────────────────── evidence catalogue ─────────────────────────── */
+  var EV = {
+    s1: { kind: 'supporting', comp: 'Clinical reasoning', sec: 141, quote: 'I go back to an ABCDE assessment before I go back to the monitor.', why: 'The rubric asks for a systematic assessment that is not led by the monitor. This answer names the framework and applies it to the specific post-extubation scenario rather than describing it in the abstract.', conf: 'High — one of four spans supporting this competency.' },
+    s2: { kind: 'supporting', comp: 'Clinical reasoning', sec: 141, quote: 'A post-extubation patient at six hours is in the window for laryngeal oedema, so I would specifically look for a change in voice and a rising respiratory rate before saturations fall.', why: 'Ties a time-specific risk to the observable signs that precede it. The rubric weights reasoning that anticipates rather than reacts.', conf: 'High — corroborated by the answer at 05:14.' },
+    s3: { kind: 'supporting', comp: 'Clinical reasoning', sec: 314, quote: 'A single NEWS2 does not override what I can see, and the trend matters more than the reading.', why: 'Directly addresses the rubric line on not being falsely reassured by a normal early-warning score, and gives the numeric example that shows what she means.', conf: 'High.' },
+    s4: { kind: 'supporting', comp: 'Clinical reasoning', sec: 314, quote: 'I would also check the fluid balance and the noradrenaline requirement over the last two hours, because a quietly climbing pressor need is often the first hard number that agrees with you.', why: 'Second, independent line of reasoning within the same answer, using a different data source. Counted separately because it is a distinct clinical inference.', conf: 'High. Also the only span touching vasoactive infusion titration.' },
+    s5: { kind: 'supporting', comp: 'Patient safety', sec: 542, quote: 'I stopped before it was connected, kept the syringe, and told the nurse in charge before I documented anything.', why: 'The rubric asks whether the candidate protects other patients before protecting the record. The ordering here — escalate, then document — is the behaviour the rubric describes.', conf: 'High.' },
+    s6: { kind: 'supporting', comp: 'Patient safety', sec: 542, quote: 'I filed a Datix the same shift and asked for it to go to the Friday safety huddle rather than just closing it.', why: 'Reporting plus follow-through. The rubric distinguishes filing a form from making sure it is discussed; this answer describes both.', conf: 'High.' },
+    s7: { kind: 'supporting', comp: 'Patient safety', sec: 816, quote: 'I put out a critical care outreach call rather than waiting, because the escalation policy allows any nurse to do that without the registrar’s agreement.', why: 'Cites the mechanism and the authority for using it. The rubric rewards knowing where a nurse’s own authority to escalate begins.', conf: 'High.' },
+    s8: { kind: 'supporting', comp: 'Escalation &amp; handover', sec: 816, quote: 'I used SBAR on the phone and I finished with a specific ask — I need someone at the bedside within ten minutes — rather than just describing the problem.', why: 'Named structure plus an explicit request. The rubric asks for escalation that ends in an ask, not a description.', conf: 'Medium — this competency has an unresolved difference about timing.' },
+    s9: { kind: 'supporting', comp: 'Escalation &amp; handover', sec: 1099, quote: 'I hand over by system, and then I say the three things I am worried about for the coming shift.', why: 'Structured handover with a prioritised risk summary — both lines of the rubric for this area.', conf: 'Medium.' },
+    s10: { kind: 'supporting', comp: 'Escalation &amp; handover', sec: 1099, quote: 'I also hand over what is outstanding and who owns it… and I say the name of the person who agreed to do it.', why: 'Names ownership of outstanding tasks, which is the part of handover the rubric calls out as most often missed.', conf: 'Medium.' },
+    s11: { kind: 'supporting', comp: 'Compassionate communication', sec: 1375, quote: 'I would take her somewhere with a door, sit down so we are at the same height, and start by asking what she has already been told.', why: 'Establishes setting and checks existing understanding before informing — the sequence the rubric describes.', conf: 'Medium — both spans for this competency come from this single answer.' },
+    s12: { kind: 'supporting', comp: 'Compassionate communication', sec: 1375, quote: 'If the picture is that her mother is dying, I say the word dying rather than deteriorating.', why: 'Plain language in a difficult conversation, with a stated reason. The rubric asks for clarity that does not hide behind clinical vocabulary.', conf: 'Medium — same answer as the span above.' },
+    s13: { kind: 'supporting', comp: 'Teamwork under pressure', sec: 1664, quote: 'I took the airway trolley and then called out the time since the last adrenaline out loud every cycle, so the team leader did not have to hold it in their head.', why: 'A specific, observable contribution to the team rather than a description of what the team did. This is the only span supporting this competency.', conf: 'Low — single-answer evidence. Do not weigh this competency as heavily as the other four.' },
+    x1: { kind: 'contradiction', comp: 'Escalation &amp; handover', sec: 816, quote: 'I escalated to the site matron within about ten minutes of the second bleep going unanswered.', why: 'This differs from the answer at 34:15, which gives about forty minutes for the same sequence. Both answers describe the same correct escalation route; only the timing differs.', conf: 'Pair with the span at 34:15. Worth clarifying in a live conversation.' },
+    x2: { kind: 'contradiction', comp: 'Teamwork under pressure', sec: 1664, quote: 'I had two ventilated patients that night.', why: 'Differs from the opening answer, which describes a strict one-to-one ratio for ventilated patients. Surge staffing would explain both statements.', conf: 'Pair with the span at 00:34.' },
+    x3: { kind: 'contradiction', comp: 'Escalation &amp; handover', sec: 2055, quote: 'I bleeped the registrar first, then again, and I gave it about forty minutes before I went to the site matron.', why: 'Differs from the answer at 13:36. This version is more detailed and self-critical, which often indicates a more considered recollection — but Prepeet cannot judge that.', conf: 'Pair with the span at 13:36.' },
+    x4: { kind: 'contradiction', comp: 'Teamwork under pressure', sec: 34, quote: 'We nurse ventilated patients one to one, always.', why: 'Differs from the arrest example at 27:44, where she describes holding two ventilated patients. The word “always” is what makes the two statements sit awkwardly together.', conf: 'Pair with the span at 27:44.' },
+    c1: { kind: 'claim', comp: 'Patient safety', sec: 542, quote: 'unplanned extubations on the unit went from around one a month to none over six months', why: 'A unit-level outcome figure. Nothing else in the conversation corroborates it, and the answer does not describe what else changed in that period.', conf: 'Unverified — ask directly. Unverified does not mean untrue.' },
+    c2: { kind: 'claim', comp: 'Qualification', sec: 34, quote: 'a critical care award in 2023 through the university programme', why: 'A qualification claim. Prepeet holds no registration or certificate data and cannot corroborate it from the conversation.', conf: 'Unverified — ask directly, or request the certificate.' },
+    c3: { kind: 'claim', comp: 'Preceptorship', sec: 2238, quote: 'I have precepted six newly qualified nurses this year', why: 'A caseload figure with nothing else in the conversation to check it against — the follow-up moved to the rota instead.', conf: 'Unverified — ask directly. A practice educator reference would settle it.' },
+    g1: { kind: 'gap', comp: 'Teamwork under pressure', sec: 1886, quote: 'Not really, no. We all know each other well and we just got on with it.', why: 'The question asked about disagreement in the team and the answer does not engage with it. This is a gap in the evidence, not a negative finding — the question may simply not have matched her experience of that arrest.', conf: 'No score change. Recorded so the reviewer can re-ask.' },
+    g2: { kind: 'gap', comp: 'Renal replacement therapy', sec: 2238, quote: 'Renal replacement is the one I have done least of, maybe four or five patients, and I would want a supernumerary shift before I ran a filter on my own.', why: 'The candidate identifies the limit of her own practice, but the conversation stops there. The rubric area is reached without being explored, which is why it is marked partially evidenced.', conf: 'No score. Marked as a gap so the JD row shows partially evidenced rather than absent.' }
+  };
+  var KIND_LABEL = { supporting: 'Supporting evidence', contradiction: 'Answers that differ', claim: 'Unverified claim', gap: 'Gap in the answer' };
+
+  /* ─────────────────────────── audio player (simulated) ─────────────────────────── */
+  var DUR = 2467, pos = 0, rate = 1, timer = null;
+  function fmtT(s) { s = Math.max(0, Math.min(DUR, Math.round(s))); var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
+  var scrub, curEl, wave, playBtn;
+
+  function paint() {
+    var pct = pos / DUR * 100;
+    scrub.value = Math.round(pos);
+    scrub.setAttribute('aria-valuetext', fmtT(pos) + ' of ' + fmtT(DUR));
+    scrub.style.background = 'linear-gradient(to right, var(--primary) 0%, var(--primary) ' + pct + '%, var(--surface-3) ' + pct + '%, var(--surface-3) 100%)';
+    curEl.textContent = fmtT(pos);
+    var bars = wave.children, upto = Math.round(pct / 100 * bars.length);
+    for (var i = 0; i < bars.length; i++) bars[i].classList.toggle('played', i < upto);
+    var turns = document.querySelectorAll('#transcript .turn'), cur = null;
+    turns.forEach(function (t) { if (Number(t.getAttribute('data-sec')) <= pos) cur = t; t.classList.remove('is-current'); });
+    if (cur && pos > 0) cur.classList.add('is-current');
+  }
+  function setPlaying(on) {
+    playBtn.setAttribute('aria-pressed', String(on));
+    playBtn.setAttribute('aria-label', on ? 'Pause the interview recording' : 'Play the interview recording');
+    playBtn.querySelector('[data-icon-play]').hidden = on;
+    playBtn.querySelector('[data-icon-pause]').hidden = !on;
+    if (timer) { clearInterval(timer); timer = null; }
+    if (on) timer = setInterval(function () { pos += rate * 3; if (pos >= DUR) { pos = DUR; setPlaying(false); } paint(); }, 100);
+  }
+  function seek(sec, opts) {
+    pos = Math.max(0, Math.min(DUR, sec)); paint();
+    if (opts && opts.scroll) {
+      var target = null;
+      document.querySelectorAll('#transcript .turn').forEach(function (t) { if (Number(t.getAttribute('data-sec')) === sec) target = t; });
+      if (!target) document.querySelectorAll('#transcript .turn').forEach(function (t) { if (Number(t.getAttribute('data-sec')) <= sec) target = t; });
+      if (target) {
+        Prepeet.activateTab('panel-evidence');
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        target.classList.add('is-flash');
+        setTimeout(function () { target.classList.remove('is-flash'); }, 1500);
+      }
+    }
+    Prepeet.announce('Playhead moved to ' + fmtT(pos));
+  }
+
+  function initPlayer() {
+    scrub = document.getElementById('pl-scrub');
+    curEl = document.getElementById('pl-cur');
+    wave = document.getElementById('pl-wave');
+    playBtn = document.getElementById('pl-play');
+    Prepeet.miniWave(wave, 48);
+    paint();
+    playBtn.addEventListener('click', function () { setPlaying(playBtn.getAttribute('aria-pressed') !== 'true'); });
+    document.getElementById('pl-back').addEventListener('click', function () { seek(pos - 10); });
+    document.getElementById('pl-fwd').addEventListener('click', function () { seek(pos + 10); });
+    scrub.addEventListener('input', function () { pos = Number(scrub.value); paint(); });
+    document.getElementById('pl-speed').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-rate]'); if (!b) return;
+      rate = Number(b.getAttribute('data-rate'));
+      this.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      if (timer) setPlaying(true);
+      Prepeet.announce('Playback speed ' + rate + ' times');
+    });
+
+    var jump = document.getElementById('ev-jump');
+    var order = Object.keys(EV).sort(function (a, b) { return EV[a].sec - EV[b].sec; });
+    jump.innerHTML = '<option value="">Choose a marked moment…</option>' + order.map(function (k) {
+      var e = EV[k];
+      return '<option value="' + k + '">' + fmtT(e.sec) + ' — ' + KIND_LABEL[e.kind] + ' · ' + e.comp.replace(/&amp;/g, '&') + '</option>';
+    }).join('');
+    jump.addEventListener('change', function () {
+      var k = jump.value; if (!k) return;
+      seek(EV[k].sec, { scroll: true });
+      openEv(k);
+    });
+  }
+
+  /* ─────────────────────────── evidence drawer ─────────────────────────── */
+  var currentEv = null;
+  function openEv(key) {
+    var e = EV[key]; if (!e) return;
+    currentEv = key;
+    document.querySelectorAll('.ev[aria-pressed="true"]').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    var btn = document.querySelector('.ev[data-ev="' + key + '"]');
+    if (btn) btn.setAttribute('aria-pressed', 'true');
+    document.getElementById('ev-drawer-title').textContent = KIND_LABEL[e.kind];
+    document.getElementById('ev-drawer-body').innerHTML =
+      '<div class="ev-card ' + e.kind + '">' +
+        '<div class="ev-meta"><i data-lucide="clock" class="ic-sm ic"></i><span>' + fmtT(e.sec) + '</span><span>·</span><span>' + e.comp + '</span></div>' +
+        '<blockquote>' + e.quote + '</blockquote>' +
+      '</div>' +
+      '<div><h3 style="font-size:var(--text-sm)">Competency</h3><p class="text-2" style="font-size:var(--text-sm);margin-top:4px">' + e.comp + '</p></div>' +
+      '<div><h3 style="font-size:var(--text-sm)">Why it counted</h3><p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:4px">' + e.why + '</p></div>' +
+      '<div><h3 style="font-size:var(--text-sm)">Confidence</h3><p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:4px">' + e.conf + '</p></div>' +
+      '<div class="banner" style="font-size:var(--text-xs)"><i data-lucide="info" class="ic"></i><div>Spans are extracts. Play the surrounding audio before relying on any single quote — tone and interruptions do not survive a transcript.</div></div>';
+    document.getElementById('ev-drawer-play').innerHTML = '<i data-lucide="play" class="ic ic-sm"></i>Play from ' + fmtT(e.sec);
+    Prepeet.openDialog('ev-drawer');
+    Prepeet.init();
+  }
+
+  /* ─────────────────────────── decision form ─────────────────────────── */
+  var SUGGESTED = 'advance';
+  var OUTCOME_META = {
+    advance:  { label: 'Advance', status: 'advanced', badge: 'badge-success', icon: 'check-circle-2', body: 'Amara Osei has been moved to the ICU panel day list and the hiring team has been notified.' },
+    hold:     { label: 'Hold', status: 'hold', badge: 'badge-neutral', icon: 'pause-circle', body: 'Amara Osei stays open in the queue. Nothing has been sent to the candidate.' },
+    decline:  { label: 'Do not progress', status: 'declined', badge: 'badge-danger', icon: 'x-circle', body: 'The record is closed. Feedback to the candidate is drafted from your rationale and sent by a person, not automatically.' },
+    rereview: { label: 'Request re-review', status: 'pending', badge: 'badge-info', icon: 'gavel', body: 'Sent to the re-review queue for a second reviewer. The original evaluation is untouched.' }
+  };
+
+  function initDecision() {
+    var form = document.getElementById('decision-form');
+    var overrideField = document.getElementById('override-field');
+    var overrideInput = document.getElementById('override-reason');
+    var rationale = document.getElementById('rationale');
+
+    function currentOutcome() { var r = form.querySelector('input[name="outcome"]:checked'); return r ? r.value : null; }
+    function syncOverride() {
+      var o = currentOutcome();
+      var isOverride = !!o && o !== SUGGESTED;
+      overrideField.hidden = !isOverride;
+      if (!isOverride) { overrideInput.setAttribute('aria-invalid', 'false'); document.getElementById('err-override').hidden = true; }
+    }
+    form.addEventListener('change', function (e) { if (e.target.name === 'outcome') syncOverride(); });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var o = currentOutcome();
+      var isOverride = !!o && o !== SUGGESTED;
+      var ok = true;
+
+      document.getElementById('err-outcome').hidden = !!o;
+      if (!o) ok = false;
+
+      var rOk = rationale.value.trim().length > 0;
+      rationale.setAttribute('aria-invalid', rOk ? 'false' : 'true');
+      document.getElementById('err-rationale').hidden = rOk;
+      if (!rOk) ok = false;
+
+      var ovOk = true;
+      if (isOverride) {
+        ovOk = overrideInput.value.trim().length > 0;
+        overrideInput.setAttribute('aria-invalid', ovOk ? 'false' : 'true');
+        document.getElementById('err-override').hidden = ovOk;
+        if (!ovOk) ok = false;
+      }
+
+      if (!ok) {
+        var first = form.querySelector('[aria-invalid="true"]') || form.querySelector('input[name="outcome"]');
+        if (first) first.focus();
+        Prepeet.announce('Your decision could not be recorded. Some fields need attention.');
+        Prepeet.toast({ title: 'Decision not recorded', desc: isOverride && !ovOk ? 'An override reason is required when your decision differs from the suggested band.' : 'A written rationale is required for every decision.', kind: 'danger' });
+        return;
+      }
+
+      var meta = OUTCOME_META[o];
+      var conf = document.getElementById('decision-confidence');
+      var confLabel = conf.options[conf.selectedIndex].text;
+
+      /* status badge */
+      var badge = document.getElementById('subj-status');
+      badge.className = 'badge ' + meta.badge;
+      badge.innerHTML = '<i data-lucide="' + meta.icon + '" class="ic-sm ic"></i>' + D.statusMeta[meta.status].label;
+
+      /* rail summary */
+      form.hidden = true;
+      var recorded = document.getElementById('decision-recorded');
+      recorded.hidden = false;
+      document.getElementById('rec-title').textContent = meta.label + ' — recorded by Priya Raman, 23 Aug 2026.';
+      document.getElementById('rec-body').textContent = meta.body + ' Confidence in this decision: ' + confLabel.toLowerCase() + '.';
+      document.getElementById('rec-override').hidden = !isOverride;
+      if (isOverride) document.getElementById('rec-override-text').textContent = overrideInput.value.trim();
+
+      /* review activity */
+      REVIEWS.push({ who: 'Priya Raman', role: 'Talent acquisition lead', when: '23 Aug 2026, 10:22', dur: '18 min 05 s', what: 'Recorded “' + meta.label + '”' + (isOverride ? ' with an override reason.' : '.') });
+      renderReviews();
+
+      /* audit trail */
+      pushAudit({ cls: 'active', t: 'Decision recorded — ' + meta.label, m: '23 Aug 2026, 10:22:41 · Priya Raman (Talent acquisition lead)', b: 'Rationale: “' + rationale.value.trim() + '” · Confidence: ' + confLabel + '.' });
+      if (isOverride) {
+        pushAudit({ cls: 'warning', t: 'Override reason added', m: '23 Aug 2026, 10:22:41 · Priya Raman', b: 'Decision differs from the suggested band (Strong → Advance). Reason: “' + overrideInput.value.trim() + '” · Flagged for the September calibration review.' });
+        document.getElementById('override-callout').hidden = false;
+        document.getElementById('override-callout-text').textContent = 'Priya Raman recorded “' + meta.label + '” against a suggested band of Strong on 23 Aug 2026. Reason: ' + overrideInput.value.trim();
+      }
+      if (o === 'rereview') {
+        pushAudit({ cls: 'warning', t: 'Re-review requested', m: '23 Aug 2026, 10:22:42 · Priya Raman', b: 'Added to the re-review queue. Original evaluation retained unchanged.' });
+      }
+
+      Prepeet.toast({ title: 'Decision recorded: ' + meta.label, desc: isOverride ? 'Your override reason has been written to the audit trail.' : 'Written to the audit trail and shared with the hiring team.', kind: isOverride ? 'warning' : 'success' });
+      Prepeet.announce('Decision recorded: ' + meta.label + '. The status badge and audit history have been updated.');
+      Prepeet.init();
+    });
+
+    document.getElementById('amend-decision').addEventListener('click', function () {
+      document.getElementById('decision-recorded').hidden = true;
+      form.hidden = false;
+      form.querySelector('input[name="outcome"]:checked').focus();
+    });
+
+    document.getElementById('goto-form').addEventListener('click', function () {
+      var rail = document.getElementById('decision-rail');
+      rail.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      var first = document.querySelector('#decision-form input[name="outcome"]');
+      if (first) setTimeout(function () { first.focus(); }, 350);
+    });
+  }
+
+  /* ─────────────────────────── permissions ─────────────────────────── */
+  function applyPermissions() {
+    var role = Prepeet.getRole();
+    var isRecruiterOnly = role === 'recruiter';
+    document.getElementById('audit-export').hidden = isRecruiterOnly;
+    document.getElementById('rubric-shortcut').hidden = isRecruiterOnly;
+    document.getElementById('audit-recruiter-note').hidden = !isRecruiterOnly;
+    document.getElementById('audit-full-link-wrap').hidden = !Prepeet.can('god');
+  }
+
+  /* ─────────────────────────── states ─────────────────────────── */
+  function initStates() {
+    var urlId = Prepeet.query.get('id', DEFAULT_ID);
+    if (!byId(urlId)) urlId = DEFAULT_ID;
+    var cur = Prepeet.query.get('state', 'default');
+    if (byId(urlId).status === 'insufficient') cur = 'insufficient';
+    if (['default', 'loading', 'insufficient', 'error'].indexOf(cur) === -1) cur = 'default';
+
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      var subj = s === 'insufficient' ? INSUFFICIENT_ID : (urlId === INSUFFICIENT_ID ? DEFAULT_ID : urlId);
+      urlId = subj;
+      Prepeet.query.set({ state: s === 'default' ? null : s, id: subj }, true);
+      renderSubject(subj);
+      document.getElementById('sample-note').hidden = (subj === DEFAULT_ID);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) { if (timer) setPlaying(false); apply(b.getAttribute('data-state-btn')); }
+    });
+    apply(cur);
+  }
+
+  /* ─────────────────────────── wiring ─────────────────────────── */
+  document.addEventListener('click', function (e) {
+    var ev = e.target.closest('.ev[data-ev]');
+    if (ev) { e.preventDefault(); openEv(ev.getAttribute('data-ev')); return; }
+    var sk = e.target.closest('[data-seek]');
+    if (sk) { seek(Number(sk.getAttribute('data-seek')), { scroll: true }); return; }
+    var gt = e.target.closest('[data-goto-tab]');
+    if (gt) { Prepeet.activateTab('panel-' + gt.getAttribute('data-goto-tab')); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    renderComps(); renderCoverage(); renderJd(); renderProbes(); renderReviews(); renderAudit();
+    initPlayer(); initDecision(); applyPermissions(); initStates();
+
+    document.getElementById('ev-drawer-play').addEventListener('click', function () {
+      if (currentEv) { seek(EV[currentEv].sec, { scroll: true }); setPlaying(true); Prepeet.closeDialog('ev-drawer'); }
+    });
+    document.getElementById('copy-questions').addEventListener('click', function () {
+      var text = PROBES.map(function (p, i) { return (i + 1) + '. ' + p.q; }).join('\n');
+      if (navigator.clipboard) navigator.clipboard.writeText(text);
+      Prepeet.toast({ title: 'Six follow-up questions copied', kind: 'success' });
+    });
+
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

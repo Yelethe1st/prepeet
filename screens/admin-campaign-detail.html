@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICU night rotation · Campaign · Prepeet</title>
+<meta name="description" content="One hiring campaign: the pinned interview configuration, the invitations issued under it, the candidates awaiting a human review, and the append-only record of every change.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-scoped: the pinned-configuration block reads as a receipt, not a form */
+  .pin-row { display:grid; grid-template-columns: 190px 1fr; gap: var(--sp-3); padding: 10px 0;
+             border-bottom: 1px solid var(--border-subtle); font-size: var(--text-sm); }
+  .pin-row:last-child { border-bottom: 0; }
+  .pin-row dt { color: var(--fg-3); }
+  .pin-row dd { margin: 0; }
+  .funnel-step { display:grid; grid-template-columns: 1fr auto; gap: var(--sp-3); align-items:center;
+                 padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+  .funnel-step:last-child { border-bottom: 0; }
+  .funnel-bar { height: 6px; border-radius: var(--r-pill); background: var(--surface-inset); margin-top: 6px; }
+  .funnel-bar span { display:block; height: 100%; border-radius: var(--r-pill); background: var(--chart-1); }
+  @media (max-width: 600px) { .pin-row { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="campaigns" data-title="ICU night rotation — autumn intake"
+      data-crumbs="Hiring>admin-dashboard.html|Campaigns>admin-campaigns.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Campaign <span class="mono">cmp_icu_autumn</span></p>
+        <h1>ICU night rotation — autumn intake</h1>
+        <p class="page-desc">Registered Nurse — Intensive Care · owned by Priya Raman · opened 4 August 2026</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-success"><i data-lucide="play-circle" class="ic ic-sm"></i>Open</span>
+          <span class="badge badge-outline">24 invitations issued</span>
+          <span class="badge badge-warning"><i data-lucide="inbox" class="ic ic-sm"></i>3 awaiting review</span>
+        </div>
+      </div>
+      <div class="cluster">
+        <button class="btn btn-secondary" type="button" data-dialog-open="dlg-pause" data-requires="recruiter"><i data-lucide="pause" class="ic ic-sm"></i>Pause</button>
+        <a class="btn btn-primary" href="admin-invitation-new.html?campaign=cmp_icu_autumn"><i data-lucide="mail-plus" class="ic ic-sm"></i>Issue invitation</a>
+      </div>
+    </div>
+
+    <div class="grid grid-main-aside">
+      <div class="stack-lg">
+
+        <!-- ─────────────────── pinned configuration ────────────────────── -->
+        <section class="card" aria-labelledby="pin-h">
+          <div class="card-header">
+            <div>
+              <h2 id="pin-h" class="section-title">Pinned configuration</h2>
+              <p class="hint" style="margin-top:4px">Fixed when each invitation is issued. Every candidate below sat this exact interview.</p>
+            </div>
+            <span class="badge badge-primary"><i data-lucide="lock" class="ic ic-sm"></i>Immutable</span>
+          </div>
+          <div class="card-body">
+            <dl style="margin:0">
+              <div class="pin-row"><dt>Role</dt><dd>Registered Nurse — Intensive Care · <span class="mono" style="font-size:var(--text-xs)">role_icu_rn_2026</span></dd></div>
+              <div class="pin-row"><dt>Rubric</dt><dd>ICU Registered Nurse <strong>v4</strong> · published 4 Aug 2026 by Priya Raman <a class="link" href="admin-rubrics.html">View</a></dd></div>
+              <div class="pin-row"><dt>Calibration</dt><dd>Northwind ICU anchors <strong>v2</strong> · published 4 Aug 2026 <a class="link" href="admin-recruiter-calibration.html">View</a></dd></div>
+              <div class="pin-row"><dt>Interview</dt><dd>Panel simulation · 40 minutes · interviewer Lena (approved for screening)</dd></div>
+              <div class="pin-row"><dt>Disclosure</dt><dd>Northwind standard disclosure <strong>v3</strong> (EU / UK) <button class="link" type="button" data-dialog-open="dlg-disclosure" style="background:none;border:0;cursor:pointer;font:inherit;color:var(--primary)">Read what the candidate sees</button></dd></div>
+              <div class="pin-row"><dt>Accommodations</dt><dd>Captions · push-to-talk · extra thinking time · alternative path on request<span class="hint" style="display:block;margin-top:2px">None of these change the rubric or the anchors. Response timing is excluded from scoring.</span></dd></div>
+              <div class="pin-row"><dt>Invitation expiry</dt><dd>7 days after sending</dd></div>
+              <div class="pin-row"><dt>Result disclosure</dt><dd>Confirmation of submission only — no score, band or feedback to the candidate</dd></div>
+            </dl>
+
+            <div class="banner banner-warning" style="margin-top:var(--sp-5)">
+              <i data-lucide="git-branch" class="ic"></i>
+              <div>
+                <strong>Rubric v5 is in draft.</strong>
+                <p style="margin:4px 0 0">Publishing it will not touch this campaign. It creates a new version that applies to invitations issued after publication — the 17 completed interviews stay evaluated against v4, and nobody is silently re-scored.</p>
+                <a class="link" href="admin-rubrics.html" style="display:inline-block;margin-top:8px">See the impact preview<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────────────── progress ────────────────────────────────── -->
+        <section class="card" aria-labelledby="fun-h">
+          <div class="card-header">
+            <div>
+              <h2 id="fun-h" class="section-title">Where the 24 invitations are</h2>
+              <p class="hint" style="margin-top:4px">Delivery and completion only. Progress through your hiring process is recorded by reviewers, not by Prepeet.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="chart-summary">Of 24 invitations, 22 were delivered, 19 were opened, 17 were completed, and 2 expired without being opened. One completed interview produced insufficient evidence and is flagged for a human decision rather than scored.</p>
+            <div id="funnel"></div>
+          </div>
+        </section>
+
+        <!-- ─────────────────── awaiting review ─────────────────────────── -->
+        <section class="card" aria-labelledby="rev-h">
+          <div class="card-header">
+            <div>
+              <h2 id="rev-h" class="section-title">Awaiting a human review</h2>
+              <p class="hint" style="margin-top:4px">Nothing advances or is rejected without a named reviewer recording a reason.</p>
+            </div>
+            <a class="link" style="font-size:var(--text-xs)" href="admin-recruiter.html?campaign=cmp_icu_autumn">All candidates<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="table table-responsive">
+                <caption class="sr-only">Candidates in this campaign awaiting review, with submission date, evidence coverage and confidence.</caption>
+                <thead><tr>
+                  <th scope="col">Candidate</th><th scope="col">Submitted</th>
+                  <th scope="col">Coverage</th><th scope="col">Confidence</th>
+                  <th scope="col">State</th><th scope="col"><span class="sr-only">Actions</span></th>
+                </tr></thead>
+                <tbody id="pending"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────────────── invitations ─────────────────────────────── -->
+        <section class="card" aria-labelledby="inv-h">
+          <div class="card-header">
+            <div>
+              <h2 id="inv-h" class="section-title">Recent invitations</h2>
+              <p class="hint" style="margin-top:4px">Five most recent of 24.</p>
+            </div>
+            <a class="link" style="font-size:var(--text-xs)" href="admin-invitations.html?campaign=cmp_icu_autumn">All 24<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="table table-responsive table-dense">
+                <caption class="sr-only">Recent invitations issued under this campaign.</caption>
+                <thead><tr><th scope="col">Candidate</th><th scope="col">Sent</th><th scope="col">Deadline</th><th scope="col">Status</th></tr></thead>
+                <tbody id="invites"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────────────── history ─────────────────────────────────── -->
+        <section class="card" aria-labelledby="hist-h">
+          <div class="card-header">
+            <div>
+              <h2 id="hist-h" class="section-title">Campaign history</h2>
+              <p class="hint" style="margin-top:4px">Append-only. Entries are never edited or removed.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <ol class="timeline" id="history"></ol>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ─────────────────────────── aside ─────────────────────────────── -->
+      <aside class="sticky-aside stack">
+
+        <section class="card"><div class="card-body">
+          <h2 class="section-title" style="font-size:var(--text-sm)">At a glance</h2>
+          <dl class="kv" style="margin-top:10px">
+            <dt>Issued</dt><dd class="tnum">24</dd>
+            <dt>Completed</dt><dd class="tnum">17</dd>
+            <dt>Still open</dt><dd class="tnum">5</dd>
+            <dt>Expired</dt><dd class="tnum">2</dd>
+            <dt>Insufficient evidence</dt><dd class="tnum">1</dd>
+            <dt>Median completion</dt><dd>2 days</dd>
+          </dl>
+          <p class="hint" style="margin-top:10px">Insufficient evidence describes how much the conversation covered. It is not a low result and must not be read as one.</p>
+        </div></section>
+
+        <section class="card"><div class="card-body">
+          <h2 class="section-title" style="font-size:var(--text-sm)">Who can open evidence</h2>
+          <ul class="stack-sm" style="margin-top:10px;font-size:var(--text-sm)">
+            <li class="row"><span class="avatar avatar-sm">PR</span><span>Priya Raman<span class="hint" style="display:block">Reviewer · 14 evidence opens</span></span></li>
+            <li class="row"><span class="avatar avatar-sm">JB</span><span>Jonas Brandt<span class="hint" style="display:block">Reviewer · 6 evidence opens</span></span></li>
+          </ul>
+          <p class="hint" style="margin-top:10px">Every transcript and audio open is recorded against a named person. <a class="link" href="admin-god-audit.html?campaign=cmp_icu_autumn">Access log</a></p>
+        </div></section>
+
+        <section class="card card-subtle"><div class="card-body">
+          <div class="cluster" style="margin-bottom:10px">
+            <i data-lucide="shield-off" class="ic" style="color:var(--primary)"></i>
+            <strong style="font-size:var(--text-sm)">Not part of this campaign</strong>
+          </div>
+          <ul class="stack-sm hint" style="line-height:var(--leading-normal)">
+            <li>Candidates' own practice history — never attached, never visible.</li>
+            <li>Delivery and articulation — excluded from screening evaluation.</li>
+            <li>Any automatic advance or rejection.</li>
+            <li>Candidate ranking. Comparison is off for this workspace.</li>
+          </ul>
+        </div></section>
+
+        <section class="card"><div class="card-body">
+          <h2 class="section-title" style="font-size:var(--text-sm)">Danger zone</h2>
+          <p class="hint" style="margin-top:8px">Closing stops new invitations. Links already sent keep working until their own deadline unless you revoke them individually.</p>
+          <button class="btn btn-sm btn-danger-soft btn-block" type="button" data-dialog-open="dlg-close" data-requires="recruiter" style="margin-top:10px"><i data-lucide="circle-slash" class="ic ic-sm"></i>Close campaign</button>
+        </div></section>
+
+      </aside>
+    </div>
+  </div>
+</main>
+
+<!-- ═════════════════════════════ dialogs ═════════════════════════════════ -->
+<dialog class="dialog" id="dlg-disclosure" aria-labelledby="dlg-disc-h">
+  <div class="dialog-panel wide">
+    <div class="dialog-header"><h2 id="dlg-disc-h">What the candidate is told</h2></div>
+    <div class="dialog-body">
+      <p class="hint" style="margin-bottom:var(--sp-4)">Northwind standard disclosure v3 · shown before consent, and again on the invitation page.</p>
+      <div class="prose" style="font-size:var(--text-sm)">
+        <p><strong>Who is asking.</strong> Northwind Health System has invited you to a screening interview for Registered Nurse — Intensive Care.</p>
+        <p><strong>How it works.</strong> The interview is conducted by an AI interviewer and lasts about 40 minutes. It is recorded, transcribed and evaluated against a published rubric.</p>
+        <p><strong>Who sees it.</strong> Named reviewers at Northwind Health System. Every time someone opens your transcript or recording, it is logged.</p>
+        <p><strong>What you will be told.</strong> That your interview was submitted. Northwind decides what to share beyond that, and a person — not Prepeet — makes the hiring decision.</p>
+        <p><strong>How long it is kept.</strong> 18 months, unless you ask for it sooner or a legal hold applies.</p>
+        <p><strong>What you can ask for.</strong> Captions, push-to-talk, extra thinking time, or a different way to take part if voice is not accessible to you. None of these change how you are assessed.</p>
+      </div>
+    </div>
+    <div class="dialog-footer"><button class="btn btn-secondary" type="button" data-dialog-close="dlg-disclosure">Close</button></div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-pause" aria-labelledby="dlg-pause-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-pause-h">Pause this campaign</h2></div>
+    <div class="dialog-body stack">
+      <div class="banner banner-info">
+        <i data-lucide="info" class="ic"></i>
+        <div><strong>What pausing does.</strong> No new invitations can be issued. The five candidates who already hold a link can still complete their interview, and the three awaiting review stay reviewable.</div>
+      </div>
+      <div class="field">
+        <label class="label" for="pause-reason">Reason (recorded in the campaign history)</label>
+        <textarea class="textarea" id="pause-reason" rows="2" placeholder="Enough candidates in the pipeline for this intake."></textarea>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close="dlg-pause">Cancel</button>
+      <button class="btn btn-primary" type="button" id="pause-confirm">Pause campaign</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-close" aria-labelledby="dlg-close-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-close-h">Close this campaign</h2></div>
+    <div class="dialog-body stack">
+      <div class="banner banner-danger">
+        <i data-lucide="alert-octagon" class="ic"></i>
+        <div>
+          <strong>Three candidates are still awaiting review.</strong>
+          <p style="margin:4px 0 0">Closing does not decide their outcome and does not delete anything. Their evidence stays reviewable and their invitations stay valid until each deadline — but leaving people in an unreviewed state is a decision by omission. Review them, or tell them where they stand.</p>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="close-reason">Reason (recorded in the campaign history)</label>
+        <textarea class="textarea" id="close-reason" rows="2" placeholder="Intake filled."></textarea>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close="dlg-close">Cancel</button>
+      <button class="btn btn-danger" type="button" id="close-confirm"><i data-lucide="circle-slash" class="ic ic-sm"></i>Close campaign</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+  var FUNNEL = [
+    { label: 'Issued', n: 24, note: 'Single-use links, 7-day expiry' },
+    { label: 'Delivered', n: 22, note: '2 bounced — addresses corrected and reissued' },
+    { label: 'Opened', n: 19, note: '' },
+    { label: 'Consent given', n: 18, note: '1 candidate declined and was not penalised' },
+    { label: 'Completed', n: 17, note: '1 completed after a reconnection' },
+    { label: 'Evaluated', n: 16, note: '1 produced insufficient evidence' },
+    { label: 'Reviewed by a person', n: 13, note: '3 still awaiting a named reviewer' }
+  ];
+
+  var PENDING = [
+    { id: 'cand_R4T9MP', name: 'Amara Osei', sub: '22 Aug 09:14', cov: 92, conf: 'high', state: 'ok' },
+    { id: 'cand_L7X2QN', name: 'Tomás Herrera', sub: '22 Aug 08:02', cov: 78, conf: 'medium', state: 'appeal' },
+    { id: 'cand_T3W7KL', name: 'Mateusz Zielinski', sub: '20 Aug 10:12', cov: 34, conf: 'low', state: 'insufficient' }
+  ];
+
+  var INVITES = [
+    { name: 'Amara Osei', sent: '20 Aug', due: '27 Aug', status: 'complete' },
+    { name: 'Tomás Herrera', sent: '20 Aug', due: '27 Aug', status: 'complete' },
+    { name: 'Nadia Farouk', sent: '21 Aug', due: '28 Aug', status: 'open' },
+    { name: 'Peter Lindqvist', sent: '21 Aug', due: '28 Aug', status: 'opened' },
+    { name: 'Ruth Adeyinka', sent: '14 Aug', due: '21 Aug', status: 'expired' }
+  ];
+  var INV_META = {
+    complete: { label: 'Completed', badge: 'badge-success', icon: 'check-circle-2' },
+    open:     { label: 'Not opened', badge: 'badge-outline', icon: 'mail' },
+    opened:   { label: 'Opened, not started', badge: 'badge-info', icon: 'mail-open' },
+    expired:  { label: 'Expired', badge: 'badge-neutral', icon: 'circle-slash' }
+  };
+
+  var HISTORY = [
+    { cls: 'done', icon: 'inbox', t: '22 Aug 09:14', text: 'Amara Osei completed her interview. Evaluation published against rubric v4.' },
+    { cls: 'warning', icon: 'help-circle', t: '20 Aug 10:40', text: 'Mateusz Zielinski’s interview produced insufficient evidence — the session ended after 11 minutes following a device failure. Flagged for a human decision on re-invitation.' },
+    { cls: 'done', icon: 'mail-plus', t: '20 Aug 08:00', text: 'Priya Raman issued 6 invitations.' },
+    { cls: 'done', icon: 'user-plus', t: '11 Aug 16:22', text: 'Jonas Brandt added as a reviewer by Priya Raman.' },
+    { cls: 'active', icon: 'lock', t: '4 Aug 09:05', text: 'Campaign opened. Rubric v4 and calibration v2 pinned by Priya Raman.' }
+  ];
+
+  function renderFunnel() {
+    var top = FUNNEL[0].n;
+    document.getElementById('funnel').innerHTML = FUNNEL.map(function (f) {
+      return '<div class="funnel-step">' +
+        '<div><strong style="font-size:var(--text-sm)">' + esc(f.label) + '</strong>' +
+          (f.note ? '<span class="hint" style="display:block">' + esc(f.note) + '</span>' : '') +
+          '<div class="funnel-bar"><span style="width:' + Math.round((f.n / top) * 100) + '%"></span></div></div>' +
+        '<span class="tnum" style="font-size:var(--text-md);font-weight:600">' + f.n + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderPending() {
+    document.getElementById('pending').innerHTML = PENDING.map(function (p) {
+      var state = p.state === 'insufficient'
+        ? '<span class="badge badge-outline"><i data-lucide="help-circle" class="ic ic-sm"></i>Insufficient evidence</span>'
+        : p.state === 'appeal'
+        ? '<span class="badge badge-warning"><i data-lucide="gavel" class="ic ic-sm"></i>Re-review requested</span>'
+        : '<span class="badge badge-warning"><i data-lucide="clock" class="ic ic-sm"></i>Awaiting review</span>';
+      return '<tr>' +
+        '<td data-label="Candidate"><a class="link" style="font-weight:600" href="admin-recruiter-detail.html?id=' + esc(p.id) + '">' + esc(p.name) + '</a></td>' +
+        '<td data-label="Submitted"><span class="hint">' + esc(p.sub) + '</span></td>' +
+        '<td data-label="Coverage"><span class="tnum">' + p.cov + '%</span></td>' +
+        '<td data-label="Confidence">' + esc(Prepeet.confidenceMeta[p.conf].label) + '</td>' +
+        '<td data-label="State">' + state + '</td>' +
+        '<td data-label="Actions"><a class="btn btn-sm btn-primary" href="admin-recruiter-detail.html?id=' + esc(p.id) + '">Review evidence</a></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderInvites() {
+    document.getElementById('invites').innerHTML = INVITES.map(function (i) {
+      var m = INV_META[i.status];
+      return '<tr>' +
+        '<td data-label="Candidate">' + esc(i.name) + '</td>' +
+        '<td data-label="Sent"><span class="hint">' + esc(i.sent) + '</span></td>' +
+        '<td data-label="Deadline"><span class="hint">' + esc(i.due) + '</span></td>' +
+        '<td data-label="Status"><span class="badge ' + m.badge + '"><i data-lucide="' + m.icon + '" class="ic ic-sm"></i>' + m.label + '</span></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderHistory() {
+    document.getElementById('history').innerHTML = HISTORY.map(function (h) {
+      return '<li class="tl-item ' + h.cls + '">' +
+        '<div class="between" style="gap:var(--sp-3)"><strong style="font-size:var(--text-sm)">' + esc(h.text) + '</strong>' +
+        '<span class="hint" style="white-space:nowrap">' + esc(h.t) + '</span></div></li>';
+    }).join('');
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-requires]').forEach(function (el) {
+      if (!Prepeet.can(el.getAttribute('data-requires'))) el.hidden = true;
+    });
+    renderFunnel(); renderPending(); renderInvites(); renderHistory();
+
+    document.getElementById('pause-confirm').addEventListener('click', function () {
+      Prepeet.closeDialog('dlg-pause');
+      Prepeet.toast({ kind: 'success', title: 'Campaign paused',
+        desc: 'No new invitations can be issued. The five links already sent still work.' });
+    });
+    document.getElementById('close-confirm').addEventListener('click', function () {
+      Prepeet.closeDialog('dlg-close');
+      Prepeet.toast({ kind: 'success', title: 'Campaign closed',
+        desc: 'Nothing was deleted. The three candidates awaiting review are still reviewable.' });
+    });
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

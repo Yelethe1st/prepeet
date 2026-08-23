@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hiring overview · Prepeet</title>
+<meta name="description" content="Northwind Health System hiring overview: review queue, screening activity by role, evaluation quality and recent reviewer decisions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: metric cards used as links, sparkline grid, decision list rows */
+  .metric-link { color: inherit; }
+  .metric-link:hover { text-decoration: none; }
+  .spark-grid { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
+  .spark { display: flex; flex-direction: column; gap: 6px; }
+  .spark .bars { height: 54px; gap: 3px; }
+  .row-warn td { background: var(--warning-soft); }
+  .dec-item { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 12px; padding: 14px 18px; align-items: start; }
+  .dec-item + .dec-item { border-top: 1px solid var(--border-subtle); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="admin-dashboard" data-title="Overview" data-crumbs="Northwind Health System>admin-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Today · 23 August 2026</p>
+        <h1>Hiring overview</h1>
+        <p class="page-desc">Northwind Health System · 6 open roles · 12 candidates in the pipeline. Everything below is evidence recorded in a screening conversation. Prepeet does not rank candidates or recommend a hire — reviewers do.</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-recruiter.html"><i data-lucide="users-round" class="ic ic-sm"></i>Candidates</a>
+        <a class="btn btn-primary" href="admin-invitation-new.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>Invite a candidate</a>
+      </div>
+      <div class="cluster" style="margin-left:auto">
+        <span class="hint">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+          <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+          <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════ LOADING ══════════════════════════ -->
+    <div data-state="loading" hidden aria-busy="true">
+      <div class="metrics-row" style="margin-bottom:var(--sp-5)">
+        <div class="card metric"><span class="skeleton skeleton-text w-75"></span><span class="skeleton skeleton-text" style="height:28px;width:60px"></span><span class="skeleton skeleton-text w-50"></span></div>
+        <div class="card metric"><span class="skeleton skeleton-text w-75"></span><span class="skeleton skeleton-text" style="height:28px;width:60px"></span><span class="skeleton skeleton-text w-50"></span></div>
+        <div class="card metric"><span class="skeleton skeleton-text w-75"></span><span class="skeleton skeleton-text" style="height:28px;width:60px"></span><span class="skeleton skeleton-text w-50"></span></div>
+        <div class="card metric"><span class="skeleton skeleton-text w-75"></span><span class="skeleton skeleton-text" style="height:28px;width:60px"></span><span class="skeleton skeleton-text w-50"></span></div>
+        <div class="card metric"><span class="skeleton skeleton-text w-75"></span><span class="skeleton skeleton-text" style="height:28px;width:60px"></span><span class="skeleton skeleton-text w-50"></span></div>
+      </div>
+      <div class="grid grid-main-aside">
+        <div class="stack-lg">
+          <div class="card"><div class="card-header"><span class="skeleton skeleton-text w-25" style="width:180px"></span></div><div class="card-body stack"><div class="skeleton skeleton-block"></div><div class="skeleton skeleton-block" style="height:80px"></div></div></div>
+          <div class="card"><div class="card-body"><div class="skeleton skeleton-block" style="height:160px"></div></div></div>
+        </div>
+        <aside class="stack" aria-label="Loading side panels">
+          <div class="card"><div class="card-body"><div class="skeleton skeleton-block" style="height:120px"></div></div></div>
+          <div class="card"><div class="card-body"><div class="skeleton skeleton-block" style="height:120px"></div></div></div>
+        </aside>
+      </div>
+      <p class="sr-only" role="status">Loading the Northwind Health System hiring overview.</p>
+    </div>
+
+    <!-- ══════════════════════════ EMPTY (new tenant) ══════════════════════════ -->
+    <div data-state="empty" hidden>
+      <div class="card">
+        <div class="state primary">
+          <div class="state-icon"><i data-lucide="mail-plus" class="ic"></i></div>
+          <h2 style="font-size:var(--text-md)">No screenings have been completed yet</h2>
+          <p>Northwind Health System was created on 21 August 2026 and has no candidate data. Send an invitation and this overview will fill with the review queue, activity by role and reviewer decisions as candidates complete their conversations.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="admin-invitation-new.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>Send the first invitation</a>
+            <a class="btn btn-secondary" data-requires="tenant_admin" href="admin-rubrics.html"><i data-lucide="list-checks" class="ic ic-sm"></i>Check the rubric first</a>
+            <a class="btn btn-ghost" href="admin-members.html"><i data-lucide="user-cog" class="ic ic-sm"></i>Invite a colleague to review</a>
+          </div>
+          <p class="hint" style="margin-top:var(--sp-4);max-width:460px">A first invitation takes about two minutes: pick the role, choose the interview shape, set a deadline. The candidate needs no Prepeet account before they accept.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════ DEFAULT ══════════════════════════ -->
+    <div data-state="default">
+
+      <!-- Metric row -->
+      <section aria-labelledby="metrics-h" style="margin-bottom:var(--sp-5)">
+        <h2 id="metrics-h" class="sr-only">Key numbers for this tenant</h2>
+        <div class="metrics-row">
+          <a class="card card-interactive metric metric-link" href="admin-recruiter.html?awaiting=1">
+            <span class="metric-label"><i data-lucide="inbox" class="ic-sm ic"></i>Awaiting a decision</span>
+            <span class="metric-value tnum">7</span>
+            <span class="metric-delta down"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+2 since last Monday</span>
+            <span class="metric-foot">6 evaluated · 1 returned insufficient evidence</span>
+          </a>
+          <a class="card card-interactive metric metric-link" href="admin-recruiter.html?range=30d">
+            <span class="metric-label"><i data-lucide="file-check" class="ic-sm ic"></i>Screenings this month</span>
+            <span class="metric-value tnum">68</span>
+            <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+11 on July</span>
+          </a>
+          <a class="card card-interactive metric metric-link" href="admin-recruiter.html?awaiting=1&amp;sort=submitted&amp;dir=asc">
+            <span class="metric-label"><i data-lucide="timer" class="ic-sm ic"></i>Median time to review</span>
+            <span class="metric-value tnum">1.9<small>days</small></span>
+            <span class="metric-delta up"><i data-lucide="arrow-down-right" class="ic-sm ic"></i>0.4 days faster</span>
+          </a>
+          <a class="card card-interactive metric metric-link" href="admin-invitations.html?status=outstanding">
+            <span class="metric-label"><i data-lucide="send" class="ic-sm ic"></i>Invitations outstanding</span>
+            <span class="metric-value tnum">14</span>
+            <span class="metric-delta flat"><i data-lucide="hourglass" class="ic-sm ic"></i>3 expire this week</span>
+          </a>
+          <a class="card card-interactive metric metric-link" href="admin-recruiter.html?confidence=low">
+            <span class="metric-label"><i data-lucide="help-circle" class="ic-sm ic"></i>Low-confidence evaluations</span>
+            <span class="metric-value tnum">3</span>
+            <span class="metric-delta up"><i data-lucide="arrow-down-right" class="ic-sm ic"></i>−1 on last month</span>
+          </a>
+        </div>
+      </section>
+
+      <div class="grid grid-main-aside">
+
+        <!-- ══ MAIN ══ -->
+        <div class="stack-lg">
+
+          <!-- Review queue -->
+          <section class="card" aria-labelledby="queue-h">
+            <div class="card-header">
+              <div>
+                <h2 id="queue-h">Review queue</h2>
+                <p class="hint" style="margin-top:3px">The five candidates who have waited longest for a decision. Nothing advances until a person decides.</p>
+              </div>
+              <a class="btn btn-sm btn-ghost" href="admin-recruiter.html?awaiting=1">All 7<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+            <div class="table-wrap" style="border:0;border-radius:0">
+              <table class="table table-responsive">
+                <caption class="sr-only">Five oldest candidates awaiting a reviewer decision, with role, waiting time, confidence and coverage.</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Candidate</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Waiting</th>
+                    <th scope="col">Confidence</th>
+                    <th scope="col" class="num">Coverage</th>
+                  </tr>
+                </thead>
+                <tbody id="queue-body"></tbody>
+              </table>
+            </div>
+            <div class="card-footer">
+              <div class="between">
+                <span class="hint">Sorted oldest first. Time is measured from submission, not from invitation.</span>
+                <a class="btn btn-sm btn-secondary" href="admin-recruiter-compare.html?ids=cand_R4T9MP,cand_L7X2QN,cand_T3W7KL">Compare the ICU shortlist</a>
+              </div>
+            </div>
+          </section>
+
+          <!-- Hiring activity by role -->
+          <section class="card" aria-labelledby="activity-h">
+            <div class="card-header">
+              <div>
+                <h2 id="activity-h">Screening activity by open role</h2>
+                <p class="hint" style="margin-top:3px">Completed screenings per week, 29 June to 23 August 2026.</p>
+              </div>
+              <span class="badge badge-outline mono">8 weeks</span>
+            </div>
+            <div class="card-body">
+              <div class="spark-grid" id="spark-grid"></div>
+              <p class="chart-summary" id="activity-summary"></p>
+              <div class="cluster" style="margin-top:var(--sp-4)">
+                <a class="btn btn-sm btn-secondary" href="admin-invitations.html">Invitation pipeline<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                <span class="hint">Weeks are Monday-start. A screening counts on the week it was submitted.</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Evaluation quality -->
+          <section class="card" aria-labelledby="quality-h">
+            <div class="card-header">
+              <div>
+                <h2 id="quality-h">Evaluation quality</h2>
+                <p class="hint" style="margin-top:3px">Coverage is the share of the role's competencies the conversation actually produced evidence for.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <h3 class="section-title" style="font-size:var(--text-sm)">Coverage distribution across 12 current candidates</h3>
+              <div class="comp-list" id="coverage-dist"></div>
+              <p class="chart-summary" id="coverage-summary"></p>
+
+              <hr style="margin:var(--sp-5) 0">
+
+              <div class="grid grid-2">
+                <div>
+                  <h3 class="section-title" style="font-size:var(--text-sm)">Insufficient-evidence outcomes</h3>
+                  <p class="metric-value tnum" style="font-size:var(--text-2xl)">4</p>
+                  <p class="hint" style="margin-top:4px">of 133 screenings in the last 8 weeks (3.0%). One is in the current pipeline: <a href="admin-recruiter-detail.html?id=cand_T3W7KL">Mateusz Zielinski</a>, whose session ended after 3 of 8 questions.</p>
+                  <p class="hint" style="margin-top:8px">These are not low scores. Prepeet returns no score at all when the conversation did not produce enough evidence, so a reviewer is not handed a number that looks like a judgement.</p>
+                </div>
+                <div>
+                  <h3 class="section-title" style="font-size:var(--text-sm)">Reviewer agreement with the suggested band</h3>
+                  <div class="stack-sm">
+                    <div class="between"><span style="font-size:var(--text-sm)">Decision matched the band</span><span class="tnum" style="font-size:var(--text-sm);font-weight:650">41 of 52</span></div>
+                    <div class="progress"><span style="width:79%"></span></div>
+                    <p class="hint">11 decisions departed from the evaluation. 10 of those recorded a written reason; 1 did not.</p>
+                  </div>
+                  <div data-requires="tenant_admin" style="margin-top:var(--sp-4)">
+                    <a class="btn btn-sm btn-soft" href="admin-recruiter-calibration.html"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Open calibration</a>
+                    <p class="hint" style="margin-top:6px">Calibration compares reviewer decisions against the rubric so drift is visible before it becomes a pattern.</p>
+                  </div>
+                  <p class="hint" data-requires-note="tenant_admin" hidden style="margin-top:var(--sp-4)">Calibration settings are available to tenant administrators. Ask Priya Raman if you need a rubric changed.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Recent decisions -->
+          <section class="card" aria-labelledby="decisions-h">
+            <div class="card-header">
+              <div>
+                <h2 id="decisions-h">Recent decisions</h2>
+                <p class="hint" style="margin-top:3px">Who decided what, and whether they departed from the evaluation. Overrides are shown, not hidden.</p>
+              </div>
+              <a class="btn btn-sm btn-ghost" href="admin-recruiter.html?view=reviewed">All decisions<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+            <ul id="decisions-list"></ul>
+            <div class="card-footer">
+              <span class="hint">A decision is attributable to a named reviewer and is kept for the tenant's retention period (18 months).</span>
+            </div>
+          </section>
+
+          <!-- Open roles -->
+          <section class="card" aria-labelledby="roles-h">
+            <div class="card-header">
+              <div>
+                <h2 id="roles-h">Open roles</h2>
+                <p class="hint" style="margin-top:3px">Six roles are accepting screenings. Each links to the roster filtered to that role.</p>
+              </div>
+              <a class="btn btn-sm btn-ghost" data-requires="tenant_admin" href="admin-rubrics.html">Rubrics<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+            <div class="table-wrap" style="border:0;border-radius:0">
+              <table class="table table-responsive">
+                <caption class="sr-only">Open roles with the number of candidates in the pipeline, how many await review, the hiring manager and the longest current wait.</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Role</th>
+                    <th scope="col">Hiring manager</th>
+                    <th scope="col" class="num">In pipeline</th>
+                    <th scope="col" class="num">Awaiting review</th>
+                    <th scope="col">Longest wait</th>
+                    <th scope="col"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody id="roles-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ══ ASIDE ══ -->
+        <aside class="stack sticky-aside" aria-label="Team activity and quick actions">
+
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Needs your attention</h2></div>
+            <ul id="attention-list"></ul>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size:var(--text-sm)">Team activity</h2>
+              <span class="hint">Last 7 days</span>
+            </div>
+            <div class="card-body stack-sm">
+              <div class="row">
+                <span class="avatar avatar-sm">PR</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:var(--text-sm);font-weight:600">Priya Raman <span class="hint" style="font-weight:500">(you)</span></div>
+                  <div class="hint">5 decisions · median 1.2 days to decide</div>
+                </div>
+              </div>
+              <div class="row">
+                <span class="avatar avatar-sm">JB</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:var(--text-sm);font-weight:600">Jonas Brandt</div>
+                  <div class="hint">4 decisions · median 2.6 days to decide</div>
+                </div>
+              </div>
+              <div class="row">
+                <span class="avatar avatar-sm">HA</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:var(--text-sm);font-weight:600">Helen Achebe</div>
+                  <div class="hint">2 decisions · median 4.1 days to decide</div>
+                </div>
+              </div>
+              <hr>
+              <div class="between">
+                <span class="hint">Awaiting a decision, nobody assigned</span>
+                <span class="badge badge-warning">7</span>
+              </div>
+              <a class="btn btn-sm btn-secondary btn-block" href="admin-recruiter.html?awaiting=1&amp;reviewer=unassigned">Assign reviewers</a>
+              <a class="btn btn-sm btn-ghost btn-block" data-requires="tenant_admin" href="admin-members.html">Members &amp; roles</a>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Quick actions</h2></div>
+            <div class="card-body stack-sm">
+              <a class="btn btn-primary btn-block btn-sm" href="admin-invitation-new.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>Invite a candidate</a>
+              <a class="btn btn-secondary btn-block btn-sm" href="admin-recruiter-compare.html?ids=cand_R4T9MP,cand_L7X2QN,cand_T3W7KL"><i data-lucide="columns-3" class="ic ic-sm"></i>Compare shortlist</a>
+              <a class="btn btn-secondary btn-block btn-sm" href="admin-appeals.html"><i data-lucide="gavel" class="ic ic-sm"></i>Re-review queue<span class="badge badge-warning" style="margin-left:auto">2</span></a>
+              <a class="btn btn-ghost btn-block btn-sm" data-requires="tenant_admin" href="admin-tenant-settings.html"><i data-lucide="building-2" class="ic ic-sm"></i>Tenant settings</a>
+              <a class="btn btn-ghost btn-block btn-sm" data-requires="tenant_admin" href="admin-integrations.html"><i data-lucide="webhook" class="ic ic-sm"></i>Integrations</a>
+            </div>
+          </div>
+
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px">
+                <i data-lucide="scale" class="ic" style="color:var(--primary)"></i>
+                <strong style="font-size:var(--text-sm)">What these numbers are</strong>
+              </div>
+              <p class="hint" style="line-height:1.55">Scores summarise what a candidate said in one recorded conversation against this tenant's rubric. They are not a prediction of job performance and say nothing about personality or honesty. Confidence and coverage tell you how much of the picture is actually there.</p>
+              <p class="hint" style="margin-top:8px">Tenant reference <span class="badge badge-outline mono">tn_northwind</span> · route <span class="badge badge-outline mono">/admin/dashboard</span></p>
+            </div>
+          </div>
+
+        </aside>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ══════════════════ Dialog: record a missing override reason ══════════════════ -->
+<dialog class="dialog" id="dlg-reason" aria-labelledby="dlg-reason-h">
+  <form method="dialog" class="dialog-panel" id="reason-form">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dlg-reason-h">Record the reason for this override</h2>
+        <p class="hint" style="margin-top:4px">Liam Ferguson · Advanced on 17 August by Priya Raman · evaluation suggested <span class="band band-solid">Solid</span> with thin evidence on incident response.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body">
+      <div class="field">
+        <label class="label" for="reason-text">Why did you depart from the evaluation?</label>
+        <textarea class="textarea" id="reason-text" required minlength="15" aria-describedby="reason-hint reason-err" placeholder="e.g. Candidate gave two concrete incident examples in the follow-up call on 18 August that the screening did not capture."></textarea>
+        <p class="hint" id="reason-hint">At least 15 characters. This is visible to tenant administrators and to the candidate if they request their data.</p>
+        <p class="error-text" id="reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Please write at least 15 characters explaining the decision.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit" value="save">Save reason</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data;
+  var NOW = new Date('2026-08-23T14:00:00');
+
+  /* ---------- helpers ---------- */
+  function parse(ts) { return new Date(String(ts).replace(' ', 'T')); }
+  function ago(ts) {
+    var ms = NOW - parse(ts), h = ms / 36e5, d = Math.floor(h / 24);
+    if (h < 1) return Math.max(1, Math.round(h * 60)) + ' min';
+    if (h < 24) return Math.round(h) + ' hours';
+    return d + (d === 1 ? ' day' : ' days');
+  }
+  function days(ts) { return (NOW - parse(ts)) / 864e5; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function confBadge(c) {
+    var m = { high: 'badge-success', medium: 'badge-neutral', low: 'badge-warning' }[c] || 'badge-neutral';
+    return '<span class="badge ' + m + '">' + esc(Prepeet.confidenceMeta[c].label) + '</span>';
+  }
+
+  /* ---------- 1. Review queue: five oldest pending ---------- */
+  function renderQueue() {
+    var rows = D.roster.filter(function (c) { return c.status === 'pending' || c.status === 'insufficient'; })
+      .sort(function (a, b) { return parse(a.submitted) - parse(b.submitted); }).slice(0, 5);
+    var aged = rows.filter(function (c) { return days(c.submitted) > 5; });
+    var html = '';
+    if (aged.length) {
+      html += '<tr class="row-warn"><td class="td-primary" colspan="5">' +
+        '<span class="cluster" style="gap:8px;flex-wrap:nowrap;align-items:flex-start">' +
+        '<i data-lucide="alert-triangle" class="ic ic-sm" style="color:var(--warning);margin-top:2px"></i>' +
+        '<span style="font-size:var(--text-xs);line-height:1.5"><strong>' + aged.length + ' candidate' + (aged.length === 1 ? ' has' : 's have') + ' waited more than 5 days.</strong> ' +
+        'Northwind Health System told candidates to expect an update within five working days. ' +
+        '<a href="admin-recruiter.html?awaiting=1&amp;sort=submitted&amp;dir=asc">Open the aged queue</a>.</span></span></td></tr>';
+    }
+    html += rows.map(function (c) {
+      var over = days(c.submitted) > 5;
+      return '<tr>' +
+        '<td class="td-primary" data-label="Candidate">' +
+          '<span class="row" style="gap:10px">' +
+            '<span class="avatar avatar-sm">' + esc(c.name.split(' ').map(function (p) { return p[0]; }).join('').slice(0, 2)) + '</span>' +
+            '<span><a class="row-link" href="admin-recruiter-detail.html?id=' + c.id + '">' + esc(c.name) + '</a>' +
+            (c.flags.indexOf('appeal') > -1 ? ' <span class="badge badge-info"><i data-lucide="gavel" class="ic-sm ic"></i>Re-review asked</span>' : '') +
+            (c.status === 'insufficient' ? ' <span class="badge badge-outline"><i data-lucide="help-circle" class="ic-sm ic"></i>Not scored</span>' : '') +
+            '<span class="td-sub mono">' + c.id + '</span></span>' +
+          '</span></td>' +
+        '<td data-label="Role">' + esc(c.role) + '</td>' +
+        '<td data-label="Waiting">' + (over
+            ? '<span class="badge badge-warning"><i data-lucide="alert-triangle" class="ic-sm ic"></i>' + ago(c.submitted) + '</span>'
+            : '<span class="tnum">' + ago(c.submitted) + '</span>') + '</td>' +
+        '<td data-label="Confidence">' + confBadge(c.confidence) + '</td>' +
+        '<td class="num" data-label="Coverage"><span class="tnum">' + c.coverage + '%</span></td>' +
+        '</tr>';
+    }).join('');
+    document.getElementById('queue-body').innerHTML = html;
+  }
+
+  /* ---------- 2. Screening activity by role (8 weeks) ---------- */
+  var WEEKS = ['29 Jun', '6 Jul', '13 Jul', '20 Jul', '27 Jul', '3 Aug', '10 Aug', '17 Aug'];
+  var ACTIVITY = [
+    { role: 'Registered Nurse — ICU', slug: 'rn-icu', v: [3, 4, 3, 5, 4, 6, 7, 8] },
+    { role: 'Software Engineer — Integrations', slug: 'swe-integrations', v: [3, 2, 4, 3, 4, 3, 5, 4] },
+    { role: 'Financial Analyst — FP&A', slug: 'fpa-analyst', v: [2, 2, 3, 1, 3, 2, 4, 3] },
+    { role: 'Enterprise Account Executive', slug: 'ent-ae', v: [1, 2, 1, 3, 2, 3, 2, 4] },
+    { role: 'Product Manager — Patient Apps', slug: 'pm-patient-apps', v: [1, 1, 2, 1, 2, 2, 3, 3] },
+    { role: 'Clinical Nurse Educator', slug: 'cn-educator', v: [1, 1, 2, 1, 2, 1, 2, 2] }
+  ];
+  function renderActivity() {
+    var max = 8, total = 0, last = 0, first = 0;
+    var html = ACTIVITY.map(function (r) {
+      var sum = r.v.reduce(function (a, b) { return a + b; }, 0);
+      total += sum; last += r.v[7]; first += r.v[0];
+      var delta = r.v[7] - r.v[6];
+      var bars = r.v.map(function (n, i) {
+        return '<span' + (i === 7 ? '' : ' class="muted"') + ' style="height:' + Math.round((n / max) * 100) + '%"></span>';
+      }).join('');
+      return '<div class="spark">' +
+        '<div class="between" style="gap:6px">' +
+          '<span style="font-size:var(--text-xs);font-weight:650;line-height:1.3">' + esc(r.role) + '</span>' +
+          '<span class="tnum" style="font-size:var(--text-sm);font-weight:700">' + sum + '</span>' +
+        '</div>' +
+        '<div class="bars" role="img" aria-label="' + esc(r.role) + ': weekly completed screenings from 29 June to 17 August were ' + r.v.join(', ') + '.">' + bars + '</div>' +
+        '<div class="between">' +
+          '<span class="hint">29 Jun → 17 Aug</span>' +
+          '<span class="hint">' + (delta === 0 ? 'level on last week' : (delta > 0 ? '+' : '') + delta + ' on last week') + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    document.getElementById('spark-grid').innerHTML = html;
+    document.getElementById('activity-summary').textContent =
+      'Text summary: ' + total + ' screenings were completed across the six open roles in the eight weeks to 23 August, rising from ' + first +
+      ' in the week of 29 June to ' + last + ' in the week of 17 August. Registered Nurse — ICU is the largest at 40 (8 last week), then Software Engineer — Integrations 28, Financial Analyst — FP&A 20, Enterprise Account Executive 18, Product Manager — Patient Apps 15, Clinical Nurse Educator 12. The three August weeks account for 64 of the 68 screenings counted this month.';
+  }
+
+  /* ---------- 3. Coverage distribution ---------- */
+  function renderCoverage() {
+    var buckets = [
+      { label: '90–100% coverage', test: function (c) { return c.coverage >= 90; }, band: 'strong', note: 'every competency evidenced' },
+      { label: '75–89% coverage', test: function (c) { return c.coverage >= 75 && c.coverage < 90; }, band: 'solid', note: 'one competency thin' },
+      { label: '60–74% coverage', test: function (c) { return c.coverage >= 60 && c.coverage < 75; }, band: 'developing', note: 'read alongside the transcript' },
+      { label: 'Under 60% coverage', test: function (c) { return c.coverage < 60; }, band: 'concern', note: 'treat scores as indicative only' }
+    ];
+    var total = D.roster.length;
+    var counts = buckets.map(function (b) { return D.roster.filter(b.test).length; });
+    document.getElementById('coverage-dist').innerHTML = buckets.map(function (b, i) {
+      var n = counts[i], pct = Math.round((n / total) * 100);
+      return '<div class="comp-row">' +
+        '<div class="comp-name">' + b.label + '<small>' + b.note + '</small></div>' +
+        '<div class="comp-bar band-' + b.band + '"><span style="width:' + pct + '%"></span></div>' +
+        '<div class="comp-val">' + n + '</div>' +
+      '</div>';
+    }).join('');
+    document.getElementById('coverage-summary').textContent =
+      'Text summary: of 12 candidates in the pipeline, ' + counts[0] + ' have 90–100% coverage, ' + counts[1] + ' have 75–89%, ' +
+      counts[2] + ' have 60–74% and ' + counts[3] + ' are under 60% (Priyanka Shah 58%, Mateusz Zielinski 34%). ' +
+      'The median is 79%.';
+  }
+
+  /* ---------- 4. Recent decisions ---------- */
+  var DECISIONS = [
+    { rev: 'Priya Raman', ini: 'PR', cid: 'cand_M9P3ZR', cand: 'Ifeoma Adeyemi', role: 'Product Manager — Patient Apps',
+      decision: 'Advanced', badge: 'badge-success', when: '21 August, 16:04', agreed: true, suggested: 'Strong', reason: null },
+    { rev: 'Jonas Brandt', ini: 'JB', cid: 'cand_C8R6JY', cand: 'Sofia Marchetti', role: 'Enterprise Account Executive',
+      decision: 'On hold', badge: 'badge-neutral', when: '21 August, 09:38', agreed: false, suggested: 'Developing',
+      reason: 'Discovery examples came from a different market. Asking for a 20-minute live follow-up before deciding.' },
+    { rev: 'Priya Raman', ini: 'PR', cid: 'cand_D6Y4FQ', cand: 'Grace Mbeki', role: 'Clinical Nurse Educator',
+      decision: 'Advanced', badge: 'badge-success', when: '20 August, 11:22', agreed: true, suggested: 'Solid', reason: null },
+    { rev: 'Jonas Brandt', ini: 'JB', cid: 'cand_H1S5BV', cand: 'Oliver Nakamura', role: 'Financial Analyst — FP&A',
+      decision: 'Not progressing', badge: 'badge-danger', when: '19 August, 15:51', agreed: true, suggested: 'Developing',
+      reason: 'Agreed with the evaluation: variance work described at summary level only, across all four probes.' },
+    { rev: 'Priya Raman', ini: 'PR', cid: 'cand_A2M8DU', cand: 'Liam Ferguson', role: 'Software Engineer — Integrations',
+      decision: 'Advanced', badge: 'badge-success', when: '17 August, 13:10', agreed: false, suggested: 'Solid', reason: null, missing: true }
+  ];
+  function renderDecisions() {
+    document.getElementById('decisions-list').innerHTML = DECISIONS.map(function (d) {
+      var agree = d.agreed
+        ? '<span class="badge badge-outline"><i data-lucide="check" class="ic-sm ic"></i>Matched suggested band (' + esc(d.suggested) + ')</span>'
+        : '<span class="badge badge-accent"><i data-lucide="git-branch" class="ic-sm ic"></i>Departed from evaluation (suggested ' + esc(d.suggested) + ')</span>';
+      var reason = d.reason
+        ? '<p class="hint" style="margin-top:8px;border-left:2px solid var(--border);padding-left:10px;line-height:1.55">Reason recorded: “' + esc(d.reason) + '”</p>'
+        : (d.missing
+          ? '<div class="banner banner-warning" style="margin-top:8px;padding:8px 12px">' +
+            '<i data-lucide="alert-triangle" class="ic ic-sm"></i>' +
+            '<div style="font-size:var(--text-xs);line-height:1.5"><strong>No override reason recorded.</strong> This decision departed from the evaluation without a written explanation.</div>' +
+            '<div class="banner-actions"><button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-reason">Add reason</button></div></div>'
+          : '<p class="hint" style="margin-top:6px">No override — no written reason required.</p>');
+      return '<li class="dec-item">' +
+        '<span class="avatar avatar-sm">' + esc(d.ini) + '</span>' +
+        '<div style="min-width:0">' +
+          '<div class="cluster" style="gap:8px">' +
+            '<span style="font-size:var(--text-sm);font-weight:650">' + esc(d.rev) + '</span>' +
+            '<span class="hint">decided</span>' +
+            '<a class="row-link" style="font-size:var(--text-sm)" href="admin-recruiter-detail.html?id=' + d.cid + '">' + esc(d.cand) + '</a>' +
+            '<span class="badge ' + d.badge + '">' + esc(d.decision) + '</span>' +
+          '</div>' +
+          '<div class="cluster" style="margin-top:6px">' +
+            '<span class="hint">' + esc(d.role) + ' · ' + esc(d.when) + '</span>' + agree +
+          '</div>' + reason +
+        '</div>' +
+      '</li>';
+    }).join('');
+  }
+
+  /* ---------- 5. Open roles ---------- */
+  var ROLES = [
+    { title: 'Registered Nurse — ICU', slug: 'rn-icu', mgr: 'Helen Achebe', openings: 6, oldest: '3 days' },
+    { title: 'Clinical Nurse Educator', slug: 'cn-educator', mgr: 'Helen Achebe', openings: 1, oldest: '—' },
+    { title: 'Financial Analyst — FP&A', slug: 'fpa-analyst', mgr: 'Jonas Brandt', openings: 2, oldest: '2 days' },
+    { title: 'Product Manager — Patient Apps', slug: 'pm-patient-apps', mgr: 'Priya Raman', openings: 1, oldest: '5 days' },
+    { title: 'Software Engineer — Integrations', slug: 'swe-integrations', mgr: 'Priya Raman', openings: 3, oldest: '2 days' },
+    { title: 'Enterprise Account Executive', slug: 'ent-ae', mgr: 'Jonas Brandt', openings: 2, oldest: '4 days' }
+  ];
+  function renderRoles() {
+    document.getElementById('roles-body').innerHTML = ROLES.map(function (r) {
+      var inRole = D.roster.filter(function (c) { return c.role === r.title; });
+      var pending = inRole.filter(function (c) { return c.status === 'pending' || c.status === 'insufficient'; }).length;
+      var href = 'admin-recruiter.html?role=' + r.slug;
+      return '<tr>' +
+        '<td class="td-primary" data-label="Role"><a class="row-link" href="' + href + '">' + esc(r.title) + '</a>' +
+          '<span class="td-sub">' + r.openings + ' opening' + (r.openings === 1 ? '' : 's') + '</span></td>' +
+        '<td data-label="Hiring manager">' + esc(r.mgr) + '</td>' +
+        '<td class="num" data-label="In pipeline"><span class="tnum">' + inRole.length + '</span></td>' +
+        '<td class="num" data-label="Awaiting review">' + (pending
+            ? '<span class="badge badge-warning tnum">' + pending + '</span>'
+            : '<span class="hint">None</span>') + '</td>' +
+        '<td data-label="Longest wait">' + esc(r.oldest) + '</td>' +
+        '<td class="td-actions" data-label="Actions"><a class="btn btn-sm btn-ghost" href="' + href + '">Filter roster<i data-lucide="arrow-right" class="ic ic-sm"></i></a></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ---------- 6. Needs your attention ---------- */
+  var ATTENTION = [
+    { icon: 'alert-triangle', tone: 'var(--warning)', text: 'Priyanka Shah has waited 5 days — Product Manager — Patient Apps', href: 'admin-recruiter-detail.html?id=cand_N7Q2CE', cta: 'Review' },
+    { icon: 'help-circle', tone: 'var(--fg-3)', text: 'Mateusz Zielinski returned insufficient evidence at 34% coverage', href: 'admin-recruiter-detail.html?id=cand_T3W7KL', cta: 'Decide' },
+    { icon: 'gavel', tone: 'var(--info)', text: 'Tomás Herrera asked for a re-review of his escalation answer', href: 'admin-appeals.html', cta: 'Open' },
+    { icon: 'file-warning', tone: 'var(--warning)', text: 'One override on 17 August has no recorded reason', href: 'admin-recruiter-detail.html?id=cand_A2M8DU', cta: 'Fix' },
+    { icon: 'hourglass', tone: 'var(--fg-3)', text: '3 invitations expire before Friday 28 August', href: 'admin-invitations.html?status=expiring', cta: 'Chase' }
+  ];
+  function renderAttention() {
+    document.getElementById('attention-list').innerHTML = ATTENTION.map(function (a, i) {
+      return '<li' + (i ? ' style="border-top:1px solid var(--border-subtle)"' : '') + '>' +
+        '<a href="' + a.href + '" style="display:flex;gap:10px;align-items:flex-start;padding:12px 18px;color:inherit;text-decoration:none">' +
+        '<i data-lucide="' + a.icon + '" class="ic ic-sm" style="margin-top:2px;color:' + a.tone + '"></i>' +
+        '<span style="flex:1;min-width:0;font-size:var(--text-xs);line-height:1.5">' + esc(a.text) + '</span>' +
+        '<span class="badge badge-outline">' + a.cta + '</span></a></li>';
+    }).join('');
+  }
+
+  /* ---------- permissions ---------- */
+  function applyPerms() {
+    document.querySelectorAll('[data-requires]').forEach(function (el) {
+      if (!Prepeet.can(el.getAttribute('data-requires'))) el.hidden = true;
+    });
+    document.querySelectorAll('[data-requires-note]').forEach(function (el) {
+      el.hidden = Prepeet.can(el.getAttribute('data-requires-note'));
+    });
+  }
+
+  /* ---------- states ---------- */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      applyPerms();
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) { var b = e.target.closest('[data-state-btn]'); if (b) apply(b.getAttribute('data-state-btn')); });
+    apply(cur);
+  }
+
+  /* ---------- override-reason dialog ---------- */
+  function initReasonForm() {
+    var form = document.getElementById('reason-form');
+    form.addEventListener('submit', function (e) {
+      var ta = document.getElementById('reason-text');
+      var err = document.getElementById('reason-err');
+      if (ta.value.trim().length < 15) {
+        e.preventDefault();
+        ta.setAttribute('aria-invalid', 'true'); err.hidden = false; ta.focus();
+        Prepeet.announce('A reason of at least 15 characters is required.');
+        return;
+      }
+      ta.setAttribute('aria-invalid', 'false'); err.hidden = true;
+      Prepeet.toast({ title: 'Override reason recorded', desc: 'Liam Ferguson · visible to tenant administrators', kind: 'success' });
+      Prepeet.announce('Override reason recorded for Liam Ferguson.');
+      ta.value = '';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    renderQueue(); renderActivity(); renderCoverage(); renderDecisions(); renderRoles(); renderAttention();
+    initReasonForm();
+    initStates();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

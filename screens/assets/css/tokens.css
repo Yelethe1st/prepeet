@@ -1,0 +1,319 @@
+/* ============================================================================
+   Prepeet Design System · tokens.css
+   Brand colours, light/dark theme tokens, typography, spacing, radii,
+   elevation, motion, breakpoints (documented), chart + score palettes.
+   Theme is switched by [data-theme="light"|"dark"] on <html>.
+   ========================================================================== */
+
+:root {
+  /* ---------- Brand palette (theme-independent) ---------- */
+  --reef-50:  #EEF8F6;
+  --reef-100: #D5EFEA;
+  --reef-200: #ABDED5;
+  --reef-300: #76C5B8;
+  --reef-400: #43A797;
+  --reef-500: #238A7B;
+  --reef-600: #177068;   /* primary (light) */
+  --reef-700: #155A55;
+  --reef-800: #134845;
+  --reef-900: #0F3B39;
+
+  --ember-50:  #FFF7E8;
+  --ember-100: #FDE9C2;
+  --ember-300: #F3C46A;
+  --ember-500: #D98E04;
+  --ember-600: #B37304;
+  --ember-700: #8A5903;
+
+  --plum-100: #EDE3F5;
+  --plum-500: #7C4D9E;
+  --plum-600: #64397F;
+
+  --coral-50:  #FDEEEB;
+  --coral-100: #FAD6CF;
+  --coral-500: #D9634C;
+  --coral-600: #B84B36;
+  --coral-700: #8F3927;
+
+  --moss-50:  #EDF7EE;
+  --moss-100: #D3EDD6;
+  --moss-500: #2F8F4E;
+  --moss-600: #23733D;
+  --moss-700: #1B5A30;
+
+  --sky-50:  #EBF4FB;
+  --sky-100: #D1E6F7;
+  --sky-500: #3A7BBF;
+  --sky-600: #2D6399;
+  --sky-700: #224C75;
+
+  /* Neutral "stone" scale – warm grey */
+  --stone-0:   #FFFFFF;
+  --stone-25:  #FBFAF8;
+  --stone-50:  #F6F4F1;
+  --stone-100: #EDEAE5;
+  --stone-200: #DEDAD3;
+  --stone-300: #C4BFB6;
+  --stone-400: #9B958B;
+  --stone-500: #736E66;
+  --stone-600: #575249;
+  --stone-700: #3D3933;
+  --stone-800: #27241F;
+  --stone-850: #1E1C19;
+  --stone-900: #171512;
+  --stone-950: #100F0D;
+
+  /* ---------- Typography ---------- */
+  --font-sans: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --text-2xs: 0.6875rem;  /* 11px */
+  --text-xs:  0.75rem;    /* 12px */
+  --text-sm:  0.8125rem;  /* 13px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-md:  1.0625rem;  /* 17px */
+  --text-lg:  1.25rem;    /* 20px */
+  --text-xl:  1.5rem;     /* 24px */
+  --text-2xl: 1.875rem;   /* 30px */
+  --text-3xl: 2.375rem;   /* 38px */
+  --text-4xl: 3rem;       /* 48px */
+  --text-5xl: 3.75rem;    /* 60px */
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* ---------- Spacing (4px base) ---------- */
+  --sp-1: 0.25rem;  --sp-2: 0.5rem;  --sp-3: 0.75rem; --sp-4: 1rem;
+  --sp-5: 1.25rem;  --sp-6: 1.5rem;  --sp-8: 2rem;    --sp-10: 2.5rem;
+  --sp-12: 3rem;    --sp-16: 4rem;   --sp-20: 5rem;   --sp-24: 6rem;
+
+  /* ---------- Radii ---------- */
+  --r-xs: 4px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 20px; --r-2xl: 28px; --r-pill: 999px;
+
+  /* ---------- Layout ---------- */
+  --sidebar-w: 264px;
+  --sidebar-w-collapsed: 72px;
+  --topbar-h: 60px;
+  --content-max: 1320px;
+  --content-max-narrow: 880px;
+  --content-max-dense: 1600px;
+
+  /* ---------- Motion ---------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 320ms;
+
+  /* ---------- Breakpoints (reference only; CSS uses literal values) ----------
+     xs 320px · sm 480px · md 768px · lg 1024px · xl 1280px · 2xl 1600px */
+
+  /* ---------- Focus ---------- */
+  --focus-ring: 0 0 0 3px var(--focus-color);
+
+  /* ---------- Chart palette (categorical, order matters) ---------- */
+  --chart-1: #238A7B; /* reef */
+  --chart-2: #7C4D9E; /* plum */
+  --chart-3: #D98E04; /* ember */
+  --chart-4: #3A7BBF; /* sky */
+  --chart-5: #D9634C; /* coral */
+  --chart-6: #2F8F4E; /* moss */
+  --chart-7: #9B958B; /* stone */
+
+  /* ---------- Score bands (never colour-only; always paired with label) ---------- */
+  --score-strong: #2F8F4E;
+  --score-solid: #238A7B;
+  --score-developing: #D98E04;
+  --score-concern: #D9634C;
+  --score-insufficient: #9B958B;
+
+  /* ---------- Evidence span colours ---------- */
+  --ev-supporting: var(--moss-500);
+  --ev-contradiction: var(--coral-500);
+  --ev-claim: var(--plum-500);
+  --ev-gap: var(--ember-500);
+}
+
+/* ============================================================================
+   LIGHT THEME (default for the authenticated app)
+   ========================================================================== */
+:root, [data-theme="light"] {
+  color-scheme: light;
+
+  --bg:            var(--stone-50);
+  --bg-subtle:     var(--stone-25);
+  --surface:       var(--stone-0);
+  --surface-2:     var(--stone-25);
+  --surface-3:     var(--stone-100);
+  --surface-inset: var(--stone-100);
+  --overlay:       rgba(23, 21, 18, 0.55);
+
+  --border:        var(--stone-200);
+  --border-strong: var(--stone-300);
+  --border-subtle: var(--stone-100);
+
+  --fg:            var(--stone-900);
+  --fg-2:          var(--stone-600);
+  --fg-3:          var(--stone-500);
+  --fg-muted:      var(--stone-400);
+  --fg-inverse:    var(--stone-0);
+
+  --primary:        var(--reef-600);
+  --primary-hover:  var(--reef-700);
+  --primary-active: var(--reef-800);
+  --primary-fg:     #FFFFFF;
+  --primary-soft:   var(--reef-50);
+  --primary-soft-fg: var(--reef-800);
+  --primary-border: var(--reef-200);
+
+  --accent:        var(--ember-500);
+  --accent-soft:   var(--ember-50);
+  --accent-fg:     var(--ember-700);
+
+  --success:       var(--moss-600);
+  --success-soft:  var(--moss-50);
+  --success-fg:    var(--moss-700);
+  --success-border: var(--moss-100);
+
+  --warning:       var(--ember-600);
+  --warning-soft:  var(--ember-50);
+  --warning-fg:    var(--ember-700);
+  --warning-border: var(--ember-100);
+
+  --danger:        var(--coral-600);
+  --danger-hover:  var(--coral-700);
+  --danger-soft:   var(--coral-50);
+  --danger-fg:     var(--coral-700);
+  --danger-border: var(--coral-100);
+
+  --info:          var(--sky-600);
+  --info-soft:     var(--sky-50);
+  --info-fg:       var(--sky-700);
+  --info-border:   var(--sky-100);
+
+  --neutral-soft:  var(--stone-100);
+  --neutral-fg:    var(--stone-600);
+
+  --focus-color:   rgba(35, 138, 123, 0.45);
+
+  --shadow-xs: 0 1px 1px rgba(23,21,18,.04);
+  --shadow-sm: 0 1px 2px rgba(23,21,18,.06), 0 1px 3px rgba(23,21,18,.04);
+  --shadow-md: 0 4px 12px rgba(23,21,18,.07), 0 2px 4px rgba(23,21,18,.04);
+  --shadow-lg: 0 16px 40px rgba(23,21,18,.12), 0 4px 10px rgba(23,21,18,.05);
+
+  --sidebar-bg:      var(--stone-0);
+  --sidebar-fg:      var(--stone-600);
+  --sidebar-fg-active: var(--reef-800);
+  --sidebar-active:  var(--reef-50);
+  --sidebar-border:  var(--stone-200);
+
+  --skeleton: var(--stone-100);
+  --skeleton-shine: rgba(255,255,255,.7);
+
+  --waveform-idle: var(--stone-300);
+  --waveform-user: var(--reef-500);
+  --waveform-ai: var(--plum-500);
+}
+
+/* ============================================================================
+   DARK THEME (default for marketing site)
+   ========================================================================== */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:            var(--stone-950);
+  --bg-subtle:     var(--stone-900);
+  --surface:       var(--stone-900);
+  --surface-2:     var(--stone-850);
+  --surface-3:     var(--stone-800);
+  --surface-inset: var(--stone-950);
+  --overlay:       rgba(0, 0, 0, 0.65);
+
+  --border:        #2C2924;
+  --border-strong: #3D3933;
+  --border-subtle: #221F1B;
+
+  --fg:            #F3F0EA;
+  --fg-2:          #C4BFB6;
+  --fg-3:          #9B958B;
+  --fg-muted:      #736E66;
+  --fg-inverse:    var(--stone-900);
+
+  --primary:        var(--reef-400);
+  --primary-hover:  var(--reef-300);
+  --primary-active: var(--reef-200);
+  --primary-fg:     #0B2523;
+  --primary-soft:   rgba(67, 167, 151, 0.14);
+  --primary-soft-fg: var(--reef-200);
+  --primary-border: rgba(67, 167, 151, 0.35);
+
+  --accent:        var(--ember-300);
+  --accent-soft:   rgba(217, 142, 4, 0.14);
+  --accent-fg:     var(--ember-300);
+
+  --success:       #4FB36E;
+  --success-soft:  rgba(47, 143, 78, 0.16);
+  --success-fg:    #8BD6A1;
+  --success-border: rgba(47, 143, 78, 0.35);
+
+  --warning:       var(--ember-300);
+  --warning-soft:  rgba(217, 142, 4, 0.14);
+  --warning-fg:    #F3C46A;
+  --warning-border: rgba(217, 142, 4, 0.35);
+
+  --danger:        #E8806B;
+  --danger-hover:  #F09B89;
+  --danger-soft:   rgba(217, 99, 76, 0.16);
+  --danger-fg:     #F3A896;
+  --danger-border: rgba(217, 99, 76, 0.35);
+
+  --info:          #6FA6DE;
+  --info-soft:     rgba(58, 123, 191, 0.16);
+  --info-fg:       #A6C8EC;
+  --info-border:   rgba(58, 123, 191, 0.35);
+
+  --neutral-soft:  var(--stone-800);
+  --neutral-fg:    var(--stone-300);
+
+  --focus-color:   rgba(118, 197, 184, 0.55);
+
+  --shadow-xs: 0 1px 1px rgba(0,0,0,.3);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.45);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,.6);
+
+  --sidebar-bg:      var(--stone-900);
+  --sidebar-fg:      var(--stone-300);
+  --sidebar-fg-active: var(--reef-200);
+  --sidebar-active:  rgba(67, 167, 151, 0.14);
+  --sidebar-border:  #2C2924;
+
+  --skeleton: var(--stone-800);
+  --skeleton-shine: rgba(255,255,255,.06);
+
+  --waveform-idle: var(--stone-700);
+  --waveform-user: var(--reef-300);
+  --waveform-ai: #B28BD1;
+
+  --chart-1: #43A797;
+  --chart-2: #B28BD1;
+  --chart-3: #F3C46A;
+  --chart-4: #6FA6DE;
+  --chart-5: #E8806B;
+  --chart-6: #4FB36E;
+  --chart-7: #9B958B;
+
+  --score-strong: #4FB36E;
+  --score-solid: #43A797;
+  --score-developing: #F3C46A;
+  --score-concern: #E8806B;
+  --score-insufficient: #9B958B;
+
+  --ev-supporting: #4FB36E;
+  --ev-contradiction: #E8806B;
+  --ev-claim: #B28BD1;
+  --ev-gap: #F3C46A;
+}

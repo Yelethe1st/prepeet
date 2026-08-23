@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Completing sign-in · Prepeet</title>
+<meta name="description" content="Prepeet is completing your single sign-on: verifying the provider response, matching your account and loading your workspace.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <div class="cluster">
+    <span class="hint sr-only">Preview state</span>
+    <div class="segmented" role="group" aria-label="Preview screen state">
+      <button type="button" data-state-btn="default" aria-pressed="true">Processing</button>
+      <button type="button" data-state-btn="slow" aria-pressed="false">Slow</button>
+      <button type="button" data-state-btn="invalid_state" aria-pressed="false">Invalid state</button>
+      <button type="button" data-state-btn="expired_code" aria-pressed="false">Expired code</button>
+    </div>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</div>
+
+<main class="auth-card" id="main-content" style="text-align:center">
+
+  <div style="display:flex;justify-content:center;margin-bottom:22px">
+    <div id="cb-emblem" style="position:relative;width:76px;height:76px;display:grid;place-items:center">
+      <div class="spinner spinner-lg" id="cb-spinner" style="position:absolute;inset:0;width:76px;height:76px"></div>
+      <span class="provider-mark" id="cb-mark" style="width:36px;height:36px;border-radius:10px;font-size:17px;display:grid;place-items:center;font-weight:800" aria-hidden="true">M</span>
+    </div>
+  </div>
+
+  <h1 id="cb-title" style="font-size:var(--text-xl)">Completing sign-in with Microsoft…</h1>
+  <p class="lead" id="cb-lead" style="margin-top:8px">Do not close this tab. You will be redirected automatically — this normally takes about three seconds.</p>
+
+  <!-- ══════ PROCESSING ══════ -->
+  <div data-state="default">
+    <ol class="stages" id="cb-stages" style="text-align:left;margin:8px 0 18px">
+      <li class="stage" data-stage="verify">
+        <span class="stage-icon"><i data-lucide="circle-dashed" class="ic"></i></span>
+        <span><span class="stage-name">Verifying the provider response</span><span class="stage-sub">Checking the signature and the anti-forgery state value</span></span>
+        <span class="stage-time" data-stage-time>—</span>
+      </li>
+      <li class="stage" data-stage="match">
+        <span class="stage-icon"><i data-lucide="circle-dashed" class="ic"></i></span>
+        <span><span class="stage-name">Matching your Prepeet account</span><span class="stage-sub">Linking priya.raman@northwindhealth.example to an existing account</span></span>
+        <span class="stage-time" data-stage-time>—</span>
+      </li>
+      <li class="stage" data-stage="load">
+        <span class="stage-icon"><i data-lucide="circle-dashed" class="ic"></i></span>
+        <span><span class="stage-name">Loading your workspace</span><span class="stage-sub">Applying your role, tenant and accessibility preferences</span></span>
+        <span class="stage-time" data-stage-time>—</span>
+      </li>
+    </ol>
+
+    <p class="hint" role="status" aria-live="polite" id="cb-status" style="min-height:1.4em">Verifying the provider response…</p>
+
+    <div class="cluster" style="justify-content:center;margin-top:18px">
+      <a class="btn btn-sm btn-ghost" href="login.html">Cancel and return to sign in</a>
+    </div>
+  </div>
+
+  <!-- ══════ SLOW ══════ -->
+  <div data-state="slow" hidden>
+    <div class="banner banner-warning" style="text-align:left;margin-bottom:18px">
+      <i data-lucide="clock" class="ic"></i>
+      <div>
+        <strong>This is taking longer than usual.</strong>
+        <p style="margin-top:4px;line-height:1.5">Your provider has answered, but our directory lookup for <span class="mono">northwindhealth.example</span> is slow right now. We are still trying — you do not need to do anything.</p>
+      </div>
+    </div>
+
+    <ol class="stages" id="cb-stages-slow" style="text-align:left;margin:0 0 18px">
+      <li class="stage done"><span class="stage-icon"><i data-lucide="check" class="ic"></i></span>
+        <span><span class="stage-name">Verifying the provider response</span><span class="stage-sub">Signature and state value accepted</span></span>
+        <span class="stage-time">0.4s</span></li>
+      <li class="stage delayed"><span class="stage-icon"><i data-lucide="clock" class="ic"></i></span>
+        <span><span class="stage-name">Matching your Prepeet account</span><span class="stage-sub">Waiting on the Okta directory — retrying every 5 seconds</span></span>
+        <span class="stage-time">18.2s</span></li>
+      <li class="stage"><span class="stage-icon"><i data-lucide="circle-dashed" class="ic"></i></span>
+        <span><span class="stage-name">Loading your workspace</span><span class="stage-sub">Not started</span></span>
+        <span class="stage-time">—</span></li>
+    </ol>
+
+    <p class="hint" role="status" aria-live="polite">Still working. We will stop trying after 60 seconds and show you what to do next.</p>
+
+    <div class="cluster" style="justify-content:center;margin-top:18px">
+      <a class="btn btn-secondary" href="login.html">Cancel and use email instead</a>
+      <a class="btn btn-ghost btn-sm ext" href="https://status.prepeet.example" target="_blank" rel="noopener noreferrer">Prepeet status page</a>
+    </div>
+  </div>
+
+  <!-- ══════ FAILURE ══════ -->
+  <div data-state="error" hidden>
+    <div class="state danger state-compact" style="padding-top:0">
+      <div class="state-icon"><i data-lucide="shield-x" class="ic"></i></div>
+      <h2 id="err-h" style="font-size:var(--text-md)">We could not finish that sign-in</h2>
+      <p id="err-body">Something went wrong between your provider and Prepeet.</p>
+      <p class="code mono" id="err-code" style="font-size:var(--text-2xs);color:var(--fg-3)">oauth_error</p>
+      <div class="actions" id="err-actions"></div>
+    </div>
+
+    <div class="card card-subtle" style="text-align:left;margin-top:8px">
+      <div class="card-body">
+        <h3 style="font-size:var(--text-sm);margin-bottom:8px">Why this happens</h3>
+        <ul class="stack-sm" style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.55">
+          <li class="row" style="gap:8px;align-items:flex-start"><i data-lucide="dot" class="ic ic-sm" style="margin-top:2px"></i><span>The sign-in was started in one tab and finished in another, so the one-time state value no longer matched.</span></li>
+          <li class="row" style="gap:8px;align-items:flex-start"><i data-lucide="dot" class="ic ic-sm" style="margin-top:2px"></i><span>More than ten minutes passed on the provider's consent screen and the authorisation code expired.</span></li>
+          <li class="row" style="gap:8px;align-items:flex-start"><i data-lucide="dot" class="ic ic-sm" style="margin-top:2px"></i><span>The callback link was copied and opened somewhere else. Codes are bound to the browser that started them.</span></li>
+        </ul>
+        <p class="hint" style="margin-top:12px">No account details were exchanged. Starting again from the sign-in page fixes almost every case.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint" style="margin-top:22px">
+    Reference <span class="mono" id="cb-ref">req_8Kd2Ln4Q</span> ·
+    <a href="login.html">Back to sign in</a>
+  </p>
+</main>
+
+<footer class="auth-foot" style="justify-content:center">
+  <span>© 2026 Prepeet</span>
+  <a href="index.html">About Prepeet</a>
+  <a href="auth-expired.html">Link problems</a>
+  <a href="screens.html">Prototype index</a>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var PROVIDERS = {
+    google:    { label: 'Google',                  letter: 'G', bg: '#FFFFFF', fg: '#3C4043', ring: '#DADCE0' },
+    microsoft: { label: 'Microsoft',               letter: 'M', bg: '#0067B8', fg: '#FFFFFF' },
+    okta:      { label: 'Okta (Northwind Health)', letter: 'O', bg: '#00297A', fg: '#FFFFFF' }
+  };
+  var ALLOWED = ['candidate-dashboard.html', 'admin-dashboard.html', 'candidate-sessions.html',
+    'candidate-session-prepare.html', 'invitation-accept.html', 'admin-recruiter.html'];
+
+  var ERRORS = {
+    invalid_state: {
+      title: 'That sign-in could not be verified',
+      body: 'The one-time value Prepeet sent to your provider did not come back with the response. This normally means the sign-in was started in a different tab, or the callback link was opened somewhere other than where it began.',
+      code: 'error=invalid_state · the anti-forgery state parameter did not match'
+    },
+    expired_code: {
+      title: 'That sign-in link has expired',
+      body: 'Authorisation codes are valid for ten minutes. Yours was issued at 21:04 and used at 21:19, so we discarded it rather than trust it.',
+      code: 'error=expired_code · authorisation code older than 600 seconds'
+    },
+    access_denied: {
+      title: 'Sign-in was cancelled at your provider',
+      body: 'Consent was declined on the provider screen, or your organisation blocks Prepeet for this account. Nothing was shared with us.',
+      code: 'error=access_denied · consent declined by the user or a policy'
+    },
+    account_not_found: {
+      title: 'No Prepeet account matches that identity',
+      body: 'Your provider confirmed who you are, but no Prepeet account is linked to that address. Create one, or sign in with the email address you originally registered.',
+      code: 'error=account_not_found · no linked identity for this subject'
+    }
+  };
+
+  var STEPS = [
+    { key: 'verify', label: 'Verifying the provider response', at: 700,  t: '0.4s' },
+    { key: 'match',  label: 'Matching your Prepeet account',   at: 1900, t: '1.2s' },
+    { key: 'load',   label: 'Loading your workspace',          at: 3100, t: '0.9s' }
+  ];
+
+  var timers = [];
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function safeNext() {
+    var raw = Prepeet.query.get('next', '') || '';
+    var file = raw.split('?')[0].split('#')[0];
+    return ALLOWED.indexOf(file) === -1 ? 'candidate-dashboard.html' : raw;
+  }
+
+  function provider() {
+    var p = Prepeet.query.get('provider', 'microsoft');
+    return PROVIDERS[p] ? p : 'microsoft';
+  }
+
+  function show(name) {
+    document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== name; });
+  }
+
+  function setStage(key, cls, time) {
+    var li = document.querySelector('#cb-stages [data-stage="' + key + '"]');
+    if (!li) return;
+    li.className = 'stage ' + cls;
+    var icon = cls === 'done' ? 'check' : cls === 'active' ? 'loader' : 'circle-dashed';
+    li.querySelector('.stage-icon').innerHTML = '<i data-lucide="' + icon + '" class="ic"></i>';
+    if (time) li.querySelector('[data-stage-time]').textContent = time;
+    Prepeet.init(li);
+  }
+
+  function runProcessing() {
+    var p = PROVIDERS[provider()];
+    show('default');
+    document.getElementById('cb-spinner').hidden = false;
+    document.getElementById('cb-title').textContent = 'Completing sign-in with ' + p.label + '…';
+    document.getElementById('cb-lead').textContent = 'Do not close this tab. You will be redirected automatically — this normally takes about three seconds.';
+
+    STEPS.forEach(function (s, i) {
+      timers.push(setTimeout(function () {
+        if (i > 0) setStage(STEPS[i - 1].key, 'done', STEPS[i - 1].t);
+        setStage(s.key, 'active');
+        document.getElementById('cb-status').textContent = s.label + '…';
+        Prepeet.announce(s.label);
+      }, s.at));
+    });
+
+    timers.push(setTimeout(function () {
+      setStage('load', 'done', STEPS[2].t);
+      var dest = safeNext();
+      document.getElementById('cb-status').textContent = 'Signed in. Opening ' + dest + '…';
+      Prepeet.announce('Signed in. Opening your workspace.');
+      timers.push(setTimeout(function () { location.href = dest; }, 900));
+    }, 4200));
+  }
+
+  function runSlow() {
+    var p = PROVIDERS[provider()];
+    show('slow');
+    document.getElementById('cb-spinner').hidden = false;
+    document.getElementById('cb-title').textContent = 'Still completing sign-in with ' + p.label;
+    document.getElementById('cb-lead').textContent = 'Your provider answered, but matching your account is slower than normal. You can wait or start again with email.';
+    Prepeet.announce('Sign-in is taking longer than usual. Prepeet is still trying.');
+  }
+
+  function runError(kind) {
+    var e = ERRORS[kind] || ERRORS.invalid_state;
+    var p = PROVIDERS[provider()];
+    show('error');
+    document.getElementById('cb-spinner').hidden = true;
+    document.getElementById('cb-title').textContent = 'Sign-in with ' + p.label + ' did not complete';
+    document.getElementById('cb-lead').textContent = 'Nothing was signed in and no data was exchanged. Here is what happened and how to get past it.';
+    document.getElementById('err-h').textContent = e.title;
+    document.getElementById('err-body').textContent = e.body;
+    document.getElementById('err-code').textContent = e.code;
+
+    var next = safeNext();
+    var actions = kind === 'account_not_found'
+      ? '<a class="btn btn-primary" href="register.html">Create a Prepeet account</a>' +
+        '<a class="btn btn-secondary" href="login.html">Sign in with email</a>'
+      : '<a class="btn btn-primary" href="' + Prepeet.query.withParams('login.html', { next: next }) + '">Start the sign-in again</a>' +
+        '<a class="btn btn-secondary" href="magic-link.html">Email me a sign-in link</a>';
+    actions += '<a class="btn btn-ghost" href="access-denied.html">I think my access is blocked</a>';
+    document.getElementById('err-actions').innerHTML = actions;
+
+    Prepeet.announce(e.title);
+    Prepeet.init();
+  }
+
+  function apply(state) {
+    clearTimers();
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === state));
+    });
+    if (state === 'slow') { Prepeet.query.set({ state: 'slow', error: null }, true); runSlow(); }
+    else if (ERRORS[state]) { Prepeet.query.set({ error: state, state: null }, true); runError(state); }
+    else {
+      Prepeet.query.set({ state: null, error: null }, true);
+      ['verify', 'match', 'load'].forEach(function (k) { setStage(k, '', '—'); });
+      runProcessing();
+    }
+    Prepeet.init();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-state-btn]');
+    if (b) apply(b.getAttribute('data-state-btn'));
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+
+    var p = PROVIDERS[provider()];
+    var mark = document.getElementById('cb-mark');
+    mark.textContent = p.letter;
+    mark.style.background = p.bg; mark.style.color = p.fg;
+    if (p.ring) mark.style.boxShadow = 'inset 0 0 0 1px ' + p.ring;
+
+    var err = Prepeet.query.get('error');
+    var st = Prepeet.query.get('state');
+    apply(err ? err : (st === 'slow' ? 'slow' : 'default'));
+  });
+})();
+</script>
+</body>
+</html>

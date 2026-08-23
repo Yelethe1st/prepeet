@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Candidates · Prepeet</title>
+<meta name="description" content="The Northwind Health System candidate roster: filter, compare and record evidence-backed reviewer decisions on completed screenings.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: unreviewed row marker, signal cell, sticky bulk bar, not-ranked group */
+  .row-unreviewed td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
+  .signal { display: flex; flex-direction: column; gap: 4px; min-width: 132px; }
+  .signal .comp-bar { height: 8px; }
+  .bulkbar { position: sticky; bottom: 12px; z-index: 40; margin-top: var(--sp-3);
+             background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-lg);
+             box-shadow: var(--shadow-lg); padding: 10px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row-note td { background: var(--surface-2); }
+  @media (max-width: 767px) {
+    .row-unreviewed { border-left: 3px solid var(--warning); }
+    .row-unreviewed td:first-child { box-shadow: none; }
+    .signal { min-width: 0; align-items: flex-end; }
+    .signal .comp-bar { width: 120px; }
+    .table-responsive td.td-check { display: flex; }
+  }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="recruiter" data-title="Candidates" data-crumbs="Northwind Health System>admin-dashboard.html|Hiring">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Northwind Health System</p>
+        <h1>Candidates</h1>
+        <p class="page-desc">Twelve completed screenings across six open roles. Each row summarises the evidence recorded in one conversation — it is not a ranking, and Prepeet does not recommend who to hire.</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-invitations.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>Invitations</a>
+        <a class="btn btn-primary" href="admin-invitation-new.html"><i data-lucide="user-plus" class="ic ic-sm"></i>Invite a candidate</a>
+      </div>
+      <div class="cluster" style="margin-left:auto">
+        <span class="hint">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+          <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+          <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+          <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════ LOADING ══════════════════════════ -->
+    <div data-state="loading" hidden aria-busy="true">
+      <div class="card"><div class="card-body">
+        <div class="skeleton skeleton-text" style="height:36px;width:100%;max-width:640px"></div>
+        <div style="margin-top:20px" class="stack-sm">
+          <div class="skeleton skeleton-text" style="height:44px"></div>
+          <div class="skeleton skeleton-text" style="height:44px"></div>
+          <div class="skeleton skeleton-text" style="height:44px"></div>
+          <div class="skeleton skeleton-text" style="height:44px"></div>
+          <div class="skeleton skeleton-text" style="height:44px"></div>
+          <div class="skeleton skeleton-text" style="height:44px"></div>
+        </div>
+      </div></div>
+      <p class="sr-only" role="status">Loading the candidate roster.</p>
+    </div>
+
+    <!-- ══════════════════════════ EMPTY ══════════════════════════ -->
+    <div data-state="empty" hidden>
+      <div class="card"><div class="state primary">
+        <div class="state-icon"><i data-lucide="users-round" class="ic"></i></div>
+        <h2 style="font-size:var(--text-md)">No completed screenings yet</h2>
+        <p>Nobody has finished a screening conversation for Northwind Health System. Candidates appear here the moment their session is submitted and the evidence summary is prepared — usually within about ten minutes.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="admin-invitation-new.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>Invite a candidate</a>
+          <a class="btn btn-secondary" href="admin-invitations.html">See outstanding invitations</a>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ══════════════════════════ ERROR ══════════════════════════ -->
+    <div data-state="error" hidden>
+      <div class="card"><div class="state danger">
+        <div class="state-icon"><i data-lucide="cloud-off" class="ic"></i></div>
+        <h2 style="font-size:var(--text-md)">The roster could not be loaded</h2>
+        <p>The evaluation service did not respond within 10 seconds, so this list may be incomplete. No candidate data has been changed. Retry, or check platform status if it keeps happening.</p>
+        <p class="code mono" style="font-size:var(--text-xs);color:var(--fg-3)">roster_fetch_timeout · tn_northwind · 23 Aug 2026 14:02 UTC</p>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" data-loading-sim="1400" data-loading-done="Roster reloaded" data-loading-kind="success"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Retry</button>
+          <a class="btn btn-secondary" href="admin-dashboard.html">Back to overview</a>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ══════════════════════════ DEFAULT ══════════════════════════ -->
+    <div data-state="default">
+
+      <!-- persistent pending count -->
+      <div class="banner banner-warning" style="margin-bottom:var(--sp-4)" role="status" id="pending-banner">
+        <i data-lucide="clock" class="ic"></i>
+        <div><strong><span id="pending-count">7</span> candidates are awaiting a reviewer decision</strong> — 6 with an evidence summary and 1 whose session produced too little to score. The oldest has waited 5 days. Undecided rows carry a yellow edge, a dot beside the name and a status badge.</div>
+        <div class="banner-actions">
+          <button class="btn btn-sm btn-secondary" type="button" id="jump-pending">Show only these</button>
+        </div>
+      </div>
+
+      <!-- saved views -->
+      <nav aria-label="Saved views" style="margin-bottom:var(--sp-3)">
+        <div class="segmented" data-segmented role="group" aria-label="Saved views" id="views">
+          <button type="button" data-value="all" aria-pressed="true">All candidates</button>
+          <button type="button" data-value="pending" aria-pressed="false">Awaiting a decision</button>
+          <button type="button" data-value="lowconf" aria-pressed="false">Low confidence</button>
+          <button type="button" data-value="mine" aria-pressed="false">My reviews</button>
+        </div>
+      </nav>
+
+      <!-- filters -->
+      <section class="card" aria-labelledby="filters-h" style="margin-bottom:var(--sp-4)">
+        <h2 id="filters-h" class="sr-only">Filter the roster</h2>
+        <div class="card-body" style="padding:var(--sp-4)">
+          <form class="filterbar" id="filters" role="search" aria-label="Filter candidates">
+            <div class="input-wrap">
+              <i data-lucide="search" class="ic ic-sm"></i>
+              <label class="sr-only" for="f-q">Search by candidate name or role</label>
+              <input class="input" id="f-q" name="q" type="search" placeholder="Search name or role…" autocomplete="off">
+            </div>
+            <div>
+              <label class="sr-only" for="f-role">Role</label>
+              <select class="select" id="f-role" name="role">
+                <option value="">All roles</option>
+                <option value="rn-icu">Registered Nurse — ICU</option>
+                <option value="cn-educator">Clinical Nurse Educator</option>
+                <option value="fpa-analyst">Financial Analyst — FP&amp;A</option>
+                <option value="pm-patient-apps">Product Manager — Patient Apps</option>
+                <option value="swe-integrations">Software Engineer — Integrations</option>
+                <option value="ent-ae">Enterprise Account Executive</option>
+              </select>
+            </div>
+            <div>
+              <label class="sr-only" for="f-status">Status</label>
+              <select class="select" id="f-status" name="status">
+                <option value="">Any status</option>
+                <option value="pending">Evaluated, awaiting decision</option>
+                <option value="advanced">Advanced</option>
+                <option value="hold">On hold</option>
+                <option value="declined">Not progressing</option>
+                <option value="insufficient">Insufficient evidence</option>
+              </select>
+            </div>
+            <div>
+              <label class="sr-only" for="f-confidence">Evaluation confidence</label>
+              <select class="select" id="f-confidence" name="confidence">
+                <option value="">Any confidence</option>
+                <option value="high">High confidence</option>
+                <option value="medium">Medium confidence</option>
+                <option value="low">Low confidence</option>
+              </select>
+            </div>
+            <div>
+              <label class="sr-only" for="f-range">Submitted</label>
+              <select class="select" id="f-range" name="range">
+                <option value="">Any time</option>
+                <option value="24h">Last 24 hours</option>
+                <option value="3d">Last 3 days</option>
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+              </select>
+            </div>
+            <div>
+              <label class="sr-only" for="f-reviewer">Reviewer</label>
+              <select class="select" id="f-reviewer" name="reviewer">
+                <option value="">Any reviewer</option>
+                <option value="unassigned">Unassigned</option>
+                <option value="Priya Raman">Priya Raman</option>
+                <option value="Jonas Brandt">Jonas Brandt</option>
+                <option value="Helen Achebe">Helen Achebe</option>
+              </select>
+            </div>
+            <label class="switch" for="f-awaiting">
+              <input type="checkbox" id="f-awaiting" name="awaiting">
+              <span>Only awaiting a decision</span>
+            </label>
+          </form>
+
+          <div class="between" style="margin-top:var(--sp-3)">
+            <div class="filter-chips" id="chips" aria-live="polite" aria-label="Active filters"></div>
+            <button class="btn btn-sm btn-ghost" type="button" id="clear-all" hidden>Clear all filters</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- results count -->
+      <div class="between" style="margin-bottom:var(--sp-2)">
+        <p class="hint" id="results-count" role="status">Showing 12 of 12 candidates</p>
+        <p class="hint">Route <span class="badge badge-outline mono">/admin/recruiter</span></p>
+      </div>
+
+      <!-- table -->
+      <section aria-labelledby="roster-h">
+        <h2 id="roster-h" class="sr-only">Candidate roster</h2>
+        <div class="table-wrap">
+          <table class="table table-responsive" id="roster">
+            <caption class="sr-only">Candidates who have completed a screening, with role, submission time, competency signal, coverage, evaluation confidence, review status and assigned reviewer. Candidates whose session produced insufficient evidence are listed separately and are not ranked.</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="td-check">
+                  <label class="check" style="gap:0">
+                    <input type="checkbox" id="select-all">
+                    <span class="sr-only">Select all candidates on this page</span>
+                  </label>
+                </th>
+                <th scope="col" class="sortable" data-sort="name" aria-sort="none"><button type="button" style="font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit">Candidate<span data-sorticon></span></button></th>
+                <th scope="col" class="sortable" data-sort="role" aria-sort="none"><button type="button" style="font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit">Role<span data-sorticon></span></button></th>
+                <th scope="col" class="sortable" data-sort="submitted" aria-sort="descending"><button type="button" style="font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit">Submitted<span data-sorticon></span></button></th>
+                <th scope="col" class="sortable" data-sort="score" aria-sort="none"><button type="button" style="font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit">Competency signal<span data-sorticon></span></button></th>
+                <th scope="col" class="sortable num" data-sort="coverage" aria-sort="none"><button type="button" style="font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit">Coverage<span data-sorticon></span></button></th>
+                <th scope="col">Confidence</th>
+                <th scope="col">Status</th>
+                <th scope="col">Reviewer</th>
+                <th scope="col"><span class="sr-only">Row actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+
+        <!-- no results within default state -->
+        <div class="card" id="no-results" hidden style="margin-top:var(--sp-3)">
+          <div class="state state-compact">
+            <div class="state-icon"><i data-lucide="filter-x" class="ic"></i></div>
+            <h3>No candidates match these filters</h3>
+            <p>Nothing in the Northwind Health System roster matches the current combination. Widen the date range or clear a filter.</p>
+            <div class="actions"><button class="btn btn-secondary btn-sm" type="button" id="clear-all-2">Clear all filters</button></div>
+          </div>
+        </div>
+
+        <!-- sticky selection bar -->
+        <div class="bulkbar" id="bulkbar" hidden role="region" aria-label="Actions for selected candidates">
+          <strong style="font-size:var(--text-sm)"><span id="sel-count">0</span> selected</strong>
+          <span class="hint" id="sel-msg" role="status"></span>
+          <span style="flex:1"></span>
+          <a class="btn btn-sm btn-primary" id="btn-compare" href="admin-recruiter-compare.html"><i data-lucide="columns-3" class="ic ic-sm"></i>Compare selected (<span id="cmp-count">0</span>)</a>
+          <button class="btn btn-sm btn-secondary" type="button" id="btn-assign" data-dialog-open="dlg-assign"><i data-lucide="user-cog" class="ic ic-sm"></i>Assign reviewer</button>
+          <button class="btn btn-sm btn-secondary" type="button" id="btn-export" data-toast="Export queued" data-toast-desc="A CSV of the selected candidates will be emailed to priya.raman@northwindhealth.example." data-toast-kind="success"><i data-lucide="download" class="ic ic-sm"></i>Export</button>
+          <button class="btn btn-sm btn-ghost" type="button" id="btn-clear-sel">Clear</button>
+        </div>
+
+        <!-- pagination -->
+        <div class="pagination" style="margin-top:var(--sp-4)">
+          <span id="page-info">Showing 1–8 of 12</span>
+          <nav class="pages" aria-label="Roster pages" id="pages"></nav>
+        </div>
+      </section>
+
+      <div class="card card-subtle" style="margin-top:var(--sp-6)">
+        <div class="card-body">
+          <p class="hint" style="max-width:720px;line-height:1.55">
+            Competency signal is a summary of what a candidate said in one recorded conversation, scored against the Northwind Health System rubric. It is not a prediction of job performance, and it says nothing about personality or honesty. Where the conversation did not produce enough evidence, no score is shown at all — and that row is never sorted into a rank position.
+          </p>
+          <div class="cluster" style="margin-top:var(--sp-3)" data-requires="tenant_admin">
+            <a class="btn btn-sm btn-soft" href="admin-recruiter-calibration.html"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Review calibration</a>
+            <a class="btn btn-sm btn-ghost" href="admin-rubrics.html"><i data-lucide="list-checks" class="ic ic-sm"></i>Edit the rubric</a>
+            <span class="hint">Scores drifting from what your reviewers conclude? Calibration shows where.</span>
+          </div>
+          <p class="hint" data-requires-note="tenant_admin" hidden style="margin-top:var(--sp-3)">Rubric and calibration settings belong to tenant administrators. If a score looks wrong, use “Request re-review” on the row and say what the evaluation missed.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════════ Dialog: record a decision ══════════════════ -->
+<dialog class="dialog" id="dlg-decision" aria-labelledby="dec-h">
+  <form method="dialog" class="dialog-panel" id="decision-form">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dec-h">Record a decision</h2>
+        <p class="hint" style="margin-top:4px" id="dec-sub">—</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <dl class="kv" id="dec-kv"></dl>
+      <div class="banner banner-warning" id="dec-warn" hidden>
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div id="dec-warn-text"></div>
+      </div>
+      <div class="field">
+        <label class="label" for="dec-reason">Rationale <span class="optional" id="dec-opt">(optional)</span></label>
+        <textarea class="textarea" id="dec-reason" aria-describedby="dec-hint dec-err" placeholder="Point to what the candidate actually said, or to evidence from outside the screening."></textarea>
+        <p class="hint" id="dec-hint">Rationale is stored with your name and is shown to tenant administrators. Candidates can request it as part of their data.</p>
+        <p class="error-text" id="dec-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>A rationale of at least 15 characters is required when the decision departs from the evaluation.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit" id="dec-confirm">Confirm</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ══════════════════ Dialog: assign reviewer ══════════════════ -->
+<dialog class="dialog" id="dlg-assign" aria-labelledby="asg-h">
+  <form method="dialog" class="dialog-panel" id="assign-form">
+    <div class="dialog-header">
+      <div>
+        <h2 id="asg-h">Assign a reviewer</h2>
+        <p class="hint" style="margin-top:4px" id="asg-sub">—</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body">
+      <div class="field">
+        <label class="label" for="asg-who">Reviewer</label>
+        <select class="select" id="asg-who">
+          <option value="Priya Raman">Priya Raman — talent acquisition lead</option>
+          <option value="Jonas Brandt">Jonas Brandt — recruiter</option>
+          <option value="Helen Achebe">Helen Achebe — clinical hiring manager</option>
+        </select>
+        <p class="hint">The reviewer is emailed and the candidate's status stays “Awaiting review” until they decide.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Assign</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data;
+  var NOW = new Date('2026-08-23T14:00:00');
+  var PER_PAGE = 8;
+
+  var ROLE_SLUG = {
+    'rn-icu': 'Registered Nurse — ICU',
+    'cn-educator': 'Clinical Nurse Educator',
+    'fpa-analyst': 'Financial Analyst — FP&A',
+    'pm-patient-apps': 'Product Manager — Patient Apps',
+    'swe-integrations': 'Software Engineer — Integrations',
+    'ent-ae': 'Enterprise Account Executive'
+  };
+  var RANGE_DAYS = { '24h': 1, '3d': 3, '7d': 7, '30d': 30 };
+  var RANGE_LABEL = { '24h': 'Last 24 hours', '3d': 'Last 3 days', '7d': 'Last 7 days', '30d': 'Last 30 days' };
+  var CI_WIDTH = { high: 4, medium: 8, low: 13 };
+
+  /* working copy so decisions can change status without touching the shared seed */
+  var rows = D.roster.map(function (c) { return Object.assign({}, c); });
+  var selected = [];
+
+  var F = { q: '', role: '', status: '', confidence: '', range: '', reviewer: '', awaiting: false,
+            view: 'all', sort: 'submitted', dir: 'desc', page: 1 };
+
+  /* ---------------------------------------------------------------- helpers */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function parse(ts) { return new Date(String(ts).replace(' ', 'T')); }
+  function daysAgo(ts) { return (NOW - parse(ts)) / 864e5; }
+  function ago(ts) {
+    var h = (NOW - parse(ts)) / 36e5, d = Math.floor(h / 24);
+    if (h < 24) return Math.round(h) + 'h ago';
+    return d + (d === 1 ? ' day ago' : ' days ago');
+  }
+  function initials(n) { return n.split(' ').map(function (p) { return p[0]; }).join('').slice(0, 2); }
+  function bandWord(b) { return Prepeet.bandLabel(b); }
+  function confWord(c) { return { high: 'High', medium: 'Medium', low: 'Low' }[c]; }
+
+  /* ------------------------------------------------------------ url <-> state */
+  function readUrl() {
+    var q = Prepeet.query;
+    F.q = q.get('q', '') || '';
+    F.role = q.get('role', '') || '';
+    F.status = q.get('status', '') || '';
+    F.confidence = q.get('confidence', '') || '';
+    F.range = q.get('range', '') || '';
+    F.reviewer = q.get('reviewer', '') || '';
+    F.awaiting = q.get('awaiting') === '1';
+    F.view = q.get('view', 'all') || 'all';
+    F.sort = q.get('sort', 'submitted') || 'submitted';
+    F.dir = q.get('dir', 'desc') || 'desc';
+    F.page = Math.max(1, parseInt(q.get('page', '1'), 10) || 1);
+    if (!ROLE_SLUG[F.role]) F.role = '';
+  }
+  function writeUrl() {
+    Prepeet.query.set({
+      q: F.q || null, role: F.role || null, status: F.status || null,
+      confidence: F.confidence || null, range: F.range || null, reviewer: F.reviewer || null,
+      awaiting: F.awaiting ? '1' : null,
+      view: F.view === 'all' ? null : F.view,
+      sort: F.sort === 'submitted' ? null : F.sort,
+      dir: F.dir === 'desc' ? null : F.dir,
+      page: F.page === 1 ? null : String(F.page)
+    }, true);
+  }
+  function syncControls() {
+    document.getElementById('f-q').value = F.q;
+    document.getElementById('f-role').value = F.role;
+    document.getElementById('f-status').value = F.status;
+    document.getElementById('f-confidence').value = F.confidence;
+    document.getElementById('f-range').value = F.range;
+    document.getElementById('f-reviewer').value = F.reviewer;
+    document.getElementById('f-awaiting').checked = F.awaiting;
+    document.querySelectorAll('#views button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-value') === F.view));
+    });
+  }
+
+  /* ------------------------------------------------------------------ filter */
+  function matches(c) {
+    if (F.q) {
+      var t = (c.name + ' ' + c.role).toLowerCase();
+      if (t.indexOf(F.q.toLowerCase().trim()) === -1) return false;
+    }
+    if (F.role && c.role !== ROLE_SLUG[F.role]) return false;
+    if (F.status && c.status !== F.status) return false;
+    if (F.confidence && c.confidence !== F.confidence) return false;
+    if (F.range && daysAgo(c.submitted) > RANGE_DAYS[F.range]) return false;
+    if (F.reviewer === 'unassigned' && c.reviewer) return false;
+    if (F.reviewer && F.reviewer !== 'unassigned' && c.reviewer !== F.reviewer) return false;
+    if (F.awaiting && c.status !== 'pending' && c.status !== 'insufficient') return false;
+    return true;
+  }
+
+  function sortRows(list) {
+    var dir = F.dir === 'asc' ? 1 : -1;
+    var scorable = list, unscorable = [];
+    if (F.sort === 'score') {
+      /* Evidence honesty: a session that could not be scored is never sorted into a
+         rank position. It is grouped after the ranked rows with an explanation. */
+      scorable = list.filter(function (c) { return c.score != null; });
+      unscorable = list.filter(function (c) { return c.score == null; });
+    }
+    scorable = scorable.slice().sort(function (a, b) {
+      var x, y;
+      switch (F.sort) {
+        case 'name': x = a.name; y = b.name; break;
+        case 'role': x = a.role; y = b.role; break;
+        case 'coverage': x = a.coverage; y = b.coverage; break;
+        case 'score': x = a.score; y = b.score; break;
+        default: x = parse(a.submitted).getTime(); y = parse(b.submitted).getTime();
+      }
+      if (x < y) return -1 * dir;
+      if (x > y) return 1 * dir;
+      return a.name < b.name ? -1 : 1;
+    });
+    return { ranked: scorable, unranked: unscorable };
+  }
+
+  /* -------------------------------------------------------------------- cells */
+  function signalCell(c) {
+    if (c.score == null) {
+      return '<div class="signal">' +
+        '<span class="badge badge-outline" data-tooltip="Coverage was ' + c.coverage + '%: the session ended before most of the role’s competencies were discussed, so there is no evidence to score them against. Putting a number here would invent one, so none is shown — and this row is never sorted into a rank position.">' +
+          '<i data-lucide="help-circle" class="ic-sm ic"></i>Insufficient evidence</span>' +
+        '<span class="hint">Not scored · ' + esc(confWord(c.confidence)) + ' confidence</span>' +
+      '</div>';
+    }
+    var w = CI_WIDTH[c.confidence];
+    var lo = Math.max(0, c.score - w), hi = Math.min(100, c.score + w);
+    return '<div class="signal">' +
+      '<div class="comp-bar band-' + c.band + '" role="img" aria-label="' + esc(bandWord(c.band)) + ', ' + c.score +
+        ' out of 100, likely range ' + lo + ' to ' + hi + '">' +
+        '<span style="width:' + c.score + '%"></span>' +
+        '<span class="ci" style="left:' + lo + '%;width:' + (hi - lo) + '%"></span></div>' +
+      '<span class="band band-' + c.band + '">' + esc(bandWord(c.band)) + ' · <span class="tnum">' + c.score + '</span>' +
+        '<span class="hint" style="font-weight:500">&nbsp;(' + lo + '–' + hi + ', ' + esc(confWord(c.confidence)).toLowerCase() + ' confidence)</span></span>' +
+    '</div>';
+  }
+
+  function rowHtml(c) {
+    var meta = D.statusMeta[c.status];
+    var unrev = c.status === 'pending' || c.status === 'insufficient';
+    var checked = selected.indexOf(c.id) > -1;
+    return '<tr class="' + (unrev ? 'row-unreviewed ' : '') + (checked ? 'is-selected' : '') + '" data-id="' + c.id + '">' +
+      '<td class="td-check" data-label="Select"><label class="check" style="gap:0">' +
+        '<input type="checkbox" data-select="' + c.id + '"' + (checked ? ' checked' : '') + '>' +
+        '<span class="sr-only">Select ' + esc(c.name) + '</span></label></td>' +
+
+      '<td class="td-primary" data-label="Candidate"><span class="row" style="gap:10px">' +
+        '<span class="avatar avatar-sm">' + esc(initials(c.name)) + '</span>' +
+        '<span style="min-width:0">' +
+          '<a class="row-link" href="admin-recruiter-detail.html?id=' + c.id + '">' + esc(c.name) + '</a>' +
+          (unrev ? ' <i data-lucide="circle-dot" class="ic ic-sm" style="color:var(--warning);vertical-align:-3px" aria-hidden="true"></i><span class="sr-only">(not yet reviewed)</span>' : '') +
+          (c.flags.indexOf('appeal') > -1 ? ' <span class="badge badge-info"><i data-lucide="gavel" class="ic-sm ic"></i>Re-review</span>' : '') +
+          (c.flags.indexOf('short-session') > -1 ? ' <span class="badge badge-outline"><i data-lucide="timer-off" class="ic-sm ic"></i>Short session</span>' : '') +
+          '<span class="td-sub mono">' + c.id + '</span>' +
+        '</span></span></td>' +
+
+      '<td data-label="Role">' + esc(c.role) + '</td>' +
+      '<td data-label="Submitted">' + esc(ago(c.submitted)) + '<span class="td-sub">' + esc(c.submitted.replace(' ', ' · ')) + '</span></td>' +
+      '<td data-label="Competency signal">' + signalCell(c) + '</td>' +
+      '<td class="num" data-label="Coverage"><span class="tnum">' + c.coverage + '%</span>' +
+        (c.coverage < 60 ? '<span class="td-sub">below threshold</span>' : '') + '</td>' +
+      '<td data-label="Confidence"><span class="badge ' +
+        ({ high: 'badge-success', medium: 'badge-neutral', low: 'badge-warning' }[c.confidence]) + '">' +
+        esc(confWord(c.confidence)) + '</span></td>' +
+      '<td data-label="Status"><span class="badge ' + meta.badge + '"><i data-lucide="' + meta.icon + '" class="ic-sm ic"></i>' + esc(meta.label) + '</span></td>' +
+      '<td data-label="Reviewer">' + (c.reviewer
+          ? '<span class="row" style="gap:6px"><span class="avatar avatar-sm">' + esc(initials(c.reviewer)) + '</span>' + esc(c.reviewer) + '</span>'
+          : '<span class="hint">Unassigned</span>') + '</td>' +
+
+      '<td class="td-actions" data-label="Actions">' +
+        '<a class="btn btn-sm btn-ghost" href="admin-recruiter-detail.html?id=' + c.id + '">Review</a>' +
+        '<button class="icon-btn icon-btn-sm" type="button" data-menu="m-' + c.id + '" aria-haspopup="true" aria-expanded="false" aria-label="Decision actions for ' + esc(c.name) + '"><i data-lucide="more-vertical" class="ic ic-sm"></i></button>' +
+        '<div class="menu" id="m-' + c.id + '" hidden role="menu">' +
+          '<div class="menu-label">Record a decision</div>' +
+          '<button class="menu-item" role="menuitem" type="button" data-decide="advance" data-cand="' + c.id + '"><i data-lucide="check-circle-2" class="ic ic-sm"></i>Advance</button>' +
+          '<button class="menu-item" role="menuitem" type="button" data-decide="hold" data-cand="' + c.id + '"><i data-lucide="pause-circle" class="ic ic-sm"></i>Hold</button>' +
+          '<button class="menu-item" role="menuitem" type="button" data-decide="decline" data-cand="' + c.id + '"><i data-lucide="x-circle" class="ic ic-sm"></i>Decline</button>' +
+          '<div class="menu-sep"></div>' +
+          '<button class="menu-item" role="menuitem" type="button" data-decide="rereview" data-cand="' + c.id + '"><i data-lucide="gavel" class="ic ic-sm"></i>Request re-review</button>' +
+          '<a class="menu-item" role="menuitem" href="admin-recruiter-detail.html?id=' + c.id + '"><i data-lucide="file-text" class="ic ic-sm"></i>Open full evaluation</a>' +
+        '</div>' +
+      '</td></tr>';
+  }
+
+  /* ------------------------------------------------------------------ render */
+  function render() {
+    var filtered = rows.filter(matches);
+    var groups = sortRows(filtered);
+    var all = groups.ranked.concat(groups.unranked);
+    var total = all.length;
+    var maxPage = Math.max(1, Math.ceil(total / PER_PAGE));
+    if (F.page > maxPage) F.page = maxPage;
+    var start = (F.page - 1) * PER_PAGE;
+    var pageRows = all.slice(start, start + PER_PAGE);
+
+    var html = '';
+    var noteShown = false;
+    pageRows.forEach(function (c) {
+      if (F.sort === 'score' && c.score == null && !noteShown) {
+        noteShown = true;
+        html += '<tr class="row-note"><td class="td-primary" colspan="10">' +
+          '<span class="cluster" style="flex-wrap:nowrap;align-items:flex-start;gap:8px">' +
+          '<i data-lucide="info" class="ic ic-sm" style="margin-top:2px;color:var(--fg-3)"></i>' +
+          '<span class="hint" style="line-height:1.5">Not ranked — the conversation did not produce enough evidence to score. ' +
+          'These candidates are listed after the ranked rows rather than at the bottom of a ranking, because “unscored” is not the same as “worst”.</span>' +
+          '</span></td></tr>';
+      }
+      html += rowHtml(c);
+    });
+    document.getElementById('rows').innerHTML = html;
+    document.getElementById('no-results').hidden = total !== 0;
+    document.querySelector('#roster').closest('.table-wrap').hidden = total === 0;
+
+    /* counts */
+    document.getElementById('results-count').textContent =
+      total === rows.length ? 'Showing all ' + total + ' candidates'
+      : 'Showing ' + total + ' of ' + rows.length + ' candidates';
+    document.getElementById('page-info').textContent = total
+      ? 'Showing ' + (start + 1) + '–' + Math.min(start + PER_PAGE, total) + ' of ' + total
+      : 'Nothing to show';
+
+    /* pagination */
+    var pages = '';
+    if (maxPage > 1) {
+      pages += '<button class="page" type="button" data-page="' + (F.page - 1) + '"' + (F.page === 1 ? ' disabled' : '') + ' aria-label="Previous page"><i data-lucide="chevron-left" class="ic ic-sm"></i></button>';
+      for (var p = 1; p <= maxPage; p++) {
+        pages += '<button class="page" type="button" data-page="' + p + '"' + (p === F.page ? ' aria-current="page"' : '') + '>' + p + '</button>';
+      }
+      pages += '<button class="page" type="button" data-page="' + (F.page + 1) + '"' + (F.page === maxPage ? ' disabled' : '') + ' aria-label="Next page"><i data-lucide="chevron-right" class="ic ic-sm"></i></button>';
+    }
+    document.getElementById('pages').innerHTML = pages;
+
+    /* sort indicators */
+    document.querySelectorAll('#roster th.sortable').forEach(function (th) {
+      var on = th.getAttribute('data-sort') === F.sort;
+      th.setAttribute('aria-sort', on ? (F.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+      var slot = th.querySelector('[data-sorticon]');
+      if (slot) slot.innerHTML = '<i data-lucide="' + (on ? (F.dir === 'asc' ? 'arrow-up' : 'arrow-down') : 'chevrons-up-down') + '" class="ic"></i>';
+    });
+
+    /* pending count */
+    var pend = rows.filter(function (c) { return c.status === 'pending' || c.status === 'insufficient'; }).length;
+    document.getElementById('pending-count').textContent = pend;
+    document.getElementById('pending-banner').hidden = pend === 0;
+
+    /* select-all reflects this page */
+    var sa = document.getElementById('select-all');
+    var pageIds = pageRows.map(function (c) { return c.id; });
+    sa.checked = pageIds.length > 0 && pageIds.every(function (id) { return selected.indexOf(id) > -1; });
+
+    renderChips();
+    renderBulk();
+    Prepeet.init();
+  }
+
+  /* ------------------------------------------------------------------- chips */
+  function renderChips() {
+    var chips = [];
+    if (F.q) chips.push({ k: 'q', l: 'Search: “' + F.q + '”' });
+    if (F.role) chips.push({ k: 'role', l: 'Role: ' + ROLE_SLUG[F.role] });
+    if (F.status) chips.push({ k: 'status', l: 'Status: ' + D.statusMeta[F.status].label });
+    if (F.confidence) chips.push({ k: 'confidence', l: 'Confidence: ' + confWord(F.confidence) });
+    if (F.range) chips.push({ k: 'range', l: 'Submitted: ' + RANGE_LABEL[F.range] });
+    if (F.reviewer) chips.push({ k: 'reviewer', l: 'Reviewer: ' + (F.reviewer === 'unassigned' ? 'Unassigned' : F.reviewer) });
+    if (F.awaiting) chips.push({ k: 'awaiting', l: 'Only awaiting a decision' });
+    document.getElementById('chips').innerHTML = chips.map(function (c) {
+      return '<button class="chip" type="button" data-remove="' + c.k + '">' + esc(c.l) +
+        '<i data-lucide="x" class="ic x" aria-hidden="true"></i><span class="sr-only">Remove this filter</span></button>';
+    }).join('');
+    document.getElementById('clear-all').hidden = chips.length === 0;
+  }
+
+  /* -------------------------------------------------------------- selection */
+  function renderBulk() {
+    var n = selected.length;
+    var bar = document.getElementById('bulkbar');
+    bar.hidden = n === 0;
+    document.getElementById('sel-count').textContent = n;
+    document.getElementById('cmp-count').textContent = n;
+
+    var cmp = document.getElementById('btn-compare');
+    var msg = document.getElementById('sel-msg');
+    if (n < 2) {
+      cmp.setAttribute('aria-disabled', 'true');
+      cmp.setAttribute('href', 'admin-recruiter-compare.html');
+      msg.textContent = 'Select at least one more candidate — comparison needs 2 to 4.';
+    } else if (n > 4) {
+      cmp.setAttribute('aria-disabled', 'true');
+      cmp.setAttribute('href', 'admin-recruiter-compare.html');
+      msg.textContent = 'Comparison takes at most 4 candidates side by side. Deselect ' + (n - 4) + '.';
+    } else {
+      cmp.removeAttribute('aria-disabled');
+      cmp.setAttribute('href', 'admin-recruiter-compare.html?ids=' + selected.join(','));
+      var roles = {};
+      selected.forEach(function (id) { var c = byId(id); if (c) roles[c.role] = 1; });
+      msg.textContent = Object.keys(roles).length > 1
+        ? 'Heads up: these candidates were screened against different rubrics, so only coverage is directly comparable.'
+        : 'Ready to compare ' + n + ' candidates for ' + Object.keys(roles)[0] + '.';
+    }
+
+    /* assign reviewer is a tenant-admin action */
+    var asg = document.getElementById('btn-assign');
+    if (!Prepeet.can('tenant_admin')) {
+      asg.disabled = true;
+      asg.setAttribute('data-tooltip', 'Only tenant administrators can reassign a reviewer. Ask Priya Raman.');
+      asg.removeAttribute('data-dialog-open');
+    }
+  }
+  function byId(id) { return rows.filter(function (c) { return c.id === id; })[0]; }
+
+  /* --------------------------------------------------------------- decisions */
+  var DEC = {
+    advance:  { title: 'Advance to the next stage', verb: 'Advance', status: 'advanced', kind: 'success',
+                disagreeWhen: ['developing', 'concern', 'insufficient'] },
+    hold:     { title: 'Put on hold', verb: 'Hold', status: 'hold', kind: 'default', disagreeWhen: [] },
+    decline:  { title: 'Do not progress', verb: 'Decline', status: 'declined', kind: 'warning',
+                disagreeWhen: ['strong', 'solid'] },
+    rereview: { title: 'Request a re-review', verb: 'Request re-review', status: 'pending', kind: 'info',
+                disagreeWhen: ['strong', 'solid', 'developing', 'concern', 'insufficient'] }
+  };
+  var pendingDecision = null;
+
+  function openDecision(action, id) {
+    var c = byId(id); if (!c) return;
+    var d = DEC[action];
+    var disagrees = d.disagreeWhen.indexOf(c.band) > -1;
+    pendingDecision = { action: action, id: id, required: disagrees };
+
+    document.getElementById('dec-h').textContent = d.title;
+    document.getElementById('dec-sub').textContent = c.name + ' · ' + c.role;
+    document.getElementById('dec-kv').innerHTML =
+      '<dt>Evaluation</dt><dd>' + (c.score == null ? 'Insufficient evidence — no score' : bandWord(c.band) + ' · ' + c.score + ' out of 100') + '</dd>' +
+      '<dt>Confidence</dt><dd>' + confWord(c.confidence) + ' — ' + esc(Prepeet.confidenceMeta[c.confidence].desc) + '</dd>' +
+      '<dt>Coverage</dt><dd>' + c.coverage + '% of the role’s competencies evidenced</dd>' +
+      '<dt>Submitted</dt><dd>' + esc(c.submitted) + ' (' + ago(c.submitted) + ')</dd>' +
+      '<dt>Decision by</dt><dd>Priya Raman, 23 August 2026</dd>';
+
+    var warn = document.getElementById('dec-warn');
+    warn.hidden = !disagrees;
+    if (disagrees) {
+      document.getElementById('dec-warn-text').innerHTML = action === 'rereview'
+        ? '<strong>A re-review always needs a reason.</strong> Say what you think the evaluation missed so the second reviewer knows where to look.'
+        : '<strong>This decision departs from the evaluation.</strong> The evidence summary reads ' +
+          esc(c.score == null ? 'insufficient evidence' : bandWord(c.band).toLowerCase()) +
+          ', so a written rationale is required and will be visible to tenant administrators.';
+    }
+    document.getElementById('dec-opt').textContent = disagrees ? '(required)' : '(optional)';
+    var ta = document.getElementById('dec-reason');
+    ta.value = ''; ta.setAttribute('aria-invalid', 'false');
+    if (disagrees) ta.setAttribute('required', ''); else ta.removeAttribute('required');
+    document.getElementById('dec-err').hidden = true;
+    document.getElementById('dec-confirm').textContent = d.verb;
+    Prepeet.openDialog('dlg-decision');
+    Prepeet.init();
+  }
+
+  function initDecisionForm() {
+    document.getElementById('decision-form').addEventListener('submit', function (e) {
+      if (!pendingDecision) return;
+      var ta = document.getElementById('dec-reason');
+      if (pendingDecision.required && ta.value.trim().length < 15) {
+        e.preventDefault();
+        ta.setAttribute('aria-invalid', 'true');
+        document.getElementById('dec-err').hidden = false;
+        ta.focus();
+        Prepeet.announce('A rationale of at least 15 characters is required.');
+        return;
+      }
+      var c = byId(pendingDecision.id);
+      var d = DEC[pendingDecision.action];
+      c.status = d.status;
+      if (!c.reviewer) c.reviewer = 'Priya Raman';
+      if (pendingDecision.action === 'rereview') c.flags = c.flags.concat(['appeal']);
+      Prepeet.toast({
+        title: d.verb + ' recorded for ' + c.name,
+        desc: pendingDecision.required ? 'Rationale saved with your name. Override is visible on the overview.' : 'Status updated to “' + D.statusMeta[c.status].label + '”.',
+        kind: d.kind
+      });
+      Prepeet.announce(c.name + ' is now ' + D.statusMeta[c.status].label + '.');
+      pendingDecision = null;
+      render();
+    });
+  }
+
+  function initAssignForm() {
+    document.getElementById('assign-form').addEventListener('submit', function () {
+      var who = document.getElementById('asg-who').value;
+      selected.forEach(function (id) { var c = byId(id); if (c) c.reviewer = who; });
+      Prepeet.toast({ title: 'Assigned to ' + who, desc: selected.length + ' candidate' + (selected.length === 1 ? '' : 's') + ' updated.', kind: 'success' });
+      Prepeet.announce(selected.length + ' candidates assigned to ' + who + '.');
+      render();
+    });
+    document.addEventListener('prepeet:dialog-open', function (e) {
+      if (e.detail.id === 'dlg-assign') {
+        document.getElementById('asg-sub').textContent =
+          selected.length + ' selected candidate' + (selected.length === 1 ? '' : 's') + ' · ' +
+          selected.map(function (id) { var c = byId(id); return c ? c.name : id; }).join(', ');
+      }
+    });
+  }
+
+  /* ------------------------------------------------------------------- views */
+  var VIEWS = {
+    all:     function () { F.q = ''; F.role = ''; F.status = ''; F.confidence = ''; F.range = ''; F.reviewer = ''; F.awaiting = false; },
+    pending: function () { VIEWS.all(); F.awaiting = true; F.sort = 'submitted'; F.dir = 'asc'; },
+    lowconf: function () { VIEWS.all(); F.confidence = 'low'; },
+    mine:    function () { VIEWS.all(); F.reviewer = 'Priya Raman'; }
+  };
+
+  /* ------------------------------------------------------------------ events */
+  function initEvents() {
+    var form = document.getElementById('filters');
+
+    form.addEventListener('input', function (e) {
+      if (e.target.id === 'f-q') { F.q = e.target.value; F.page = 1; F.view = 'all'; commit(); }
+    });
+    form.addEventListener('change', function (e) {
+      var id = e.target.id;
+      if (id === 'f-role') F.role = e.target.value;
+      else if (id === 'f-status') F.status = e.target.value;
+      else if (id === 'f-confidence') F.confidence = e.target.value;
+      else if (id === 'f-range') F.range = e.target.value;
+      else if (id === 'f-reviewer') F.reviewer = e.target.value;
+      else if (id === 'f-awaiting') F.awaiting = e.target.checked;
+      else return;
+      F.page = 1; F.view = 'all'; commit();
+    });
+    form.addEventListener('submit', function (e) { e.preventDefault(); });
+
+    document.getElementById('views').addEventListener('change', function (e) {
+      var v = e.detail && e.detail.value; if (!v || !VIEWS[v]) return;
+      VIEWS[v](); F.view = v; F.page = 1; commit();
+      Prepeet.announce('Saved view: ' + e.target.querySelector('[aria-pressed="true"]').textContent);
+    });
+
+    document.getElementById('jump-pending').addEventListener('click', function () {
+      VIEWS.pending(); F.view = 'pending'; F.page = 1; commit();
+    });
+
+    document.addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-remove]'))) {
+        var k = t.getAttribute('data-remove');
+        if (k === 'awaiting') F.awaiting = false; else F[k] = '';
+        F.page = 1; F.view = 'all'; commit(); return;
+      }
+      if (e.target.closest('#clear-all') || e.target.closest('#clear-all-2')) {
+        VIEWS.all(); F.view = 'all'; F.page = 1; commit(); return;
+      }
+      if ((t = e.target.closest('[data-page]'))) {
+        F.page = Number(t.getAttribute('data-page')); commit(); return;
+      }
+      if ((t = e.target.closest('#roster th.sortable'))) {
+        var s = t.getAttribute('data-sort');
+        if (F.sort === s) F.dir = F.dir === 'asc' ? 'desc' : 'asc';
+        else { F.sort = s; F.dir = s === 'name' || s === 'role' ? 'asc' : 'desc'; }
+        commit();
+        Prepeet.announce('Sorted by ' + s + ', ' + (F.dir === 'asc' ? 'ascending' : 'descending') + '.');
+        return;
+      }
+      if ((t = e.target.closest('[data-decide]'))) {
+        openDecision(t.getAttribute('data-decide'), t.getAttribute('data-cand')); return;
+      }
+      if (e.target.closest('#btn-clear-sel')) { selected = []; render(); return; }
+      if ((t = e.target.closest('#btn-compare')) && t.getAttribute('aria-disabled') === 'true') { e.preventDefault(); }
+    });
+
+    document.addEventListener('change', function (e) {
+      var cb = e.target.closest('[data-select]');
+      if (cb) {
+        var id = cb.getAttribute('data-select');
+        var i = selected.indexOf(id);
+        if (cb.checked && i === -1) selected.push(id);
+        if (!cb.checked && i > -1) selected.splice(i, 1);
+        render();
+        return;
+      }
+      if (e.target.id === 'select-all') {
+        var ids = [].slice.call(document.querySelectorAll('[data-select]')).map(function (n) { return n.getAttribute('data-select'); });
+        if (e.target.checked) ids.forEach(function (id) { if (selected.indexOf(id) === -1) selected.push(id); });
+        else selected = selected.filter(function (id) { return ids.indexOf(id) === -1; });
+        render();
+      }
+    });
+
+    /* row menus live inside a scrollable table wrapper — pin them to the viewport
+       after ui.js opens them so they are never clipped. */
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-menu]');
+      if (!btn) return;
+      var m = document.getElementById(btn.getAttribute('data-menu'));
+      if (!m || m.hidden || m.id.indexOf('m-cand') !== 0) return;
+      var r = btn.getBoundingClientRect();
+      m.style.position = 'fixed';
+      m.style.top = Math.max(8, Math.min(window.innerHeight - m.offsetHeight - 8, r.bottom + 6)) + 'px';
+      m.style.left = Math.max(8, Math.min(window.innerWidth - m.offsetWidth - 8, r.right - m.offsetWidth)) + 'px';
+    });
+  }
+
+  function commit() { writeUrl(); syncControls(); render(); }
+
+  /* ------------------------------------------------------------ permissions */
+  function applyPerms() {
+    document.querySelectorAll('[data-requires]').forEach(function (el) {
+      if (!Prepeet.can(el.getAttribute('data-requires'))) el.hidden = true;
+    });
+    document.querySelectorAll('[data-requires-note]').forEach(function (el) {
+      el.hidden = Prepeet.can(el.getAttribute('data-requires-note'));
+    });
+  }
+
+  /* ----------------------------------------------------------------- states */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      applyPerms();
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) { var b = e.target.closest('[data-state-btn]'); if (b) apply(b.getAttribute('data-state-btn')); });
+    apply(cur);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    readUrl();
+    if (F.view !== 'all' && VIEWS[F.view] && !location.search.match(/[?&](q|role|status|confidence|range|reviewer|awaiting)=/)) VIEWS[F.view]();
+    syncControls();
+    initEvents(); initDecisionForm(); initAssignForm();
+    render();
+    initStates();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goals · Prepeet</title>
+<meta name="description" content="Your interview-readiness goal, weekly practice cadence and competency targets, with milestones you can act on.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: seven-day practice strip */
+  .streak { display: flex; gap: 6px; }
+  .streak li { flex: 1; min-width: 0; text-align: center; }
+  .streak .day { display: block; font-size: var(--text-2xs); font-weight: 700; color: var(--fg-3); margin-bottom: 5px; letter-spacing: .04em; }
+  .streak .cell { display: grid; place-items: center; height: 36px; border-radius: var(--r-md); background: var(--surface-3); color: var(--fg-muted); border: 1px solid var(--border); }
+  .streak .cell.on { background: var(--primary-soft); color: var(--primary-soft-fg); border-color: var(--primary-border); }
+  .streak .cell.today { border-style: dashed; border-color: var(--primary); color: var(--primary); }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="goals" data-title="Goals" data-crumbs="Candidate>candidate-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Your practice</p>
+        <h1>Goals</h1>
+        <p class="page-desc" id="page-desc">One deadline, one habit, two weak spots. Goals here only ever count things you actually did — a recorded session, a competency that moved — never intentions.</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" id="hdr-skills" href="candidate-skills.html"><i data-lucide="target" class="ic ic-sm"></i>Skill breakdown</a>
+        <button class="btn btn-primary" type="button" id="hdr-create" data-dialog-open="dlg-goal"><i data-lucide="plus" class="ic ic-sm"></i>Create a goal</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ PRACTICE ══════════════════════ -->
+    <div data-mode-view="practice">
+
+      <div class="cluster" style="margin-bottom:var(--sp-5)">
+        <span class="badge badge-outline mono">/candidate/goals</span>
+        <span class="badge badge-mode practice">Practice only</span>
+        <div class="cluster" style="margin-left:auto">
+          <span class="hint">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview screen state">
+            <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+            <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────────── DEFAULT ─────────────── -->
+      <div data-state="default">
+        <div class="grid grid-main-aside">
+          <div class="stack-lg">
+
+            <!-- Active goal -->
+            <section class="card card-accent" aria-labelledby="main-goal-h">
+              <div class="card-header" style="position:relative">
+                <div>
+                  <div class="cluster" style="margin-bottom:6px">
+                    <span class="badge badge-primary"><i data-lucide="flag" class="ic-sm ic"></i>Active goal</span>
+                    <span class="badge badge-warning">38 days left</span>
+                  </div>
+                  <h2 id="main-goal-h">Be interview-ready for Senior Backend Engineer by 30 September 2026</h2>
+                  <p class="hint" style="margin-top:4px">Set on 11 July 2026 · 3 of 7 milestones done</p>
+                </div>
+                <button class="icon-btn" type="button" data-menu="goal-menu" aria-haspopup="true" aria-expanded="false" aria-label="Options for this goal"><i data-lucide="more-horizontal" class="ic"></i></button>
+                <div class="menu" id="goal-menu" hidden role="menu" style="right:20px;top:64px">
+                  <button class="menu-item" role="menuitem" type="button" data-dialog-open="dlg-goal"><i data-lucide="pencil" class="ic ic-sm"></i>Edit this goal</button>
+                  <a class="menu-item" role="menuitem" href="candidate-sessions.html"><i data-lucide="history" class="ic ic-sm"></i>Sessions counted</a>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger" role="menuitem" type="button" data-toast="Goal archived" data-toast-desc="You can restore it from completed goals." data-toast-kind="default"><i data-lucide="archive" class="ic ic-sm"></i>Archive goal</button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="between" style="margin-bottom:6px">
+                  <span style="font-size:var(--text-sm);font-weight:600">Milestones complete</span>
+                  <span class="tnum text-muted" style="font-size:var(--text-xs)">3 of 7</span>
+                </div>
+                <div class="progress"><span style="width:43%"></span></div>
+                <p class="hint" style="margin-top:6px">On this pace you finish the remaining four with a week to spare, as long as the weekly cadence below holds.</p>
+
+                <hr style="margin:var(--sp-5) 0">
+
+                <h3 class="section-title" style="font-size:var(--text-sm)">Milestones</h3>
+                <ol class="timeline">
+                  <li class="tl-item done">
+                    <div class="tl-title">Record a baseline session <span class="badge badge-success">Done</span></div>
+                    <div class="tl-meta">11 July 2026 · scored 57</div>
+                    <div class="tl-body">Systems design — event pipelines, with Ravi. <a href="candidate-session-review.html?id=ses_0Fg7WK">Open that review</a> to compare it with where you are now.</div>
+                  </li>
+                  <li class="tl-item done">
+                    <div class="tl-title">Cover all four core competencies at least once <span class="badge badge-success">Done</span></div>
+                    <div class="tl-meta">9 August 2026</div>
+                    <div class="tl-body">Systems design, technical communication, debugging and collaboration all have evidence. <a href="candidate-skills.html">See the breakdown</a>.</div>
+                  </li>
+                  <li class="tl-item done">
+                    <div class="tl-title">Lift technical communication above 80 <span class="badge badge-success">Done</span></div>
+                    <div class="tl-meta">18 August 2026 · reached 84</div>
+                    <div class="tl-body">Your strongest area now. <a href="candidate-skills.html#technical-communication">Read the three spans</a> that got it there.</div>
+                  </li>
+                  <li class="tl-item active">
+                    <div class="tl-title">Get ownership &amp; follow-through above 70 <span class="badge badge-warning">In progress</span></div>
+                    <div class="tl-meta">Currently 58 · target by 6 September</div>
+                    <div class="tl-body">
+                      Three evidence spans is not enough for a stable score, and two of them use “we” rather than “I”.
+                      <div class="cluster" style="margin-top:8px">
+                        <a class="btn btn-sm btn-primary" href="candidate-start-interview.html?focus=ownership"><i data-lucide="circle-play" class="ic ic-sm"></i>Practise ownership</a>
+                        <a class="btn btn-sm btn-ghost" href="candidate-skills.html#ownership">See what is missing</a>
+                      </div>
+                    </div>
+                  </li>
+                  <li class="tl-item">
+                    <div class="tl-title">Score prioritisation under pressure for the first time</div>
+                    <div class="tl-meta">Upcoming · target by 13 September</div>
+                    <div class="tl-body">One relevant answer on record; three are needed. <a href="candidate-start-interview.html?focus=prioritisation">A case session</a> usually produces four or five.</div>
+                  </li>
+                  <li class="tl-item">
+                    <div class="tl-title">Two full-length loops back to back</div>
+                    <div class="tl-meta">Upcoming · target by 22 September</div>
+                    <div class="tl-body">A 40-minute technical deep-dive followed by a 40-minute panel, same evening — real loops are tiring and that shows in the last hour. <a href="candidate-start-interview.html">Configure a session</a>.</div>
+                  </li>
+                  <li class="tl-item">
+                    <div class="tl-title">Final read-through of every review</div>
+                    <div class="tl-meta">Upcoming · 28 September</div>
+                    <div class="tl-body">Re-read your own answers the week before you interview for real. <a href="candidate-sessions.html">All sessions</a>.</div>
+                  </li>
+                </ol>
+              </div>
+            </section>
+
+            <!-- Other goals -->
+            <section aria-labelledby="other-goals-h">
+              <div class="section-head">
+                <h2 id="other-goals-h" class="section-title" style="margin:0">Supporting goals <span class="count" id="goal-count">3 active</span></h2>
+                <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-goal"><i data-lucide="plus" class="ic ic-sm"></i>Create a goal</button>
+              </div>
+
+              <div class="stack" id="goal-list">
+
+                <!-- Weekly cadence -->
+                <article class="card" data-goal>
+                  <div class="card-body">
+                    <div class="between" style="align-items:flex-start">
+                      <div>
+                        <div class="cluster">
+                          <span class="badge badge-accent"><i data-lucide="repeat" class="ic-sm ic"></i>Cadence</span>
+                          <span class="badge badge-outline">Every week</span>
+                        </div>
+                        <h3 style="font-size:var(--text-base);margin-top:8px">Three practice sessions a week</h3>
+                        <p class="hint" style="margin-top:4px">Monday to Sunday. Only sessions with at least three answered questions count.</p>
+                      </div>
+                      <span class="tnum" style="font-size:var(--text-xl);font-weight:650">2<span class="text-muted" style="font-size:var(--text-sm)">/3</span></span>
+                    </div>
+
+                    <div style="margin-top:14px">
+                      <div class="progress"><span style="width:66%"></span></div>
+                      <p class="hint" style="margin-top:6px">One more before Sunday keeps the streak. Your last two weeks both hit three.</p>
+                    </div>
+
+                    <h4 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);font-weight:700;margin:18px 0 8px">Last seven days</h4>
+                    <ul class="streak">
+                      <li><span class="day" aria-hidden="true">Thu</span><span class="cell"><i data-lucide="minus" class="ic ic-sm"></i></span><span class="sr-only">Thursday 17 August: no session</span></li>
+                      <li><span class="day" aria-hidden="true">Fri</span><span class="cell on"><i data-lucide="check" class="ic ic-sm"></i></span><span class="sr-only">Friday 18 August: one session</span></li>
+                      <li><span class="day" aria-hidden="true">Sat</span><span class="cell"><i data-lucide="minus" class="ic ic-sm"></i></span><span class="sr-only">Saturday 19 August: no session</span></li>
+                      <li><span class="day" aria-hidden="true">Sun</span><span class="cell"><i data-lucide="minus" class="ic ic-sm"></i></span><span class="sr-only">Sunday 20 August: no session</span></li>
+                      <li><span class="day" aria-hidden="true">Mon</span><span class="cell on"><i data-lucide="check" class="ic ic-sm"></i></span><span class="sr-only">Monday 21 August: one session</span></li>
+                      <li><span class="day" aria-hidden="true">Tue</span><span class="cell on"><i data-lucide="check" class="ic ic-sm"></i></span><span class="sr-only">Tuesday 22 August: one session</span></li>
+                      <li><span class="day" aria-hidden="true">Wed</span><span class="cell today"><i data-lucide="dot" class="ic"></i></span><span class="sr-only">Wednesday 23 August, today: nothing recorded yet</span></li>
+                    </ul>
+                    <p class="chart-summary">Text summary: three sessions in the last seven days — Friday 18, Monday 21 and Tuesday 22 August. Two of those fall inside the current week, which runs Monday 21 to Sunday 27. Nothing recorded yet today.</p>
+
+                    <div class="cluster" style="margin-top:14px">
+                      <a class="btn btn-sm btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Record today's session</a>
+                      <a class="btn btn-sm btn-ghost" href="candidate-sessions.html?kind=practice">Sessions counted</a>
+                    </div>
+                  </div>
+                </article>
+
+                <!-- Competency goal 1 -->
+                <article class="card" data-goal>
+                  <div class="card-body">
+                    <div class="between" style="align-items:flex-start">
+                      <div>
+                        <div class="cluster">
+                          <span class="badge badge-primary"><i data-lucide="target" class="ic-sm ic"></i>Competency</span>
+                          <span class="badge badge-outline">By 6 September 2026</span>
+                        </div>
+                        <h3 style="font-size:var(--text-base);margin-top:8px">Ownership &amp; follow-through to 70</h3>
+                        <p class="hint" style="margin-top:4px">Started at 51 on 11 July. Needs roughly three more strong examples.</p>
+                      </div>
+                      <span class="cluster" style="gap:6px"><strong class="tnum" style="font-size:var(--text-xl)">58</strong><span class="band band-developing">Developing</span></span>
+                    </div>
+                    <div style="margin-top:14px">
+                      <div class="between" style="margin-bottom:6px">
+                        <span class="hint">Baseline 51</span><span class="hint">Now 58</span><span class="hint">Target 70</span>
+                      </div>
+                      <div class="progress warning"><span style="width:37%"></span></div>
+                      <p class="hint" style="margin-top:6px">37% of the way from baseline to target.</p>
+                    </div>
+                    <div class="cluster" style="margin-top:14px">
+                      <a class="btn btn-sm btn-primary" href="candidate-start-interview.html?focus=ownership"><i data-lucide="circle-play" class="ic ic-sm"></i>Practise this</a>
+                      <a class="btn btn-sm btn-ghost" href="candidate-skills.html#ownership">Evidence so far</a>
+                    </div>
+                  </div>
+                </article>
+
+                <!-- Competency goal 2 -->
+                <article class="card" data-goal>
+                  <div class="card-body">
+                    <div class="between" style="align-items:flex-start">
+                      <div>
+                        <div class="cluster">
+                          <span class="badge badge-primary"><i data-lucide="target" class="ic-sm ic"></i>Competency</span>
+                          <span class="badge badge-outline">By 20 September 2026</span>
+                        </div>
+                        <h3 style="font-size:var(--text-base);margin-top:8px">Debugging &amp; incident response to 75</h3>
+                        <p class="hint" style="margin-top:4px">Started at 62 on 9 August. Lead with the diagnosis, not the fix.</p>
+                      </div>
+                      <span class="cluster" style="gap:6px"><strong class="tnum" style="font-size:var(--text-xl)">66</strong><span class="band band-solid">Solid</span></span>
+                    </div>
+                    <div style="margin-top:14px">
+                      <div class="between" style="margin-bottom:6px">
+                        <span class="hint">Baseline 62</span><span class="hint">Now 66</span><span class="hint">Target 75</span>
+                      </div>
+                      <div class="progress"><span style="width:31%"></span></div>
+                      <p class="hint" style="margin-top:6px">31% of the way from baseline to target.</p>
+                    </div>
+                    <div class="cluster" style="margin-top:14px">
+                      <a class="btn btn-sm btn-primary" href="candidate-start-interview.html?focus=debugging"><i data-lucide="circle-play" class="ic ic-sm"></i>Practise this</a>
+                      <a class="btn btn-sm btn-ghost" href="candidate-skills.html#debugging">Evidence so far</a>
+                    </div>
+                  </div>
+                </article>
+
+              </div>
+            </section>
+
+            <!-- Completed -->
+            <section aria-labelledby="done-h">
+              <h2 id="done-h" class="section-title">Completed goals <span class="count">3</span></h2>
+              <div class="accordion">
+                <div class="accordion-item">
+                  <h3 style="font-weight:400">
+                    <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="done-1">
+                      <span class="cluster"><i data-lucide="check-circle-2" class="ic" style="color:var(--success)"></i>Technical communication above 80</span>
+                      <i data-lucide="chevron-down" class="ic"></i>
+                    </button>
+                  </h3>
+                  <div class="accordion-panel" id="done-1" hidden>
+                    <p>Completed 18 August 2026, six days ahead of the deadline. Went from 71 to 84 across four sessions. The change that did it was opening each answer with one sentence of context before the detail.</p>
+                    <div class="cluster" style="margin-top:10px">
+                      <a class="btn btn-sm btn-ghost" href="candidate-skills.html#technical-communication">See current evidence</a>
+                      <a class="btn btn-sm btn-ghost" href="candidate-session-review.html?id=ses_3Mn8PB">The session that finished it</a>
+                    </div>
+                  </div>
+                </div>
+                <div class="accordion-item">
+                  <h3 style="font-weight:400">
+                    <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="done-2">
+                      <span class="cluster"><i data-lucide="check-circle-2" class="ic" style="color:var(--success)"></i>Practise with all four interviewer styles</span>
+                      <i data-lucide="chevron-down" class="ic"></i>
+                    </button>
+                  </h3>
+                  <div class="accordion-panel" id="done-2" hidden>
+                    <p>Completed 9 August 2026. Ama, Ravi, Lena and Marcus. Marcus was the hardest and the most useful — your two lowest-scoring sessions were both with him, and both were about defending a decision.</p>
+                    <div class="cluster" style="margin-top:10px">
+                      <a class="btn btn-sm btn-ghost" href="candidate-sessions.html?q=Marcus">Sessions with Marcus</a>
+                    </div>
+                  </div>
+                </div>
+                <div class="accordion-item">
+                  <h3 style="font-weight:400">
+                    <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="done-3">
+                      <span class="cluster"><i data-lucide="check-circle-2" class="ic" style="color:var(--success)"></i>Six sessions in the first month</span>
+                      <i data-lucide="chevron-down" class="ic"></i>
+                    </button>
+                  </h3>
+                  <div class="accordion-panel" id="done-3" hidden>
+                    <p>Completed 11 August 2026, with seven recorded. This is the goal that got the rest moving — the first four sessions are where most of your 11-point overall gain came from.</p>
+                    <div class="cluster" style="margin-top:10px">
+                      <a class="btn btn-sm btn-ghost" href="candidate-progression.html">See the trend</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- Aside -->
+          <aside class="stack sticky-aside" aria-label="Goal settings and help">
+            <div class="card">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">Reminders</h2></div>
+              <div class="card-body stack-sm">
+                <label class="switch"><input type="checkbox" checked data-toast="Weekly reminder on" data-toast-desc="Sunday 18:00, Europe/London." data-toast-kind="success"><span>Weekly cadence nudge</span></label>
+                <p class="hint">Sunday at 18:00, only if the week is short of three sessions.</p>
+                <hr>
+                <label class="switch"><input type="checkbox" data-toast="Milestone emails off" data-toast-kind="default"><span>Email me on each milestone</span></label>
+                <p class="hint">Off by default. Milestones always show up here regardless.</p>
+                <a class="link" style="font-size:var(--text-xs)" href="candidate-settings.html#notifications">All notification settings</a>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">What counts</h2></div>
+              <div class="card-body">
+                <dl class="kv kv-row">
+                  <dt>Counted</dt><dd>Practice sessions with three or more answered questions</dd>
+                  <dt>Not counted</dt><dd>Sessions ended early, saved setups, and screening interviews</dd>
+                  <dt>Competency targets</dt><dd>Move only when a new session adds evidence — never by the calendar</dd>
+                  <dt>Week runs</dt><dd>Monday to Sunday, Europe/London</dd>
+                </dl>
+              </div>
+            </div>
+
+            <div class="card card-subtle">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:8px"><i data-lucide="heart-handshake" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">A missed week is not a failure</strong></div>
+                <p class="hint" style="line-height:1.55">Streaks are here because repetition helps, not to make you feel watched. Nothing is reported to anyone, and pausing a goal costs you nothing.</p>
+                <button class="btn btn-sm btn-ghost" style="margin-top:8px" type="button" data-toast="Goals paused for a week" data-toast-desc="Reminders will resume on 30 August." data-toast-kind="default">Pause all goals for a week</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ─────────────── EMPTY ─────────────── -->
+      <div data-state="empty" hidden>
+        <div class="card">
+          <div class="state primary">
+            <div class="state-icon"><i data-lucide="flag" class="ic"></i></div>
+            <h2 style="font-size:var(--text-md)">No goals yet</h2>
+            <p>A goal is just a target and a date. The useful ones are specific: a competency score to reach, a number of sessions a week, or a date you want to be ready by.</p>
+            <div class="actions">
+              <button class="btn btn-primary" type="button" data-dialog-open="dlg-goal"><i data-lucide="plus" class="ic ic-sm"></i>Create your first goal</button>
+              <a class="btn btn-secondary" href="candidate-skills.html">Find your weakest area first</a>
+            </div>
+            <p class="hint" style="margin-top:14px;max-width:32em">Most people start with “three sessions a week”. It is the one that makes the others possible.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══════════════════════ SCREEN MODE ══════════════════════ -->
+    <div data-mode-view="screen" hidden>
+      <div class="card" style="max-width:640px">
+        <div class="card-body">
+          <div class="cluster" style="margin-bottom:12px">
+            <span class="badge badge-mode screen">Screening</span>
+            <span class="badge badge-outline mono">/candidate/goals</span>
+          </div>
+          <h2 style="font-size:var(--text-lg)">Goals are part of practice mode</h2>
+          <p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:8px">
+            Goals track competency scores over time, and your screening interview with Northwind Health System is not scored for you. There is nothing here to measure progress against — so rather than show you an empty chart, here is the honest version: this feature belongs to practice.
+          </p>
+          <div class="banner banner-info" style="margin-top:var(--sp-4)">
+            <i data-lucide="info" class="ic"></i>
+            <div>Start practising and goals switch on immediately, with everything private to you. Employers never see practice scores, streaks or goals.</div>
+          </div>
+          <div class="cluster" style="margin-top:var(--sp-5)">
+            <a class="btn btn-primary" href="candidate-dashboard.html"><i data-lucide="arrow-left" class="ic ic-sm"></i>Back to your dashboard</a>
+            <a class="btn btn-secondary" href="candidate-start-interview.html?mode=practice">Start a practice interview</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ══════════════════════ CREATE A GOAL ══════════════════════ -->
+<dialog class="dialog" id="dlg-goal" aria-labelledby="dlg-goal-h">
+  <div class="dialog-panel wide">
+    <form id="goal-form" novalidate>
+      <div class="dialog-header">
+        <div>
+          <h2 id="dlg-goal-h">Create a goal</h2>
+          <p class="hint" style="margin-top:4px">Goals only count recorded practice. Nothing here is shared with employers.</p>
+        </div>
+        <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+      </div>
+
+      <div class="dialog-body stack">
+        <fieldset style="border:0;padding:0;margin:0">
+          <legend class="label" style="margin-bottom:8px">Goal type</legend>
+          <div class="grid grid-3">
+            <label class="option-card">
+              <input type="radio" name="gtype" value="competency" checked>
+              <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+              <span class="option-title"><i data-lucide="target" class="ic ic-sm"></i>Competency target</span>
+              <span class="option-desc">Reach a score in one competency, like ownership to 70.</span>
+            </label>
+            <label class="option-card">
+              <input type="radio" name="gtype" value="cadence">
+              <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+              <span class="option-title"><i data-lucide="repeat" class="ic ic-sm"></i>Weekly cadence</span>
+              <span class="option-desc">Record a set number of sessions each week.</span>
+            </label>
+            <label class="option-card">
+              <input type="radio" name="gtype" value="readiness">
+              <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+              <span class="option-title"><i data-lucide="calendar-check" class="ic ic-sm"></i>Ready by a date</span>
+              <span class="option-desc">A dated goal with milestones, for a real interview.</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="grid grid-2">
+          <div class="field" id="field-comp">
+            <label class="label" for="g-comp">Competency</label>
+            <select class="select" id="g-comp" name="comp"></select>
+            <p class="hint">Prioritisation has too little evidence to score, so a target there means “get it scored at all”.</p>
+          </div>
+
+          <div class="field">
+            <label class="label" for="g-target">Target <span class="optional" id="g-target-unit">score out of 100</span></label>
+            <input class="input" id="g-target" name="target" type="number" min="1" max="100" value="70" required aria-describedby="g-target-err g-target-hint">
+            <p class="hint" id="g-target-hint">Aim for 10 to 15 points above where you are now.</p>
+            <p class="error-text" id="g-target-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter a target between 1 and 100.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="field">
+            <label class="label" for="g-date">Deadline</label>
+            <input class="input" id="g-date" name="deadline" type="date" value="2026-09-30" min="2026-08-24" required aria-describedby="g-date-err">
+            <p class="error-text" id="g-date-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Pick a date in the future.</p>
+          </div>
+          <div class="field">
+            <label class="label" for="g-title">Name <span class="optional">optional</span></label>
+            <input class="input" id="g-title" name="title" type="text" placeholder="e.g. Ready for the Orbital Labs loop" autocomplete="off">
+            <p class="hint">Leave blank and we will name it from the target.</p>
+          </div>
+        </div>
+
+        <hr>
+
+        <label class="switch"><input type="checkbox" id="g-remind" checked><span>Remind me on Sunday evenings if I am behind</span></label>
+        <p class="hint" style="margin-top:-6px">One email a week at most, and only when the goal is actually behind. Change this any time in <a href="candidate-settings.html#notifications">notification settings</a>.</p>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-primary" type="submit"><i data-lucide="plus" class="ic ic-sm"></i>Create goal</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt, Q = Prepeet.query;
+
+  function applyMode() {
+    var mode = Prepeet.getMode();
+    document.querySelectorAll('[data-mode-view]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-mode-view') !== mode;
+    });
+    /* the page header sits outside both views, so keep it honest in screen mode */
+    if (mode === 'screen') {
+      document.getElementById('hdr-create').hidden = true;
+      document.getElementById('hdr-skills').hidden = true;
+      document.getElementById('page-desc').textContent =
+        'Practice goals track competency scores over time. Your screening interview is not scored for you, so there is nothing here to measure yet.';
+    }
+    return mode;
+  }
+
+  function initStates() {
+    var cur = Q.get('state', 'default');
+    if (cur !== 'empty') cur = 'default';
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Q.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(cur);
+  }
+
+  function fillCompetencies() {
+    var sel = document.getElementById('g-comp');
+    sel.innerHTML = D.competencies.map(function (c) {
+      var now = c.score == null ? 'not scored yet' : 'now ' + c.score;
+      return '<option value="' + c.id + '">' + c.name + ' (' + now + ')</option>';
+    }).join('');
+    sel.value = 'ownership';
+  }
+
+  /* Goal type changes which fields make sense */
+  function syncType() {
+    var type = document.querySelector('input[name="gtype"]:checked').value;
+    var compField = document.getElementById('field-comp');
+    var unit = document.getElementById('g-target-unit');
+    var target = document.getElementById('g-target');
+    var hint = document.getElementById('g-target-hint');
+    compField.hidden = type !== 'competency';
+    if (type === 'cadence') {
+      unit.textContent = 'sessions per week';
+      target.value = '3'; target.max = '14';
+      hint.textContent = 'Three a week is the most common choice, and the one people actually keep.';
+    } else if (type === 'readiness') {
+      unit.textContent = 'overall readiness out of 100';
+      target.value = '80'; target.max = '100';
+      hint.textContent = 'Readiness combines every scored competency, weighted by the rubric for your target role.';
+    } else {
+      unit.textContent = 'score out of 100';
+      target.value = '70'; target.max = '100';
+      hint.textContent = 'Aim for 10 to 15 points above where you are now.';
+    }
+  }
+
+  function niceDate(iso) {
+    if (!iso) return '';
+    try { return F.date(iso); } catch (e) { return iso; }
+  }
+
+  function addGoal(data) {
+    var list = document.getElementById('goal-list');
+    var art = document.createElement('article');
+    art.className = 'card';
+    art.setAttribute('data-goal', '');
+    var badge = data.type === 'cadence'
+      ? '<span class="badge badge-accent"><i data-lucide="repeat" class="ic-sm ic"></i>Cadence</span>'
+      : data.type === 'readiness'
+        ? '<span class="badge badge-success"><i data-lucide="calendar-check" class="ic-sm ic"></i>Readiness</span>'
+        : '<span class="badge badge-primary"><i data-lucide="target" class="ic-sm ic"></i>Competency</span>';
+
+    var practiseHref = data.type === 'competency'
+      ? 'candidate-start-interview.html?focus=' + data.compId
+      : 'candidate-start-interview.html';
+    var evidenceHref = data.type === 'competency'
+      ? 'candidate-skills.html#' + data.compId
+      : 'candidate-skills.html';
+
+    art.innerHTML =
+      '<div class="card-body">' +
+        '<div class="between" style="align-items:flex-start">' +
+          '<div>' +
+            '<div class="cluster">' + badge +
+              '<span class="badge badge-outline">By ' + niceDate(data.deadline) + '</span>' +
+              '<span class="badge badge-success"><i data-lucide="sparkles" class="ic-sm ic"></i>New</span>' +
+            '</div>' +
+            '<h3 style="font-size:var(--text-base);margin-top:8px"></h3>' +
+            '<p class="hint" style="margin-top:4px">Created today, 23 August 2026. Nothing counted towards it yet.</p>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-top:14px">' +
+          '<div class="between" style="margin-bottom:6px"><span class="hint">' + data.nowLabel + '</span><span class="hint">Target ' + data.target + (data.type === 'cadence' ? ' a week' : '') + '</span></div>' +
+          '<div class="progress"><span style="width:0%"></span></div>' +
+          '<p class="hint" style="margin-top:6px">0% — record a session to start moving this.</p>' +
+        '</div>' +
+        '<div class="cluster" style="margin-top:14px">' +
+          '<a class="btn btn-sm btn-primary" href="' + practiseHref + '"><i data-lucide="circle-play" class="ic ic-sm"></i>Practise this</a>' +
+          '<a class="btn btn-sm btn-ghost" href="' + evidenceHref + '">Evidence so far</a>' +
+        '</div>' +
+      '</div>';
+    art.querySelector('h3').textContent = data.title;
+    list.insertBefore(art, list.firstChild);
+
+    var count = list.querySelectorAll('[data-goal]').length;
+    document.getElementById('goal-count').textContent = count + ' active';
+    Prepeet.init(art);
+    art.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var mode = applyMode();
+    fillCompetencies();
+    syncType();
+    if (mode === 'practice') initStates();
+    Prepeet.init();
+
+    document.querySelectorAll('input[name="gtype"]').forEach(function (r) {
+      r.addEventListener('change', syncType);
+    });
+
+    document.getElementById('goal-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var form = e.target;
+      if (!Prepeet.validate(form)) return;
+
+      var type = form.querySelector('input[name="gtype"]:checked').value;
+      var target = document.getElementById('g-target').value;
+      var deadline = document.getElementById('g-date').value;
+      var custom = document.getElementById('g-title').value.trim();
+      var compSel = document.getElementById('g-comp');
+      var compId = compSel.value;
+      var comp = D.competencies.filter(function (c) { return c.id === compId; })[0];
+
+      var title = custom || (
+        type === 'cadence' ? target + ' practice sessions a week'
+        : type === 'readiness' ? 'Overall readiness to ' + target
+        : comp.name + ' to ' + target
+      );
+      var nowLabel = type === 'cadence' ? 'This week 0'
+        : type === 'readiness' ? 'Now 72'
+        : (comp.score == null ? 'Not scored yet' : 'Now ' + comp.score);
+
+      addGoal({ type: type, target: target, deadline: deadline, title: title, compId: compId, nowLabel: nowLabel });
+
+      Prepeet.closeDialog('dlg-goal');
+      Prepeet.toast({ title: 'Goal created', desc: title + ' · due ' + niceDate(deadline), kind: 'success' });
+      Prepeet.announce('Goal created: ' + title + '. Added to your supporting goals.');
+
+      if (document.getElementById('g-remind').checked) {
+        setTimeout(function () {
+          Prepeet.toast({ title: 'Sunday reminder on', desc: 'We will nudge you only if this goal falls behind.', kind: 'info', duration: 4000 });
+        }, 900);
+      }
+
+      /* If the reviewer was looking at the empty state, a new goal means it is no longer empty */
+      var emptyBlock = document.querySelector('[data-state="empty"]');
+      if (emptyBlock && !emptyBlock.hidden) {
+        document.querySelector('[data-state-btn="default"]').click();
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

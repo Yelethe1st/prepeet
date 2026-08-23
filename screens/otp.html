@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enter your one-time code · Prepeet</title>
+<meta name="description" content="Enter the six-digit code Prepeet emailed you to finish signing in, or use a recovery code instead.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <div class="cluster">
+    <span class="hint sr-only">Preview state</span>
+    <div class="segmented" role="group" aria-label="Preview screen state">
+      <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+      <button type="button" data-state-btn="error" aria-pressed="false">Wrong code</button>
+      <button type="button" data-state-btn="locked" aria-pressed="false">Locked</button>
+    </div>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</div>
+
+<main class="auth-card" id="main-content">
+  <span class="badge badge-outline mono" style="margin-bottom:12px">/otp</span>
+  <h1>Enter your one-time code</h1>
+  <p class="lead">We emailed a six-digit code to <span class="mono" id="otp-email">d•••••••••o@example.com</span>. It is valid for 10 minutes.</p>
+
+  <!-- Wrong code -->
+  <div class="banner banner-danger" id="otp-error" hidden role="alert" style="margin-bottom:18px">
+    <i data-lucide="x-octagon" class="ic"></i>
+    <div>
+      <strong>That code is not right.</strong>
+      <p style="margin-top:4px;line-height:1.5" id="otp-error-detail">Check the most recent email — older codes stop working as soon as a new one is sent. <span id="otp-attempts">2 attempts remaining.</span></p>
+    </div>
+  </div>
+
+  <!-- Locked -->
+  <div class="banner banner-warning" id="otp-locked" hidden role="alert" style="margin-bottom:18px">
+    <i data-lucide="lock" class="ic"></i>
+    <div>
+      <strong>Too many incorrect codes.</strong>
+      <p style="margin-top:4px;line-height:1.5">Code entry is paused for 15 minutes on this account. You can still sign in with a recovery code, or reset your password.</p>
+      <div class="cluster" style="margin-top:10px">
+        <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="recovery-dialog">Use a recovery code</button>
+        <a class="btn btn-sm btn-ghost" href="forgot-password.html">Reset my password</a>
+      </div>
+    </div>
+  </div>
+
+  <form id="otp-form">
+    <fieldset style="border:0;padding:0;margin:0">
+      <legend class="label" style="margin-bottom:8px" id="otp-legend">Six-digit code</legend>
+      <div class="otp" id="otp-boxes" role="group" aria-labelledby="otp-legend" aria-describedby="otp-help">
+        <input class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="Digit 1 of 6" data-otp="0">
+        <input class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 2 of 6" data-otp="1">
+        <input class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 3 of 6" data-otp="2">
+        <input class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 4 of 6" data-otp="3">
+        <input class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 5 of 6" data-otp="4">
+        <input class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit 6 of 6" data-otp="5">
+      </div>
+      <p class="hint" id="otp-help" style="margin-top:10px">
+        Type the digits, or paste the whole code into any box. Use the left and right arrow keys to move between boxes and backspace to correct.
+      </p>
+      <p class="hint" role="status" aria-live="polite" id="otp-progress" style="margin-top:2px">0 of 6 digits entered.</p>
+    </fieldset>
+
+    <button class="btn btn-primary btn-lg btn-block" type="submit" id="otp-verify" disabled style="margin-top:18px">
+      Verify and sign in
+    </button>
+  </form>
+
+  <!-- Resend -->
+  <div class="card card-subtle" style="margin-top:18px">
+    <div class="card-body">
+      <div class="between" style="gap:12px">
+        <div style="min-width:0">
+          <strong style="font-size:var(--text-sm)">Code not arrived?</strong>
+          <p class="hint" style="margin-top:2px">Sending a new code cancels the previous one immediately.</p>
+        </div>
+        <button class="btn btn-secondary" type="button" id="resend-btn" disabled aria-describedby="resend-status">
+          <i data-lucide="send" class="ic ic-sm"></i><span id="resend-label">Resend in 30s</span>
+        </button>
+      </div>
+      <p class="hint" id="resend-status" role="status" aria-live="polite" style="margin-top:8px">A new code can be sent in 30 seconds.</p>
+    </div>
+  </div>
+
+  <div class="banner banner-info" style="margin-top:18px">
+    <i data-lucide="flask-conical" class="ic"></i>
+    <div>Prototype note: the code that works here is <strong class="mono">318204</strong>. Anything else shows the failure path.</div>
+  </div>
+
+  <hr style="margin:22px 0">
+
+  <ul class="stack-sm" style="font-size:var(--text-sm)">
+    <li class="row" style="gap:8px"><i data-lucide="shield-check" class="ic ic-sm" style="color:var(--fg-3)"></i>
+      <button class="link" type="button" data-dialog-open="recovery-dialog"
+              style="color:var(--primary);font-weight:600;font-size:var(--text-sm);text-decoration:underline;text-underline-offset:2px">Use a recovery code instead</button></li>
+    <li class="row" style="gap:8px"><i data-lucide="mail" class="ic ic-sm" style="color:var(--fg-3)"></i>
+      <a href="check-email.html?for=magic">Email me a sign-in link instead</a></li>
+    <li class="row" style="gap:8px"><i data-lucide="arrow-left" class="ic ic-sm" style="color:var(--fg-3)"></i>
+      <a href="login.html">Back to sign in</a></li>
+  </ul>
+</main>
+
+<!-- ─────────── Recovery code dialog ─────────── -->
+<dialog class="dialog" id="recovery-dialog" aria-labelledby="recovery-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div>
+        <h2 id="recovery-h">Use a recovery code</h2>
+        <p class="hint" style="margin-top:4px">One of the ten codes you saved when you turned on two-step sign-in.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form id="recovery-form">
+      <div class="dialog-body stack">
+        <div class="field">
+          <label class="label" for="recovery-code">Recovery code</label>
+          <input class="input mono" id="recovery-code" name="recovery" type="text" required
+                 pattern="[A-Za-z0-9]{4}-?[A-Za-z0-9]{4}" placeholder="7fq2-k9wd"
+                 autocomplete="off" spellcheck="false" aria-describedby="recovery-hint recovery-err">
+          <p class="hint" id="recovery-hint">Eight characters, usually written with a hyphen in the middle. Each code works once.</p>
+          <p class="error-text" id="recovery-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Recovery codes look like <span class="mono">7fq2-k9wd</span>. Check for a typo.</p>
+        </div>
+        <div class="banner">
+          <i data-lucide="info" class="ic"></i>
+          <div>Using a code leaves you with fewer spares. Generate a new set afterwards in <a href="candidate-settings.html#security">security settings</a>.</div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Sign in with this code</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<footer class="auth-foot" style="justify-content:center">
+  <span>© 2026 Prepeet</span>
+  <a href="index.html">About Prepeet</a>
+  <a href="login.html">Sign in</a>
+  <a href="screens.html">Prototype index</a>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var GOOD = '318204';
+  var COOLDOWN = 30;
+  var MAX_ATTEMPTS = 3;
+
+  var boxes = [], attempts = 0, timer = null, remaining = COOLDOWN, locked = false;
+
+  function value() { return boxes.map(function (b) { return b.value; }).join(''); }
+  function filled() { return boxes.filter(function (b) { return b.value !== ''; }).length; }
+
+  function refresh() {
+    var n = filled();
+    document.getElementById('otp-progress').textContent = n + ' of 6 digits entered.' + (n === 6 ? ' Ready to verify.' : '');
+    document.getElementById('otp-verify').disabled = (n !== 6) || locked;
+  }
+
+  function clearError() {
+    document.getElementById('otp-error').hidden = true;
+    boxes.forEach(function (b) { b.setAttribute('aria-invalid', 'false'); });
+  }
+
+  function showError(detail) {
+    var left = MAX_ATTEMPTS - attempts;
+    document.getElementById('otp-error').hidden = false;
+    document.getElementById('otp-attempts').textContent = left === 1
+      ? 'One attempt remaining before code entry is paused.'
+      : left + ' attempts remaining.';
+    if (detail) document.getElementById('otp-error-detail').firstChild.nodeValue = detail + ' ';
+    boxes.forEach(function (b) { b.setAttribute('aria-invalid', 'true'); });
+    Prepeet.announce('That code is not right. ' + left + ' attempts remaining.');
+    boxes[0].focus(); boxes[0].select();
+  }
+
+  function lock() {
+    locked = true;
+    document.getElementById('otp-error').hidden = true;
+    document.getElementById('otp-locked').hidden = false;
+    boxes.forEach(function (b) { b.disabled = true; });
+    document.getElementById('otp-verify').disabled = true;
+    Prepeet.announce('Too many incorrect codes. Code entry is paused for 15 minutes.');
+  }
+
+  function fill(code) {
+    var digits = String(code).replace(/\D/g, '').slice(0, 6).split('');
+    boxes.forEach(function (b, i) { b.value = digits[i] || ''; });
+    var last = Math.min(digits.length, 5);
+    boxes[last].focus();
+    refresh();
+    if (digits.length === 6) Prepeet.announce('Six digits pasted. Press verify to continue.');
+  }
+
+  function wire() {
+    boxes.forEach(function (box, i) {
+      box.addEventListener('input', function () {
+        clearError();
+        var v = box.value.replace(/\D/g, '');
+        if (v.length > 1) { fill(v); return; }
+        box.value = v;
+        if (v && i < 5) boxes[i + 1].focus();
+        refresh();
+      });
+
+      box.addEventListener('keydown', function (e) {
+        if (e.key === 'Backspace') {
+          if (box.value === '' && i > 0) {
+            e.preventDefault();
+            boxes[i - 1].value = '';
+            boxes[i - 1].focus();
+            refresh();
+          }
+          return;
+        }
+        if (e.key === 'ArrowLeft' && i > 0) { e.preventDefault(); boxes[i - 1].focus(); boxes[i - 1].select(); }
+        if (e.key === 'ArrowRight' && i < 5) { e.preventDefault(); boxes[i + 1].focus(); boxes[i + 1].select(); }
+        if (e.key === 'Home') { e.preventDefault(); boxes[0].focus(); }
+        if (e.key === 'End') { e.preventDefault(); boxes[5].focus(); }
+        if (e.key === 'Delete') { box.value = ''; refresh(); }
+      });
+
+      box.addEventListener('focus', function () { box.select(); });
+
+      box.addEventListener('paste', function (e) {
+        e.preventDefault();
+        clearError();
+        fill((e.clipboardData || window.clipboardData).getData('text'));
+      });
+    });
+  }
+
+  /* ---------- resend cooldown ---------- */
+  function tick() {
+    remaining -= 1;
+    var label = document.getElementById('resend-label');
+    var status = document.getElementById('resend-status');
+    if (remaining > 0) {
+      label.textContent = 'Resend in ' + remaining + 's';
+      if (remaining === 15 || remaining === 5) status.textContent = 'A new code can be sent in ' + remaining + ' seconds.';
+      return;
+    }
+    clearInterval(timer); timer = null;
+    document.getElementById('resend-btn').disabled = false;
+    label.textContent = 'Send a new code';
+    status.textContent = 'You can request a new code now.';
+    Prepeet.announce('You can now request a new code.');
+  }
+
+  function startCooldown() {
+    remaining = COOLDOWN;
+    document.getElementById('resend-btn').disabled = true;
+    document.getElementById('resend-label').textContent = 'Resend in ' + COOLDOWN + 's';
+    document.getElementById('resend-status').textContent = 'A new code can be sent in ' + COOLDOWN + ' seconds.';
+    if (timer) clearInterval(timer);
+    timer = setInterval(tick, 1000);
+  }
+
+  /* ---------- preview states ---------- */
+  function apply(state) {
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === state));
+    });
+    Prepeet.query.set({ state: state === 'default' ? null : state }, true);
+
+    locked = false;
+    boxes.forEach(function (b) { b.disabled = false; b.value = ''; b.setAttribute('aria-invalid', 'false'); });
+    document.getElementById('otp-locked').hidden = true;
+    document.getElementById('otp-error').hidden = true;
+
+    if (state === 'error') { attempts = 1; fill('318199'); showError('Check the most recent email — older codes stop working as soon as a new one is sent.'); }
+    else if (state === 'locked') { attempts = MAX_ATTEMPTS; lock(); }
+    else { attempts = 0; refresh(); boxes[0].focus(); }
+    refresh();
+    Prepeet.init();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-state-btn]');
+    if (b) { apply(b.getAttribute('data-state-btn')); return; }
+    if (e.target.closest('#resend-btn')) {
+      Prepeet.toast({ title: 'New code sent', desc: 'The previous code stopped working just now.', kind: 'success' });
+      Prepeet.announce('A new six-digit code has been sent.');
+      boxes.forEach(function (b2) { b2.value = ''; });
+      clearError(); refresh(); startCooldown(); boxes[0].focus();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+
+    var raw = Prepeet.data.candidateUser.email;
+    var local = raw.split('@')[0];
+    document.getElementById('otp-email').textContent =
+      local.charAt(0) + new Array(local.length - 1).join('•') + local.charAt(local.length - 1) + '@' + raw.split('@')[1];
+
+    boxes = Array.prototype.slice.call(document.querySelectorAll('[data-otp]'));
+    wire();
+
+    document.getElementById('otp-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (locked) return;
+      if (value() === GOOD) {
+        var btn = document.getElementById('otp-verify');
+        btn.classList.add('is-loading');
+        Prepeet.announce('Code accepted. Signing you in.');
+        setTimeout(function () { location.href = 'candidate-dashboard.html'; }, 900);
+        return;
+      }
+      attempts += 1;
+      if (attempts >= MAX_ATTEMPTS) { lock(); return; }
+      showError();
+    });
+
+    document.getElementById('recovery-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var input = document.getElementById('recovery-code');
+      var ok = input.checkValidity();
+      input.setAttribute('aria-invalid', ok ? 'false' : 'true');
+      document.getElementById('recovery-err').hidden = ok;
+      if (!ok) { input.focus(); return; }
+      Prepeet.closeDialog('recovery-dialog');
+      Prepeet.toast({ title: 'Recovery code accepted', desc: 'Nine codes left. Generate a new set in security settings.', kind: 'success' });
+      setTimeout(function () { location.href = 'candidate-dashboard.html'; }, 1200);
+    });
+
+    startCooldown();
+    var st = Prepeet.query.get('state', 'default');
+    apply(['error', 'locked'].indexOf(st) === -1 ? 'default' : st);
+  });
+})();
+</script>
+</body>
+</html>

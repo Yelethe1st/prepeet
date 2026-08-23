@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en" data-theme-default="light" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session analytics · Prepeet</title>
+<meta name="description" content="Cross-tenant session analytics: abandonment by phase, duration distribution, realtime connection health and per-region latency.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* ---- page-scoped: session analytics ---- */
+.pf-bar { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); box-shadow:var(--shadow-xs); }
+.pf-bar .pf-field { display:flex; align-items:center; gap:6px; min-width:0; }
+.pf-bar .pf-field > label { font-size:var(--text-2xs); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--fg-3); white-space:nowrap; }
+.pf-bar .select { min-width:0; }
+.pf-updated { display:flex; align-items:center; gap:8px; font-size:var(--text-xs); color:var(--fg-3); margin-left:auto; }
+@media (max-width:700px){ .pf-updated { margin-left:0; width:100%; } .pf-bar .pf-field { flex:1 1 auto; } }
+.chart-svg { width:100%; height:auto; display:block; }
+.chart-min { min-width:640px; } .chart-min-sm { min-width:420px; }
+.ax { fill:var(--fg-3); font-size:10px; font-family:var(--font-sans); }
+.axl { stroke:var(--border); stroke-width:1; }
+.axl-base { stroke:var(--border-strong); stroke-width:1; }
+.c1{fill:var(--chart-1)} .c2{fill:var(--chart-2)} .c3{fill:var(--chart-3)} .c4{fill:var(--chart-4)} .c5{fill:var(--chart-5)} .c6{fill:var(--chart-6)} .c7{fill:var(--chart-7)}
+.bar-val { fill:var(--fg-2); font-size:10px; font-weight:600; font-family:var(--font-sans); }
+.bar-lbl { fill:var(--fg); font-size:11px; font-weight:600; font-family:var(--font-sans); }
+.dim { color:var(--fg-3); }
+.aq { display:inline-flex; align-items:center; gap:5px; font-size:var(--text-2xs); font-weight:650; }
+.aq::before { content:""; width:8px; height:8px; border-radius:2px; background:var(--chart-7); }
+.aq.good::before { background:var(--success); } .aq.fair::before { background:var(--warning); } .aq.poor::before { background:var(--danger); }
+.regbar { height:10px; border-radius:999px; background:var(--surface-3); overflow:hidden; }
+.regbar > span { display:block; height:100%; border-radius:999px; }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="pf-sessions" data-title="Session analytics"
+      data-crumbs="Platform>admin-dashboard.html|Analytics>admin-platform-analytics.html" data-search="off">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content dense" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Platform · cross-tenant</p>
+        <h1>Session analytics</h1>
+        <p class="page-desc">How realtime interview sessions actually run: where candidates drop out, how long sessions last, and how the transport behaves per region.</p>
+        <div class="cluster" style="margin-top:8px">
+          <span class="badge badge-outline mono">/admin/platform/analytics/sessions</span>
+          <span class="badge badge-privileged"><i data-lucide="shield" class="ic-sm ic"></i>Platform admin</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-sm btn-secondary" href="admin-platform-analytics.html"><i data-lucide="bar-chart-3" class="ic ic-sm"></i>Platform analytics</a>
+        <a class="btn btn-sm btn-secondary" href="admin-platform-system.html"><i data-lucide="server" class="ic ic-sm"></i>System health</a>
+      </div>
+    </div>
+
+    <div class="cluster" style="margin-bottom:var(--sp-4)">
+      <span class="hint">Preview state</span>
+      <div class="segmented" role="group" aria-label="Preview screen state">
+        <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+        <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+        <button type="button" data-state-btn="degraded" aria-pressed="false">Degraded</button>
+        <button type="button" data-state-btn="incident" aria-pressed="false">Incident</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ FILTER BAR ═══════════════ -->
+    <section class="pf-bar" aria-label="Analytics filters" style="margin-bottom:var(--sp-4)">
+      <div class="pf-field">
+        <label for="f-range">Range</label>
+        <select class="select input-sm" id="f-range">
+          <option value="24h">Last 24 hours</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d" selected>Last 30 days</option>
+          <option value="90d">Last 90 days</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div class="pf-field" id="f-custom-wrap" hidden>
+        <label for="f-from">From</label>
+        <input class="input input-sm" id="f-from" type="date" value="2026-06-01" style="width:auto">
+        <label for="f-to">To</label>
+        <input class="input input-sm" id="f-to" type="date" value="2026-08-23" style="width:auto">
+      </div>
+      <div class="pf-field">
+        <label for="f-tenant">Tenant</label>
+        <select class="select input-sm" id="f-tenant"><option value="all">All tenants</option></select>
+      </div>
+      <div class="pf-field">
+        <label class="switch" for="f-compare"><input type="checkbox" id="f-compare"><span>Compare with previous period</span></label>
+      </div>
+      <p class="pf-updated" role="status">
+        <span class="status-dot ok" aria-hidden="true"></span>
+        <span>Updated <time id="f-updated" datetime="2026-08-23T18:42">23 Aug 2026, 18:42 UTC</time></span>
+        <button class="btn btn-sm btn-ghost" type="button" id="f-refresh"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Refresh</button>
+      </p>
+    </section>
+
+    <!-- ═══════════════ STATE BANNERS ═══════════════ -->
+    <div class="banner banner-warning" data-state="degraded" hidden role="status" style="margin-bottom:var(--sp-4)">
+      <i data-lucide="alert-triangle" class="ic"></i>
+      <div>
+        <strong>Partial data.</strong> The realtime telemetry pipeline dropped events between 11:20 and 13:05 UTC while the ingest workers were rolling. Connection health, reconnect rate and per-region latency for that window are missing — panels built on them are marked <span class="badge badge-warning">Partial</span>. Session counts, durations and abandonment come from the transactional store and are complete.
+      </div>
+      <div class="banner-actions"><a class="btn btn-sm btn-secondary" href="admin-platform-system.html">Pipeline status</a></div>
+    </div>
+
+    <div class="banner banner-danger" data-state="incident" hidden role="status" style="margin-bottom:var(--sp-4)">
+      <i data-lucide="siren" class="ic"></i>
+      <div>
+        <strong>Active incident INC-2041 · AP Sydney media relay saturated.</strong> Started 16:52 UTC, 1h 50m ago. Candidates routed through <span class="mono">ap-syd-1</span> are seeing failed ICE negotiation and mid-session reconnects. <strong>Every metric below is affected</strong>: reconnect rate, abandonment in the device-check phase and AP Sydney latency are all elevated against baseline and should not be read as a trend. 214 sessions have been re-routed to <span class="mono">ap-syd-2</span> since 17:30.
+      </div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-danger" href="admin-platform-system.html">Incident board</a>
+        <button class="btn btn-sm btn-ghost" type="button" data-toast="Subscribed to INC-2041 updates" data-toast-kind="info">Subscribe</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ LOADING ═══════════════ -->
+    <div data-state="loading" hidden aria-busy="true">
+      <div class="metrics-row" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+      </div>
+      <div class="grid grid-2" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-block" style="height:200px;margin-top:12px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-block" style="height:200px;margin-top:12px"></div></div></div>
+      </div>
+      <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-25"></div><div class="skeleton skeleton-block" style="height:220px;margin-top:12px"></div></div></div>
+      <p class="hint" style="text-align:center;margin-top:12px">Reading session telemetry for the selected range…</p>
+    </div>
+
+    <!-- ═══════════════ MAIN (shown in default, degraded and incident) ═══════════════ -->
+    <div data-state="default degraded incident">
+
+      <h2 class="sr-only">Session headline metrics</h2>
+      <div class="metrics-row" style="margin-bottom:var(--sp-5)">
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Sessions started</span><span class="metric-value tnum">9,001</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+12.4%</span>
+          <span class="metric-foot" data-compare hidden>Previous period 8,008</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Completed</span><span class="metric-value tnum">7,867</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>87.4% of started</span>
+          <span class="metric-foot" data-compare hidden>Previous period 6,903 · 86.2%</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Abandoned</span><span class="metric-value tnum">738</span>
+          <span class="metric-delta down"><i data-lucide="arrow-down-right" class="ic-sm ic"></i>8.2% abandonment rate</span>
+          <span class="metric-foot" data-compare hidden>Previous period 776 · 9.7%</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Median duration</span><span class="metric-value tnum">26m 40s</span>
+          <span class="metric-delta flat"><i data-lucide="minus" class="ic-sm ic"></i>−40s</span>
+          <span class="metric-foot" data-compare hidden>Previous period 27m 20s</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Median time to first response</span><span class="metric-value tnum">4.2s</span>
+          <span class="metric-delta up"><i data-lucide="arrow-down-right" class="ic-sm ic"></i>−0.6s</span>
+          <span class="metric-foot" data-compare hidden>Previous period 4.8s</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Realtime reconnect rate <span class="badge badge-warning" data-degraded hidden>Partial</span></span>
+          <span class="metric-value tnum">3.1%</span>
+          <span class="metric-delta down"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+0.4 pts · 279 sessions</span>
+          <span class="metric-foot" data-compare hidden>Previous period 2.7%</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Degraded audio <span class="badge badge-warning" data-degraded hidden>Partial</span></span>
+          <span class="metric-value tnum">1.4%</span>
+          <span class="metric-delta flat"><i data-lucide="minus" class="ic-sm ic"></i>126 sessions</span>
+          <span class="metric-foot" data-compare hidden>Previous period 1.5%</span></div></div>
+      </div>
+
+      <!-- Abandonment + duration -->
+      <div class="grid grid-2" style="margin-bottom:var(--sp-5)">
+        <section class="card" aria-labelledby="ab-h">
+          <div class="card-header">
+            <div>
+              <h2 id="ab-h">Where candidates drop out</h2>
+              <p class="hint" style="margin-top:3px">738 abandoned sessions by the phase they were in when the connection ended.</p>
+            </div>
+            <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="ab-table" aria-expanded="false" aria-controls="ab-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+          </div>
+          <div class="card-body">
+            <div id="ab-chart"></div>
+            <p class="chart-summary" id="ab-summary">Text summary: loading.</p>
+            <div class="banner banner-info" style="margin-top:var(--sp-3)">
+              <i data-lucide="lightbulb" class="ic"></i>
+              <div>Over half of all abandonment (398 of 738, 53.9%) happens before the first real question. That is a setup problem — microphone permission, device choice and consent — not a sign that candidates find the questions hard.</div>
+            </div>
+            <div id="ab-table" hidden style="margin-top:var(--sp-3)">
+              <div class="table-wrap"><table class="table table-dense table-responsive">
+                <caption class="sr-only">Abandoned sessions by phase</caption>
+                <thead><tr><th scope="col">Phase</th><th scope="col" class="num">Sessions</th><th scope="col" class="num">Share</th><th scope="col" class="num">Median time in</th></tr></thead>
+                <tbody id="ab-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="du-h">
+          <div class="card-header">
+            <div>
+              <h2 id="du-h">Duration distribution</h2>
+              <p class="hint" style="margin-top:3px">7,867 completed sessions, bucketed by wall-clock length.</p>
+            </div>
+            <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="du-table" aria-expanded="false" aria-controls="du-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+          </div>
+          <div class="card-body">
+            <div class="scroll-x"><div class="chart-min-sm" id="du-chart"></div></div>
+            <p class="chart-summary" id="du-summary">Text summary: loading.</p>
+            <div id="du-table" hidden style="margin-top:var(--sp-3)">
+              <div class="table-wrap"><table class="table table-dense table-responsive">
+                <caption class="sr-only">Completed sessions by duration bucket</caption>
+                <thead><tr><th scope="col">Duration</th><th scope="col" class="num">Sessions</th><th scope="col" class="num">Share</th></tr></thead>
+                <tbody id="du-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Realtime health -->
+      <section class="card" aria-labelledby="rt-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="rt-h">Realtime session health <span class="badge badge-warning" data-degraded hidden>Partial</span></h2>
+            <p class="hint" style="margin-top:3px">Transport-level behaviour of live interview connections over the last 24 hours.</p>
+          </div>
+          <a class="btn btn-sm btn-secondary" href="admin-platform-system.html"><i data-lucide="activity" class="ic ic-sm"></i>Live infrastructure</a>
+        </div>
+        <div class="card-body stack-lg">
+
+          <div>
+            <div class="between" style="margin-bottom:8px">
+              <h3 style="font-size:var(--text-sm)">Concurrent sessions, last 24 hours</h3>
+              <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="cc-table" aria-expanded="false" aria-controls="cc-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+            </div>
+            <div class="scroll-x"><div class="chart-min" id="cc-chart"></div></div>
+            <p class="hint" style="margin-top:6px">Twenty-four hourly points scroll sideways rather than stacking — the shape of the daily peak is the whole point of the chart.</p>
+            <p class="chart-summary" id="cc-summary">Text summary: loading.</p>
+            <div id="cc-table" hidden style="margin-top:var(--sp-3)">
+              <div class="scroll-x table-wrap"><table class="table table-dense">
+                <caption class="sr-only">Concurrent sessions per hour, last 24 hours UTC</caption>
+                <thead><tr><th scope="col">Hour (UTC)</th><th scope="col" class="num">Concurrent sessions</th></tr></thead>
+                <tbody id="cc-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="grid grid-3">
+            <div class="card card-subtle"><div class="metric metric-dense">
+              <span class="metric-label">Peak concurrency</span><span class="metric-value tnum">412</span>
+              <span class="metric-foot">14:00–15:00 UTC · 68% of the 600-session soft cap</span></div></div>
+            <div class="card card-subtle"><div class="metric metric-dense">
+              <span class="metric-label">Connection failures</span><span class="metric-value tnum">284</span>
+              <span class="metric-foot">3.2% of session starts in the last 30 days</span></div></div>
+            <div class="card card-subtle"><div class="metric metric-dense">
+              <span class="metric-label">Mid-session reconnects</span><span class="metric-value tnum">279</span>
+              <span class="metric-foot">3.1% of sessions · 94% recovered within 5s</span></div></div>
+          </div>
+
+          <div class="grid grid-2">
+            <div>
+              <div class="between" style="margin-bottom:8px">
+                <h3 style="font-size:var(--text-sm)">Connection-failure reasons</h3>
+                <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="cf-table" aria-expanded="false" aria-controls="cf-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+              </div>
+              <div id="cf-chart"></div>
+              <p class="chart-summary" id="cf-summary">Text summary: loading.</p>
+              <div id="cf-table" hidden style="margin-top:var(--sp-3)">
+                <div class="table-wrap"><table class="table table-dense table-responsive">
+                  <caption class="sr-only">Connection failures by reason</caption>
+                  <thead><tr><th scope="col">Reason</th><th scope="col" class="num">Count</th><th scope="col" class="num">Share</th></tr></thead>
+                  <tbody id="cf-tbody"></tbody>
+                </table></div>
+              </div>
+            </div>
+
+            <div>
+              <h3 style="font-size:var(--text-sm);margin-bottom:8px">Median round-trip latency by region</h3>
+              <div class="table-wrap"><table class="table table-dense">
+                <caption class="sr-only">Median and 95th-percentile round-trip latency by media region</caption>
+                <thead><tr><th scope="col">Region</th><th scope="col">p50</th><th scope="col" class="num">p95</th><th scope="col" class="num">Sessions</th></tr></thead>
+                <tbody id="rt-tbody"></tbody>
+              </table></div>
+              <p class="chart-summary" id="rt-summary">Text summary: loading.</p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Shape & persona -->
+      <section class="card" aria-labelledby="sp-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="sp-h">By interview shape and persona</h2>
+            <p class="hint" style="margin-top:3px">Completion rate and median duration, last 30 days.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="banner banner-info" style="margin-bottom:var(--sp-4)">
+            <i data-lucide="info" class="ic"></i>
+            <div><strong>Read these as format effects, not candidate effects.</strong> A panel simulation runs 44 minutes with eight questions and a sceptical chair; a recruiter screen runs 15 minutes with four. Lower completion on the longer formats reflects how much time and stamina the format demands. Nothing here says anything about the ability of the candidates who chose or were assigned each format.</div>
+          </div>
+          <div class="grid grid-2">
+            <div>
+              <h3 style="font-size:var(--text-sm);margin-bottom:8px">Interview shape</h3>
+              <div class="table-wrap"><table class="table table-dense table-responsive">
+                <caption class="sr-only">Completion rate and median duration by interview shape</caption>
+                <thead><tr><th scope="col">Shape</th><th scope="col" class="num">Sessions</th><th scope="col" class="num">Completion</th><th scope="col" class="num">Median duration</th></tr></thead>
+                <tbody id="shape-tbody"></tbody>
+              </table></div>
+            </div>
+            <div>
+              <h3 style="font-size:var(--text-sm);margin-bottom:8px">Interviewer persona</h3>
+              <div class="table-wrap"><table class="table table-dense table-responsive">
+                <caption class="sr-only">Completion rate and median duration by interviewer persona</caption>
+                <thead><tr><th scope="col">Persona</th><th scope="col" class="num">Sessions</th><th scope="col" class="num">Completion</th><th scope="col" class="num">Median duration</th></tr></thead>
+                <tbody id="persona-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+          <p class="chart-summary" id="sp-summary">Text summary: loading.</p>
+        </div>
+      </section>
+
+      <!-- Recent sessions -->
+      <section class="card" aria-labelledby="rs-h">
+        <div class="card-header">
+          <div>
+            <h2 id="rs-h">Recent sessions</h2>
+            <p class="hint" style="margin-top:3px">Last 12 sessions across all tenants. Open a row for its technical timeline.</p>
+          </div>
+          <a class="btn btn-sm btn-ghost" href="admin-platform-analytics.html">All-tenant view<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        </div>
+        <div class="card-body">
+          <p class="hint" style="margin-bottom:10px">Nine columns scroll sideways instead of stacking into cards: engineers scan this table down a column looking for the odd row out, and stacking would break that comparison.</p>
+          <div class="scroll-x table-wrap"><table class="table table-dense">
+            <caption class="sr-only">Twelve most recent sessions with technical detail</caption>
+            <thead><tr>
+              <th scope="col">Session</th><th scope="col">Tenant</th><th scope="col">Mode</th><th scope="col">Shape</th>
+              <th scope="col" class="num">Duration</th><th scope="col" class="num">Turns</th>
+              <th scope="col">Status</th><th scope="col">Audio</th><th scope="col" class="td-actions">Detail</th>
+            </tr></thead>
+            <tbody id="rs-tbody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+    </div><!-- /main -->
+
+  </div>
+</main>
+
+<!-- ═══════════════ TECHNICAL TIMELINE DRAWER ═══════════════ -->
+<dialog class="drawer" id="tech-drawer" aria-labelledby="tech-drawer-h">
+  <div class="drawer-panel wide">
+    <div class="drawer-header">
+      <div>
+        <h2 id="tech-drawer-h">Session technical timeline</h2>
+        <p class="hint mono" id="tech-drawer-sub">—</p>
+      </div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close technical timeline"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body" id="tech-drawer-body"></div>
+    <div class="drawer-footer">
+      <button class="btn btn-sm btn-ghost" type="button" data-drawer-close>Close</button>
+      <button class="btn btn-sm btn-secondary" type="button" id="tech-copy" data-copy="ses_">Copy session id</button>
+      <a class="btn btn-sm btn-secondary" href="admin-platform-system.html">Open in system health</a>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt, Q = Prepeet.query;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  /* ── seed series ────────────────────────────────────────────────────── */
+  var ABANDON = [
+    { label: 'Device check & consent', n: 212, median: '1m 05s' },
+    { label: 'Warm-up question', n: 186, median: '3m 20s' },
+    { label: 'Questions 2–3', n: 141, median: '9m 48s' },
+    { label: 'Mid-session (Q4–5)', n: 104, median: '17m 12s' },
+    { label: 'Final question', n: 61, median: '28m 30s' },
+    { label: 'Wrap-up & submit', n: 34, median: '34m 02s' }
+  ];
+  var DURATION = [
+    { label: '0–5m', n: 118 }, { label: '5–10m', n: 264 }, { label: '10–15m', n: 612 },
+    { label: '15–20m', n: 1104 }, { label: '20–25m', n: 1588 }, { label: '25–30m', n: 1742 },
+    { label: '30–35m', n: 1161 }, { label: '35–40m', n: 706 }, { label: '40–50m', n: 424 }, { label: '50m+', n: 148 }
+  ];
+  var CONCURRENCY = [68,52,44,41,48,74,126,198,262,317,358,381,366,392,412,398,362,318,271,236,204,171,132,94];
+  var CONCURRENCY_PREV = [61,48,40,38,44,69,114,181,239,289,326,347,334,357,376,362,330,290,247,215,186,156,120,86];
+  var FAILREASON = [
+    { label: 'ICE negotiation timeout', n: 112 },
+    { label: 'TURN relay allocation failed', n: 68 },
+    { label: 'Client network change mid-session', n: 54 },
+    { label: 'Token expired before connect', n: 31 },
+    { label: 'Server capacity rejection', n: 19 }
+  ];
+  var REGIONS = [
+    { name: 'EU (Frankfurt)', code: 'eu-fra-1', p50: 38, p95: 71, sessions: 4612, kind: 'ok' },
+    { name: 'US East (Virginia)', code: 'us-east-1', p50: 71, p95: 128, sessions: 3106, kind: 'ok' },
+    { name: 'AP (Sydney)', code: 'ap-syd-1', p50: 148, p95: 262, sessions: 1283, kind: 'warn' }
+  ];
+  var SHAPES = [
+    { name: 'Recruiter screen', n: 1842, completion: 93.6, median: '15m 20s' },
+    { name: 'Behavioural', n: 3218, completion: 91.2, median: '23m 10s' },
+    { name: 'Technical deep-dive', n: 2104, completion: 85.4, median: '34m 05s' },
+    { name: 'Case / scenario', n: 1204, completion: 84.1, median: '31m 40s' },
+    { name: 'Panel simulation', n: 633, completion: 79.8, median: '44m 25s' }
+  ];
+  var PERSONAS = [
+    { name: 'Ama · warm and structured', n: 3406, completion: 91.8, median: '24m 50s' },
+    { name: 'Ravi · direct and technical', n: 2588, completion: 84.6, median: '32m 15s' },
+    { name: 'Marcus · sceptical stakeholder', n: 1729, completion: 83.2, median: '29m 30s' },
+    { name: 'Lena · panel chair', n: 1278, completion: 80.9, median: '41m 05s' }
+  ];
+
+  var SESSIONS = [
+    { id: 'ses_7Kq2XA', tenant: 'Prepeet Practice (self-serve)', tid: 'tn_selfserve', mode: 'practice', shape: 'Technical deep-dive', dur: '38m 12s', turns: 14, status: 'complete', audio: 'good', region: 'eu-fra-1', connect: '1.24s', ice: 'connected · host ↔ srflx', reconnects: 0, lag: '310 ms p50 / 690 ms p95', enq: '09:41:22', enqWait: '3.1s', evalMs: '64s' },
+    { id: 'ses_4Bz9QD', tenant: 'Northwind Health System', tid: 'tn_northwind', mode: 'screen', shape: 'Panel simulation', dur: '41m 05s', turns: 22, status: 'complete', audio: 'good', region: 'eu-fra-1', connect: '0.98s', ice: 'connected · host ↔ host', reconnects: 0, lag: '288 ms p50 / 610 ms p95', enq: '11:41:58', enqWait: '2.4s', evalMs: '81s' },
+    { id: 'ses_9Vt4LC', tenant: 'Orbital Labs', tid: 'tn_orbital', mode: 'screen', shape: 'Behavioural', dur: '26m 44s', turns: 16, status: 'complete', audio: 'good', region: 'eu-fra-1', connect: '1.10s', ice: 'connected · host ↔ srflx', reconnects: 0, lag: '302 ms p50 / 655 ms p95', enq: '13:07:11', enqWait: '2.9s', evalMs: '58s' },
+    { id: 'ses_2Hd6RE', tenant: 'Meridian Schools Trust', tid: 'tn_meridian', mode: 'screen', shape: 'Panel simulation', dur: '12m 08s', turns: 5, status: 'abandoned', audio: 'fair', region: 'eu-fra-1', connect: '2.61s', ice: 'connected via relay · srflx ↔ relay', reconnects: 2, lag: '1,180 ms p50 / 2,340 ms p95', enq: null, enqWait: null, evalMs: null },
+    { id: 'ses_5Wp1YF', tenant: 'Caldera Capital', tid: 'tn_caldera', mode: 'screen', shape: 'Case / scenario', dur: '31m 51s', turns: 18, status: 'complete', audio: 'good', region: 'us-east-1', connect: '1.42s', ice: 'connected · host ↔ srflx', reconnects: 0, lag: '355 ms p50 / 720 ms p95', enq: '15:22:40', enqWait: '4.0s', evalMs: '73s' },
+    { id: 'ses_8Jc3TG', tenant: 'Brightpath Commercial', tid: 'tn_brightpath', mode: 'screen', shape: 'Recruiter screen', dur: '15m 22s', turns: 11, status: 'complete', audio: 'fair', region: 'us-east-1', connect: '1.86s', ice: 'connected · srflx ↔ srflx', reconnects: 1, lag: '640 ms p50 / 1,410 ms p95', enq: '15:48:03', enqWait: '3.4s', evalMs: '69s' },
+    { id: 'ses_6Ly0NH', tenant: 'Prepeet Practice (self-serve)', tid: 'tn_selfserve', mode: 'practice', shape: 'Technical deep-dive', dur: '35m 03s', turns: 19, status: 'complete', audio: 'good', region: 'eu-fra-1', connect: '1.05s', ice: 'connected · host ↔ host', reconnects: 0, lag: '295 ms p50 / 640 ms p95', enq: '16:30:19', enqWait: '2.7s', evalMs: '61s' },
+    { id: 'ses_1Ab5VJ', tenant: 'Northwind Health System', tid: 'tn_northwind', mode: 'screen', shape: 'Behavioural', dur: '22m 17s', turns: 13, status: 'complete', audio: 'good', region: 'eu-fra-1', connect: '0.91s', ice: 'connected · host ↔ host', reconnects: 0, lag: '280 ms p50 / 590 ms p95', enq: '16:59:44', enqWait: '2.2s', evalMs: '55s' },
+    { id: 'ses_0Fg7WK', tenant: 'Meridian Schools Trust', tid: 'tn_meridian', mode: 'screen', shape: 'Panel simulation', dur: '07m 41s', turns: 3, status: 'failed', audio: 'poor', region: 'ap-syd-1', connect: '4.30s', ice: 'failed · relay allocation refused', reconnects: 3, lag: '2,910 ms p50 / no p95 — sample too small', enq: null, enqWait: null, evalMs: null },
+    { id: 'ses_QpendA', tenant: 'Orbital Labs', tid: 'tn_orbital', mode: 'practice', shape: 'Behavioural', dur: '19m 05s', turns: 12, status: 'processing', audio: 'good', region: 'eu-fra-1', connect: '1.18s', ice: 'connected · host ↔ srflx', reconnects: 0, lag: '306 ms p50 / 662 ms p95', enq: '17:44:02', enqWait: '6.8s', evalMs: null },
+    { id: 'ses_TH01x2', tenant: 'Northwind Health System', tid: 'tn_northwind', mode: 'screen', shape: 'Panel simulation', dur: '44m 30s', turns: 24, status: 'complete', audio: 'fair', region: 'eu-fra-1', connect: '1.33s', ice: 'connected · srflx ↔ srflx', reconnects: 1, lag: '585 ms p50 / 1,190 ms p95', enq: '18:02:37', enqWait: '3.0s', evalMs: '92s' },
+    { id: 'ses_BP44KM', tenant: 'Brightpath Commercial', tid: 'tn_brightpath', mode: 'screen', shape: 'Recruiter screen', dur: '16m 58s', turns: 10, status: 'complete', audio: 'good', region: 'us-east-1', connect: '1.51s', ice: 'connected · host ↔ srflx', reconnects: 0, lag: '348 ms p50 / 705 ms p95', enq: '18:31:15', enqWait: '2.8s', evalMs: '66s' }
+  ];
+
+  /* ── chart helpers (hand-authored inline SVG, no library) ───────────── */
+  function hbars(host, items, opts) {
+    opts = opts || {};
+    var W = 560, rowH = 30, pl = opts.labelW || 176, pr = 78, pt = 6;
+    var H = pt * 2 + items.length * rowH;
+    var max = Math.max.apply(null, items.map(function (d) { return d.value; }));
+    var iw = W - pl - pr;
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.aria || '') + '">';
+    items.forEach(function (d, i) {
+      var yy = pt + i * rowH, bw = Math.max(2, (d.value / max) * iw);
+      s += '<text class="bar-lbl" x="0" y="' + (yy + 15) + '">' + esc(d.label) + '</text>';
+      s += '<rect x="' + pl + '" y="' + (yy + 5) + '" width="' + iw + '" height="15" rx="3" fill="var(--surface-3)"></rect>';
+      s += '<rect class="c' + ((i % 6) + 1) + '" x="' + pl + '" y="' + (yy + 5) + '" width="' + bw.toFixed(1) + '" height="15" rx="3"></rect>';
+      s += '<text class="bar-val" x="' + (W - pr + 6) + '" y="' + (yy + 16) + '">' + esc(d.note) + '</text>';
+    });
+    s += '</svg>';
+    host.innerHTML = '<div class="scroll-x"><div class="chart-min-sm">' + s + '</div></div>';
+  }
+
+  function vbars(host, items, opts) {
+    opts = opts || {};
+    var W = 560, H = 210, pl = 38, pr = 8, pt = 12, pb = 34;
+    var iw = W - pl - pr, ih = H - pt - pb;
+    var max = opts.max || Math.ceil(Math.max.apply(null, items.map(function (d) { return d.n; })) / 200) * 200;
+    var slot = iw / items.length, bw = slot * 0.66;
+    var y = function (v) { return pt + ih - (v / max) * ih; };
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.aria || '') + '">';
+    for (var t = 0; t <= max; t += max / 4) {
+      s += '<line class="' + (t === 0 ? 'axl-base' : 'axl') + '" x1="' + pl + '" y1="' + y(t) + '" x2="' + (W - pr) + '" y2="' + y(t) + '"></line>' +
+           '<text class="ax" x="' + (pl - 6) + '" y="' + (y(t) + 3.5) + '" text-anchor="end">' + F.num(t) + '</text>';
+    }
+    items.forEach(function (d, i) {
+      var x = pl + i * slot + (slot - bw) / 2;
+      s += '<rect class="c1" x="' + x.toFixed(1) + '" y="' + y(d.n).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + ((d.n / max) * ih).toFixed(1) + '" rx="2"></rect>';
+      s += '<text class="ax" x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 18) + '" text-anchor="middle">' + esc(d.label) + '</text>';
+    });
+    s += '</svg>';
+    host.innerHTML = s;
+  }
+
+  function lineChart(host) {
+    var compare = document.getElementById('f-compare').checked;
+    var W = 900, H = 240, pl = 42, pr = 12, pt = 14, pb = 30;
+    var iw = W - pl - pr, ih = H - pt - pb, max = 450, n = CONCURRENCY.length;
+    var x = function (i) { return pl + (i / (n - 1)) * iw; };
+    var y = function (v) { return pt + ih - (v / max) * ih; };
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Line chart of concurrent interview sessions per hour over the last 24 hours UTC. The line rises from 41 at 03:00 to a peak of 412 at 14:00, then falls to 94 by 23:00.">';
+    [0, 150, 300, 450].forEach(function (t) {
+      s += '<line class="' + (t === 0 ? 'axl-base' : 'axl') + '" x1="' + pl + '" y1="' + y(t) + '" x2="' + (W - pr) + '" y2="' + y(t) + '"></line>' +
+           '<text class="ax" x="' + (pl - 6) + '" y="' + (y(t) + 3.5) + '" text-anchor="end">' + t + '</text>';
+    });
+    if (compare) {
+      s += '<polyline fill="none" stroke="var(--chart-7)" stroke-width="2" stroke-dasharray="5 4" points="' +
+        CONCURRENCY_PREV.map(function (v, i) { return x(i).toFixed(1) + ',' + y(v).toFixed(1); }).join(' ') + '"></polyline>';
+    }
+    var pts = CONCURRENCY.map(function (v, i) { return x(i).toFixed(1) + ',' + y(v).toFixed(1); }).join(' ');
+    s += '<polyline fill="none" stroke="var(--chart-1)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="' + pts + '"></polyline>';
+    CONCURRENCY.forEach(function (v, i) {
+      s += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="' + (v === 412 ? 4.5 : 2.5) + '" fill="var(--chart-1)"></circle>';
+      if (i % 3 === 0) s += '<text class="ax" x="' + x(i).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + String(i).padStart(2, '0') + ':00</text>';
+    });
+    var pi = CONCURRENCY.indexOf(412);
+    s += '<line class="axl" x1="' + x(pi).toFixed(1) + '" y1="' + y(412).toFixed(1) + '" x2="' + x(pi).toFixed(1) + '" y2="' + y(0).toFixed(1) + '" stroke-dasharray="3 3"></line>';
+    s += '<text class="bar-val" x="' + (x(pi) + 6).toFixed(1) + '" y="' + (y(412) - 6).toFixed(1) + '">peak 412</text>';
+    s += '</svg>';
+    host.innerHTML = s;
+    document.getElementById('cc-summary').textContent =
+      'Text summary: concurrency bottoms out at 41 sessions at 03:00 UTC, climbs through the European morning, and peaks at 412 concurrent sessions between 14:00 and 15:00 UTC — the overlap of the European afternoon and the US East morning. A secondary shoulder holds 318–362 from 16:00 to 17:00, then volume falls steadily to 94 by 23:00. The soft cap is 600 concurrent sessions, so peak load used 68% of capacity.' +
+      (compare ? ' Compare on: the dashed grey line is the same 24 hours a period earlier, peaking at 376 — 8.7% below today.' : '');
+  }
+
+  /* ── renderers ──────────────────────────────────────────────────────── */
+  function renderAbandon() {
+    var total = ABANDON.reduce(function (a, b) { return a + b.n; }, 0);
+    hbars(document.getElementById('ab-chart'), ABANDON.map(function (d) {
+      return { label: d.label, value: d.n, note: d.n + ' · ' + (d.n / total * 100).toFixed(1) + '%' };
+    }), { aria: 'Horizontal bar chart of abandoned sessions by phase: device check and consent 212; warm-up question 186; questions 2 to 3, 141; mid-session 104; final question 61; wrap-up and submit 34.' });
+    document.getElementById('ab-summary').textContent = 'Text summary: of 738 abandoned sessions, 212 (28.7%) ended during device check and consent, 186 (25.2%) during the warm-up question, 141 (19.1%) during questions two and three, 104 (14.1%) mid-session, 61 (8.3%) on the final question and 34 (4.6%) during wrap-up and submit. The median time in session before abandoning rises from 1m 05s in the first phase to 34m 02s in the last.';
+    document.getElementById('ab-tbody').innerHTML = ABANDON.map(function (d) {
+      return '<tr><td data-label="Phase" class="td-primary">' + d.label + '</td><td data-label="Sessions" class="num tnum">' + d.n + '</td>' +
+        '<td data-label="Share" class="num tnum">' + (d.n / total * 100).toFixed(1) + '%</td><td data-label="Median time in" class="num tnum">' + d.median + '</td></tr>';
+    }).join('');
+  }
+
+  function renderDuration() {
+    var total = DURATION.reduce(function (a, b) { return a + b.n; }, 0);
+    vbars(document.getElementById('du-chart'), DURATION, { max: 1800, aria: 'Histogram of completed session durations. The distribution peaks in the 25 to 30 minute bucket with 1,742 sessions, with 1,588 in 20 to 25 minutes and 1,161 in 30 to 35 minutes.' });
+    document.getElementById('du-summary').textContent = 'Text summary: 7,867 completed sessions. The distribution is single-peaked around the 25–30 minute bucket (1,742 sessions, 22.1%), with 20–25 minutes next at 1,588 (20.2%) and 30–35 minutes at 1,161 (14.8%). The median is 26m 40s. Only 382 sessions (4.9%) finish under 10 minutes and 148 (1.9%) run past 50 minutes.';
+    document.getElementById('du-tbody').innerHTML = DURATION.map(function (d) {
+      return '<tr><td data-label="Duration" class="td-primary">' + d.label + '</td><td data-label="Sessions" class="num tnum">' + F.num(d.n) + '</td><td data-label="Share" class="num tnum">' + (d.n / total * 100).toFixed(1) + '%</td></tr>';
+    }).join('');
+    document.getElementById('cc-tbody').innerHTML = CONCURRENCY.map(function (v, i) {
+      return '<tr><th scope="row" style="font-weight:600">' + String(i).padStart(2, '0') + ':00</th><td class="num tnum">' + v + '</td></tr>';
+    }).join('');
+  }
+
+  function renderFailures() {
+    var total = FAILREASON.reduce(function (a, b) { return a + b.n; }, 0);
+    hbars(document.getElementById('cf-chart'), FAILREASON.map(function (d) {
+      return { label: d.label, value: d.n, note: d.n + ' · ' + (d.n / total * 100).toFixed(1) + '%' };
+    }), { aria: 'Horizontal bar chart of connection-failure reasons: ICE negotiation timeout 112; TURN relay allocation failed 68; client network change mid-session 54; token expired before connect 31; server capacity rejection 19.' });
+    document.getElementById('cf-summary').textContent = 'Text summary: 284 connection failures in the last 30 days. ICE negotiation timeout accounts for 112 (39.4%), TURN relay allocation failure 68 (23.9%), a client network change mid-session 54 (19.0%), an expired token before connect 31 (10.9%) and server capacity rejection 19 (6.7%). The first two together — 180 failures, 63.4% — are relay-side and concentrated in AP Sydney.';
+    document.getElementById('cf-tbody').innerHTML = FAILREASON.map(function (d) {
+      return '<tr><td data-label="Reason" class="td-primary">' + d.label + '</td><td data-label="Count" class="num tnum">' + d.n + '</td><td data-label="Share" class="num tnum">' + (d.n / total * 100).toFixed(1) + '%</td></tr>';
+    }).join('');
+
+    var maxP95 = 300;
+    document.getElementById('rt-tbody').innerHTML = REGIONS.map(function (r) {
+      var cls = r.kind === 'warn' ? 'var(--chart-3)' : 'var(--chart-1)';
+      return '<tr><th scope="row">' + r.name + '<span class="td-sub mono">' + r.code + '</span></th>' +
+        '<td><div class="regbar"><span style="width:' + (r.p95 / maxP95 * 100).toFixed(1) + '%;background:' + cls + '"></span></div>' +
+          '<span class="td-sub tnum">' + r.p50 + ' ms median</span></td>' +
+        '<td class="num tnum">' + r.p95 + ' ms</td><td class="num tnum">' + F.num(r.sessions) + '</td></tr>';
+    }).join('');
+    document.getElementById('rt-summary').textContent = 'Text summary: median round-trip latency is 38 ms in EU Frankfurt (4,612 sessions, p95 71 ms), 71 ms in US East Virginia (3,106 sessions, p95 128 ms) and 148 ms in AP Sydney (1,283 sessions, p95 262 ms). AP Sydney is the only region above the 120 ms target and is where relay-side connection failures concentrate.';
+  }
+
+  function renderShapePersona() {
+    document.getElementById('shape-tbody').innerHTML = SHAPES.map(function (s) {
+      return '<tr><td data-label="Shape" class="td-primary">' + s.name + '</td><td data-label="Sessions" class="num tnum">' + F.num(s.n) + '</td>' +
+        '<td data-label="Completion" class="num tnum">' + s.completion.toFixed(1) + '%</td><td data-label="Median duration" class="num tnum">' + s.median + '</td></tr>';
+    }).join('');
+    document.getElementById('persona-tbody').innerHTML = PERSONAS.map(function (p) {
+      return '<tr><td data-label="Persona" class="td-primary">' + p.name + '</td><td data-label="Sessions" class="num tnum">' + F.num(p.n) + '</td>' +
+        '<td data-label="Completion" class="num tnum">' + p.completion.toFixed(1) + '%</td><td data-label="Median duration" class="num tnum">' + p.median + '</td></tr>';
+    }).join('');
+    document.getElementById('sp-summary').textContent = 'Text summary: completion by shape runs from 93.6% for a 15m 20s recruiter screen down to 79.8% for a 44m 25s panel simulation, with behavioural 91.2%, technical deep-dive 85.4% and case 84.1% in between. By persona, Ama 91.8% (median 24m 50s), Ravi 84.6% (32m 15s), Marcus 83.2% (29m 30s) and Lena 80.9% (41m 05s). Completion falls almost exactly in step with median session length in both tables — the ordering tracks format duration, not who the candidates were.';
+  }
+
+  function renderSessions() {
+    var STATUS = {
+      complete: '<span class="badge badge-success">Complete</span>',
+      abandoned: '<span class="badge badge-neutral">Ended early</span>',
+      failed: '<span class="badge badge-danger">Failed</span>',
+      processing: '<span class="badge badge-info">Processing</span>'
+    };
+    var AUDIO = { good: 'Good', fair: 'Fair', poor: 'Poor' };
+    document.getElementById('rs-tbody').innerHTML = SESSIONS.map(function (s) {
+      return '<tr><td><span class="mono" style="font-weight:600">' + s.id + '</span></td>' +
+        '<td><a class="row-link" href="admin-platform-analytics-sessions.html?tenant=' + s.tid + '">' + esc(s.tenant) + '</a></td>' +
+        '<td><span class="badge badge-mode ' + s.mode + '">' + s.mode + '</span></td>' +
+        '<td>' + esc(s.shape) + '</td><td class="num tnum">' + s.dur + '</td><td class="num tnum">' + s.turns + '</td>' +
+        '<td>' + STATUS[s.status] + '</td>' +
+        '<td><span class="aq ' + s.audio + '">' + AUDIO[s.audio] + '</span></td>' +
+        '<td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-drawer-open="tech-drawer" data-ses="' + s.id + '">' +
+          '<i data-lucide="waypoints" class="ic ic-sm"></i>Timeline<span class="sr-only"> for session ' + s.id + '</span></button></td></tr>';
+    }).join('');
+  }
+
+  /* ── drawer ─────────────────────────────────────────────────────────── */
+  function fillDrawer(id) {
+    var s = SESSIONS.filter(function (x) { return x.id === id; })[0]; if (!s) return;
+    document.getElementById('tech-drawer-sub').textContent = s.id + ' · ' + s.tenant + ' · ' + s.region;
+    document.getElementById('tech-copy').setAttribute('data-copy', s.id);
+    var failed = s.status === 'failed';
+    var items = [];
+    items.push({ k: 'done', t: 'T+0.00s', title: 'Session token issued', meta: 'POST /realtime/sessions · region ' + s.region, body: 'Ephemeral token valid for 120 seconds. Rubric and persona configuration attached.' });
+    items.push({ k: 'done', t: 'T+0.31s', title: 'Signalling WebSocket open', meta: 'wss://rt.' + s.region + '.prepeet.example · handshake ' + s.connect });
+    items.push({ k: failed ? 'danger' : (s.reconnects ? 'warning' : 'done'), t: 'T+' + s.connect.replace('s', '') + 's', title: 'ICE ' + (failed ? 'negotiation failed' : 'connection established'), meta: s.ice, body: failed ? 'All five candidate pairs timed out. The TURN allocation on ap-syd-1 was refused with 486 Allocation Quota Reached, so no relay path was available.' : 'Selected candidate pair held for the rest of the session.' });
+    if (s.reconnects) {
+      items.push({ k: 'warning', t: 'T+' + (failed ? '02:41' : '11:26'), title: s.reconnects + ' mid-session reconnect' + (s.reconnects === 1 ? '' : 's'), meta: failed ? 'no successful re-establishment' : 'recovered in 2.4s, 3.1s', body: failed ? 'Three reconnect attempts, each ending in the same relay refusal. The candidate was shown the connection-lost screen and the session was closed.' : 'Audio buffered locally during the gap and was replayed into the transcript, so no candidate speech was lost.' });
+    }
+    items.push({ k: failed ? 'warning' : 'done', t: 'streaming', title: 'Transcription lag', meta: s.lag, body: failed ? 'Only 3 turns were transcribed before the connection dropped, which is below the 4-turn floor for an evaluation.' : 'Within the 800 ms p95 target for live captions.' });
+    if (s.audio !== 'good') {
+      items.push({ k: 'warning', t: 'streaming', title: 'Audio quality ' + (s.audio === 'poor' ? 'poor' : 'fair'), meta: s.audio === 'poor' ? 'packet loss 11.4% · jitter 92 ms' : 'packet loss 2.1% · jitter 34 ms', body: s.audio === 'poor' ? 'Flagged on the evaluation so a reviewer knows the transcript may be incomplete.' : 'Above the transcription floor; no evaluation flag raised.' });
+    }
+    if (s.enq) {
+      items.push({ k: 'done', t: s.enq + ' UTC', title: 'Evaluation enqueued', meta: 'queue evaluations.default · waited ' + s.enqWait, body: 'Payload: transcript, turn timings, rubric v4.3, tenant calibration profile.' });
+      items.push({ k: s.evalMs ? 'done' : 'active', t: s.evalMs ? '+' + s.evalMs : 'in progress', title: s.evalMs ? 'Evaluation produced' : 'Evaluation running', meta: s.evalMs ? 'success · confidence recorded on the evaluation' : 'worker eval-07 · started 14s ago', body: s.evalMs ? 'Delivered to the tenant. Reviewer decision is recorded separately and is not part of this timeline.' : 'No result yet. The session appears as Processing until the worker finishes or the 10-minute deadline passes.' });
+    } else {
+      items.push({ k: 'danger', t: '—', title: 'No evaluation enqueued', meta: failed ? 'reason: transcript below minimum length' : 'reason: session ended before the submit step', body: 'Nothing was sent to the tenant. Where this was a screening session, the candidate keeps the invitation and can restart it.' });
+    }
+    document.getElementById('tech-drawer-body').innerHTML =
+      '<dl class="kv" style="margin-bottom:var(--sp-4)">' +
+        '<dt>Mode</dt><dd>' + (s.mode === 'practice' ? 'Practice' : 'Screening') + '</dd>' +
+        '<dt>Shape</dt><dd>' + esc(s.shape) + '</dd>' +
+        '<dt>Duration</dt><dd>' + s.dur + ' · ' + s.turns + ' turns</dd>' +
+        '<dt>Media region</dt><dd class="mono">' + s.region + '</dd>' +
+        '<dt>Reconnects</dt><dd>' + s.reconnects + '</dd>' +
+      '</dl><hr style="margin-bottom:var(--sp-4)">' +
+      '<ol class="timeline">' + items.map(function (i) {
+        return '<li class="tl-item ' + i.k + '"><div class="tl-title">' + esc(i.title) + '<span class="badge badge-outline mono">' + esc(i.t) + '</span></div>' +
+          '<div class="tl-meta mono">' + esc(i.meta) + '</div>' + (i.body ? '<div class="tl-body">' + esc(i.body) + '</div>' : '') + '</li>';
+      }).join('') + '</ol>' +
+      '<p class="hint" style="margin-top:var(--sp-4)">Transport telemetry only. This drawer never shows what the candidate said or how they were evaluated — use the tenant’s own review screens for that.</p>';
+    Prepeet.init();
+  }
+
+  /* ── filters, states, guard ─────────────────────────────────────────── */
+  var currentState = 'default';
+  function applyState(s, silent) {
+    currentState = s;
+    document.querySelectorAll('[data-state]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-state').split(' ').indexOf(s) === -1;
+    });
+    document.querySelectorAll('[data-degraded]').forEach(function (el) { el.hidden = (s !== 'degraded'); });
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+    });
+    if (!silent) Q.set({ state: s === 'default' ? null : s }, true);
+    Prepeet.init();
+  }
+  function applyCompare() {
+    var on = document.getElementById('f-compare').checked;
+    document.querySelectorAll('[data-compare]').forEach(function (el) { el.hidden = !on; });
+  }
+  function stamp() {
+    var d = new Date(), hh = String(d.getUTCHours()).padStart(2, '0'), mm = String(d.getUTCMinutes()).padStart(2, '0');
+    var el = document.getElementById('f-updated');
+    el.textContent = '23 Aug 2026, ' + hh + ':' + mm + ' UTC';
+    el.setAttribute('datetime', '2026-08-23T' + hh + ':' + mm);
+  }
+  function simulateReload(msg) {
+    var back = currentState === 'loading' ? 'default' : currentState;
+    applyState('loading', true); Prepeet.announce('Loading session telemetry…');
+    setTimeout(function () { stamp(); applyState(back, true); Prepeet.toast({ title: msg, kind: 'success', duration: 2600 }); }, 950);
+  }
+  function initFilters() {
+    var range = document.getElementById('f-range'), tenant = document.getElementById('f-tenant'),
+        cmp = document.getElementById('f-compare'), custom = document.getElementById('f-custom-wrap');
+    D.tenants.forEach(function (t) { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; tenant.appendChild(o); });
+    range.value = Q.get('range', '30d');
+    var tq = Q.get('tenant', 'all');
+    tenant.value = D.tenants.some(function (t) { return t.id === tq; }) ? tq : 'all';
+    cmp.checked = Q.get('compare') === '1';
+    custom.hidden = range.value !== 'custom';
+    applyCompare();
+    range.addEventListener('change', function () {
+      custom.hidden = range.value !== 'custom';
+      Q.set({ range: range.value === '30d' ? null : range.value }, true);
+      simulateReload('Range set to ' + range.options[range.selectedIndex].text);
+    });
+    tenant.addEventListener('change', function () {
+      Q.set({ tenant: tenant.value === 'all' ? null : tenant.value }, true);
+      simulateReload('Filtered to ' + tenant.options[tenant.selectedIndex].text);
+    });
+    cmp.addEventListener('change', function () {
+      Q.set({ compare: cmp.checked ? '1' : null }, true);
+      applyCompare(); lineChart(document.getElementById('cc-chart'));
+      Prepeet.announce(cmp.checked ? 'Comparison with the previous period is on.' : 'Comparison off.');
+    });
+    document.getElementById('f-refresh').addEventListener('click', function () { simulateReload('Session telemetry refreshed'); });
+  }
+  function guard() {
+    if (Prepeet.can('platform_admin')) return false;
+    var role = Prepeet.roles[Prepeet.getRole()];
+    document.getElementById('main-content').innerHTML =
+      '<div class="state state-page danger">' +
+        '<div class="state-icon"><i data-lucide="shield-x" class="ic"></i></div>' +
+        '<h1>Platform analytics requires platform administrator access</h1>' +
+        '<p>You are signed in as <strong>' + esc(role.label) + '</strong> — ' + esc(role.desc.toLowerCase()) + '. Session telemetry spans every tenant on the platform, so it is restricted to the platform operations team.</p>' +
+        '<p class="code">/admin/platform/analytics/sessions · required role platform_admin · your role ' + esc(Prepeet.getRole()) + '</p>' +
+        '<div class="actions">' +
+          '<a class="btn btn-primary btn-sm" href="admin-dashboard.html"><i data-lucide="layout-dashboard" class="ic ic-sm"></i>Back to your overview</a>' +
+          '<a class="btn btn-secondary btn-sm" href="error-403.html">About this restriction</a>' +
+          '<a class="btn btn-ghost btn-sm" href="admin-platform-analytics-sessions.html?role=platform_admin">Preview as platform admin</a>' +
+        '</div></div>';
+    document.title = 'Access denied · Prepeet';
+    Prepeet.init();
+    return true;
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ses]'); if (b) fillDrawer(b.getAttribute('data-ses'));
+    var s = e.target.closest('[data-state-btn]'); if (s) applyState(s.getAttribute('data-state-btn'));
+  }, true);
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (guard()) return;
+    initFilters();
+    renderAbandon(); renderDuration(); renderFailures(); renderShapePersona(); renderSessions();
+    lineChart(document.getElementById('cc-chart'));
+    applyState(Q.get('state', 'default'), true);
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

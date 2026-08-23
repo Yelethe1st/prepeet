@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en" data-theme-default="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live interview · Prepeet</title>
+<meta name="description" content="The live interview room: your interviewer, the current phase, captions, microphone controls and connection status.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* Page-unique: the reconnection overlay, the prototype simulation strip and
+   small-screen wrapping for the live top bar. Everything else is shared CSS. */
+.live-overlay { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; background: var(--overlay); backdrop-filter: blur(3px); }
+.live-overlay[hidden] { display: none !important; }
+.live-overlay-panel { width: min(92vw, 420px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: var(--shadow-lg); padding: 26px 22px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.simbar { border-top: 1px dashed var(--border-strong); background: var(--surface-2); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.simbar .sim-label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-2xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--fg-3); }
+.mic-level { width: 84px; }
+.live-controls { flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .live-top { height: auto; min-height: 52px; flex-wrap: wrap; padding: 8px 12px; row-gap: 6px; }
+  .live-top .spacer { flex-basis: 100%; height: 0; }
+}
+@media (max-width: 400px) { .live-top .brand-word { display: none; } }
+</style>
+</head>
+
+<body class="live">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<!-- ══════════════════ TOP BAR ══════════════════ -->
+<header class="live-top" style="position:relative">
+  <span class="logo-mark" id="brandmark" aria-hidden="true"></span>
+  <span class="brand-word sr-only">Prepeet</span>
+
+  <span class="phase" id="phase-chip">
+    <i data-lucide="list-checks" class="ic ic-sm"></i>
+    <span class="lbl">Phase</span>
+    <span id="phase-text">1 of 4 · Warm-up &amp; context</span>
+  </span>
+
+  <span class="spacer" aria-hidden="true"></span>
+
+  <div class="question-progress" id="qprog" role="img" aria-label="Question 0 of 6"></div>
+  <span class="hint tnum" id="qtext" style="white-space:nowrap">Q0 / 6</span>
+
+  <span class="timer" role="timer" aria-label="Elapsed interview time" style="margin-left:auto">
+    <i data-lucide="clock" class="ic ic-sm"></i>
+    <span id="timer-elapsed">00:00</span>
+    <span class="text-muted" id="timer-planned">/ 40:00</span>
+  </span>
+
+  <span class="conn" id="conn" role="status">
+    <span class="status-dot" id="conn-dot"></span>
+    <span id="conn-text">Connecting…</span>
+  </span>
+
+  <button class="icon-btn" type="button" data-menu="help-menu" aria-haspopup="true" aria-expanded="false" aria-label="Help and keyboard shortcuts">
+    <i data-lucide="help-circle" class="ic"></i>
+  </button>
+
+  <div class="menu" id="help-menu" hidden role="menu" style="right:12px;top:52px;width:min(92vw,300px)">
+    <div class="menu-label">Keyboard shortcuts</div>
+    <ul style="padding:2px 10px 10px;display:grid;gap:9px;font-size:var(--text-xs);color:var(--fg-2)">
+      <li class="between"><span>Mute / unmute</span><kbd>M</kbd></li>
+      <li class="between"><span>Captions on / off</span><kbd>C</kbd></li>
+      <li class="between"><span>Hold to talk (push-to-talk)</span><kbd>Space</kbd></li>
+      <li class="between"><span>Leave the interview</span><kbd>Esc</kbd></li>
+    </ul>
+    <div class="menu-sep"></div>
+    <div style="padding:2px 10px 8px" class="hint" id="help-privacy">Nothing else is running on this screen. There is no score, no feedback and no timer pressure beyond the planned length.</div>
+    <div class="menu-sep"></div>
+    <a class="menu-item" role="menuitem" href="candidate-settings.html#help"><i data-lucide="life-buoy" class="ic ic-sm"></i>Help &amp; accessibility settings</a>
+  </div>
+</header>
+
+<!-- ══════════════════ STAGE ══════════════════ -->
+<main class="live-stage with-captions" id="main-content">
+
+  <div class="live-center">
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <p class="eyebrow" id="session-eyebrow">Practice interview · not shared with employers</p>
+      <h1 style="font-size:var(--text-xl)" id="session-title">Systems design deep-dive</h1>
+      <p class="hint" id="session-sub">Senior Backend Engineer · 40 minutes planned</p>
+      <div class="cluster" style="justify-content:center;margin-top:2px">
+        <span class="badge badge-mode practice" id="mode-badge">Practice</span>
+        <span class="badge badge-outline mono" id="route-chip">/candidate/session/ses_7Kq2XA</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+      <div class="persona-orb" id="orb">
+        <span class="avatar avatar-persona" id="orb-initials">RA</span>
+      </div>
+      <div style="text-align:center">
+        <div style="font-weight:650;font-size:var(--text-md)" id="persona-name">Ravi</div>
+        <div class="hint" id="persona-style">Direct and technical · brisk, precise</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%">
+      <div class="live-meta" id="pills" role="status">
+        <span class="speaking-pill" id="pill-ai"><i data-lucide="volume-2" class="ic ic-sm"></i><span id="pill-ai-text">Ravi is waiting</span></span>
+        <span class="speaking-pill" id="pill-user"><i data-lucide="mic" class="ic ic-sm"></i><span id="pill-user-text">You are not speaking</span></span>
+      </div>
+      <div class="waveform" id="wave" data-bars="26" aria-hidden="true"></div>
+      <p class="hint" id="wave-note">Voice activity. Nobody is speaking yet.</p>
+    </div>
+
+    <div class="banner banner-warning" id="muted-warning" hidden role="alert" style="text-align:left">
+      <i data-lucide="mic-off" class="ic"></i>
+      <div><strong>Your microphone is muted.</strong> <span id="muted-warning-text">Ravi cannot hear you. Press <kbd>M</kbd> or the microphone button to unmute.</span></div>
+      <div class="banner-actions"><button class="btn btn-sm btn-secondary" type="button" id="unmute-now">Unmute</button></div>
+    </div>
+
+  </div>
+
+  <!-- Captions -->
+  <div style="width:100%;max-width:720px;margin:0 auto">
+    <div class="live-caption" id="caption" aria-live="polite" aria-atomic="true">
+      <span class="who" id="caption-who">Prepeet</span>
+      <span id="caption-text">Captions are on. What each person says will appear here.</span>
+    </div>
+    <div class="between" style="margin-top:8px">
+      <p class="hint">Captions are generated live and may lag the audio slightly.</p>
+      <button class="btn btn-sm btn-ghost" type="button" data-drawer-open="history-drawer">
+        <i data-lucide="scroll-text" class="ic ic-sm"></i>Caption history<span class="badge badge-neutral" id="history-count">0</span>
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ══════════════════ CONTROLS ══════════════════ -->
+<div class="live-controls">
+
+  <div class="ctl">
+    <button class="icon-btn icon-btn-lg icon-btn-outline" type="button" id="btn-captions" aria-pressed="true" aria-label="Turn captions off">
+      <i data-lucide="captions" class="ic"></i>
+    </button>
+    <span class="ctl-label">Captions</span>
+  </div>
+
+  <div class="ctl">
+    <button class="mic" type="button" id="btn-mic" aria-pressed="false" aria-label="Mute your microphone">
+      <i data-lucide="mic" class="ic" data-icon-mic></i>
+      <i data-lucide="mic-off" class="ic" data-icon-micoff hidden></i>
+    </button>
+    <span class="ctl-label" id="mic-label">Mute</span>
+  </div>
+
+  <div class="ctl">
+    <button class="icon-btn icon-btn-lg icon-btn-outline" type="button" id="btn-ptt" aria-pressed="false" aria-label="Switch to push-to-talk">
+      <i data-lucide="hand" class="ic"></i>
+    </button>
+    <span class="ctl-label">Push-to-talk</span>
+  </div>
+
+  <div class="ctl" data-mode-view="practice">
+    <button class="icon-btn icon-btn-lg icon-btn-outline" type="button" id="btn-skip" aria-label="Skip to the next question">
+      <i data-lucide="skip-forward" class="ic"></i>
+    </button>
+    <span class="ctl-label">Skip question</span>
+  </div>
+
+  <div class="ctl">
+    <button class="icon-btn icon-btn-lg icon-btn-outline" type="button" data-dialog-open="end-dialog" id="btn-end" aria-label="End the interview">
+      <i data-lucide="phone-off" class="ic" style="color:var(--danger)"></i>
+    </button>
+    <span class="ctl-label">End</span>
+  </div>
+
+  <a class="btn btn-primary btn-lg" id="btn-finish" hidden href="candidate-session-complete.html?id=ses_7Kq2XA">
+    <i data-lucide="check" class="ic ic-sm"></i>Finish and submit
+  </a>
+
+  <div style="display:flex;flex-direction:column;gap:4px;margin-left:8px;min-width:120px">
+    <div class="between" style="gap:8px">
+      <span class="hint" id="mic-level-text">Input level: quiet</span>
+    </div>
+    <div class="progress sm mic-level" aria-hidden="true"><span id="mic-level-bar" style="width:8%"></span></div>
+    <p class="hint" id="ptt-instructions" hidden style="max-width:220px">Push-to-talk is on. Hold <kbd>Space</kbd>, or press and hold the microphone button, to speak. Release to stop.</p>
+  </div>
+
+</div>
+
+<!-- ══════════════════ PROTOTYPE SIMULATION BAR ══════════════════ -->
+<div class="simbar" role="group" aria-label="Prototype simulation controls — not part of the product">
+  <span class="sim-label"><i data-lucide="flask-conical" class="ic ic-sm"></i>Prototype simulation</span>
+  <button class="btn btn-sm btn-secondary" type="button" data-sim="connecting">Connecting</button>
+  <button class="btn btn-sm btn-secondary" type="button" data-sim="ai1"><span id="sim-ai-label">Ravi speaking</span></button>
+  <button class="btn btn-sm btn-secondary" type="button" data-sim="user1">You speaking</button>
+  <button class="btn btn-sm btn-secondary" type="button" data-sim="unstable">Unstable</button>
+  <button class="btn btn-sm btn-secondary" type="button" data-sim="reconnecting">Reconnecting</button>
+  <button class="btn btn-sm btn-secondary" type="button" data-sim="muted">Muted while speaking</button>
+  <button class="btn btn-sm btn-secondary" type="button" data-sim="final">Final phase</button>
+  <button class="btn btn-sm btn-secondary" type="button" data-sim="timeleft">5 minutes left</button>
+  <span class="hint" style="margin-left:auto">These buttons only exist in the prototype. <a href="screens.html">All screens</a></span>
+</div>
+
+<!-- ══════════════════ RECONNECTION OVERLAY ══════════════════ -->
+<div class="live-overlay" id="reconnect-overlay" hidden role="alertdialog" aria-modal="true" aria-labelledby="reconnect-h" aria-describedby="reconnect-d">
+  <div class="live-overlay-panel">
+    <div class="spinner spinner-lg" aria-hidden="true"></div>
+    <h2 id="reconnect-h" style="font-size:var(--text-md)">Reconnecting to the interview</h2>
+    <p id="reconnect-d" class="text-2" style="font-size:var(--text-sm);line-height:1.55">The connection dropped. Your interview is paused and the timer has stopped — everything you have already said is safely recorded.</p>
+    <p class="mono" id="reconnect-attempts" role="status" style="font-size:var(--text-xs);color:var(--fg-3)">Reconnection attempt 1 of 5</p>
+    <div class="cluster" style="justify-content:center">
+      <button class="btn btn-sm btn-primary" type="button" id="reconnect-now">Retry now</button>
+      <button class="btn btn-sm btn-ghost" type="button" data-dialog-open="end-dialog">End interview</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ CAPTION HISTORY DRAWER ══════════════════ -->
+<dialog class="drawer" id="history-drawer" aria-labelledby="history-h">
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <div>
+        <h2 id="history-h">Caption history</h2>
+        <p class="hint" id="history-sub">Everything said so far in this session.</p>
+      </div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close caption history"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body">
+      <div class="transcript" id="history-list"></div>
+      <div class="state state-compact" id="history-empty">
+        <div class="state-icon"><i data-lucide="scroll-text" class="ic"></i></div>
+        <h3>Nothing said yet</h3>
+        <p>Once the interview starts, every line of the conversation appears here so you can look back without breaking your flow.</p>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary" type="button" data-drawer-close>Back to the interview</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══════════════════ END INTERVIEW DIALOG ══════════════════ -->
+<dialog class="dialog" id="end-dialog" aria-labelledby="end-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 id="end-h">End this interview early?</h2>
+    </div>
+    <div class="dialog-body stack">
+      <p id="end-copy">You are <span id="end-progress">part way through</span>. If you end now:</p>
+      <ul class="plus-minus" id="end-points"></ul>
+      <div class="banner" id="end-note">
+        <i data-lucide="info" class="ic"></i>
+        <div id="end-note-text">Practice sessions can be repeated as often as you like. Nothing from practice mode is ever shared with an employer.</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel — keep going</button>
+      <a class="btn btn-danger" id="end-confirm" href="candidate-session-complete.html?id=ses_7Kq2XA">End interview</a>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var P = window.Prepeet;
+
+  /* ───────────────── configuration (mode aware) ───────────────── */
+  var mode = P.getMode();
+  var isScreen = mode === 'screen';
+  var sid = P.query.get('id') || (isScreen ? P.ids.screenSession : P.ids.session);
+
+  var CFG = isScreen ? {
+    persona: 'Lena', initials: 'LE', style: 'Panel chair · formal, measured',
+    eyebrow: 'Screening interview · Northwind Health System',
+    title: 'ICU screening — Northwind Health',
+    sub: 'Registered Nurse — Intensive Care · 45 minutes planned',
+    phases: ['Introduction & registration checks', 'Clinical reasoning', 'Patient safety & escalation', 'Team working & compassion', 'Your questions'],
+    questions: 8, planned: 45
+  } : {
+    persona: 'Ravi', initials: 'RA', style: 'Direct and technical · brisk, precise',
+    eyebrow: 'Practice interview · not shared with employers',
+    title: 'Systems design deep-dive',
+    sub: 'Senior Backend Engineer · 40 minutes planned',
+    phases: ['Warm-up & context', 'Systems design', 'Failure & trade-offs', 'Your questions'],
+    questions: 6, planned: 40
+  };
+
+  var plannedSec = CFG.planned * 60;
+
+  /* ───────────────── element handles ───────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+  var connDot = $('conn-dot'), connText = $('conn-text');
+  var wave = $('wave'), orb = $('orb');
+  var pillAi = $('pill-ai'), pillAiText = $('pill-ai-text');
+  var pillUser = $('pill-user'), pillUserText = $('pill-user-text');
+  var capBox = $('caption'), capWho = $('caption-who'), capText = $('caption-text');
+  var overlay = $('reconnect-overlay'), attemptsEl = $('reconnect-attempts');
+  var micBtn = $('btn-mic'), micLabel = $('mic-label');
+  var levelBar = $('mic-level-bar'), levelText = $('mic-level-text');
+  var warn = $('muted-warning'), warnText = $('muted-warning-text');
+
+  /* ───────────────── state ───────────────── */
+  var elapsed = 0, running = false, warnedFive = false;
+  var muted = false, captionsOn = true, pttOn = false, talking = false;
+  var speaker = null;            /* 'ai' | 'user' | null */
+  var history = [];
+  var stepIndex = -1, stepTimer = null, rcTimer = null, lastFocusEl = null;
+  var reduced = false;
+  try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.getAttribute('data-motion') === 'reduced'; } catch (e) {}
+
+  /* ───────────────── static header / copy ───────────────── */
+  $('brandmark').innerHTML = P.logoSvg;
+  $('session-eyebrow').textContent = CFG.eyebrow;
+  $('session-title').textContent = CFG.title;
+  $('session-sub').textContent = CFG.sub;
+  $('persona-name').textContent = CFG.persona;
+  $('persona-style').textContent = CFG.style;
+  $('orb-initials').textContent = CFG.initials;
+  $('route-chip').textContent = '/candidate/session/' + sid;
+  $('sim-ai-label').textContent = CFG.persona + ' speaking';
+  $('timer-planned').textContent = '/ ' + mmss(plannedSec);
+  document.title = CFG.title + ' · Live · Prepeet';
+
+  var modeBadge = $('mode-badge');
+  modeBadge.className = 'badge badge-mode ' + (isScreen ? 'screen' : 'practice');
+  modeBadge.textContent = isScreen ? 'Screening' : 'Practice';
+
+  $('help-privacy').textContent = isScreen
+    ? 'This is a screening interview. Your answers go to the Northwind Health System hiring team. Prepeet will not show you a score or feedback for it.'
+    : 'This is practice. There is no score on this screen and nothing here is shared with an employer.';
+
+  document.querySelectorAll('[data-mode-view]').forEach(function (el) {
+    el.hidden = el.getAttribute('data-mode-view') !== mode;
+  });
+
+  var completeHref = 'candidate-session-complete.html?id=' + sid + '&mode=' + mode;
+  $('end-confirm').setAttribute('href', completeHref);
+  $('btn-finish').setAttribute('href', completeHref);
+
+  $('end-points').innerHTML = (isScreen ? [
+    ['minus', 'Northwind Health System receives exactly what you have said so far — the questions you have not reached are recorded as not answered.'],
+    ['minus', 'You cannot restart or retake this screening interview.'],
+    ['plus', 'Your audio and transcript up to this point are kept and submitted in full.']
+  ] : [
+    ['minus', 'You get a partial evaluation, based only on the questions you have answered.'],
+    ['plus', 'You can retry this interview as many times as you like.'],
+    ['plus', 'Everything you have said so far is kept in your practice history.']
+  ]).map(function (r) {
+    return '<li class="' + r[0] + '"><i data-lucide="' + (r[0] === 'plus' ? 'check' : 'alert-triangle') + '" class="ic"></i><span>' + r[1] + '</span></li>';
+  }).join('');
+
+  $('end-note-text').textContent = isScreen
+    ? 'Ending early is final. If your connection is the problem, use “Retry now” instead — the interview waits for you.'
+    : 'Practice sessions can be repeated as often as you like. Nothing from practice mode is ever shared with an employer.';
+
+  /* ───────────────── small helpers ───────────────── */
+  function mmss(s) { var m = Math.floor(s / 60), r = s % 60; return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r; }
+
+  function renderTimer() { $('timer-elapsed').textContent = mmss(elapsed); }
+
+  function setQ(n) {
+    var host = $('qprog'), html = '';
+    for (var i = 1; i <= CFG.questions; i++) html += '<span class="' + (i < n ? 'done' : i === n ? 'current' : '') + '"></span>';
+    host.innerHTML = html;
+    host.setAttribute('aria-label', 'Question ' + n + ' of ' + CFG.questions);
+    $('qtext').textContent = 'Q' + n + ' / ' + CFG.questions;
+  }
+
+  function setPhase(i) {
+    $('phase-text').textContent = (i + 1) + ' of ' + CFG.phases.length + ' · ' + CFG.phases[i];
+  }
+
+  var CONN = {
+    connecting:   { dot: '',      text: 'Connecting…',          say: null },
+    connected:    { dot: 'ok',    text: 'Connected',            say: 'Connected. Your interview is starting.' },
+    unstable:     { dot: 'warn',  text: 'Connection unstable',  say: 'Connection unstable. Audio may drop for a moment.' },
+    reconnecting: { dot: 'bad',   text: 'Reconnecting…',        say: null },
+    recovered:    { dot: 'ok',    text: 'Reconnected',          say: 'Reconnected. The interview has resumed and the timer is running again.' }
+  };
+  var connRevert = null;
+  function setConn(k) {
+    var c = CONN[k]; if (!c) return;
+    connDot.className = 'status-dot' + (c.dot ? ' ' + c.dot : '') + (k === 'connected' ? ' pulse' : '');
+    connText.textContent = c.text;
+    if (c.say) P.announce(c.say);
+    clearTimeout(connRevert);
+    if (k === 'recovered') connRevert = setTimeout(function () { setConn('connected'); }, 3500);
+  }
+
+  function setSpeaker(who) {
+    speaker = who;
+    wave.className = 'waveform' + (who === 'ai' ? ' is-ai' : who === 'user' ? ' is-user' : '');
+    orb.className = 'persona-orb' + (who === 'ai' ? ' is-speaking' : who === 'user' ? ' is-listening' : '');
+    pillAi.className = 'speaking-pill' + (who === 'ai' ? ' ai' : '');
+    pillUser.className = 'speaking-pill' + (who === 'user' ? ' user' : '');
+    pillAiText.textContent = who === 'ai' ? CFG.persona + ' is speaking' : who === 'user' ? CFG.persona + ' is listening' : CFG.persona + ' is waiting';
+    pillUserText.textContent = who === 'user' ? (muted ? 'You are speaking — but muted' : 'You are speaking') : 'You are not speaking';
+    $('wave-note').textContent = who === 'ai' ? 'Voice activity: ' + CFG.persona + ' is speaking.'
+      : who === 'user' ? 'Voice activity: your microphone is picking you up.'
+      : 'Voice activity: nobody is speaking.';
+    updateWarning();
+  }
+
+  function updateWarning() {
+    var blockedOpenMic = !pttOn && muted && speaker === 'user';
+    var blockedPtt = pttOn && !talking && speaker === 'user';
+    if (blockedOpenMic || blockedPtt) {
+      warnText.innerHTML = blockedPtt
+        ? 'Push-to-talk is on and you are not holding the talk button. ' + CFG.persona + ' cannot hear you — hold <kbd>Space</kbd> to speak.'
+        : CFG.persona + ' cannot hear you. Press <kbd>M</kbd> or the microphone button to unmute.';
+      if (warn.hidden) { warn.hidden = false; P.announce('Warning: you are speaking but your microphone is not transmitting.'); }
+    } else {
+      warn.hidden = true;
+    }
+    P.init();
+  }
+
+  function setLine(who, name, text) {
+    setSpeaker(who);
+    capWho.textContent = name;
+    capText.textContent = text;
+    history.push({ who: who, name: name, text: text, t: mmss(elapsed) });
+    $('history-count').textContent = String(history.length);
+    renderHistory();
+  }
+
+  function setSystemLine(text) {
+    capWho.textContent = 'Prepeet';
+    capText.textContent = text;
+  }
+
+  function renderHistory() {
+    var list = $('history-list');
+    $('history-empty').hidden = history.length > 0;
+    list.innerHTML = history.map(function (h) {
+      return '<div class="turn ' + (h.who === 'ai' ? 'ai' : 'user') + '">' +
+        '<span class="avatar avatar-sm' + (h.who === 'ai' ? ' avatar-persona' : '') + '">' + (h.who === 'ai' ? CFG.initials : 'DO') + '</span>' +
+        '<div><div class="turn-meta"><span class="who">' + h.name + '</span><time>' + h.t + '</time></div>' +
+        '<p class="turn-text"></p></div></div>';
+    }).join('');
+    var texts = list.querySelectorAll('.turn-text');
+    history.forEach(function (h, i) { if (texts[i]) texts[i].textContent = h.text; });
+    $('history-sub').textContent = history.length + ' line' + (history.length === 1 ? '' : 's') + ' so far · ' + CFG.title;
+    P.init();
+  }
+
+  /* ───────────────── microphone ───────────────── */
+  function renderMic() {
+    var iconOn = micBtn.querySelector('[data-icon-mic]'), iconOff = micBtn.querySelector('[data-icon-micoff]');
+    if (pttOn) {
+      micBtn.classList.add('ptt');
+      micBtn.setAttribute('aria-pressed', talking ? 'true' : 'false');
+      micBtn.setAttribute('aria-label', talking ? 'Talking. Release to stop.' : 'Press and hold to talk');
+      micLabel.textContent = talking ? 'Talking…' : 'Hold to talk';
+      iconOn.hidden = !talking; iconOff.hidden = talking;
+    } else {
+      micBtn.classList.remove('ptt');
+      micBtn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      micBtn.setAttribute('aria-label', muted ? 'Unmute your microphone' : 'Mute your microphone');
+      micLabel.textContent = muted ? 'Muted' : 'Mute';
+      iconOn.hidden = muted; iconOff.hidden = !muted;
+    }
+    updateWarning();
+  }
+
+  function setMuted(v) {
+    muted = v;
+    renderMic();
+    P.announce(v ? 'Microphone muted.' : 'Microphone unmuted.');
+  }
+
+  function setPtt(v) {
+    pttOn = v; talking = false;
+    $('btn-ptt').setAttribute('aria-pressed', v ? 'true' : 'false');
+    $('btn-ptt').setAttribute('aria-label', v ? 'Switch back to open microphone' : 'Switch to push-to-talk');
+    $('ptt-instructions').hidden = !v;
+    muted = v;                 /* push-to-talk implies muted until you hold; open mic starts live */
+    renderMic();
+    P.announce(v
+      ? 'Push-to-talk enabled. Hold the space bar, or press and hold the microphone button, to speak.'
+      : 'Open microphone enabled. Your microphone stays on unless you mute it.');
+  }
+
+  function startTalking() {
+    if (!pttOn || talking) return;
+    talking = true; muted = false; renderMic(); P.announce('Microphone open.');
+  }
+  function stopTalking() {
+    if (!pttOn || !talking) return;
+    talking = false; muted = true; renderMic(); P.announce('Microphone closed.');
+  }
+
+  /* input-level indication */
+  var levelSeq = [8, 14, 9, 22, 17, 11, 26, 19, 13, 30, 21, 15], levelI = 0;
+  setInterval(function () {
+    var lvl, label;
+    var transmitting = pttOn ? talking : !muted;
+    if (!transmitting) { lvl = 0; label = 'Input level: muted'; }
+    else if (speaker === 'user') {
+      lvl = reduced ? 72 : 55 + levelSeq[(levelI++) % levelSeq.length];
+      label = 'Input level: good';
+    } else {
+      lvl = reduced ? 8 : levelSeq[(levelI++) % levelSeq.length] / 2;
+      label = 'Input level: quiet — background only';
+    }
+    levelBar.style.width = Math.min(100, lvl) + '%';
+    if (levelText.textContent !== label) levelText.textContent = label;
+  }, reduced ? 2000 : 380);
+
+  /* ───────────────── timer ───────────────── */
+  setInterval(function () {
+    if (!running) return;
+    elapsed++;
+    renderTimer();
+    if (!warnedFive && elapsed >= plannedSec - 300) {
+      warnedFive = true;
+      P.announce('Five minutes left of the planned interview length.');
+      P.toast({ title: '5 minutes left', desc: 'The planned length is ' + CFG.planned + ' minutes. ' + CFG.persona + ' will start wrapping up.', kind: 'warning', duration: 7000 });
+    }
+  }, 1000);
+
+  /* ───────────────── reconnection ───────────────── */
+  function reconnectSequence() {
+    running = false;
+    lastFocusEl = document.activeElement;
+    overlay.hidden = false;
+    attemptsEl.textContent = 'Reconnection attempt 1 of 5';
+    $('reconnect-now').focus();
+    P.announce('Connection lost. The interview is paused while we reconnect.');
+    var att = 1;
+    clearInterval(rcTimer);
+    rcTimer = setInterval(function () {
+      att++;
+      if (att > 3) { clearInterval(rcTimer); recover(); return; }
+      attemptsEl.textContent = 'Reconnection attempt ' + att + ' of 5';
+    }, 1600);
+  }
+  function recover() {
+    clearInterval(rcTimer);
+    attemptsEl.textContent = 'Reconnected on attempt 3 of 5';
+    setTimeout(function () {
+      overlay.hidden = true;
+      if (lastFocusEl && lastFocusEl.focus) { try { lastFocusEl.focus(); } catch (e) {} }
+      goTo('recovered');
+    }, 700);
+  }
+  $('reconnect-now').addEventListener('click', recover);
+
+  /* ───────────────── scripted timeline ───────────────── */
+  var lines = isScreen ? [
+    ['ai', 'Good morning, Daniel. I chair this panel for Northwind Health System. There are eight questions and I will keep us to time. To begin — tell me about your current intensive care post and the case mix you look after.'],
+    ['user', 'I work on a twelve-bed adult ICU. Mostly ventilated post-surgical patients, a steady sepsis caseload, and two or three patients a week on renal replacement. I take charge of the unit twice a week.'],
+    ['ai', 'Thank you. Moving to clinical reasoning. A ventilated patient in bed nine drops from 96 to 88 per cent saturation over ten minutes. Talk me through your first three actions.'],
+    ['user', 'I go to the patient before the monitor — chest movement, colour, ventilator waveform and pressures. Then a structured check: displacement, obstruction, pneumothorax, equipment. I put them on a hundred per cent oxygen and I call for help early rather than late.'],
+    ['ai', 'You say you call for help. Who exactly, and what words do you use?'],
+    ['user', 'The nurse in charge and the ICU registrar, using SBAR. Bed nine, ventilated day three, saturations 96 to 88 over ten minutes on unchanged settings, reduced air entry on the right, I need you at the bedside now and I am concerned about a pneumothorax.'],
+    ['ai', 'Patient safety next. Describe a time you escalated a concern that a senior colleague disagreed with.'],
+    ['user', 'A consultant wanted to extubate a patient I did not think was ready — poor cuff leak and a failed spontaneous breathing trial that morning. I said what I had observed, showed the trial record and asked for a second review. We waited six hours and extubated safely that evening.'],
+    ['ai', 'And if that second review had been refused?'],
+    ['user', 'I would have escalated to the nurse in charge and then used the trust safety escalation route. Documenting a concern and leaving it there is not enough when it is a patient airway.'],
+    ['ai', 'Final area, team working. How do you hand over at the end of a night shift?'],
+    ['user', 'At the bedside, with the chart open, in a fixed order — airway and ventilation, haemodynamics, sedation and pain, lines and infusions, family contact, and then the three things I would watch for in the next four hours.'],
+    ['ai', 'That is the last of my questions. Is there anything you would like to ask the panel about the unit?'],
+    ['user', 'I would like to know how the unit supports staff after a difficult death, and whether the preceptorship for new starters is protected time or goodwill.']
+  ] : [
+    ['ai', 'Thanks for making the time, Daniel. I want to spend most of today on one system. Imagine we run appointment booking for a health network — about four million patients, spiky load on Monday mornings. Where would you start?'],
+    ['user', 'I would start with the read and write shapes rather than the components. Booking is write-heavy in short bursts but read-heavy all day, so I would separate the availability read path from the reservation write path early.'],
+    ['ai', 'Good. Say Monday at eight you get thirty thousand booking attempts a minute against overlapping slots. How do you stop double booking?'],
+    ['user', 'A conditional write on the slot row with an optimistic version, so two writers cannot both take the last slot. At my last place we used a unique constraint on slot id plus status and let the loser retry against a refreshed availability read.'],
+    ['ai', 'What happens when the database that holds that constraint is the thing under pres—'],
+    ['ai', 'We lost you for a few seconds there — nothing was lost, and I will ask that again. What happens when the database holding that constraint is itself the thing under pressure?'],
+    ['user', 'Then I would shard by clinic, because bookings never cross clinics. Each shard owns its own slots so the constraint stays local and the hot clinic cannot starve the others.'],
+    ['ai', 'Let us switch to failure. The reservation service is healthy but the downstream clinical record write is timing out. What do you do?'],
+    ['user', 'I fail closed — reject the booking rather than confirm something the clinical record does not know about. Then queue a repair job and alert. Confirming a booking the record never received is the worse outcome for a patient.'],
+    ['ai', 'Earlier you said you shard by clinic. A moment ago you described a global queue. Which is it?'],
+    ['user', 'Per-shard queue, not global. I said it loosely the first time.'],
+    ['ai', 'We are on the last stretch. Before we finish — what would you want to know about how this team runs on-call?'],
+    ['user', 'How often the rota actually fires overnight, and whether the people carrying the pager are the people who are allowed to change the system that woke them.'],
+    ['ai', 'That is everything from me. Thank you, Daniel — I am closing the session now.']
+  ];
+  function L(i) { return lines[i]; }
+  function lineStep(key, i, dur, extra) {
+    var l = L(i);
+    var s = { key: key, dur: dur, line: [l[0], l[0] === 'ai' ? CFG.persona : 'You', l[1]] };
+    if (extra) for (var k in extra) s[k] = extra[k];
+    return s;
+  }
+
+  var STEPS = isScreen ? [
+    { key: 'connecting', dur: 2600, phase: 0, q: 0, conn: 'connecting', speaker: null, system: 'Connecting to the Northwind Health panel. Checking your microphone…' },
+    { key: 'connected', dur: 1100, conn: 'connected', run: function () { running = true; } },
+    lineStep('ai1', 0, 8500, { phase: 0, q: 1 }),
+    lineStep('user1', 1, 7000, {}),
+    lineStep('ai2', 2, 7500, { phase: 1, q: 2 }),
+    lineStep('user2', 3, 8500, {}),
+    lineStep('ai3', 4, 5000, { q: 3, conn: 'unstable' }),
+    { key: 'unstable', dur: 3200, conn: 'unstable', run: function () { P.toast({ title: 'Connection unstable', desc: 'Audio may drop briefly. Nothing you have said will be lost.', kind: 'warning' }); } },
+    { key: 'reconnecting', hold: true, conn: 'reconnecting', run: reconnectSequence },
+    { key: 'recovered', dur: 8000, conn: 'recovered', run: function () { running = true; }, line: ['ai', CFG.persona, 'You dropped out for a moment — nothing was lost. I will repeat the question: who exactly do you call, and what words do you use?'] },
+    lineStep('user3', 5, 8000, { q: 4 }),
+    lineStep('ai4', 6, 7000, { phase: 2, q: 5 }),
+    lineStep('user4', 7, 9000, {}),
+    lineStep('ai5', 8, 5000, { q: 6 }),
+    lineStep('user5', 9, 7000, {}),
+    lineStep('ai6', 10, 6000, { phase: 3, q: 7 }),
+    lineStep('user6', 11, 8500, {}),
+    { key: 'final', dur: 6500, phase: 4, q: 8, conn: 'connected', line: ['ai', CFG.persona, lines[12][1]] },
+    { key: 'timeleft', dur: 8000, pre: function () { elapsed = plannedSec - 301; warnedFive = false; running = true; renderTimer(); }, line: ['user', 'You', lines[13][1]] },
+    { key: 'wrap', hold: true, speaker: null, run: finish, line: ['ai', CFG.persona, 'That concludes the panel. Thank you, Daniel. I am closing the session now and your answers go straight to the hiring team.'] }
+  ] : [
+    { key: 'connecting', dur: 2600, phase: 0, q: 0, conn: 'connecting', speaker: null, system: 'Connecting to Ravi. Checking your microphone…' },
+    { key: 'connected', dur: 1100, conn: 'connected', run: function () { running = true; } },
+    lineStep('ai1', 0, 8500, { phase: 0, q: 1 }),
+    lineStep('user1', 1, 7000, {}),
+    lineStep('ai2', 2, 7000, { phase: 1, q: 2 }),
+    lineStep('user2', 3, 8500, {}),
+    lineStep('unstable', 4, 4200, { q: 3, conn: 'unstable', run: function () { P.toast({ title: 'Connection unstable', desc: 'Audio may drop briefly. Nothing you have said will be lost.', kind: 'warning' }); } }),
+    { key: 'reconnecting', hold: true, conn: 'reconnecting', run: reconnectSequence },
+    lineStep('recovered', 5, 8000, { conn: 'recovered', run: function () { running = true; } }),
+    lineStep('user3', 6, 7500, {}),
+    lineStep('ai4', 7, 7000, { phase: 2, q: 4 }),
+    lineStep('user4', 8, 8500, {}),
+    lineStep('ai5', 9, 5500, { q: 5 }),
+    lineStep('user5', 10, 4500, {}),
+    lineStep('final', 11, 7000, { phase: 3, q: 6, conn: 'connected' }),
+    lineStep('timeleft', 12, 8000, { pre: function () { elapsed = plannedSec - 301; warnedFive = false; running = true; renderTimer(); } }),
+    lineStep('wrap', 13, 0, { hold: true, run: finish })
+  ];
+
+  function indexOf(key) { for (var i = 0; i < STEPS.length; i++) if (STEPS[i].key === key) return i; return -1; }
+
+  function applyStep(s) {
+    if (s.pre) s.pre();
+    if (s.conn) setConn(s.conn);
+    if (s.phase != null) setPhase(s.phase);
+    if (s.q != null) setQ(s.q);
+    if (s.line) setLine(s.line[0], s.line[1], s.line[2]);
+    else if (s.system) { setSpeaker(null); setSystemLine(s.system); }
+    else if (s.speaker !== undefined) setSpeaker(s.speaker);
+    if (s.run) s.run();
+    P.init();
+  }
+
+  function runFrom(i) {
+    clearTimeout(stepTimer);
+    stepIndex = i;
+    var s = STEPS[i];
+    if (!s) return;
+    applyStep(s);
+    if (s.hold) return;
+    stepTimer = setTimeout(function () { runFrom(i + 1); }, s.dur || 4000);
+  }
+
+  function goTo(key) {
+    var i = indexOf(key);
+    if (i < 0) return;
+    clearTimeout(stepTimer); clearInterval(rcTimer);
+    overlay.hidden = true;
+    runFrom(i);
+  }
+
+  function finish() {
+    running = false;
+    setSpeaker(null);
+    $('btn-end').parentNode.hidden = true;
+    $('btn-finish').hidden = false;
+    P.announce('The interview is complete. Select Finish and submit to continue.');
+    P.toast({ title: 'Interview complete', desc: 'Select “Finish and submit” to send this session for processing.', kind: 'success', duration: 9000 });
+  }
+
+  /* ───────────────── controls wiring ───────────────── */
+  micBtn.addEventListener('click', function () { if (!pttOn) setMuted(!muted); });
+  micBtn.addEventListener('pointerdown', function (e) { if (pttOn) { e.preventDefault(); startTalking(); } });
+  window.addEventListener('pointerup', function () { if (pttOn && talking) stopTalking(); });
+  micBtn.addEventListener('keydown', function (e) { if (pttOn && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); startTalking(); } });
+  micBtn.addEventListener('keyup', function (e) { if (pttOn && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); stopTalking(); } });
+
+  $('unmute-now').addEventListener('click', function () { if (pttOn) setPtt(false); setMuted(false); micBtn.focus(); });
+  $('btn-ptt').addEventListener('click', function () { setPtt(!pttOn); });
+
+  $('btn-captions').addEventListener('click', function () {
+    captionsOn = !captionsOn;
+    capBox.hidden = !captionsOn;
+    this.setAttribute('aria-pressed', captionsOn ? 'true' : 'false');
+    this.setAttribute('aria-label', captionsOn ? 'Turn captions off' : 'Turn captions on');
+    P.announce(captionsOn ? 'Live captions on.' : 'Live captions off. The caption history is still available.');
+  });
+
+  var skipBtn = $('btn-skip');
+  if (skipBtn) skipBtn.addEventListener('click', function () {
+    for (var i = stepIndex + 1; i < STEPS.length; i++) {
+      if (STEPS[i].line && STEPS[i].line[0] === 'ai') { runFrom(i); P.announce('Skipped to the next question.'); return; }
+    }
+    P.toast({ title: 'That was the last question', kind: 'info' });
+  });
+
+  document.querySelectorAll('[data-sim]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var k = b.getAttribute('data-sim');
+      if (k === 'connecting') { elapsed = 0; running = false; warnedFive = false; history = []; $('history-count').textContent = '0'; renderHistory(); renderTimer(); $('btn-finish').hidden = true; $('btn-end').parentNode.hidden = false; }
+      if (k === 'muted') { if (pttOn) setPtt(false); setMuted(true); goTo('user2'); return; }
+      goTo(k);
+    });
+  });
+
+  /* ───────────────── keyboard shortcuts ───────────────── */
+  function typingIn(el) { return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable); }
+  document.addEventListener('keydown', function (e) {
+    if (typingIn(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key.toLowerCase();
+    if (k === 'm') { e.preventDefault(); if (pttOn) { P.announce('Push-to-talk is on. Hold the space bar to speak.'); } else { setMuted(!muted); } return; }
+    if (k === 'c') { e.preventDefault(); $('btn-captions').click(); return; }
+    if (e.code === 'Space' && pttOn && e.target !== micBtn && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A') { e.preventDefault(); startTalking(); return; }
+    if (e.key === 'Escape') {
+      if (document.querySelector('dialog[open]') || document.querySelector('.menu:not([hidden])') || !overlay.hidden) return;
+      e.preventDefault(); P.openDialog('end-dialog');
+    }
+  });
+  document.addEventListener('keyup', function (e) {
+    if (e.code === 'Space' && pttOn && talking && e.target !== micBtn) { e.preventDefault(); stopTalking(); }
+  });
+
+  /* ───────────────── end dialog live copy ───────────────── */
+  document.addEventListener('prepeet:dialog-open', function (e) {
+    if (e.detail.id !== 'end-dialog') return;
+    var q = ($('qtext').textContent || '').replace(' / ', ' of ');
+    $('end-progress').textContent = 'at ' + q.toLowerCase().replace('q', 'question ') + ', ' + mmss(elapsed) + ' into a ' + CFG.planned + '-minute session';
+  });
+
+  /* ───────────────── boot ───────────────── */
+  document.addEventListener('DOMContentLoaded', function () {
+    P.favicon();
+    setQ(0); setPhase(0); renderTimer(); renderMic(); renderHistory();
+    P.init();
+    runFrom(0);
+  });
+})();
+</script>
+</body>
+</html>

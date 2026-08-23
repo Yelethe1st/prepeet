@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signing you in · Prepeet</title>
+<meta name="description" content="Prepeet is signing you in from the one-time link you were emailed. No password needed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <div class="cluster">
+    <span class="hint sr-only">Preview state</span>
+    <div class="segmented" role="group" aria-label="Preview screen state">
+      <button type="button" data-state-btn="signing-in" aria-pressed="true">Signing in</button>
+      <button type="button" data-state-btn="success" aria-pressed="false">Success</button>
+      <button type="button" data-state-btn="used" aria-pressed="false">Already used</button>
+      <button type="button" data-state-btn="wrong-device" aria-pressed="false">Wrong device</button>
+    </div>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</div>
+
+<main class="auth-card" id="main-content">
+  <h1 id="ml-title" class="sr-only">Signing you in</h1>
+
+  <!-- ══════════ SIGNING IN ══════════ -->
+  <div data-state="signing-in">
+    <div class="state primary">
+      <div class="state-icon"><div class="spinner"></div></div>
+      <h2 style="font-size:var(--text-lg)">Signing you in…</h2>
+      <p>You opened a one-time link sent to <span class="mono" data-account>daniel.okonkwo@example.com</span>. Keep this tab open for a moment.</p>
+      <p class="hint" role="status" aria-live="polite" id="ml-status" style="min-height:1.4em">Checking the link…</p>
+    </div>
+    <div class="progress indeterminate" style="margin-top:-8px"><span></span></div>
+    <p class="hint" style="text-align:center;margin-top:18px"><a href="login.html">Cancel and sign in with a password</a></p>
+  </div>
+
+  <!-- ══════════ SUCCESS ══════════ -->
+  <div data-state="success" hidden>
+    <div class="state">
+      <div class="state-icon" style="background:var(--success-soft);color:var(--success)"><i data-lucide="check-circle-2" class="ic"></i></div>
+      <h2 style="font-size:var(--text-lg)">You are signed in</h2>
+      <p>Welcome back, <strong data-name>Daniel Okonkwo</strong>. This link has now been used up and will not work again.</p>
+      <div class="actions">
+        <a class="btn btn-primary btn-lg" href="candidate-dashboard.html" id="ml-continue">Go to your dashboard<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        <button class="btn btn-ghost" type="button" id="ml-stay">Stay on this page</button>
+      </div>
+      <p class="hint" role="status" aria-live="polite" id="ml-countdown">Taking you there in 5 seconds.</p>
+    </div>
+
+    <div class="card" style="margin-top:8px">
+      <div class="card-header"><h3 style="font-size:var(--text-sm)">This sign-in</h3></div>
+      <div class="card-body">
+        <dl class="kv">
+          <dt>Account</dt><dd class="mono" data-account>daniel.okonkwo@example.com</dd>
+          <dt>Method</dt><dd>One-time email link</dd>
+          <dt>Device</dt><dd>Chrome on Windows · Manchester, UK</dd>
+          <dt>Session length</dt><dd>12 hours, then you will be asked to sign in again</dd>
+        </dl>
+        <p class="hint" style="margin-top:12px">Not you? <a href="candidate-settings.html#security">End this session and review your devices</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ ALREADY USED ══════════ -->
+  <div data-state="used" hidden>
+    <div class="state danger">
+      <div class="state-icon"><i data-lucide="link-2-off" class="ic"></i></div>
+      <h2 style="font-size:var(--text-lg)">This link has already been used</h2>
+      <p>Sign-in links work exactly once, and this one was used at 20:58 on 23 August from Chrome on Windows. If that was you, you may already be signed in on that device.</p>
+      <p class="code mono" style="font-size:var(--text-2xs);color:var(--fg-3)">token=mlink_5Yb3Kd · status=consumed · used 23 Aug 2026 20:58</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="check-email.html?for=magic">Email me a new link</a>
+        <a class="btn btn-secondary" href="login.html">Sign in with a password</a>
+      </div>
+    </div>
+    <div class="banner banner-warning" style="margin-top:8px">
+      <i data-lucide="alert-triangle" class="ic"></i>
+      <div>
+        <strong>If that sign-in was not you</strong>
+        <p style="margin-top:4px;line-height:1.5">Someone with access to your mailbox used the link. Change your password now and review the devices on your account.</p>
+        <div class="cluster" style="margin-top:10px">
+          <a class="btn btn-sm btn-danger-soft" href="forgot-password.html">Change my password</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ WRONG DEVICE ══════════ -->
+  <div data-state="wrong-device" hidden>
+    <div class="state warning">
+      <div class="state-icon"><i data-lucide="smartphone" class="ic"></i></div>
+      <h2 style="font-size:var(--text-lg)">This link belongs to a different device</h2>
+      <p>The link was requested from Chrome on Windows but opened here in Safari on iOS. We do not complete sign-ins across devices, because a forwarded link would otherwise hand over your account.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="check-email.html?for=magic">Send a link to this device</a>
+        <a class="btn btn-secondary" href="otp.html">Use a six-digit code instead</a>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:8px">
+      <div class="card-header"><h3 style="font-size:var(--text-sm)">What we compared</h3></div>
+      <div class="card-body">
+        <dl class="kv">
+          <dt>Requested from</dt><dd>Chrome 128 on Windows 11 · Manchester, UK · 20:51</dd>
+          <dt>Opened on</dt><dd>Safari on iOS 18 · Manchester, UK · 20:53</dd>
+          <dt>Match</dt><dd><span class="badge badge-warning"><i data-lucide="x" class="ic-sm ic"></i>Different browser</span></dd>
+        </dl>
+        <p class="hint" style="margin-top:12px">Finish on the computer where you started, or request a fresh link from the device you are holding now.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint" style="margin-top:22px;text-align:center">
+    <a href="login.html">Back to sign in</a> ·
+    <a href="auth-expired.html">Link problems</a>
+  </p>
+</main>
+
+<footer class="auth-foot" style="justify-content:center">
+  <span>© 2026 Prepeet</span>
+  <a href="index.html">About Prepeet</a>
+  <a href="register.html">Create an account</a>
+  <a href="screens.html">Prototype index</a>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var TITLES = {
+    'signing-in':   'Signing you in',
+    'success':      'You are signed in',
+    'used':         'This sign-in link has already been used',
+    'wrong-device': 'This sign-in link belongs to a different device'
+  };
+  var STEPS = [
+    { at: 500,  msg: 'Checking the link…' },
+    { at: 1400, msg: 'Confirming it was requested from this browser…' },
+    { at: 2300, msg: 'Opening your workspace…' }
+  ];
+  var timers = [], countdown = null;
+
+  function stop() { timers.forEach(clearTimeout); timers = []; if (countdown) { clearInterval(countdown); countdown = null; } }
+
+  function startCountdown() {
+    var left = 5;
+    var el = document.getElementById('ml-countdown');
+    el.textContent = 'Taking you there in ' + left + ' seconds.';
+    countdown = setInterval(function () {
+      left -= 1;
+      if (left <= 0) {
+        clearInterval(countdown); countdown = null;
+        location.href = 'candidate-dashboard.html';
+        return;
+      }
+      el.textContent = 'Taking you there in ' + left + ' second' + (left === 1 ? '' : 's') + '.';
+    }, 1000);
+  }
+
+  function apply(state, advance) {
+    stop();
+    document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== state; });
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === state));
+    });
+    document.getElementById('ml-title').textContent = TITLES[state];
+    document.title = TITLES[state] + ' · Prepeet';
+    Prepeet.query.set({ state: state === 'signing-in' ? null : state }, true);
+    Prepeet.announce(TITLES[state]);
+
+    if (state === 'signing-in') {
+      var status = document.getElementById('ml-status');
+      STEPS.forEach(function (s) { timers.push(setTimeout(function () { status.textContent = s.msg; }, s.at)); });
+      if (advance) timers.push(setTimeout(function () { apply('success', false); }, 3100));
+    } else if (state === 'success') {
+      startCountdown();
+      var btn = document.getElementById('ml-continue');
+      if (btn) btn.focus();
+    }
+    Prepeet.init();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-state-btn]');
+    if (b) { apply(b.getAttribute('data-state-btn'), b.getAttribute('data-state-btn') === 'signing-in'); return; }
+    if (e.target.closest('#ml-stay')) {
+      stop();
+      document.getElementById('ml-countdown').textContent = 'Redirect cancelled. Use the button above when you are ready.';
+      Prepeet.announce('Automatic redirect cancelled.');
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+    var u = Prepeet.data.candidateUser;
+    document.querySelectorAll('[data-account]').forEach(function (el) { el.textContent = Prepeet.query.get('email') || u.email; });
+    document.querySelectorAll('[data-name]').forEach(function (el) { el.textContent = u.name; });
+
+    var st = Prepeet.query.get('state', 'signing-in');
+    if (!TITLES[st]) st = 'signing-in';
+    apply(st, st === 'signing-in');
+  });
+})();
+</script>
+</body>
+</html>

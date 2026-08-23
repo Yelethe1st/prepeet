@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirming your email · Prepeet</title>
+<meta name="description" content="Prepeet is confirming your email address so you can start practising and receive screening invitations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <div class="cluster">
+    <span class="hint sr-only">Preview state</span>
+    <div class="segmented" role="group" aria-label="Preview screen state">
+      <button type="button" data-state-btn="verifying" aria-pressed="true">Verifying</button>
+      <button type="button" data-state-btn="verified" aria-pressed="false">Verified</button>
+      <button type="button" data-state-btn="already" aria-pressed="false">Already done</button>
+      <button type="button" data-state-btn="failed" aria-pressed="false">Failed</button>
+    </div>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</div>
+
+<main class="auth-card" id="main-content">
+
+  <h1 id="ve-title" class="sr-only">Confirming your email address</h1>
+
+  <!-- ══════════ VERIFYING ══════════ -->
+  <div data-state="verifying">
+    <div class="state primary">
+      <div class="state-icon"><div class="spinner" style="border-top-color:var(--primary)"></div></div>
+      <h2 style="font-size:var(--text-lg)">Confirming your email address</h2>
+      <p id="ve-verifying-target">Checking the link you opened from <span class="mono">daniel.okonkwo@example.com</span>. This takes a couple of seconds.</p>
+      <p class="hint" role="status" aria-live="polite" id="ve-status" style="min-height:1.4em">Reading the confirmation token…</p>
+    </div>
+    <div class="progress indeterminate" style="margin-top:-8px"><span></span></div>
+  </div>
+
+  <!-- ══════════ VERIFIED ══════════ -->
+  <div data-state="verified" hidden>
+    <div class="state">
+      <div class="state-icon" style="background:var(--success-soft);color:var(--success)"><i data-lucide="mail-check" class="ic"></i></div>
+      <h2 style="font-size:var(--text-lg)">Email confirmed</h2>
+      <p><span class="mono" data-account>daniel.okonkwo@example.com</span> is now the verified address on your account.</p>
+      <div class="actions">
+        <a class="btn btn-primary btn-lg" href="candidate-dashboard.html">Continue to your dashboard<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:8px">
+      <div class="card-header"><h3 style="font-size:var(--text-sm)">What this unlocks</h3></div>
+      <div class="card-body">
+        <ul class="stack-sm" style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.55">
+          <li class="row" style="gap:10px;align-items:flex-start"><i data-lucide="mic" class="ic ic-sm" style="color:var(--primary);margin-top:2px"></i><span>Voice practice sessions with per-answer coaching and a private score.</span></li>
+          <li class="row" style="gap:10px;align-items:flex-start"><i data-lucide="mail-open" class="ic ic-sm" style="color:var(--primary);margin-top:2px"></i><span>Screening invitations from employers can now reach this address.</span></li>
+          <li class="row" style="gap:10px;align-items:flex-start"><i data-lucide="shield-check" class="ic ic-sm" style="color:var(--primary);margin-top:2px"></i><span>Password resets and one-time sign-in codes.</span></li>
+        </ul>
+        <hr style="margin:var(--sp-4) 0">
+        <div class="cluster">
+          <a class="btn btn-sm btn-secondary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start your first session</a>
+          <a class="btn btn-sm btn-ghost" href="candidate-profile.html">Add your résumé first</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ ALREADY VERIFIED ══════════ -->
+  <div data-state="already" hidden>
+    <div class="state">
+      <div class="state-icon" style="background:var(--info-soft);color:var(--info)"><i data-lucide="badge-check" class="ic"></i></div>
+      <h2 style="font-size:var(--text-lg)">This address was already confirmed</h2>
+      <p><span class="mono" data-account>daniel.okonkwo@example.com</span> was verified on 12 August 2026 at 08:31. There is nothing left to do — confirmation links can only be used once.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="login.html">Sign in</a>
+        <a class="btn btn-secondary" href="candidate-dashboard.html">Go to the dashboard</a>
+      </div>
+    </div>
+    <div class="banner" style="margin-top:8px">
+      <i data-lucide="info" class="ic"></i>
+      <div>Seeing this after clicking a fresh email? Your mail provider may be pre-opening links to scan them. That counts as the one use, and you land here instead.</div>
+    </div>
+  </div>
+
+  <!-- ══════════ FAILED ══════════ -->
+  <div data-state="failed" hidden>
+    <div class="state danger">
+      <div class="state-icon"><i data-lucide="mail-x" class="ic"></i></div>
+      <h2 style="font-size:var(--text-lg)">We could not confirm that address</h2>
+      <p>The confirmation link is not valid. Links last seven days and stop working once used — this one was issued on 4 August 2026, so it is past its window.</p>
+      <p class="code mono" style="font-size:var(--text-2xs);color:var(--fg-3)">token=vtok_2Qw7Hs · status=expired · issued 4 Aug 2026 · expired 11 Aug 2026</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="check-email.html?for=verify">Send a new confirmation email</a>
+        <a class="btn btn-secondary" href="auth-expired.html">Why links expire</a>
+      </div>
+    </div>
+
+    <div class="card card-subtle" style="margin-top:8px">
+      <div class="card-body">
+        <h3 style="font-size:var(--text-sm);margin-bottom:8px">If a new link does not help</h3>
+        <ul class="stack-sm" style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.55">
+          <li>Registered with the wrong address? <a href="register.html">Start again with the right one</a> — the unverified account is deleted after 30 days.</li>
+          <li>Work mailbox rewriting links? Ask IT to allow <span class="mono">prepeet.example</span>, or register with a personal address.</li>
+          <li>Invited to a screening interview? <a href="invitation-accept.html">Open the invitation</a> — it verifies your address as part of accepting.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint" style="margin-top:22px;text-align:center">
+    <a href="login.html">Back to sign in</a> ·
+    <a href="check-email.html?for=verify">Resend the email</a>
+  </p>
+</main>
+
+<footer class="auth-foot" style="justify-content:center">
+  <span>© 2026 Prepeet</span>
+  <a href="index.html">About Prepeet</a>
+  <a href="register.html">Create an account</a>
+  <a href="screens.html">Prototype index</a>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var TITLES = {
+    verifying: 'Confirming your email address',
+    verified:  'Email confirmed',
+    already:   'This address was already confirmed',
+    failed:    'We could not confirm that address'
+  };
+  var STEPS = [
+    { at: 600,  msg: 'Reading the confirmation token…' },
+    { at: 1500, msg: 'Checking that it has not been used or expired…' },
+    { at: 2400, msg: 'Marking your address as verified…' }
+  ];
+  var timers = [];
+
+  function apply(state, advance) {
+    timers.forEach(clearTimeout); timers = [];
+    document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== state; });
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === state));
+    });
+    document.getElementById('ve-title').textContent = TITLES[state];
+    document.title = TITLES[state] + ' · Prepeet';
+    Prepeet.query.set({ state: state === 'verifying' ? null : state }, true);
+    Prepeet.announce(TITLES[state]);
+
+    if (state === 'verifying') {
+      var status = document.getElementById('ve-status');
+      STEPS.forEach(function (s) {
+        timers.push(setTimeout(function () { status.textContent = s.msg; }, s.at));
+      });
+      if (advance) {
+        timers.push(setTimeout(function () {
+          apply('verified', false);
+          Prepeet.announce('Email confirmed. Continue to your dashboard.');
+          var btn = document.querySelector('[data-state="verified"] .btn-primary');
+          if (btn) btn.focus();
+        }, 3300));
+      }
+    }
+    Prepeet.init();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-state-btn]');
+    if (b) apply(b.getAttribute('data-state-btn'), b.getAttribute('data-state-btn') === 'verifying');
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+
+    var email = Prepeet.query.get('email') || Prepeet.data.candidateUser.email;
+    document.querySelectorAll('[data-account]').forEach(function (el) { el.textContent = email; });
+    document.querySelector('#ve-verifying-target .mono').textContent = email;
+
+    var st = Prepeet.query.get('state', 'verifying');
+    if (!TITLES[st]) st = 'verifying';
+    apply(st, st === 'verifying');
+  });
+})();
+</script>
+</body>
+</html>

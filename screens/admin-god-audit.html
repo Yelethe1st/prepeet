@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en" data-theme-default="light" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit log · Prepeet</title>
+<meta name="description" content="Append-only, hash-chained audit log across every tenant: who did what, to what, from where, and whether it succeeded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped only. */
+  .elev-bar { position: sticky; top: var(--topbar-h); z-index: 40; background: var(--bg); padding: 8px 0; margin-bottom: var(--sp-4); }
+  .elev-bar .banner { box-shadow: var(--shadow-sm); }
+  .elev-count { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .state h2 { font-size: var(--text-md); }
+  .audit-table { min-width: 1080px; }
+  .audit-table tbody tr { cursor: pointer; }
+  .audit-table tbody tr:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; box-shadow: none; }
+  .audit-table td.ts { font-family: var(--font-mono); white-space: nowrap; }
+  .diff-line.del { color: var(--danger-fg); }
+  .diff-line.add { color: var(--success-fg); }
+  .chain { font-family: var(--font-mono); font-size: var(--text-2xs); word-break: break-all; color: var(--fg-3); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="god-audit" data-title="Audit log" data-crumbs="Platform>admin-platform-analytics.html|Restricted>admin-god.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content dense" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow" style="color:var(--danger-fg)">Restricted · super administrator</p>
+        <h1>Audit log</h1>
+        <p class="page-desc">Every authentication, configuration change, evaluation decision and privileged operation across all six tenants, in one append-only record. Entries cannot be edited or deleted — not by Prepeet staff, not by tenant admins, not from this page.</p>
+      </div>
+      <div class="page-actions" id="page-actions">
+        <a class="btn btn-secondary" href="admin-god.html"><i data-lucide="shield-alert" class="ic ic-sm"></i>Super-admin console</a>
+        <button class="btn btn-secondary" type="button" data-dialog-open="dlg-export"><i data-lucide="download" class="ic ic-sm"></i>Export</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════ PERMISSION DENIED ══════════════════ -->
+    <section id="denied" hidden aria-labelledby="denied-h">
+      <div class="state state-page danger">
+        <div class="state-icon"><i data-lucide="shield-alert" class="ic"></i></div>
+        <h2 id="denied-h">The platform audit log is not available to your role</h2>
+        <p>You are signed in as <strong id="denied-role">Tenant admin</strong>. This log spans every tenant, so reading it requires <strong>super administrator</strong>.</p>
+        <p>Super-administrator access is granted separately by the Ops on-call rota against a ticket, it is time-boxed and it expires on its own. Your own tenant's activity is available to you at tenant level without elevation.</p>
+        <p class="code">Required role: god · Your role: <span id="denied-role-code">tenant_admin</span></p>
+        <div class="actions">
+          <a class="btn btn-primary" href="admin-dashboard.html"><i data-lucide="layout-dashboard" class="ic ic-sm"></i>Back to overview</a>
+          <a class="btn btn-secondary" href="error-403.html?path=/admin/god/audit&amp;required=god">Why was this refused?</a>
+        </div>
+        <p class="hint" style="margin-top:10px">Use the “Viewing as” switcher in the top bar to preview this page as a super administrator.</p>
+      </div>
+    </section>
+
+    <!-- ══════════════════ VIEWER ══════════════════ -->
+    <div id="viewer" hidden>
+
+      <div class="elev-bar">
+        <div class="banner banner-danger" role="status">
+          <i data-lucide="shield-alert" class="ic"></i>
+          <div>
+            <strong>Restricted console — elevated session active.</strong>
+            The audit log is append-only and hash-chained; nothing here can be altered. Reading it is itself an audited event, recorded against <span id="elev-who">Priya Raman</span> and ticket <span class="mono">INC-2291</span>.
+            Elevation ends in <span class="elev-count" id="elev-count" aria-live="off">41:00</span>.
+          </div>
+          <div class="banner-actions">
+            <a class="btn btn-sm btn-ghost" href="admin-god.html">Console</a>
+            <button class="btn btn-sm btn-danger" type="button" data-dialog-open="dlg-end-elev"><i data-lucide="power" class="ic ic-sm"></i>End elevated session</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cluster" style="margin-bottom:var(--sp-4)">
+        <span class="badge badge-outline mono">/admin/god/audit</span>
+        <span class="badge badge-privileged"><i data-lucide="shield-alert" class="ic-sm ic"></i>Privileged</span>
+        <span class="hint">Filters live in the URL, so any view here is a shareable link.</span>
+        <div class="cluster" style="margin-left:auto">
+          <span class="hint">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview screen state">
+            <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+            <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+            <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+            <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Filters ─────────────────────────────────────────────────── -->
+      <section class="card" aria-labelledby="filters-h" style="margin-bottom:var(--sp-4)">
+        <div class="card-header">
+          <h2 id="filters-h">Filter events</h2>
+          <div class="cluster">
+            <label class="sr-only" for="f-saved">Saved filters</label>
+            <select class="select input-sm" id="f-saved" style="min-width:200px">
+              <option value="">Saved filters…</option>
+              <option value="priv">Privileged operations, last 7 days</option>
+              <option value="denied">Denied and failed outcomes</option>
+              <option value="northwind">Northwind Health System — all activity</option>
+              <option value="data">Data access and deletion</option>
+            </select>
+            <button class="btn btn-sm btn-secondary" type="button" id="f-save"><i data-lucide="bookmark-plus" class="ic ic-sm"></i>Save current</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <form class="filterbar" id="filters" role="search" aria-label="Filter audit events">
+            <div class="input-wrap">
+              <i data-lucide="search" class="ic ic-sm"></i>
+              <label class="sr-only" for="f-q">Full-text search across action, target, actor and event id</label>
+              <input class="input" id="f-q" type="search" name="q" placeholder="Search action, target, actor, event id…" autocomplete="off">
+            </div>
+
+            <div><label class="sr-only" for="f-actor">Actor</label>
+              <select class="select" id="f-actor" name="actor"><option value="">Any actor</option></select></div>
+
+            <div><label class="sr-only" for="f-tenant">Tenant</label>
+              <select class="select" id="f-tenant" name="tenant"><option value="">Any tenant</option></select></div>
+
+            <div><label class="sr-only" for="f-cat">Action category</label>
+              <select class="select" id="f-cat" name="cat">
+                <option value="">Any category</option>
+                <option value="authentication">Authentication</option>
+                <option value="tenant">Tenant configuration</option>
+                <option value="rubric">Rubric</option>
+                <option value="evaluation">Evaluation</option>
+                <option value="data">Data access</option>
+                <option value="privileged">Privileged operation</option>
+                <option value="integration">Integration</option>
+                <option value="billing">Billing</option>
+              </select></div>
+
+            <div><label class="sr-only" for="f-sev">Severity</label>
+              <select class="select" id="f-sev" name="sev">
+                <option value="">Any severity</option>
+                <option value="critical">Critical</option>
+                <option value="warning">Warning</option>
+                <option value="notice">Notice</option>
+                <option value="info">Info</option>
+              </select></div>
+
+            <div><label class="sr-only" for="f-out">Outcome</label>
+              <select class="select" id="f-out" name="out">
+                <option value="">Any outcome</option>
+                <option value="success">Success</option>
+                <option value="denied">Denied</option>
+                <option value="failed">Failed</option>
+              </select></div>
+
+            <div class="field" style="flex:0 0 auto">
+              <label class="label" for="f-from" style="font-size:var(--text-2xs)">From (UTC)</label>
+              <input class="input input-sm" id="f-from" name="from" type="datetime-local" value="2026-08-21T00:00">
+            </div>
+            <div class="field" style="flex:0 0 auto">
+              <label class="label" for="f-to" style="font-size:var(--text-2xs)">To (UTC)</label>
+              <input class="input input-sm" id="f-to" name="to" type="datetime-local" value="2026-08-23T23:59">
+            </div>
+
+            <label class="switch"><input type="checkbox" id="f-priv" name="privileged"><span>Privileged only</span></label>
+
+            <button class="btn btn-sm btn-ghost" type="button" id="f-clear"><i data-lucide="x" class="ic ic-sm"></i>Clear all</button>
+          </form>
+        </div>
+        <div class="card-footer">
+          <div class="between">
+            <div class="filter-chips" id="chips" aria-label="Active filters"></div>
+            <p class="hint" id="count" role="status" aria-live="polite">Showing 20 of 12,481 events</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Loading ─────────────────────────────────────────────────── -->
+      <div data-state="loading" hidden>
+        <div class="card"><div class="card-body">
+          <p class="hint" role="status" aria-live="polite" style="margin-bottom:12px">Querying the audit store for 21–23 August…</p>
+          <div class="skeleton skeleton-text w-25"></div>
+          <div class="skeleton skeleton-block" style="height:44px;margin:10px 0"></div>
+          <div class="skeleton skeleton-block" style="height:44px;margin:10px 0"></div>
+          <div class="skeleton skeleton-block" style="height:44px;margin:10px 0"></div>
+          <div class="skeleton skeleton-block" style="height:44px;margin:10px 0"></div>
+          <div class="skeleton skeleton-block" style="height:44px;margin:10px 0"></div>
+        </div></div>
+      </div>
+
+      <!-- ── Empty ───────────────────────────────────────────────────── -->
+      <div data-state="empty" hidden>
+        <div class="card"><div class="state">
+          <div class="state-icon"><i data-lucide="search-x" class="ic"></i></div>
+          <h2>No events match this filter</h2>
+          <p>Nothing in the 21–23 August window matches those criteria. Audit gaps are never silent — if a query returns nothing it is because nothing happened, not because something was removed.</p>
+          <div class="actions">
+            <button class="btn btn-primary" type="button" data-clear-all>Clear all filters</button>
+            <a class="btn btn-secondary" href="admin-god.html">Back to console</a>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- ── Error ───────────────────────────────────────────────────── -->
+      <div data-state="error" hidden>
+        <div class="card"><div class="state danger">
+          <div class="state-icon"><i data-lucide="server-crash" class="ic"></i></div>
+          <h2>The audit store did not respond</h2>
+          <p>The query timed out after 30 seconds against the EU audit replica. The log itself is unaffected — this is a read path failure, and no entries are missing.</p>
+          <p class="code">Request id req_01K3ZCF8N2VQ · 23 Aug 2026 09:47 UTC</p>
+          <div class="actions">
+            <button class="btn btn-primary" type="button" data-loading-sim="1400" data-loading-done="Audit query retried" data-loading-kind="success">Retry query</button>
+            <a class="btn btn-secondary ext" href="https://status.prepeet.example" target="_blank" rel="noopener noreferrer">Platform status</a>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- ── Default: table + integrity ──────────────────────────────── -->
+      <div data-state="default">
+
+        <p class="hint" style="margin-bottom:var(--sp-2)">This table scrolls sideways rather than stacking into cards: an audit row only makes sense read across — actor, action, target, source and outcome on one line. Rows are keyboard-navigable with the arrow keys; Enter or Space opens the full event.</p>
+
+        <div class="table-wrap scroll-x">
+          <table class="table table-dense audit-table" id="audit">
+            <caption class="sr-only">Audit events with UTC timestamp, actor and role, action, target, tenant, source IP address, outcome and severity. Activate a row to open the full event.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Timestamp (UTC)</th>
+                <th scope="col">Actor</th>
+                <th scope="col">Action</th>
+                <th scope="col">Target</th>
+                <th scope="col">Tenant</th>
+                <th scope="col">Source IP</th>
+                <th scope="col">Outcome</th>
+                <th scope="col">Severity</th>
+                <th scope="col"><span class="sr-only">Open event</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+
+        <nav class="pagination" style="margin-top:var(--sp-4)" aria-label="Audit log pages">
+          <span id="pg-info">Events 1–20 of 12,481 · page 1 of 625</span>
+          <div class="pages">
+            <button class="page" type="button" id="pg-prev" disabled aria-label="Previous page"><i data-lucide="chevron-left" class="ic ic-sm"></i></button>
+            <button class="page" type="button" aria-current="page">1</button>
+            <button class="page" type="button" id="pg-2">2</button>
+            <button class="page" type="button" id="pg-3">3</button>
+            <span class="page" aria-hidden="true">…</span>
+            <button class="page" type="button" id="pg-last">625</button>
+            <button class="page" type="button" id="pg-next" aria-label="Next page"><i data-lucide="chevron-right" class="ic ic-sm"></i></button>
+          </div>
+        </nav>
+
+        <div class="grid grid-2" style="margin-top:var(--sp-6);align-items:start">
+
+          <section class="card" aria-labelledby="integrity-h">
+            <div class="card-header">
+              <div>
+                <h2 id="integrity-h">Chain integrity</h2>
+                <p class="hint" style="margin-top:3px">Each entry stores the hash of the one before it, so any removal or edit breaks the chain from that point on.</p>
+              </div>
+              <span class="badge badge-success" id="integrity-badge"><i data-lucide="link" class="ic-sm ic"></i>Not verified this session</span>
+            </div>
+            <div class="card-body stack">
+              <dl class="kv">
+                <dt>Algorithm</dt><dd>SHA-256 over the canonical event body plus the previous hash</dd>
+                <dt>Anchor</dt><dd>Daily root hash written to write-once storage at 00:05 UTC</dd>
+                <dt>Last anchor</dt><dd>23 August 2026, 00:05 UTC · <span class="mono">sha256:4c19be7a</span></dd>
+              </dl>
+              <div class="cluster">
+                <button class="btn btn-sm btn-primary" type="button" id="verify-btn"><i data-lucide="shield-check" class="ic ic-sm"></i>Verify hash chain</button>
+                <span class="hint" id="verify-note" role="status" aria-live="polite">Verification reads the whole chain and takes a few seconds.</span>
+              </div>
+              <div class="banner banner-success" id="verify-out" hidden><i data-lucide="check-circle-2" class="ic"></i><div id="verify-text"></div></div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="ret-h">
+            <div class="card-header"><h2 id="ret-h">Retention and access</h2></div>
+            <div class="card-body">
+              <dl class="kv">
+                <dt>Retention</dt><dd><strong>7 years</strong> from the event timestamp, for every category</dd>
+                <dt>Tenant deletion</dt><dd>Audit entries <strong>survive tenant deletion</strong>. Tenant content is erased; the record that it was erased, by whom and under which request, is kept</dd>
+                <dt>Candidate erasure</dt><dd>Candidate identifiers are replaced with a pseudonym on erasure; the event, actor and outcome remain</dd>
+                <dt>Who can read this</dt><dd>Super administrators under an active elevation window. Tenant admins see only their own tenant's entries, in the tenant workspace</dd>
+                <dt>Deletion</dt><dd>Not possible. There is no delete path in the API, the console or the database role</dd>
+              </dl>
+              <div class="cluster" style="margin-top:var(--sp-4)">
+                <a class="btn btn-sm btn-secondary" href="admin-tenant-settings.html#data">Tenant data settings</a>
+                <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-export"><i data-lucide="download" class="ic ic-sm"></i>Export this view</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div><!-- /#viewer -->
+  </div>
+</main>
+
+<!-- ══════════════════ EVENT DRAWER ══════════════════ -->
+<dialog class="drawer" id="drawer-event" aria-labelledby="drawer-event-h">
+  <div class="drawer-panel wide">
+    <div class="drawer-header">
+      <div>
+        <span class="badge badge-outline mono" id="ev-id">evt_</span>
+        <h2 id="drawer-event-h" style="margin-top:6px">Event</h2>
+        <p class="hint" id="ev-when">—</p>
+      </div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close event details"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body stack" id="ev-body"></div>
+    <div class="drawer-footer">
+      <button class="btn btn-sm btn-secondary" type="button" id="ev-copy"><i data-lucide="copy" class="ic ic-sm"></i>Copy event id</button>
+      <button class="btn btn-sm btn-ghost" type="button" data-drawer-close>Close</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══════════════════ EXPORT ══════════════════ -->
+<dialog class="dialog" id="dlg-export" aria-labelledby="dlg-export-h">
+  <div class="dialog-panel">
+    <form id="export-form" novalidate>
+      <div class="dialog-header">
+        <div>
+          <span class="badge badge-privileged" style="margin-bottom:6px">Privileged action</span>
+          <h2 id="dlg-export-h">Export audit events</h2>
+          <p class="hint" style="margin-top:4px" id="export-scope">Current filter · 20 events</p>
+        </div>
+        <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+      </div>
+      <div class="dialog-body stack">
+        <fieldset style="border:0;padding:0;margin:0">
+          <legend class="label" style="margin-bottom:8px">Format</legend>
+          <div class="grid grid-2" style="gap:var(--sp-2)">
+            <label class="option-card">
+              <input type="radio" name="fmt" value="csv" checked>
+              <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+              <span class="option-title">CSV</span>
+              <span class="option-desc">One row per event, flattened. Before/after values are omitted.</span>
+            </label>
+            <label class="option-card">
+              <input type="radio" name="fmt" value="json">
+              <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+              <span class="option-title">JSON Lines</span>
+              <span class="option-desc">Full event bodies including before/after values and chain hashes.</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="banner banner-warning">
+          <i data-lucide="alert-triangle" class="ic"></i>
+          <div><strong>Exports are themselves audited.</strong> A <span class="mono">data.export.created</span> event is written with your name, this filter, the row count and your reason. The file is signed and the download link expires after one hour.</div>
+        </div>
+
+        <div class="field">
+          <label class="label" for="ex-reason">Reason for export</label>
+          <textarea class="textarea" id="ex-reason" required minlength="15" rows="3" placeholder="Who has asked for this and what will it be used for?" aria-describedby="ex-reason-hint ex-reason-err"></textarea>
+          <p class="hint" id="ex-reason-hint">Required. At least 15 characters, written verbatim into the export event.</p>
+          <p class="error-text" id="ex-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Give a reason of at least 15 characters.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="ex-ticket">Ticket reference <span class="optional">optional</span></label>
+          <input class="input" id="ex-ticket" placeholder="INC-2291" autocomplete="off">
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Generate export</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- ══════════════════ SAVE FILTER ══════════════════ -->
+<dialog class="dialog" id="dlg-savefilter" aria-labelledby="dlg-sf-h">
+  <div class="dialog-panel">
+    <form id="sf-form" novalidate>
+      <div class="dialog-header">
+        <div><h2 id="dlg-sf-h">Save this filter</h2><p class="hint" style="margin-top:4px" id="sf-summary">—</p></div>
+        <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+      </div>
+      <div class="dialog-body">
+        <div class="field">
+          <label class="label" for="sf-name">Name</label>
+          <input class="input" id="sf-name" required placeholder="e.g. Impersonation, all tenants" autocomplete="off" aria-describedby="sf-err">
+          <p class="error-text" id="sf-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Give the saved filter a name.</p>
+        </div>
+        <label class="check" style="margin-top:12px"><input type="checkbox" id="sf-share"><span>Share with other super administrators<span class="hint">Shared filters are visible to everyone with god access, along with who saved them.</span></span></label>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Save filter</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- ══════════════════ END ELEVATION ══════════════════ -->
+<dialog class="dialog" id="dlg-end-elev" aria-labelledby="dlg-end-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-end-h">End elevated session?</h2></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body">
+      <p>You will be returned to the platform overview. The audit log stays readable only while an elevation window is open, so this page will refuse the next query.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Stay elevated</button>
+      <a class="btn btn-danger" href="admin-god.html?state=no-elevation">End session</a>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var TOTAL = 12481;
+
+  var CATS = {
+    authentication: 'Authentication',
+    tenant: 'Tenant configuration',
+    rubric: 'Rubric',
+    evaluation: 'Evaluation',
+    data: 'Data access',
+    privileged: 'Privileged operation',
+    integration: 'Integration',
+    billing: 'Billing'
+  };
+  var SEV = {
+    critical: { label: 'Critical', badge: 'badge-danger',  icon: 'alert-octagon' },
+    warning:  { label: 'Warning',  badge: 'badge-warning', icon: 'alert-triangle' },
+    notice:   { label: 'Notice',   badge: 'badge-info',    icon: 'info' },
+    info:     { label: 'Info',     badge: 'badge-neutral', icon: 'circle' }
+  };
+  var OUT = {
+    success: { label: 'Success', badge: 'badge-success', icon: 'check' },
+    denied:  { label: 'Denied',  badge: 'badge-danger',  icon: 'shield-x' },
+    failed:  { label: 'Failed',  badge: 'badge-warning', icon: 'x' }
+  };
+  var ROLEBADGE = {
+    god: 'Super admin', platform_admin: 'Platform admin', tenant_admin: 'Tenant admin',
+    recruiter: 'Recruiter', candidate: 'Candidate', service: 'Service account', anonymous: 'Unauthenticated'
+  };
+
+  /* Twenty realistic events, newest first. `prev` is the chain hash of the entry below. */
+  var EVENTS = [
+    { id: 'evt_9F3KQ2', ts: '2026-08-23 09:41:02Z', actor: 'Marek Ostrowski', email: 'marek.ostrowski@prepeet.example', role: 'god',
+      action: 'privileged.elevation.granted', label: 'Elevation granted — 60 minutes', target: 'Priya Raman', tenant: '—', ip: '203.0.113.24',
+      out: 'success', sev: 'critical', cat: 'privileged', priv: true, ticket: 'INC-2291', req: 'req_01K3ZC9Q4E7M', hash: 'sha256:0a94f7c3e18b',
+      before: { elevation: null }, after: { elevation: { grant: 'elv_01K3ZC9Q4E7M', minutes: 60, scope: 'all_tenants', excludes: ['raw_audio'] } },
+      note: 'Requested against INC-2291 — evaluation queue backlog investigation. Approved by the Ops on-call rota.', related: ['evt_7B1MT8'] },
+
+    { id: 'evt_7B1MT8', ts: '2026-08-23 09:38:55Z', actor: 'svc_oncall', email: 'svc_oncall@prepeet.internal', role: 'service',
+      action: 'privileged.console.denied', label: 'Super-admin console access denied', target: '/admin/god', tenant: '—', ip: '198.51.100.77',
+      out: 'denied', sev: 'critical', cat: 'privileged', priv: true, ticket: 'INC-2291', req: 'req_01K3ZC7T2WJ4', hash: 'sha256:1c02be55a9d7',
+      before: { role: 'platform_admin', elevation: null }, after: { decision: 'deny', reason: 'role_rank_insufficient', required: 'god' },
+      note: 'The service account attempted a scripted read of /admin/god without an elevation grant. Denied at the authorisation boundary before any data was read.', related: ['evt_9F3KQ2'] },
+
+    { id: 'evt_2XD4RQ', ts: '2026-08-23 08:29:47Z', actor: 'Ines Duarte', email: 'ines.duarte@prepeet.example', role: 'god',
+      action: 'privileged.impersonation.ended', label: 'Impersonation ended — 17m 22s', target: 'Priya Raman (tenant admin)', tenant: 'Northwind Health System', ip: '203.0.113.24',
+      out: 'success', sev: 'warning', cat: 'privileged', priv: true, ticket: 'INC-2287', req: 'req_01K3Z9M4KD2P', hash: 'sha256:2f7ad3910c4e',
+      before: { impersonating: 'usr_priya_raman', started: '2026-08-23T08:12:25Z' }, after: { impersonating: null, actions_taken: 4, duration_s: 1042 },
+      note: 'Four actions were taken while impersonating: three read operations and one rubric preview. Each is logged separately with the on-behalf-of marker.', related: ['evt_2XD4RP', 'evt_5MK8WZ'] },
+
+    { id: 'evt_2XD4RP', ts: '2026-08-23 08:12:25Z', actor: 'Ines Duarte', email: 'ines.duarte@prepeet.example', role: 'god',
+      action: 'privileged.impersonation.started', label: 'Impersonation started', target: 'Priya Raman (tenant admin)', tenant: 'Northwind Health System', ip: '203.0.113.24',
+      out: 'success', sev: 'critical', cat: 'privileged', priv: true, ticket: 'INC-2287', req: 'req_01K3Z9C1HB8T', hash: 'sha256:3b18cc70de29',
+      before: { impersonating: null }, after: { impersonating: 'usr_priya_raman', max_minutes: 30, candidate_practice_data: 'not_exposed' },
+      note: 'Reproducing a reported rubric-preview fault. Mirrored into the tenant’s own audit log at 08:12:26Z.', related: ['evt_2XD4RQ'] },
+
+    { id: 'evt_5MK8WZ', ts: '2026-08-23 07:55:10Z', actor: 'Priya Raman', email: 'priya.raman@northwindhealth.example', role: 'tenant_admin',
+      action: 'rubric.version.published', label: 'Rubric version published — v4', target: 'Rubric “ICU RN 2026” (rub_icu_2026)', tenant: 'Northwind Health System', ip: '91.198.174.12',
+      out: 'success', sev: 'notice', cat: 'rubric', priv: false, ticket: '—', req: 'req_01K3Z8V0RN5C', hash: 'sha256:4d5e9a2178f0',
+      before: { version: 3, competencies: 5, anchors_per_competency: 4, status: 'draft' },
+      after: { version: 4, competencies: 6, anchors_per_competency: 5, status: 'published', added: ['Escalation & handover'] },
+      note: 'Adds one competency and a fifth anchor per competency. Applies to invitations sent from 23 August; sessions already submitted keep v3.', related: ['evt_1QT6HB'] },
+
+    { id: 'evt_1QT6HB', ts: '2026-08-22 16:20:03Z', actor: 'Jonas Brandt', email: 'jonas.brandt@northwindhealth.example', role: 'recruiter',
+      action: 'evaluation.decision.overridden', label: 'Reviewer decision overridden', target: 'cand_H1S5BV · ses_ON01', tenant: 'Northwind Health System', ip: '91.198.174.40',
+      out: 'success', sev: 'warning', cat: 'evaluation', priv: false, ticket: '—', req: 'req_01K3YQ2E7C9K', hash: 'sha256:5a6b0f34cc81',
+      before: { decision: 'not_progressing', decided_by: 'Jonas Brandt', score: 55, band: 'developing' },
+      after: { decision: 'advance_to_interview', decided_by: 'Jonas Brandt', score: 55, band: 'developing', override_reason: 'Candidate answered the FP&A variance question with a worked example from a prior role that the rubric has no anchor for. Evidence is strong; the score is not. Advancing on reviewer judgement.' },
+      note: 'The score is unchanged. Prepeet does not decide outcomes — the recorded reason is what a later reviewer or an appeal will read.', related: [] },
+
+    { id: 'evt_8CV3LN', ts: '2026-08-22 15:04:18Z', actor: 'Ines Duarte', email: 'ines.duarte@prepeet.example', role: 'god',
+      action: 'tenant.retention_policy.changed', label: 'Retention policy changed — 24 → 12 months', target: 'Retention settings', tenant: 'Brightpath Commercial', ip: '203.0.113.24',
+      out: 'success', sev: 'critical', cat: 'tenant', priv: true, ticket: 'CHG-0884', req: 'req_01K3YNB6X0TA', hash: 'sha256:6e21d5b7402a',
+      before: { retention_months: 24, erasure_job: 'nightly', affected_sessions: 0 },
+      after: { retention_months: 12, erasure_job: 'nightly', affected_sessions: 1841, first_erasure: '2026-08-25T02:00:00Z' },
+      note: 'Requested by the customer under CHG-0884. Shortening retention schedules 1,841 sessions for erasure in 72 hours; a 72-hour hold was applied so the tenant can object.', related: ['evt_4RW9DS'] },
+
+    { id: 'evt_4RW9DS', ts: '2026-08-22 13:47:52Z', actor: 'svc_dataops', email: 'svc_dataops@prepeet.internal', role: 'service',
+      action: 'data.deletion_request.fulfilled', label: 'Deletion request fulfilled', target: 'dsr_KM41 · 1 candidate, 3 sessions', tenant: 'Meridian Schools Trust', ip: '10.42.7.19',
+      out: 'success', sev: 'warning', cat: 'data', priv: false, ticket: 'DSR-0412', req: 'req_01K3YJ8P4M1D', hash: 'sha256:7c93ea0d5b16',
+      before: { candidate: 'cand_9TL2QB', sessions: 3, transcripts: 3, audio_objects: 3, evaluations: 3 },
+      after: { candidate: 'pseudonymised:anon_4471', sessions: 0, transcripts: 0, audio_objects: 0, evaluations: 0, certificate: 'del_cert_KM41' },
+      note: 'Erasure completed within the 30-day statutory window. This audit entry survives the deletion: the candidate identifier is pseudonymised, the fact of erasure is not.', related: ['evt_8CV3LN'] },
+
+    { id: 'evt_6HN2PA', ts: '2026-08-22 11:33:09Z', actor: 'Aurélie Fontaine', email: 'aurelie.fontaine@orbitallabs.example', role: 'tenant_admin',
+      action: 'integration.webhook_secret.rotated', label: 'Webhook signing secret rotated', target: 'Webhook “ats-greenhouse” (whk_3K1)', tenant: 'Orbital Labs', ip: '84.53.128.9',
+      out: 'success', sev: 'warning', cat: 'integration', priv: false, ticket: '—', req: 'req_01K3YE5R9V7H', hash: 'sha256:8f40b1c6e73d',
+      before: { secret_id: 'whs_08a2', created: '2026-02-14', overlap_window_h: 0 },
+      after: { secret_id: 'whs_1f7c', created: '2026-08-22', overlap_window_h: 24, previous_valid_until: '2026-08-23T11:33:09Z' },
+      note: 'Routine 6-month rotation. Secret values are never written to the audit log — only the identifier and validity window.', related: ['evt_DR90CF'] },
+
+    { id: 'evt_0LP5UK', ts: '2026-08-22 09:04:02Z', actor: 'marcus.eberle@caldera.example', email: 'marcus.eberle@caldera.example', role: 'anonymous',
+      action: 'auth.account.locked', label: 'Account locked after 3 failed attempts', target: 'usr_marcus_eberle', tenant: 'Caldera Capital', ip: '45.83.201.7',
+      out: 'success', sev: 'warning', cat: 'authentication', priv: false, ticket: '—', req: 'req_01K3YB1D6Q3F', hash: 'sha256:9028cf4a7be5',
+      before: { failed_attempts: 3, locked: false }, after: { failed_attempts: 3, locked: true, unlock_after: '2026-08-22T09:19:02Z', notified: true },
+      note: 'Automatic lock after three failures inside 90 seconds. The user was emailed and the lock lifted itself after 15 minutes.', related: ['evt_3JD7YG', 'evt_3JD7YF', 'evt_3JD7YE'] },
+
+    { id: 'evt_3JD7YG', ts: '2026-08-22 09:03:20Z', actor: 'marcus.eberle@caldera.example', email: 'marcus.eberle@caldera.example', role: 'anonymous',
+      action: 'auth.login.failed', label: 'Sign-in failed — attempt 3 of 3', target: 'Password grant', tenant: 'Caldera Capital', ip: '45.83.201.7',
+      out: 'failed', sev: 'warning', cat: 'authentication', priv: false, ticket: '—', req: 'req_01K3YB0X2H8N', hash: 'sha256:a1d7e93602cf',
+      before: { failed_attempts: 2 }, after: { failed_attempts: 3, reason: 'invalid_password', triggers_lock: true },
+      note: 'Third consecutive failure from the same address and user agent. Password values are never recorded.', related: ['evt_0LP5UK'] },
+
+    { id: 'evt_3JD7YF', ts: '2026-08-22 09:02:44Z', actor: 'marcus.eberle@caldera.example', email: 'marcus.eberle@caldera.example', role: 'anonymous',
+      action: 'auth.login.failed', label: 'Sign-in failed — attempt 2 of 3', target: 'Password grant', tenant: 'Caldera Capital', ip: '45.83.201.7',
+      out: 'failed', sev: 'notice', cat: 'authentication', priv: false, ticket: '—', req: 'req_01K3YAZK5T2M', hash: 'sha256:b3ca180fe742',
+      before: { failed_attempts: 1 }, after: { failed_attempts: 2, reason: 'invalid_password' },
+      note: 'Same address and user agent as the first attempt.', related: ['evt_3JD7YE', 'evt_3JD7YG'] },
+
+    { id: 'evt_3JD7YE', ts: '2026-08-22 09:02:11Z', actor: 'marcus.eberle@caldera.example', email: 'marcus.eberle@caldera.example', role: 'anonymous',
+      action: 'auth.login.failed', label: 'Sign-in failed — attempt 1 of 3', target: 'Password grant', tenant: 'Caldera Capital', ip: '45.83.201.7',
+      out: 'failed', sev: 'notice', cat: 'authentication', priv: false, ticket: '—', req: 'req_01K3YAY71J9B', hash: 'sha256:c58e2b46091a',
+      before: { failed_attempts: 0 }, after: { failed_attempts: 1, reason: 'invalid_password' },
+      note: 'First of three failures in 69 seconds. No password reset was requested afterwards.', related: ['evt_3JD7YF', 'evt_3JD7YG'] },
+
+    { id: 'evt_QZ82VC', ts: '2026-08-22 08:15:44Z', actor: 'Ines Duarte', email: 'ines.duarte@prepeet.example', role: 'god',
+      action: 'data.transcript.viewed', label: 'Screening transcript viewed', target: 'ses_4Bz9QD · Amara Osei', tenant: 'Northwind Health System', ip: '203.0.113.24',
+      out: 'success', sev: 'warning', cat: 'data', priv: true, ticket: 'INC-2287', req: 'req_01K3Y9D3P6RW', hash: 'sha256:d716f0a3c85b',
+      before: {}, after: { fields_read: ['transcript', 'evidence_spans'], audio_played: false, export: false, duration_s: 214 },
+      note: 'Text and evidence spans only. Raw audio was not played and cannot be played from the super-admin console.', related: ['evt_2XD4RP'] },
+
+    { id: 'evt_TF19GM', ts: '2026-08-21 19:58:37Z', actor: 'Nadia Sørensen', email: 'nadia.sorensen@meridiantrust.example', role: 'tenant_admin',
+      action: 'billing.plan.changed', label: 'Plan changed — Team → Growth', target: 'Subscription sub_MD11', tenant: 'Meridian Schools Trust', ip: '62.20.14.88',
+      out: 'success', sev: 'notice', cat: 'billing', priv: false, ticket: '—', req: 'req_01K3XV6C0N4E', hash: 'sha256:e9427cb0dd36',
+      before: { plan: 'Team', seats: 16, monthly_cap_usd: 700 }, after: { plan: 'Growth', seats: 24, monthly_cap_usd: 1200, effective: '2026-09-01' },
+      note: 'Self-service upgrade ahead of the September recruitment round. Takes effect at the next billing period.', related: ['evt_WK47BD'] },
+
+    { id: 'evt_WK47BD', ts: '2026-08-21 18:22:05Z', actor: 'svc_billing', email: 'svc_billing@prepeet.internal', role: 'service',
+      action: 'billing.invoice.finalised', label: 'Invoice finalised — $3,980.14', target: 'INV-2026-08-0114', tenant: 'Prepeet Practice (self-serve)', ip: '10.42.7.31',
+      out: 'success', sev: 'info', cat: 'billing', priv: false, ticket: '—', req: 'req_01K3XR8W2K7Y', hash: 'sha256:f0be51d4a627',
+      before: { status: 'draft', total_usd: 3964.02 }, after: { status: 'finalised', total_usd: 3980.14, line_items: 4, period: '2026-07-21/2026-08-20' },
+      note: 'Usage-based invoice for the self-serve practice tenant. No candidate-identifying data appears on the invoice.', related: [] },
+
+    { id: 'evt_YH63NR', ts: '2026-08-21 17:10:29Z', actor: 'Marek Ostrowski', email: 'marek.ostrowski@prepeet.example', role: 'god',
+      action: 'privileged.feature_flag.overridden', label: 'Feature flag overridden — queue_backpressure_shed', target: 'queue_backpressure_shed → on', tenant: '— (global)', ip: '203.0.113.24',
+      out: 'success', sev: 'critical', cat: 'privileged', priv: true, ticket: 'INC-2284', req: 'req_01K3XP4M9F1Q', hash: 'sha256:0d3a86ef14bc',
+      before: { value: false, source: 'default' }, after: { value: true, source: 'override', expires: null, review_due: '2026-08-28' },
+      note: 'Load shedding enabled globally during the evaluation queue incident. Left in place; flagged for the platform review on 28 August.', related: ['evt_9F3KQ2'] },
+
+    { id: 'evt_PJ25XT', ts: '2026-08-21 14:36:12Z', actor: 'Tomás Herrera', email: 'tomas.herrera@example.com', role: 'candidate',
+      action: 'evaluation.appeal.submitted', label: 'Re-review requested by candidate', target: 'cand_L7X2QN · ses_TH01', tenant: 'Northwind Health System', ip: '77.101.44.203',
+      out: 'success', sev: 'info', cat: 'evaluation', priv: false, ticket: '—', req: 'req_01K3XG9B7D5S', hash: 'sha256:1e6c47a20b9f',
+      before: { appeal: null }, after: { appeal: 'apl_0219', grounds: 'audio_quality', candidate_statement_chars: 612, queue: 'admin-appeals' },
+      note: 'The candidate states that two answers were cut short by a dropped connection. Routed to the tenant’s re-review queue; no score changed on submission.', related: [] },
+
+    { id: 'evt_DR90CF', ts: '2026-08-21 12:04:57Z', actor: 'Aurélie Fontaine', email: 'aurelie.fontaine@orbitallabs.example', role: 'tenant_admin',
+      action: 'integration.sso_config.updated', label: 'SSO configuration updated', target: 'SAML connection sso_OL2', tenant: 'Orbital Labs', ip: '84.53.128.9',
+      out: 'success', sev: 'notice', cat: 'integration', priv: false, ticket: '—', req: 'req_01K3XC2Y8H0V', hash: 'sha256:2a95d3f6c704',
+      before: { metadata_url: 'https://idp.orbitallabs.example/saml/v1', enforce_sso: false, jit_provisioning: false },
+      after: { metadata_url: 'https://idp.orbitallabs.example/saml/v2', enforce_sso: true, jit_provisioning: true, default_role: 'recruiter' },
+      note: 'SSO is now enforced for this tenant: password sign-in is refused for all 32 members from the next session.', related: ['evt_6HN2PA'] },
+
+    { id: 'evt_GB58AM', ts: '2026-08-21 10:41:33Z', actor: 'Jonas Brandt', email: 'jonas.brandt@caldera.example', role: 'recruiter',
+      action: 'data.export.created', label: 'Candidate export created — 212 rows', target: 'exp_0774 · CSV', tenant: 'Caldera Capital', ip: '91.198.174.40',
+      out: 'success', sev: 'warning', cat: 'data', priv: false, ticket: '—', req: 'req_01K3X84J1L6P', hash: 'sha256:3fb70e9128da',
+      before: {}, after: { rows: 212, format: 'csv', columns: ['candidate_ref', 'role', 'status', 'submitted_at'], includes_transcripts: false, link_expires: '2026-08-21T11:41:33Z' },
+      note: 'Pseudonymous candidate references only. Transcripts, evidence and audio were not included and cannot be exported from the recruiter view.', related: [] }
+  ];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function byId(id) { return EVENTS.filter(function (e) { return e.id === id; })[0]; }
+  function prevHash(i) { return EVENTS[i + 1] ? EVENTS[i + 1].hash : 'sha256:genesis-2026-08-21'; }
+
+  /* ---------------------------------------------------------------- filters */
+  var FIELDS = ['q', 'actor', 'tenant', 'cat', 'sev', 'out', 'from', 'to'];
+  function readForm() {
+    var f = {};
+    FIELDS.forEach(function (k) { var el = document.getElementById('f-' + k); f[k] = el ? el.value.trim() : ''; });
+    f.privileged = document.getElementById('f-priv').checked ? '1' : '';
+    return f;
+  }
+  function writeForm(f) {
+    FIELDS.forEach(function (k) { var el = document.getElementById('f-' + k); if (el && f[k] != null) el.value = f[k]; });
+    document.getElementById('f-priv').checked = f.privileged === '1';
+  }
+  var DEF_FROM = '2026-08-21T00:00', DEF_TO = '2026-08-23T23:59';
+  function toUrl(f) {
+    var o = {};
+    FIELDS.forEach(function (k) { o[k] = f[k] || null; });
+    if (o.from === DEF_FROM) o.from = null;
+    if (o.to === DEF_TO) o.to = null;
+    o.privileged = f.privileged === '1' ? '1' : null;
+    Prepeet.query.set(o, true);
+  }
+  function fromUrl() {
+    var f = {};
+    FIELDS.forEach(function (k) { f[k] = Prepeet.query.get(k, '') || ''; });
+    if (!f.from) f.from = DEF_FROM;
+    if (!f.to) f.to = DEF_TO;
+    f.privileged = Prepeet.query.get('privileged', '') === '1' ? '1' : '';
+    return f;
+  }
+
+  function matches(e, f) {
+    if (f.actor && e.actor !== f.actor) return false;
+    if (f.tenant && e.tenant !== f.tenant) return false;
+    if (f.cat && e.cat !== f.cat) return false;
+    if (f.sev && e.sev !== f.sev) return false;
+    if (f.out && e.out !== f.out) return false;
+    if (f.privileged === '1' && !e.priv) return false;
+    var iso = e.ts.replace(' ', 'T').replace('Z', '');
+    if (f.from && iso < f.from) return false;
+    if (f.to && iso > f.to + ':59') return false;
+    if (f.q) {
+      var hay = (e.id + ' ' + e.action + ' ' + e.label + ' ' + e.target + ' ' + e.actor + ' ' + e.email + ' ' + e.tenant + ' ' + e.ip + ' ' + e.ticket).toLowerCase();
+      if (hay.indexOf(f.q.toLowerCase()) === -1) return false;
+    }
+    return true;
+  }
+
+  var CHIP_LABEL = {
+    q: 'Search', actor: 'Actor', tenant: 'Tenant', cat: 'Category', sev: 'Severity',
+    out: 'Outcome', from: 'From', to: 'To', privileged: 'Privileged only'
+  };
+  function renderChips(f) {
+    var host = document.getElementById('chips');
+    var chips = [];
+    Object.keys(CHIP_LABEL).forEach(function (k) {
+      var v = f[k];
+      if (!v) return;
+      if (k === 'from' && v === DEF_FROM) return;
+      if (k === 'to' && v === DEF_TO) return;
+      var shown = k === 'cat' ? (CATS[v] || v) : k === 'sev' ? ((SEV[v] || {}).label || v) : k === 'out' ? ((OUT[v] || {}).label || v) : k === 'privileged' ? 'on' : v;
+      chips.push('<button class="chip" type="button" data-chip="' + k + '">' + esc(CHIP_LABEL[k]) + ': ' + esc(shown) +
+        '<i data-lucide="x" class="ic x"></i><span class="sr-only">, remove this filter</span></button>');
+    });
+    host.innerHTML = chips.length
+      ? chips.join('') + '<button class="chip" type="button" data-clear-all>Clear all<i data-lucide="x" class="ic x"></i></button>'
+      : '<span class="hint">No filters beyond the 21–23 August window.</span>';
+  }
+
+  /* ------------------------------------------------------------------ table */
+  function rowHtml(e, i) {
+    var sev = SEV[e.sev] || SEV.info, out = OUT[e.out] || OUT.success;
+    return '<tr tabindex="0" data-ev="' + e.id + '">' +
+      '<td class="ts">' + esc(e.ts) + '</td>' +
+      '<td>' + esc(e.actor) + '<span class="td-sub"><span class="badge badge-outline">' + esc(ROLEBADGE[e.role]) + '</span></span></td>' +
+      '<td><span class="row-link">' + esc(e.label) + '</span><span class="td-sub mono">' + esc(e.action) + '</span>' + (e.priv ? ' <span class="badge badge-privileged">Privileged</span>' : '') + '</td>' +
+      '<td>' + esc(e.target) + '</td>' +
+      '<td>' + esc(e.tenant) + '</td>' +
+      '<td class="mono">' + esc(e.ip) + '</td>' +
+      '<td><span class="badge ' + out.badge + '"><i data-lucide="' + out.icon + '" class="ic-sm ic"></i>' + out.label + '</span></td>' +
+      '<td><span class="badge ' + sev.badge + '"><i data-lucide="' + sev.icon + '" class="ic-sm ic"></i>' + sev.label + '</span></td>' +
+      '<td class="td-actions"><button class="icon-btn icon-btn-sm" type="button" data-ev="' + e.id + '" aria-label="Open full event ' + esc(e.id) + ' — ' + esc(e.label) + '"><i data-lucide="chevron-right" class="ic ic-sm"></i></button></td>' +
+      '</tr>';
+  }
+
+  function apply(pushUrl) {
+    var f = readForm();
+    if (pushUrl !== false) toUrl(f);
+    renderChips(f);
+    var list = EVENTS.filter(function (e) { return matches(e, f); });
+    document.getElementById('rows').innerHTML = list.map(rowHtml).join('');
+    document.getElementById('count').textContent = list.length
+      ? 'Showing ' + list.length + ' of 12,481 events'
+      : 'No events match this filter';
+    document.getElementById('pg-info').textContent = list.length
+      ? 'Events 1–' + list.length + ' of 12,481 · page 1 of 625'
+      : 'No events on this page';
+    document.getElementById('export-scope').textContent = 'Current filter · ' + list.length + ' event' + (list.length === 1 ? '' : 's') + ' on this page';
+    var st = Prepeet.query.get('state', 'default');
+    if (st === 'default' || st === 'empty') applyState(list.length ? (st === 'empty' ? 'empty' : 'default') : 'empty', true);
+    Prepeet.init();
+  }
+
+  /* ------------------------------------------------------------------ state */
+  function applyState(s, silent) {
+    document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+    var c = document.getElementById('count');
+    if (c) {
+      if (s === 'loading') c.textContent = 'Loading events…';
+      else if (s === 'error') c.textContent = 'The query failed — no events loaded';
+      else if (s === 'empty') c.textContent = 'No events match this filter';
+      else c.textContent = 'Showing ' + document.getElementById('rows').children.length + ' of 12,481 events';
+    }
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+    if (!silent) Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+    Prepeet.init();
+  }
+
+  /* ----------------------------------------------------------------- drawer */
+  function jsonBlock(before, after) {
+    var keys = [];
+    Object.keys(before || {}).forEach(function (k) { if (keys.indexOf(k) === -1) keys.push(k); });
+    Object.keys(after || {}).forEach(function (k) { if (keys.indexOf(k) === -1) keys.push(k); });
+    var lines = ['{'];
+    keys.forEach(function (k) {
+      var b = before && (k in before) ? JSON.stringify(before[k]) : undefined;
+      var a = after && (k in after) ? JSON.stringify(after[k]) : undefined;
+      if (b === a) { lines.push('<span class="diff-line">  "' + esc(k) + '": ' + esc(a) + '</span>'); return; }
+      if (b !== undefined) lines.push('<span class="diff-line del">- "' + esc(k) + '": ' + esc(b) + '</span>');
+      if (a !== undefined) lines.push('<span class="diff-line add">+ "' + esc(k) + '": ' + esc(a) + '</span>');
+    });
+    lines.push('}');
+    return '<div class="codeblock" style="white-space:pre-wrap">' + lines.join('\n') + '</div>';
+  }
+
+  function openEvent(id) {
+    var i = EVENTS.map(function (e) { return e.id; }).indexOf(id);
+    var e = EVENTS[i];
+    if (!e) return;
+    document.getElementById('ev-id').textContent = e.id;
+    document.getElementById('drawer-event-h').textContent = e.label;
+    document.getElementById('ev-when').textContent = e.ts + ' · ' + CATS[e.cat] + ' · ' + SEV[e.sev].label;
+    document.getElementById('ev-copy').setAttribute('data-copy', e.id);
+
+    var related = (e.related || []).map(function (r) {
+      var x = byId(r);
+      return x ? '<li><button class="btn btn-sm btn-ghost" type="button" data-ev="' + x.id + '" style="justify-content:flex-start;width:100%"><i data-lucide="corner-down-right" class="ic ic-sm"></i><span class="mono">' + x.id + '</span> · ' + esc(x.label) + '</button></li>' : '';
+    }).join('');
+
+    document.getElementById('ev-body').innerHTML =
+      (e.priv ? '<div class="banner banner-danger"><i data-lucide="shield-alert" class="ic"></i><div>Privileged operation. Opening this record is itself logged.</div></div>' : '') +
+      '<div>' +
+        '<h3 class="section-title" style="font-size:var(--text-sm)">Event</h3>' +
+        '<dl class="kv">' +
+          '<dt>Action</dt><dd class="mono">' + esc(e.action) + '</dd>' +
+          '<dt>Outcome</dt><dd><span class="badge ' + OUT[e.out].badge + '">' + OUT[e.out].label + '</span></dd>' +
+          '<dt>Severity</dt><dd><span class="badge ' + SEV[e.sev].badge + '">' + SEV[e.sev].label + '</span></dd>' +
+          '<dt>Target</dt><dd>' + esc(e.target) + '</dd>' +
+          '<dt>Tenant</dt><dd>' + esc(e.tenant) + '</dd>' +
+          '<dt>Ticket</dt><dd class="mono">' + esc(e.ticket) + '</dd>' +
+        '</dl>' +
+      '</div>' +
+      '<div>' +
+        '<h3 class="section-title" style="font-size:var(--text-sm)">Actor</h3>' +
+        '<dl class="kv">' +
+          '<dt>Name</dt><dd>' + esc(e.actor) + ' <span class="badge badge-outline">' + esc(ROLEBADGE[e.role]) + '</span></dd>' +
+          '<dt>Identity</dt><dd class="mono">' + esc(e.email) + '</dd>' +
+          '<dt>Source IP</dt><dd class="mono">' + esc(e.ip) + '</dd>' +
+          '<dt>Request id</dt><dd class="mono">' + esc(e.req) + '</dd>' +
+          '<dt>Session id</dt><dd class="mono">sess_' + esc(e.id.slice(4).toLowerCase()) + '</dd>' +
+        '</dl>' +
+      '</div>' +
+      '<div>' +
+        '<h3 class="section-title" style="font-size:var(--text-sm)">What changed</h3>' +
+        '<p class="hint" style="margin-bottom:8px">Lines beginning <span class="mono">-</span> are the value before, lines beginning <span class="mono">+</span> the value after. Unchanged keys have no prefix.</p>' +
+        jsonBlock(e.before, e.after) +
+      '</div>' +
+      '<div>' +
+        '<h3 class="section-title" style="font-size:var(--text-sm)">Recorded note</h3>' +
+        '<p class="text-2" style="font-size:var(--text-sm);line-height:1.6">' + esc(e.note) + '</p>' +
+      '</div>' +
+      '<div>' +
+        '<h3 class="section-title" style="font-size:var(--text-sm)">Chain of custody</h3>' +
+        '<dl class="kv">' +
+          '<dt>This entry</dt><dd class="chain">' + esc(e.hash) + '</dd>' +
+          '<dt>Previous entry</dt><dd class="chain">' + esc(prevHash(i)) + '</dd>' +
+          '<dt>Position</dt><dd class="tnum">' + (TOTAL - i) + ' of 12,481</dd>' +
+        '</dl>' +
+        '<p class="hint" style="margin-top:8px">Recomputing this entry’s hash from its body and the previous hash is how verification detects tampering.</p>' +
+      '</div>' +
+      (related ? '<div><h3 class="section-title" style="font-size:var(--text-sm)">Related events</h3><ul class="stack-sm">' + related + '</ul></div>'
+               : '<div><h3 class="section-title" style="font-size:var(--text-sm)">Related events</h3><p class="hint">No other events share this request or subject.</p></div>');
+
+    Prepeet.openDialog('drawer-event');
+    Prepeet.init();
+  }
+
+  /* ------------------------------------------------------------- delegation */
+  document.addEventListener('click', function (ev) {
+    var t;
+    if ((t = ev.target.closest('[data-chip]'))) {
+      var k = t.getAttribute('data-chip');
+      if (k === 'privileged') document.getElementById('f-priv').checked = false;
+      else if (k === 'from') document.getElementById('f-from').value = '2026-08-21T00:00';
+      else if (k === 'to') document.getElementById('f-to').value = '2026-08-23T23:59';
+      else document.getElementById('f-' + k).value = '';
+      apply(); return;
+    }
+    if ((t = ev.target.closest('[data-clear-all]'))) { clearAll(); return; }
+    if ((t = ev.target.closest('[data-ev]'))) { openEvent(t.getAttribute('data-ev')); return; }
+    if ((t = ev.target.closest('[data-state-btn]'))) { applyState(t.getAttribute('data-state-btn')); return; }
+  });
+
+  function clearAll() {
+    ['q', 'actor', 'tenant', 'cat', 'sev', 'out'].forEach(function (k) { document.getElementById('f-' + k).value = ''; });
+    document.getElementById('f-from').value = '2026-08-21T00:00';
+    document.getElementById('f-to').value = '2026-08-23T23:59';
+    document.getElementById('f-priv').checked = false;
+    document.getElementById('f-saved').value = '';
+    applyState('default');
+    apply();
+    Prepeet.announce('All filters cleared.');
+  }
+
+  /* Keyboard navigation across rows */
+  document.getElementById('audit').addEventListener('keydown', function (ev) {
+    var tr = ev.target.closest('tr[data-ev]');
+    if (!tr) return;
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openEvent(tr.getAttribute('data-ev')); return; }
+    var rows = Array.prototype.slice.call(this.querySelectorAll('tr[data-ev]'));
+    var i = rows.indexOf(tr), n = null;
+    if (ev.key === 'ArrowDown') n = rows[Math.min(rows.length - 1, i + 1)];
+    if (ev.key === 'ArrowUp') n = rows[Math.max(0, i - 1)];
+    if (ev.key === 'Home') n = rows[0];
+    if (ev.key === 'End') n = rows[rows.length - 1];
+    if (n) { ev.preventDefault(); n.focus(); }
+  });
+
+  /* Saved filters */
+  var SAVED = {
+    priv:      { privileged: '1', from: '2026-08-16T00:00', to: '2026-08-23T23:59' },
+    denied:    { out: 'denied' },
+    northwind: { tenant: 'Northwind Health System' },
+    data:      { cat: 'data' }
+  };
+  document.getElementById('f-saved').addEventListener('change', function () {
+    if (!this.value) return;
+    ['q', 'actor', 'tenant', 'cat', 'sev', 'out'].forEach(function (k) { document.getElementById('f-' + k).value = ''; });
+    document.getElementById('f-from').value = '2026-08-21T00:00';
+    document.getElementById('f-to').value = '2026-08-23T23:59';
+    document.getElementById('f-priv').checked = false;
+    var s = SAVED[this.value];
+    writeForm(Object.assign({ privileged: '' }, s));
+    applyState('default');
+    apply();
+    Prepeet.announce('Saved filter applied: ' + this.options[this.selectedIndex].text);
+  });
+
+  document.getElementById('f-save').addEventListener('click', function () {
+    var f = readForm();
+    var parts = [];
+    Object.keys(CHIP_LABEL).forEach(function (k) { if (f[k]) parts.push(CHIP_LABEL[k] + ': ' + f[k]); });
+    document.getElementById('sf-summary').textContent = parts.length ? parts.join(' · ') : 'No filters set — this would save the default view.';
+    Prepeet.openDialog('dlg-savefilter');
+  });
+  document.getElementById('sf-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var n = document.getElementById('sf-name');
+    var ok = n.value.trim().length > 0;
+    n.setAttribute('aria-invalid', String(!ok));
+    document.getElementById('sf-err').hidden = ok;
+    if (!ok) { n.focus(); return; }
+    var opt = document.createElement('option');
+    opt.value = 'custom-' + Date.now();
+    opt.textContent = n.value.trim() + (document.getElementById('sf-share').checked ? ' (shared)' : '');
+    document.getElementById('f-saved').appendChild(opt);
+    SAVED[opt.value] = readForm();
+    document.getElementById('f-saved').value = opt.value;
+    Prepeet.closeDialog('dlg-savefilter');
+    Prepeet.toast({ title: 'Filter saved', desc: '“' + n.value.trim() + '” is now in your saved filters.', kind: 'success' });
+    n.value = '';
+  });
+
+  /* Export */
+  document.getElementById('export-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var r = document.getElementById('ex-reason');
+    var ok = r.value.trim().length >= 15;
+    r.setAttribute('aria-invalid', String(!ok));
+    document.getElementById('ex-reason-err').hidden = ok;
+    if (!ok) { r.focus(); return; }
+    var fmt = document.querySelector('input[name="fmt"]:checked').value.toUpperCase();
+    var ticket = document.getElementById('ex-ticket').value.trim();
+    Prepeet.closeDialog('dlg-export');
+    Prepeet.toast({
+      title: fmt + ' export queued',
+      desc: 'A data.export.created event was written' + (ticket ? ' against ' + ticket : '') + '. The signed link is emailed to ' + Prepeet.data.adminUser.email + ' and expires in one hour.',
+      kind: 'warning', duration: 7000
+    });
+    r.value = ''; document.getElementById('ex-ticket').value = '';
+  });
+
+  /* Integrity verification */
+  document.getElementById('verify-btn').addEventListener('click', function () {
+    var btn = this;
+    if (btn.classList.contains('is-loading')) return;
+    btn.classList.add('is-loading'); btn.setAttribute('aria-busy', 'true');
+    document.getElementById('verify-note').textContent = 'Recomputing 12,481 hashes against the 23 August anchor…';
+    setTimeout(function () {
+      btn.classList.remove('is-loading'); btn.removeAttribute('aria-busy');
+      var d = new Date();
+      var stamp = '23 August 2026, ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0') + ' UTC';
+      document.getElementById('verify-out').hidden = false;
+      document.getElementById('verify-text').innerHTML = '<strong>12,481 entries verified, chain intact.</strong> ' +
+        'Every entry’s hash matches the recomputed value and the chain reconciles to the daily anchor. Verified ' + stamp + ' · took 3.2 seconds.';
+      document.getElementById('verify-note').textContent = 'Last verified ' + stamp + '. Verification is itself an audited read.';
+      var b = document.getElementById('integrity-badge');
+      b.className = 'badge badge-success';
+      b.innerHTML = '<i data-lucide="shield-check" class="ic-sm ic"></i>Chain intact';
+      Prepeet.announce('Verification complete: 12,481 entries verified, chain intact.');
+      Prepeet.init();
+    }, 1600);
+  });
+
+  /* Elevation countdown (display only — the console owns the real window) */
+  var expiresAt = Date.now() + 41 * 60000;
+  setInterval(function () {
+    var el = document.getElementById('elev-count');
+    if (!el) return;
+    var s = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    el.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }, 1000);
+
+  /* Pagination (prototype: one page of events) */
+  ['pg-2', 'pg-3', 'pg-last', 'pg-next'].forEach(function (id) {
+    var b = document.getElementById(id);
+    if (b) b.addEventListener('click', function () {
+      Prepeet.toast({ title: 'Page not loaded in this prototype', desc: 'The first 20 of 12,481 events are seeded. Narrow the filter instead.', kind: 'info' });
+    });
+  });
+
+  /* ------------------------------------------------------------------ init */
+  document.addEventListener('DOMContentLoaded', function () {
+    var role = Prepeet.getRole();
+    if (!Prepeet.can('god')) {
+      document.getElementById('denied').hidden = false;
+      document.getElementById('viewer').hidden = true;
+      document.getElementById('page-actions').hidden = true;
+      document.getElementById('denied-role').textContent = Prepeet.roles[role].label;
+      document.getElementById('denied-role-code').textContent = role;
+      Prepeet.init();
+      return;
+    }
+    document.getElementById('denied').hidden = true;
+    document.getElementById('viewer').hidden = false;
+    document.getElementById('elev-who').textContent = Prepeet.data.adminUser.name;
+
+    var actors = [], tenants = [];
+    EVENTS.forEach(function (e) {
+      if (actors.indexOf(e.actor) === -1) actors.push(e.actor);
+      if (e.tenant !== '—' && e.tenant !== '— (global)' && tenants.indexOf(e.tenant) === -1) tenants.push(e.tenant);
+    });
+    actors.sort(); tenants.sort();
+    var aSel = document.getElementById('f-actor'), tSel = document.getElementById('f-tenant');
+    actors.forEach(function (a) { var o = document.createElement('option'); o.value = a; o.textContent = a; aSel.appendChild(o); });
+    tenants.forEach(function (t) { var o = document.createElement('option'); o.value = t; o.textContent = t; tSel.appendChild(o); });
+
+    writeForm(fromUrl());
+    document.getElementById('filters').addEventListener('input', function () { apply(); });
+    document.getElementById('filters').addEventListener('change', function () { apply(); });
+    document.getElementById('filters').addEventListener('submit', function (e) { e.preventDefault(); apply(); });
+    document.getElementById('f-clear').addEventListener('click', clearAll);
+
+    apply(false);
+    applyState(Prepeet.query.get('state', 'default'), true);
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en" data-theme-default="light" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI usage &amp; cost · Prepeet</title>
+<meta name="description" content="Platform view of AI spend, token and audio usage, model and provider breakdown, cost per tenant, efficiency levers and budget alerts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* ---- page-scoped: AI usage & cost only ---- */
+.chart { width:100%; height:auto; overflow:visible; }
+.chart text { fill:var(--fg-3); font-size:10px; font-family:var(--font-sans); }
+.chart .grid { stroke:var(--border); stroke-width:1; }
+.chart .axis { stroke:var(--border-strong); stroke-width:1; }
+.chart .a1 { fill:var(--chart-1); } .chart .a2 { fill:var(--chart-2); }
+.chart .a3 { fill:var(--chart-4); } .chart .a4 { fill:var(--chart-3); }
+.chart .a1,.chart .a2,.chart .a3,.chart .a4 { stroke:var(--surface); stroke-width:.75; }
+.donut circle { fill:none; stroke-width:22; }
+.donut .d1 { stroke:var(--chart-1); } .donut .d2 { stroke:var(--chart-2); }
+.donut .d3 { stroke:var(--chart-4); } .donut .d4 { stroke:var(--chart-3); }
+.donut .track { stroke:var(--surface-3); }
+.donut text { fill:var(--fg); font-family:var(--font-sans); }
+.trendline { height:48px; width:100%; }
+.trendline polyline { fill:none; stroke:var(--chart-1); stroke-width:2; }
+.qbar { display:flex; align-items:center; gap:8px; min-width:130px; }
+.qbar .progress { flex:1; min-width:56px; }
+.lever { border:1px solid var(--border); border-radius:var(--r-md); padding:12px 14px; background:var(--surface); }
+.tot-row td { background:var(--surface-2); font-weight:650; border-top:1px solid var(--border-strong); }
+.fallback-row td { background:color-mix(in srgb, var(--info) 7%, transparent); }
+.table th.sortable button { font:inherit; color:inherit; display:inline-flex; align-items:center; gap:4px; text-transform:inherit; letter-spacing:inherit; }
+/* responsive helpers for this page's two-column splits */
+.split-2 { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.split-wide { grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); }
+@media (max-width:1024px){ .split-2, .split-wide { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:640px){ .page-header .segmented { flex-wrap:wrap; } }
+
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="pf-llm" data-title="AI usage &amp; cost"
+      data-crumbs="Admin>admin-dashboard.html|Platform>admin-platform-analytics.html|System health>admin-platform-system.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content dense" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow eyebrow--muted">Platform operations</p>
+        <h1>AI usage &amp; cost</h1>
+        <p class="page-desc">Model spend, token and audio consumption, and cost per tenant. Usage is metered per request; billing figures reconcile with the provider invoice at month end.</p>
+        <div class="cluster" style="margin-top:8px">
+          <span class="badge badge-outline mono">/admin/platform/system/llm-usage</span>
+          <span class="badge badge-neutral"><i data-lucide="database" class="ic-sm ic"></i>Metering current to 14:15 UTC</span>
+          <a class="badge badge-info ext" href="https://grafana.prepeet.example/d/prepeet-llm-cost" target="_blank" rel="noopener noreferrer"><i data-lucide="bar-chart-3" class="ic-sm ic"></i>Grafana cost board<span class="sr-only">(opens in a new tab)</span></a>
+        </div>
+      </div>
+      <div style="margin-left:auto">
+        <span class="hint" style="display:block;margin-bottom:4px">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+          <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+          <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- Filter bar (reflected in the URL) ---------- -->
+    <form class="card card-subtle" id="filters" style="margin-bottom:var(--sp-4)" aria-labelledby="filters-h">
+      <h2 id="filters-h" class="sr-only">Filter usage</h2>
+      <div class="card-body filterbar">
+        <div class="field" style="flex:0 0 auto">
+          <label class="label" for="f-range" style="font-size:var(--text-xs)">Time range</label>
+          <select class="select input-sm" id="f-range" name="range">
+            <option value="7d">Last 7 days</option>
+            <option value="30d" selected>Last 30 days</option>
+            <option value="90d">Last 90 days</option>
+            <option value="mtd">Month to date</option>
+          </select>
+        </div>
+        <div class="field" style="flex:0 0 auto">
+          <label class="label" for="f-tenant" style="font-size:var(--text-xs)">Tenant</label>
+          <select class="select input-sm" id="f-tenant" name="tenant">
+            <option value="">All tenants</option>
+          </select>
+        </div>
+        <div class="field" style="flex:0 0 auto">
+          <label class="label" for="f-group" style="font-size:var(--text-xs)">Group by</label>
+          <select class="select input-sm" id="f-group" name="group">
+            <option value="cost-type" selected>Cost type</option>
+            <option value="model">Model</option>
+            <option value="tenant">Tenant</option>
+          </select>
+        </div>
+        <div class="spacer"></div>
+        <div class="cluster">
+          <span class="hint" id="filter-echo" role="status">Showing all tenants, last 30 days, grouped by cost type.</span>
+          <button class="btn btn-sm btn-ghost" type="button" id="f-reset">Reset</button>
+          <button class="btn btn-sm btn-secondary" type="button" data-toast="Export queued" data-toast-desc="A CSV of metered usage for the selected range will be emailed to priya.raman@northwindhealth.example." data-toast-kind="success"><i data-lucide="download" class="ic ic-sm"></i>Export CSV</button>
+        </div>
+      </div>
+    </form>
+
+    <!-- ══════════════════ LOADING ══════════════════ -->
+    <div data-state="loading" hidden aria-busy="true">
+      <div class="metrics-row" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:70%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:70%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:70%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:70%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:70%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:70%;margin-top:10px"></div></div></div>
+      </div>
+      <div class="card" style="margin-bottom:var(--sp-4)"><div class="card-body"><div class="skeleton skeleton-block" style="height:240px"></div></div></div>
+      <div class="card"><div class="card-body"><div class="skeleton skeleton-block" style="height:180px"></div></div></div>
+      <p class="hint" style="margin-top:12px" role="status">Aggregating 30 days of metered usage across 6 models and 6 tenants…</p>
+    </div>
+
+    <!-- ══════════════════ ERROR (partial data) ══════════════════ -->
+    <div data-state="error" hidden>
+      <div class="banner banner-warning" role="alert" style="margin-bottom:var(--sp-4)">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>
+          <strong>Billing feed delayed — showing partial data.</strong>
+          The provider billing export has not landed since 22 Aug 04:00 UTC. Token and audio counts below come from our own metering and are complete; <strong>monetary totals are estimates using list prices</strong> and exclude the last 34 hours. Negotiated discounts are not applied until the export arrives.
+        </div>
+        <div class="banner-actions">
+          <button class="btn btn-sm btn-secondary" type="button" data-loading-sim="1600" data-loading-done="Still waiting on the billing export" data-loading-kind="warning">Retry fetch</button>
+          <a class="btn btn-sm btn-ghost" href="admin-platform-system.html">System health</a>
+        </div>
+      </div>
+      <div class="metrics-row" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="metric"><span class="metric-label">Total spend (30d)</span><span class="metric-value tnum">$8,214.02<small>est.</small></span><span class="metric-foot">Partial — excludes 22–23 Aug</span></div></div>
+        <div class="card"><div class="metric"><span class="metric-label">Input tokens</span><span class="metric-value tnum">412.8M</span><span class="metric-foot">Complete — own metering</span></div></div>
+        <div class="card"><div class="metric"><span class="metric-label">Output tokens</span><span class="metric-value tnum">96.3M</span><span class="metric-foot">Complete — own metering</span></div></div>
+        <div class="card"><div class="metric"><span class="metric-label">Audio minutes</span><span class="metric-value tnum">238,940</span><span class="metric-foot">Complete — own metering</span></div></div>
+        <div class="card"><div class="metric"><span class="metric-label">Cost per interview</span><span class="metric-value tnum">—</span><span class="metric-foot">Unavailable until billing lands</span></div></div>
+        <div class="card"><div class="metric"><span class="metric-label">Cache hit rate</span><span class="metric-value tnum">34.2%</span><span class="metric-foot">Complete — own metering</span></div></div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="state warning state-compact">
+            <div class="state-icon"><i data-lucide="receipt-text" class="ic"></i></div>
+            <h2 style="font-size:var(--text-md)">Cost breakdown is unavailable for this range</h2>
+            <p>Per-model and per-tenant cost need the reconciled billing export. Usage counts are available now if you need to answer a capacity question; quota enforcement is unaffected and continues to run on metered usage.</p>
+            <div class="actions">
+              <a class="btn btn-primary" href="admin-platform-quotas.html">Open quota management</a>
+              <a class="btn btn-secondary ext" href="https://status.prepeet.example/components/billing-export" target="_blank" rel="noopener noreferrer">Billing feed status<span class="sr-only">(opens in a new tab)</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ DEFAULT ══════════════════ -->
+    <div data-state="default">
+
+      <!-- ---------- Metric row ---------- -->
+      <div class="metrics-row" style="margin-bottom:var(--sp-5)">
+        <div class="card"><div class="metric">
+          <span class="metric-label">Total spend · 30 days</span>
+          <span class="metric-value tnum">$9,618.69</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up" class="ic-sm ic"></i>+14.2% vs previous 30d</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Input tokens</span>
+          <span class="metric-value tnum">412.8<small>M</small></span>
+          <span class="metric-foot">34.2% served from prompt cache</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Output tokens</span>
+          <span class="metric-value tnum">96.3<small>M</small></span>
+          <span class="metric-foot">Ratio 4.3 : 1 input to output</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Audio minutes processed</span>
+          <span class="metric-value tnum">238,940</span>
+          <span class="metric-foot">Across 9,001 sessions</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Cost per completed interview</span>
+          <span class="metric-value tnum">$1.07</span>
+          <span class="metric-delta down"><i data-lucide="arrow-down" class="ic-sm ic"></i>−$0.09 vs previous 30d</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Prompt-cache hit rate</span>
+          <span class="metric-value tnum">34.2%</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up" class="ic-sm ic"></i>+12.8 pts in 14 days</span>
+        </div></div>
+      </div>
+
+      <!-- ---------- Cost over time ---------- -->
+      <section class="card" aria-labelledby="cot-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="cot-h">Cost over time by cost type</h2>
+            <p class="hint" style="margin-top:3px">Daily spend, 25 July – 23 August 2026. Weekend troughs are real: interview volume follows the working week.</p>
+          </div>
+          <div class="tabs tabs-pill" role="tablist" aria-label="Cost over time view" data-tabs style="border:0">
+            <button class="tab" role="tab" id="tab-chart" aria-controls="panel-chart" aria-selected="true" type="button"><i data-lucide="area-chart" class="ic ic-sm"></i>Chart</button>
+            <button class="tab" role="tab" id="tab-table" aria-controls="panel-table" aria-selected="false" type="button"><i data-lucide="table" class="ic ic-sm"></i>Table</button>
+          </div>
+        </div>
+        <div class="card-body">
+
+          <div id="panel-chart" role="tabpanel" aria-labelledby="tab-chart">
+            <svg class="chart" viewBox="0 0 760 250" role="img" aria-label="Stacked area chart of daily AI spend over 30 days, split into realtime audio, transcription, evaluation text and embeddings. Daily total ranges from $188 on weekends to $420 on the busiest weekday, trending upward through the month.">
+              <line class="grid" x1="60" y1="210" x2="740" y2="210"/>
+              <line class="grid" x1="60" y1="162.5" x2="740" y2="162.5"/>
+              <line class="grid" x1="60" y1="115" x2="740" y2="115"/>
+              <line class="grid" x1="60" y1="67.5" x2="740" y2="67.5"/>
+              <line class="grid" x1="60" y1="20" x2="740" y2="20"/>
+              <text x="52" y="213" text-anchor="end">$0</text>
+              <text x="52" y="166" text-anchor="end">$125</text>
+              <text x="52" y="118" text-anchor="end">$250</text>
+              <text x="52" y="71" text-anchor="end">$375</text>
+              <text x="52" y="24" text-anchor="end">$500</text>
+              <line class="axis" x1="60" y1="20" x2="60" y2="210"/>
+              <path class="a1" d="M 60,167.85 L 83.45,170.05 L 106.9,141.11 L 130.34,136.57 L 153.79,134.61 L 177.24,136.63 L 200.69,139.37 L 224.14,165.23 L 247.59,167.59 L 271.03,136.89 L 294.48,132.12 L 317.93,130.08 L 341.38,132.26 L 364.83,135.2 L 388.28,162.61 L 411.72,165.13 L 435.17,132.68 L 458.62,127.67 L 482.07,125.55 L 505.52,127.89 L 528.97,131.03 L 552.41,159.99 L 575.86,162.66 L 599.31,128.47 L 622.76,123.22 L 646.21,121.02 L 669.66,123.52 L 693.1,126.85 L 716.55,157.36 L 740,160.2 L 740,210 L 60,210 Z"/>
+              <path class="a2" d="M 60,158.47 L 83.45,161.16 L 106.9,125.76 L 130.34,120.22 L 153.79,117.82 L 177.24,120.29 L 200.69,123.64 L 224.14,155.26 L 247.59,158.15 L 271.03,120.61 L 294.48,114.78 L 317.93,112.28 L 341.38,114.95 L 364.83,118.54 L 388.28,152.05 L 411.72,155.13 L 435.17,115.46 L 458.62,109.33 L 482.07,106.75 L 505.52,109.6 L 528.97,113.44 L 552.41,148.85 L 575.86,152.12 L 599.31,110.31 L 622.76,103.89 L 646.21,101.21 L 669.66,104.26 L 693.1,108.34 L 716.55,145.64 L 740,149.11 L 740,160.2 L 716.55,157.36 L 693.1,126.85 L 669.66,123.52 L 646.21,121.02 L 622.76,123.22 L 599.31,128.47 L 575.86,162.66 L 552.41,159.99 L 528.97,131.03 L 505.52,127.89 L 482.07,125.55 L 458.62,127.67 L 435.17,132.68 L 411.72,165.13 L 388.28,162.61 L 364.83,135.2 L 341.38,132.26 L 317.93,130.08 L 294.48,132.12 L 271.03,136.89 L 247.59,167.59 L 224.14,165.23 L 200.69,139.37 L 177.24,136.63 L 153.79,134.61 L 130.34,136.57 L 106.9,141.11 L 83.45,170.05 L 60,167.85 Z"/>
+              <path class="a3" d="M 60,134.52 L 83.45,138.47 L 106.9,86.62 L 130.34,78.5 L 153.79,74.99 L 177.24,78.61 L 200.69,83.52 L 224.14,129.83 L 247.59,134.05 L 271.03,79.08 L 294.48,70.53 L 317.93,66.88 L 341.38,70.79 L 364.83,76.05 L 388.28,125.13 L 411.72,129.64 L 435.17,71.54 L 458.62,62.56 L 482.07,58.77 L 505.52,62.96 L 528.97,68.57 L 552.41,120.43 L 575.86,125.23 L 599.31,64 L 622.76,54.59 L 646.21,50.66 L 669.66,55.13 L 693.1,61.1 L 716.55,115.74 L 740,120.82 L 740,149.11 L 716.55,145.64 L 693.1,108.34 L 669.66,104.26 L 646.21,101.21 L 622.76,103.89 L 599.31,110.31 L 575.86,152.12 L 552.41,148.85 L 528.97,113.44 L 505.52,109.6 L 482.07,106.75 L 458.62,109.33 L 435.17,115.46 L 411.72,155.13 L 388.28,152.05 L 364.83,118.54 L 341.38,114.95 L 317.93,112.28 L 294.48,114.78 L 271.03,120.61 L 247.59,158.15 L 224.14,155.26 L 200.69,123.64 L 177.24,120.29 L 153.79,117.82 L 130.34,120.22 L 106.9,125.76 L 83.45,161.16 L 60,158.47 Z"/>
+              <path class="a4" d="M 60,134.43 L 83.45,138.38 L 106.9,86.47 L 130.34,78.34 L 153.79,74.83 L 177.24,78.45 L 200.69,83.36 L 224.14,129.73 L 247.59,133.96 L 271.03,78.92 L 294.48,70.36 L 317.93,66.71 L 341.38,70.62 L 364.83,75.88 L 388.28,125.03 L 411.72,129.55 L 435.17,71.37 L 458.62,62.38 L 482.07,58.59 L 505.52,62.78 L 528.97,68.4 L 552.41,120.32 L 575.86,125.13 L 599.31,63.82 L 622.76,54.4 L 646.21,50.47 L 669.66,54.94 L 693.1,60.92 L 716.55,115.62 L 740,120.71 L 740,120.82 L 716.55,115.74 L 693.1,61.1 L 669.66,55.13 L 646.21,50.66 L 622.76,54.59 L 599.31,64 L 575.86,125.23 L 552.41,120.43 L 528.97,68.57 L 505.52,62.96 L 482.07,58.77 L 458.62,62.56 L 435.17,71.54 L 411.72,129.64 L 388.28,125.13 L 364.83,76.05 L 341.38,70.79 L 317.93,66.88 L 294.48,70.53 L 271.03,79.08 L 247.59,134.05 L 224.14,129.83 L 200.69,83.52 L 177.24,78.61 L 153.79,74.99 L 130.34,78.5 L 106.9,86.62 L 83.45,138.47 L 60,134.52 Z"/>
+              <text x="60" y="228" text-anchor="start">25 Jul</text>
+              <text x="224.14" y="228" text-anchor="middle">1 Aug</text>
+              <text x="388.28" y="228" text-anchor="middle">8 Aug</text>
+              <text x="552.41" y="228" text-anchor="middle">15 Aug</text>
+              <text x="740" y="228" text-anchor="end">23 Aug</text>
+              <text x="400" y="245" text-anchor="middle">Day</text>
+            </svg>
+            <div class="chart-legend" style="margin-top:10px">
+              <span><i style="background:var(--chart-1)"></i>Realtime audio $5,364.67</span>
+              <span><i style="background:var(--chart-2)"></i>Transcription $1,194.70</span>
+              <span><i style="background:var(--chart-4)"></i>Evaluation text $3,047.68</span>
+              <span><i style="background:var(--chart-3)"></i>Embeddings $11.64</span>
+            </div>
+          </div>
+
+          <div id="panel-table" role="tabpanel" aria-labelledby="tab-table" hidden>
+            <div class="scroll-x table-wrap">
+              <table class="table table-dense">
+                <caption class="sr-only">Weekly AI spend by cost type for the 30 days to 23 August 2026.</caption>
+                <thead><tr><th scope="col">Week</th><th scope="col" class="num">Realtime audio</th><th scope="col" class="num">Transcription</th><th scope="col" class="num">Evaluation text</th><th scope="col" class="num">Embeddings</th><th scope="col" class="num">Total</th></tr></thead>
+                <tbody>
+                  <tr><td>25–31 Jul</td><td class="num tnum">$1,167.89</td><td class="num tnum">$260.09</td><td class="num tnum">$663.49</td><td class="num tnum">$2.53</td><td class="num tnum">$2,094.00</td></tr>
+                  <tr><td>1–7 Aug</td><td class="num tnum">$1,238.48</td><td class="num tnum">$275.81</td><td class="num tnum">$703.59</td><td class="num tnum">$2.69</td><td class="num tnum">$2,220.57</td></tr>
+                  <tr><td>8–14 Aug</td><td class="num tnum">$1,309.07</td><td class="num tnum">$291.53</td><td class="num tnum">$743.68</td><td class="num tnum">$2.84</td><td class="num tnum">$2,347.12</td></tr>
+                  <tr><td>15–21 Aug</td><td class="num tnum">$1,379.65</td><td class="num tnum">$307.24</td><td class="num tnum">$783.78</td><td class="num tnum">$2.99</td><td class="num tnum">$2,473.66</td></tr>
+                  <tr><td>22–23 Aug</td><td class="num tnum">$269.58</td><td class="num tnum">$60.03</td><td class="num tnum">$153.14</td><td class="num tnum">$0.59</td><td class="num tnum">$483.34</td></tr>
+                  <tr class="tot-row"><td>Total</td><td class="num tnum">$5,364.67</td><td class="num tnum">$1,194.70</td><td class="num tnum">$3,047.68</td><td class="num tnum">$11.64</td><td class="num tnum">$9,618.69</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="hint" style="margin-top:8px">Scrolls sideways rather than stacking: the four cost types are meant to be read across one row.</p>
+          </div>
+
+          <p class="chart-summary">Text summary: total spend over the 30 days to 23 August was $9,618.69 — realtime audio $5,364.67 (55.8%), evaluation text $3,047.68 (31.7%), transcription $1,194.70 (12.4%) and embeddings $11.64 (0.1%). Weekly totals rose steadily from $2,094.00 in the week of 25 July to $2,473.66 in the week of 15 August. The heaviest single day was $419.83 (Thursday 20 August); the lightest was $188.47 (Sunday 26 July).</p>
+        </div>
+      </section>
+
+      <!-- ---------- Model and provider breakdown ---------- -->
+      <section aria-labelledby="models-h" style="margin-bottom:var(--sp-5)">
+        <div class="section-head">
+          <h2 id="models-h" class="section-title" style="margin:0">Model and provider breakdown</h2>
+          <a class="link" href="admin-platform-system.html">Routing policy versions<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        </div>
+        <div class="scroll-x table-wrap">
+          <table class="table table-dense">
+            <caption class="sr-only">Usage and cost by model for the 30 days to 23 August 2026. Scroll horizontally to see all columns.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Model</th>
+                <th scope="col">Role</th>
+                <th scope="col" class="num">Calls</th>
+                <th scope="col" class="num">Input tokens</th>
+                <th scope="col" class="num">Output tokens</th>
+                <th scope="col" class="num">Audio min</th>
+                <th scope="col" class="num">Median latency</th>
+                <th scope="col" class="num">Error rate</th>
+                <th scope="col">Unit price</th>
+                <th scope="col" class="num">Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">pp-realtime-voice-1</td>
+                <td>Realtime voice <span class="badge badge-primary">primary</span></td>
+                <td class="num tnum">32,410</td><td class="num tnum">88.4M</td><td class="num tnum">39.6M</td><td class="num tnum">214,600</td>
+                <td class="num tnum">410 ms</td><td class="num tnum">0.21%</td>
+                <td class="mono" style="white-space:nowrap">$0.0250 / audio-min</td>
+                <td class="num tnum"><strong>$5,364.67</strong></td>
+              </tr>
+              <tr>
+                <td class="mono">pp-transcribe-2</td>
+                <td>Transcription</td>
+                <td class="num tnum">41,880</td><td class="num tnum">—</td><td class="num tnum">32.1M</td><td class="num tnum">238,940</td>
+                <td class="num tnum">1.9 s</td><td class="num tnum">0.34%</td>
+                <td class="mono" style="white-space:nowrap">$0.0050 / min</td>
+                <td class="num tnum">$1,194.70</td>
+              </tr>
+              <tr>
+                <td class="mono">pp-eval-pro-3</td>
+                <td>Evaluation <span class="badge badge-primary">primary</span></td>
+                <td class="num tnum">28,764</td><td class="num tnum">214.6M</td><td class="num tnum">18.4M</td><td class="num tnum">—</td>
+                <td class="num tnum">12.6 s</td><td class="num tnum">0.42%</td>
+                <td class="mono" style="white-space:nowrap">$10.00 / 1M in · $30.00 / 1M out</td>
+                <td class="num tnum">$2,698.00</td>
+              </tr>
+              <tr>
+                <td class="mono">pp-eval-lite-3</td>
+                <td>Triage &amp; routing</td>
+                <td class="num tnum">19,442</td><td class="num tnum">42.9M</td><td class="num tnum">3.1M</td><td class="num tnum">—</td>
+                <td class="num tnum">1.2 s</td><td class="num tnum">0.11%</td>
+                <td class="mono" style="white-space:nowrap">$0.60 / 1M in · $2.40 / 1M out</td>
+                <td class="num tnum">$33.18</td>
+              </tr>
+              <tr>
+                <td class="mono">pp-embed-2</td>
+                <td>Embeddings (evidence search)</td>
+                <td class="num tnum">61,208</td><td class="num tnum">58.2M</td><td class="num tnum">—</td><td class="num tnum">—</td>
+                <td class="num tnum">84 ms</td><td class="num tnum">0.02%</td>
+                <td class="mono" style="white-space:nowrap">$0.20 / 1M in</td>
+                <td class="num tnum">$11.64</td>
+              </tr>
+              <tr class="fallback-row">
+                <td class="mono">alt-eval-omni-2</td>
+                <td>Evaluation <span class="badge badge-info"><i data-lucide="life-buoy" class="ic-sm ic"></i>fallback provider</span><span class="td-sub">Takes traffic only when the primary fails or times out</span></td>
+                <td class="num tnum">1,236</td><td class="num tnum">8.7M</td><td class="num tnum">3.1M</td><td class="num tnum">—</td>
+                <td class="num tnum">18.4 s</td><td class="num tnum">1.94%</td>
+                <td class="mono" style="white-space:nowrap">$15.00 / 1M in · $60.00 / 1M out</td>
+                <td class="num tnum">$316.50</td>
+              </tr>
+              <tr class="tot-row">
+                <td colspan="2">6 models · 2 providers</td>
+                <td class="num tnum">184,940</td><td class="num tnum">412.8M</td><td class="num tnum">96.3M</td><td class="num tnum">238,940</td>
+                <td class="num tnum">—</td><td class="num tnum">0.38%</td>
+                <td>—</td><td class="num tnum">$9,618.69</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint" style="margin-top:8px">This table scrolls sideways rather than stacking on narrow screens: unit price only means something next to the volume it is multiplied by. Unit prices are the blended rate for the period; totals are metered actuals. Model names are Prepeet routing aliases, not vendor product names — see the <a href="admin-platform-system.html">transcription model routing policy</a> for what each alias resolves to.</p>
+        <div class="banner banner-info" style="margin-top:var(--sp-3)">
+          <i data-lucide="life-buoy" class="ic"></i>
+          <div><strong>Fallback took 4.1% of evaluation calls this month.</strong> 1,236 of 29,999 evaluation calls failed over to <span class="mono">alt-eval-omni-2</span>, at roughly 3.4× the primary's unit cost and 1.5× its latency. Most of the failover happened during the 12 August transcription backlog.</div>
+        </div>
+      </section>
+
+      <!-- ---------- Cost by tenant + split ---------- -->
+      <div class="grid split-wide" style="margin-bottom:var(--sp-5)">
+
+        <section class="card" aria-labelledby="tenants-h">
+          <div class="card-header">
+            <div>
+              <h2 id="tenants-h">Cost by tenant</h2>
+              <p class="hint" style="margin-top:3px">Sort any column. Quota consumption links through to the tenant's quota page.</p>
+            </div>
+            <a class="btn btn-sm btn-secondary" href="admin-platform-quotas.html">Quota management</a>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="scroll-x">
+              <table class="table table-dense" id="tenant-table">
+                <caption class="sr-only">AI spend by tenant for the last 30 days, with sessions, cost per session, quota consumption and margin. Sortable.</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="sortable" aria-sort="none"><button type="button" data-sort="name">Tenant<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+                    <th scope="col" class="sortable num" aria-sort="descending"><button type="button" data-sort="spend">Spend (30d)<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+                    <th scope="col" class="sortable num" aria-sort="none"><button type="button" data-sort="sessions">Sessions<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+                    <th scope="col" class="sortable num" aria-sort="none"><button type="button" data-sort="cps">Cost / session<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+                    <th scope="col" class="sortable" aria-sort="none"><button type="button" data-sort="quota">Quota used<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+                    <th scope="col">Margin</th>
+                  </tr>
+                </thead>
+                <tbody id="tenant-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <p class="hint" style="padding:0 var(--sp-4) var(--sp-3)">Scrolls sideways on narrow screens: spend, sessions and cost per session are only comparable side by side.</p>
+          <div class="card-footer">
+            <span class="hint">6 tenants · $9,618.69 total · $1.07 mean cost per completed interview</span>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="split-h">
+          <div class="card-header"><h2 id="split-h" style="font-size:var(--text-base)">Token and audio cost split</h2></div>
+          <div class="card-body">
+            <svg class="donut" viewBox="0 0 160 160" width="160" height="160" style="margin:0 auto" role="img" aria-label="Doughnut chart of spend by cost type: realtime audio 55.8 percent, evaluation text 31.7 percent, transcription 12.4 percent, embeddings 0.1 percent.">
+              <g transform="rotate(-90 80 80)">
+                <circle class="track" cx="80" cy="80" r="54"/>
+                <circle class="d1" cx="80" cy="80" r="54" stroke-dasharray="189.22 150.07" stroke-dashoffset="0"/>
+                <circle class="d2" cx="80" cy="80" r="54" stroke-dasharray="42.14 297.15" stroke-dashoffset="-189.22"/>
+                <circle class="d3" cx="80" cy="80" r="54" stroke-dasharray="107.52 231.77" stroke-dashoffset="-231.36"/>
+                <circle class="d4" cx="80" cy="80" r="54" stroke-dasharray="0.41 338.88" stroke-dashoffset="-338.88"/>
+              </g>
+              <text x="80" y="76" text-anchor="middle" style="font-size:17px;font-weight:700">68.2%</text>
+              <text x="80" y="92" text-anchor="middle" style="font-size:9px;fill:var(--fg-3)">is audio</text>
+            </svg>
+            <div class="chart-legend" style="margin-top:14px;flex-direction:column;gap:6px">
+              <span><i style="background:var(--chart-1)"></i>Realtime audio · $5,364.67 · 55.8%</span>
+              <span><i style="background:var(--chart-2)"></i>Transcription · $1,194.70 · 12.4%</span>
+              <span><i style="background:var(--chart-4)"></i>Evaluation text · $3,047.68 · 31.7%</span>
+              <span><i style="background:var(--chart-3)"></i>Embeddings · $11.64 · 0.1%</span>
+            </div>
+            <p class="chart-summary">Text summary: audio processing (realtime voice plus transcription) accounts for $6,559.37, or 68.2% of the $9,618.69 total. Text processing (evaluation plus embeddings) accounts for $3,059.32, or 31.8%.</p>
+            <hr style="margin:var(--sp-4) 0">
+            <h3 style="font-size:var(--text-sm);margin-bottom:6px">Why audio dominates</h3>
+            <p class="hint" style="line-height:1.6">Realtime voice is billed per minute of the conversation, and it runs for the whole interview — a 40-minute panel costs the same whether the candidate says a lot or a little. Evaluation runs once at the end over a transcript of a few thousand tokens. So spend scales with <strong>interview minutes</strong>, not with how much analysis we do. The two levers that actually move the number are shorter default interview lengths and routing short sessions to the cheaper transcription tier.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- ---------- Efficiency levers ---------- -->
+      <section aria-labelledby="lev-h" style="margin-bottom:var(--sp-5)">
+        <div class="section-head">
+          <h2 id="lev-h" class="section-title" style="margin:0">Efficiency levers</h2>
+          <span class="hint">Estimated monthly saving at current volume</span>
+        </div>
+        <div class="grid grid-3">
+          <div class="lever">
+            <div class="between" style="margin-bottom:8px">
+              <h3 style="font-size:var(--text-sm)">Prompt-cache hit rate</h3>
+              <span class="badge badge-success">−$412 / mo</span>
+            </div>
+            <div class="metric metric-dense" style="padding:0">
+              <span class="metric-value tnum">34.2%</span>
+              <span class="metric-delta up"><i data-lucide="arrow-up" class="ic-sm ic"></i>from 21.4% on 10 Aug</span>
+            </div>
+            <svg class="trendline" viewBox="0 0 160 48" preserveAspectRatio="none" role="img" aria-label="Prompt-cache hit rate over 14 days, rising from 21.4 percent to 34.2 percent.">
+              <polyline vector-effect="non-scaling-stroke" points="2,37.2 14,34.4 26,31.8 38,32.8 50,28.2 62,25.6 74,24 86,21.2 98,19.8 110,16.8 122,15.6 134,14 146,12.6 158,11.6"/>
+            </svg>
+            <p class="chart-summary">Text summary: prompt-cache hit rate over the last 14 days rose from 21.4% to 34.2%, dipping once to 23.6% on 13 August when the rubric preamble changed.</p>
+            <p class="hint" style="margin-top:8px">Rubric preambles are now cached per tenant per rubric version. Every rubric edit resets the cache, which is the dip on 13 August.</p>
+          </div>
+
+          <div class="lever">
+            <div class="between" style="margin-bottom:8px">
+              <h3 style="font-size:var(--text-sm)">Triage-model routing share</h3>
+              <span class="badge badge-success">−$980 / mo</span>
+            </div>
+            <div class="metric metric-dense" style="padding:0">
+              <span class="metric-value tnum">41.3%</span>
+              <span class="metric-foot">of evaluation calls handled by pp-eval-lite-3</span>
+            </div>
+            <div class="progress" style="margin-top:10px"><span style="width:41.3%"></span></div>
+            <p class="hint" style="margin-top:10px">Short practice sessions with fewer than four scored answers are evaluated by the lite model; anything screening-mode, clinical, or longer than 20 minutes always goes to the primary. Screening evaluations are never routed to the lite model.</p>
+            <a class="link" style="font-size:var(--text-xs);display:inline-block;margin-top:8px" href="admin-platform-analytics-evaluations.html">Quality comparison by model</a>
+          </div>
+
+          <div class="lever">
+            <div class="between" style="margin-bottom:8px">
+              <h3 style="font-size:var(--text-sm)">Retries per evaluation</h3>
+              <span class="badge badge-success">−$146 / mo</span>
+            </div>
+            <div class="metric metric-dense" style="padding:0">
+              <span class="metric-value tnum">1.08</span>
+              <span class="metric-delta down"><i data-lucide="arrow-down" class="ic-sm ic"></i>from 1.21 last month</span>
+            </div>
+            <dl class="kv" style="font-size:var(--text-xs);margin-top:10px">
+              <dt>First-attempt success</dt><dd>93.1%</dd>
+              <dt>Second attempt</dt><dd>5.6%</dd>
+              <dt>Failover to alt provider</dt><dd>1.3%</dd>
+            </dl>
+            <p class="hint" style="margin-top:8px">The remaining retries are mostly transcript-length overruns. Chunked evaluation for sessions over 45 minutes would remove roughly half of them.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Anomaly + budget ---------- -->
+      <div class="grid split-2">
+
+        <section class="card card-accent" aria-labelledby="anom-h" style="border-left-color:var(--warning)">
+          <div class="card-header">
+            <div class="cluster">
+              <i data-lucide="trending-up" class="ic" style="color:var(--warning)"></i>
+              <h2 id="anom-h" style="font-size:var(--text-base)">Usage anomaly · 1 tenant</h2>
+            </div>
+            <span class="badge badge-warning">Needs a decision</span>
+          </div>
+          <div class="card-body">
+            <h3 style="font-size:var(--text-sm)">Meridian Schools Trust</h3>
+            <p class="hint" style="margin-top:3px">Education · Growth plan · 24 seats · tenant <span class="mono">tn_meridian</span></p>
+            <div class="metrics-row" style="margin-top:14px">
+              <div class="metric metric-dense" style="padding:0">
+                <span class="metric-label">Quota consumed</span>
+                <span class="metric-value tnum">94%</span>
+                <span class="metric-foot">37,600 of 40,000 minutes</span>
+              </div>
+              <div class="metric metric-dense" style="padding:0">
+                <span class="metric-label">Week over week</span>
+                <span class="metric-value tnum">3.2×</span>
+                <span class="metric-foot">191 → 612 sessions</span>
+              </div>
+              <div class="metric metric-dense" style="padding:0">
+                <span class="metric-label">Spend (30d)</span>
+                <span class="metric-value tnum">$903.28</span>
+                <span class="metric-foot">$1.48 per session</span>
+              </div>
+            </div>
+            <div class="progress warning" style="margin-top:14px"><span style="width:94%"></span></div>
+            <p class="hint" style="margin-top:8px">At the current rate the hard limit is reached on <strong>26 August</strong>, six days before the quota resets. New interviews would then be blocked for this tenant.</p>
+            <div class="banner" style="margin-top:14px">
+              <i data-lucide="info" class="ic"></i>
+              <div>The increase is consistent with a scheduled recruitment round: 411 of the 612 sessions are screening interviews for the same September teaching-post campaign. This is a factual observation from session metadata, not a judgement about the tenant.</div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="cluster">
+              <a class="btn btn-sm btn-primary" href="admin-platform-quotas.html?tenant=tn_meridian">Open quota page</a>
+              <button class="btn btn-sm btn-secondary" type="button" data-toast="Notified the Meridian Schools Trust owner" data-toast-desc="Email sent to the tenant owner with current consumption, the projected hard-limit date and how to request headroom." data-toast-kind="success"><i data-lucide="mail" class="ic ic-sm"></i>Notify tenant owner</button>
+              <a class="btn btn-sm btn-ghost" href="admin-platform-analytics-sessions.html?tenant=tn_meridian">Session detail</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="budget-h">
+          <div class="card-header">
+            <h2 id="budget-h" style="font-size:var(--text-base)">Budget and alerts</h2>
+            <span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>On track</span>
+          </div>
+          <div class="card-body">
+            <div class="between" style="margin-bottom:6px">
+              <span style="font-size:var(--text-sm);font-weight:600">August 2026 · month to date</span>
+              <span class="mono tnum" style="font-size:var(--text-sm)">$7,524.68 / $12,000.00</span>
+            </div>
+            <div class="progress lg"><span style="width:62.7%"></span></div>
+            <div class="between" style="margin-top:6px">
+              <span class="hint">62.7% used · day 23 of 31</span>
+              <span class="hint">Forecast <strong>$10,940</strong> · $1,060 under budget</span>
+            </div>
+            <p class="hint" style="margin-top:10px;line-height:1.6">Forecast is the 23-day run rate ($10,142) plus the scheduled month-end recalibration batch (about $800), which re-runs a sample of evaluations against the current rubric versions.</p>
+
+            <hr style="margin:var(--sp-4) 0">
+
+            <h3 style="font-size:var(--text-sm);margin-bottom:10px">Alert thresholds</h3>
+            <div class="stack-sm">
+              <label class="switch between" style="width:100%">
+                <span><strong style="font-size:var(--text-sm)">50% of budget</strong><span class="hint" style="display:block">Notify #platform-cost in Slack. Crossed 12 Aug.</span></span>
+                <input type="checkbox" checked>
+              </label>
+              <label class="switch between" style="width:100%">
+                <span><strong style="font-size:var(--text-sm)">75% of budget</strong><span class="hint" style="display:block">Notify #platform-cost and the finance owner.</span></span>
+                <input type="checkbox" checked>
+              </label>
+              <label class="switch between" style="width:100%">
+                <span><strong style="font-size:var(--text-sm)">90% of budget</strong><span class="hint" style="display:block">Page platform on-call and open a cost review.</span></span>
+                <input type="checkbox" checked>
+              </label>
+              <label class="switch between" style="width:100%">
+                <span><strong style="font-size:var(--text-sm)">100% of budget</strong><span class="hint" style="display:block">Throttle self-serve practice traffic. Paid tenants are never throttled by a platform budget alert.</span></span>
+                <input type="checkbox">
+              </label>
+              <label class="switch between" style="width:100%">
+                <span><strong style="font-size:var(--text-sm)">Daily anomaly detection</strong><span class="hint" style="display:block">Flag any tenant whose daily spend is more than 3× its 14-day median.</span></span>
+                <input type="checkbox" checked>
+              </label>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="cluster">
+              <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-budget">Edit monthly budget</button>
+              <a class="btn btn-sm btn-ghost" href="admin-platform-quotas.html#events">Quota events</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div><!-- /default -->
+  </div>
+</main>
+
+<dialog class="dialog" id="dlg-budget" aria-labelledby="dlg-budget-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-budget-h">Edit monthly AI budget</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button></div>
+    <div class="dialog-body">
+      <div class="field">
+        <label class="label" for="budget-amount">Monthly budget (USD)</label>
+        <input class="input" id="budget-amount" type="number" min="1000" step="500" value="12000" aria-describedby="budget-hint">
+        <p class="hint" id="budget-hint">Current forecast for August is $10,940. Setting a budget below the forecast will fire the 90% and 100% alerts immediately.</p>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label class="label" for="budget-reason">Change reason <span class="hint">Required — written to the audit log</span></label>
+        <input class="input" id="budget-reason" type="text" placeholder="e.g. Q4 plan approved, raising ceiling for the September hiring peak" required>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="save-budget">Save budget</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var F = Prepeet.fmt;
+
+  /* ---------- permission guard ---------- */
+  function guard() {
+    if (Prepeet.can('platform_admin')) return true;
+    var roleLabel = Prepeet.roles[Prepeet.getRole()].label;
+    document.getElementById('main-content').innerHTML =
+      '<div class="state danger state-page">' +
+        '<div class="state-icon"><i data-lucide="shield-x" class="ic"></i></div>' +
+        '<h1>AI usage and cost is restricted</h1>' +
+        '<p>You are signed in as <strong>' + roleLabel + '</strong>. Platform AI spend is visible to <strong>Platform admin</strong> and above, because it exposes commercial data for every tenant on the platform.</p>' +
+        '<p class="code">/admin/platform/system/llm-usage · 403</p>' +
+        '<div class="actions">' +
+          '<a class="btn btn-primary" href="admin-dashboard.html">Back to overview</a>' +
+          '<a class="btn btn-secondary" href="error-403.html">Why am I seeing this?</a>' +
+        '</div>' +
+        '<p class="hint" style="margin-top:12px">Use the “Viewing as” control in the top bar to preview the console as a platform admin.</p>' +
+      '</div>';
+    Prepeet.init();
+    return false;
+  }
+
+  /* ---------- states ---------- */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    if (['default', 'loading', 'error'].indexOf(cur) === -1) cur = 'default';
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) {
+        el.hidden = el.getAttribute('data-state') !== s;
+      });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+      });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(cur);
+  }
+
+  /* ---------- filters reflected in the URL ---------- */
+  var RANGE_LABEL = { '7d': 'last 7 days', '30d': 'last 30 days', '90d': 'last 90 days', 'mtd': 'month to date' };
+  function initFilters() {
+    var range = document.getElementById('f-range');
+    var tenant = document.getElementById('f-tenant');
+    var group = document.getElementById('f-group');
+
+    Prepeet.data.tenants.forEach(function (t) {
+      var o = document.createElement('option');
+      o.value = t.id; o.textContent = t.name;
+      tenant.appendChild(o);
+    });
+
+    range.value = Prepeet.query.get('range', '30d');
+    tenant.value = Prepeet.query.get('tenant', '') || '';
+    group.value = Prepeet.query.get('group', 'cost-type');
+
+    function sync(push) {
+      Prepeet.query.set({
+        range: range.value === '30d' ? null : range.value,
+        tenant: tenant.value || null,
+        group: group.value === 'cost-type' ? null : group.value
+      }, !push);
+      var tName = tenant.value ? (tenant.options[tenant.selectedIndex].textContent) : 'all tenants';
+      document.getElementById('filter-echo').textContent =
+        'Showing ' + tName + ', ' + (RANGE_LABEL[range.value] || range.value) + ', grouped by ' + group.options[group.selectedIndex].textContent.toLowerCase() + '.';
+    }
+    [range, tenant, group].forEach(function (el) { el.addEventListener('change', function () { sync(true); }); });
+    document.getElementById('f-reset').addEventListener('click', function () {
+      range.value = '30d'; tenant.value = ''; group.value = 'cost-type'; sync(true);
+      Prepeet.announce('Filters reset to all tenants, last 30 days.');
+    });
+    sync(false);
+  }
+
+  /* ---------- cost by tenant ---------- */
+  var MARGIN = {
+    tn_northwind:  { pct: 71, label: 'Healthy', badge: 'badge-success' },
+    tn_orbital:    { pct: 64, label: 'Healthy', badge: 'badge-success' },
+    tn_meridian:   { pct: 48, label: 'Watch',   badge: 'badge-warning' },
+    tn_caldera:    { pct: 68, label: 'Healthy', badge: 'badge-success' },
+    tn_brightpath: { pct: 66, label: 'Healthy', badge: 'badge-success' },
+    tn_selfserve:  { pct: 22, label: 'Thin — free tier', badge: 'badge-neutral' }
+  };
+  var sortKey = 'spend', sortDir = -1;
+  function renderTenants() {
+    var rows = Prepeet.data.tenants.map(function (t) {
+      return {
+        id: t.id, name: t.name, plan: t.plan, spend: t.spend, sessions: t.sessions30,
+        cps: t.spend / t.sessions30, quota: t.quota
+      };
+    });
+    rows.sort(function (a, b) {
+      var x = a[sortKey], y = b[sortKey];
+      if (typeof x === 'string') return sortDir * x.localeCompare(y);
+      return sortDir * (x - y);
+    });
+    document.getElementById('tenant-rows').innerHTML = rows.map(function (r) {
+      var m = MARGIN[r.id];
+      var qCls = r.quota >= 90 ? ' danger' : (r.quota >= 80 ? ' warning' : '');
+      var qWord = r.quota >= 90 ? 'At risk' : (r.quota >= 80 ? 'Approaching limit' : 'Within limit');
+      return '<tr>' +
+        '<td><a class="row-link" href="admin-platform-quotas.html?tenant=' + r.id + '">' + r.name + '</a>' +
+          '<span class="td-sub">' + r.plan + ' plan · <span class="mono">' + r.id + '</span></span></td>' +
+        '<td class="num tnum">' + F.money(r.spend) + '</td>' +
+        '<td class="num tnum">' + F.num(r.sessions) + '</td>' +
+        '<td class="num tnum">' + F.money(r.cps) + '</td>' +
+        '<td><a class="qbar" href="admin-platform-quotas.html?tenant=' + r.id + '" style="text-decoration:none;color:inherit">' +
+            '<span class="progress sm' + qCls + '" style="width:64px"><span style="width:' + r.quota + '%"></span></span>' +
+            '<span class="mono tnum" style="font-size:var(--text-2xs)">' + r.quota + '%</span>' +
+            '<span class="sr-only">' + qWord + '</span></a></td>' +
+        '<td><span class="badge ' + m.badge + '">' + m.label + ' ' + m.pct + '%</span></td>' +
+      '</tr>';
+    }).join('');
+    Prepeet.init();
+  }
+  function initSort() {
+    document.querySelectorAll('#tenant-table th.sortable button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.getAttribute('data-sort');
+        if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = k === 'name' ? 1 : -1; }
+        document.querySelectorAll('#tenant-table th.sortable').forEach(function (th) { th.setAttribute('aria-sort', 'none'); });
+        b.closest('th').setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending');
+        renderTenants();
+        Prepeet.announce('Sorted by ' + b.textContent.trim() + ', ' + (sortDir === 1 ? 'ascending' : 'descending') + '.');
+      });
+    });
+  }
+
+  /* ---------- budget dialog ---------- */
+  function initBudget() {
+    document.getElementById('save-budget').addEventListener('click', function () {
+      var reason = document.getElementById('budget-reason');
+      if (!reason.value.trim()) {
+        reason.setAttribute('aria-invalid', 'true');
+        reason.focus();
+        Prepeet.announce('A change reason is required before the budget can be saved.');
+        return;
+      }
+      var amount = document.getElementById('budget-amount').value;
+      Prepeet.closeDialog('dlg-budget');
+      Prepeet.toast({ title: 'Monthly budget set to $' + Number(amount).toLocaleString('en-US'), desc: 'Recorded in the audit log. Alert thresholds recalculated.', kind: 'success' });
+    });
+  }
+
+  /* ui.js returns early for data-dialog-close, swallowing data-toast — re-fire it here */
+  function initConfirmToasts() {
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-dialog-close][data-toast]');
+      if (!t) return;
+      Prepeet.toast({ title: t.getAttribute('data-toast'), desc: t.getAttribute('data-toast-desc') || '', kind: t.getAttribute('data-toast-kind') || 'default' });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!guard()) return;
+    initStates();
+    initFilters();
+    renderTenants();
+    initSort();
+    initBudget();
+    initConfirmToasts();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

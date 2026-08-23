@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skills · Prepeet</title>
+<meta name="description" content="Where your competencies stand right now, and the evidence from your own answers behind each one.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: sub-skill rows sit tighter than the main competency bars */
+  .subskills { display: grid; gap: 8px; }
+  .subskills .comp-row { grid-template-columns: minmax(110px, 1fr) minmax(0, 1.4fr) auto; font-size: var(--text-xs); }
+  .subskills .comp-bar { height: 6px; }
+  .comp-anchor { scroll-margin-top: 84px; }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="skills" data-title="Skills" data-crumbs="Candidate>candidate-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Your practice</p>
+        <h1>Skills</h1>
+        <p class="page-desc" id="page-desc">Where you stand right now for <strong>Senior Backend Engineer</strong>, and the sentences from your own answers that put you there. Open any competency to read the evidence.</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" id="hdr-progression" href="candidate-progression.html"><i data-lucide="trending-up" class="ic ic-sm"></i>Progression</a>
+        <a class="btn btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start an interview</a>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ PRACTICE ══════════════════════ -->
+    <div data-mode-view="practice">
+
+      <div class="cluster" style="margin-bottom:var(--sp-5)">
+        <span class="badge badge-outline mono">/candidate/skills</span>
+        <span class="badge badge-mode practice">Practice only</span>
+        <span class="hint">Nothing on this page is shared with employers.</span>
+      </div>
+
+      <!-- Summary strip -->
+      <section aria-labelledby="summary-h" style="margin-bottom:var(--sp-6)">
+        <h2 id="summary-h" class="section-title">At a glance</h2>
+        <div class="metrics-row">
+          <div class="card">
+            <div class="metric">
+              <span class="metric-label"><i data-lucide="award" class="ic ic-sm"></i>Strongest area</span>
+              <span class="metric-value" style="font-size:var(--text-md)">Technical communication</span>
+              <span class="cluster"><strong class="tnum">84</strong><span class="band band-strong">Strong</span></span>
+              <span class="metric-foot">9 evidence spans · up 5 since July</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="metric">
+              <span class="metric-label"><i data-lucide="target" class="ic ic-sm"></i>Weakest scored area</span>
+              <span class="metric-value" style="font-size:var(--text-md)">Ownership &amp; follow-through</span>
+              <span class="cluster"><strong class="tnum">58</strong><span class="band band-developing">Developing</span></span>
+              <span class="metric-foot">3 evidence spans · widest confidence range</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="metric">
+              <span class="metric-label"><i data-lucide="help-circle" class="ic ic-sm"></i>Not enough evidence</span>
+              <span class="metric-value">1<small>competency</small></span>
+              <span class="metric-foot">Prioritisation under pressure has one relevant answer on record. We will not score it until there are three.</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="metric">
+              <span class="metric-label"><i data-lucide="quote" class="ic ic-sm"></i>Evidence spans</span>
+              <span class="metric-value tnum">30</span>
+              <span class="metric-foot">Quoted from 9 scored sessions between 11 July and 21 August 2026.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid grid-main-aside">
+        <div class="stack-lg">
+
+          <!-- Competency list -->
+          <section aria-labelledby="comps-h">
+            <div class="section-head">
+              <h2 id="comps-h" class="section-title" style="margin:0">Competencies
+                <span class="info-tip" data-tooltip="The number is your latest score out of 100. The range beside it is where we are confident the true score sits, given how much evidence there is — it narrows as you record more answers."><i data-lucide="info" class="ic"></i></span>
+              </h2>
+              <span class="hint">Open a row to read the evidence</span>
+            </div>
+
+            <div class="accordion" id="comp-accordion"></div>
+
+            <p class="chart-summary" style="margin-top:14px">Text summary: technical communication 84 (strong, range 79–88, 9 spans); systems design 78 (solid, 70–84, 6 spans); collaboration and influence 72 (solid, 64–79, 7 spans); debugging and incident response 66 (solid, 56–74, 4 spans); ownership and follow-through 58 (developing, 47–68, 3 spans); prioritisation under pressure is not scored — 1 span, which is below the three-span minimum.</p>
+          </section>
+
+          <!-- Method -->
+          <section class="card" aria-labelledby="method-h">
+            <div class="card-header"><h2 id="method-h">How a competency gets a number</h2></div>
+            <div class="card-body">
+              <ol class="timeline">
+                <li class="tl-item done">
+                  <div class="tl-title">1 · Your answer is transcribed</div>
+                  <div class="tl-body">Word for word, including the pauses and the corrections. The transcript is the source — nothing is inferred from your voice, face or manner.</div>
+                </li>
+                <li class="tl-item done">
+                  <div class="tl-title">2 · Spans are marked against the rubric</div>
+                  <div class="tl-body">A span is a specific stretch of what you said that supports, contradicts or leaves a gap in a competency. Every span is quotable and shown to you.</div>
+                </li>
+                <li class="tl-item done">
+                  <div class="tl-title">3 · Spans combine into a score and a range</div>
+                  <div class="tl-body">More independent spans from more sessions means a narrower range. Fewer than three spans means no number at all.</div>
+                </li>
+                <li class="tl-item active">
+                  <div class="tl-title">4 · You decide what to practise next</div>
+                  <div class="tl-body">This is a practice signal about your answers, not a prediction of how any interview or job will go. <a href="candidate-settings.html#privacy">Your data settings</a> control how long it is kept.</div>
+                </li>
+              </ol>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Aside -->
+        <aside class="stack sticky-aside" aria-label="Related views">
+
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Skills or progression?</h2></div>
+            <div class="card-body stack-sm">
+              <p style="font-size:var(--text-sm);line-height:1.55;color:var(--fg-2)">
+                <strong style="color:var(--fg)">This page answers “where am I now, and why?”</strong> — the current number, the range around it, and the exact sentences behind it.
+              </p>
+              <p style="font-size:var(--text-sm);line-height:1.55;color:var(--fg-2)">
+                <strong style="color:var(--fg)">Progression answers “what changed?”</strong> — the same competencies plotted session by session, so you can see whether last week's practice actually moved anything.
+              </p>
+              <a class="btn btn-sm btn-secondary btn-block" href="candidate-progression.html">Open progression<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Fastest way to move a number</h2></div>
+            <div class="card-body stack-sm">
+              <a class="card card-interactive card-subtle" href="candidate-start-interview.html?focus=ownership" style="display:block;padding:12px 14px;text-decoration:none">
+                <span class="badge badge-warning" style="margin-bottom:6px">Biggest gap</span>
+                <span style="display:block;font-weight:650;font-size:var(--text-sm);color:var(--fg)">Ownership &amp; follow-through</span>
+                <span class="hint" style="display:block;margin-top:3px">Behavioural, 25 min, with Ama</span>
+              </a>
+              <a class="card card-interactive card-subtle" href="candidate-start-interview.html?focus=prioritisation" style="display:block;padding:12px 14px;text-decoration:none">
+                <span class="badge badge-neutral" style="margin-bottom:6px">Unscored</span>
+                <span style="display:block;font-weight:650;font-size:var(--text-sm);color:var(--fg)">Prioritisation under pressure</span>
+                <span class="hint" style="display:block;margin-top:3px">Case scenario, 25 min, with Marcus</span>
+              </a>
+              <a class="link" style="font-size:var(--text-xs)" href="candidate-goals.html">Turn one of these into a goal<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+          </div>
+
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="scale" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">What these numbers are not</strong></div>
+              <p class="hint" style="line-height:1.55">They are a signal about the answers you gave in practice, judged against the rubric for Senior Backend Engineer. They do not measure your personality, your potential, or how you will perform in a job. A low number means thin evidence, not a verdict on you.</p>
+              <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-sessions.html">See the sessions behind them</a>
+            </div>
+          </div>
+
+        </aside>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ SCREEN MODE ══════════════════════ -->
+    <div data-mode-view="screen" hidden>
+      <div class="card" style="max-width:640px">
+        <div class="card-body">
+          <div class="cluster" style="margin-bottom:12px">
+            <span class="badge badge-mode screen">Screening</span>
+            <span class="badge badge-outline mono">/candidate/skills</span>
+          </div>
+          <h2 style="font-size:var(--text-lg)">Skills tracking is part of practice mode</h2>
+          <p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:8px">
+            Your screening interview with Northwind Health System is not scored for you. The hiring team reviews the evidence and makes the decision, so there is no competency breakdown here to show — and inventing one would tell you something Prepeet does not know.
+          </p>
+          <div class="banner banner-info" style="margin-top:var(--sp-4)">
+            <i data-lucide="info" class="ic"></i>
+            <div>This is not a restriction on your account. Practice mode is free to use alongside any screening, and nothing you do in practice is visible to an employer.</div>
+          </div>
+          <div class="cluster" style="margin-top:var(--sp-5)">
+            <a class="btn btn-primary" href="candidate-dashboard.html"><i data-lucide="arrow-left" class="ic ic-sm"></i>Back to your dashboard</a>
+            <a class="btn btn-secondary" href="candidate-start-interview.html?mode=practice">Start a practice interview</a>
+          </div>
+          <p class="hint" style="margin-top:var(--sp-5)">Want a copy of what was recorded in your screening? <a href="candidate-settings.html#privacy">Request your data</a> — you are entitled to it whatever the outcome.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt;
+
+  function sessionTitle(id) {
+    var s = D.sessions.filter(function (x) { return x.id === id; })[0];
+    return s ? s.title + ' · ' + F.date(s.date) : id;
+  }
+
+  /* Evidence quoted from Daniel's own answers, plus sub-skills and guidance. */
+  var DETAIL = {
+    'systems-design': {
+      sub: [ ['Data modelling', 82], ['Scalability under load', 74], ['Failure modes', 63], ['Articulating trade-offs', 79] ],
+      move: 'Four of your six spans stop at the component diagram. The two that scored highest named a number and a failure. Before you finish an answer, say what breaks first under load and how you would know it had broken.',
+      ev: [
+        { kind: 'supporting', sid: 'ses_7Kq2XA', q: 'A conditional write on the slot row with an optimistic version, so two writers cannot both take the last slot… It cut our double-booking incidents from roughly one a week to none in six months.', why: 'A specific mechanism plus the measured effect. This is the shape that scores.' },
+        { kind: 'gap', sid: 'ses_7Kq2XA', q: 'Probably a queue in front of it. I would let requests line up and process them in order.', why: 'Hedged and unowned — “probably”, no ordering guarantee, no back-pressure story.' },
+        { kind: 'contradiction', sid: 'ses_7Kq2XA', q: 'Per-shard queue, not global. I said it loosely the first time.', why: 'You corrected yourself when pushed, which is good. Getting it right first time is better.' }
+      ]
+    },
+    'technical-communication': {
+      sub: [ ['Structure', 88], ['Concrete detail', 85], ['Signposting', 82], ['Concision', 79] ],
+      move: 'This is your strongest area, so protect the habit rather than change it: name the number. Across nine spans, the answers containing a concrete figure scored notably higher than the ones that stayed qualitative.',
+      ev: [
+        { kind: 'supporting', sid: 'ses_7Kq2XA', q: 'I would start with the read and write shapes rather than the components. Booking is write-heavy in short bursts but read-heavy all day.', why: 'Frames the problem before reaching for tools — the interviewer knows where you are going.' },
+        { kind: 'supporting', sid: 'ses_3Mn8PB', q: 'Let me give you the situation in one line, then the two decisions I actually owned.', why: 'Explicit signposting. It buys you patience for a longer answer.' },
+        { kind: 'supporting', sid: 'ses_8Jc3TG', q: 'Roughly a million requests a day, about eighty per cent of them reads, with a hard spike every Monday at eight.', why: 'Numbers make a claim checkable, which is why they raise a score.' }
+      ]
+    },
+    'debugging': {
+      sub: [ ['Diagnosis narrative', 54], ['Instrumentation', 62], ['Blast-radius control', 71], ['Post-incident follow-up', 68] ],
+      move: 'Three of your four spans open at the remedy. Spend the first two sentences of every incident answer on how you knew what was wrong — the signal you saw, the thing you ruled out. That is the part interviewers are scoring.',
+      ev: [
+        { kind: 'gap', sid: 'ses_2Hd6RE', q: 'I restarted the consumer group and the lag cleared within about four minutes.', why: 'The fix, with no diagnosis. Why the consumer group? What did you rule out first?' },
+        { kind: 'supporting', sid: 'ses_7Kq2XA', q: 'I would fail closed — reject the booking rather than confirm something the clinical record does not know about. Confirming a booking the EHR never received is the worse outcome for a patient.', why: 'Names the failure mode and picks the safer side deliberately.' },
+        { kind: 'claim', sid: 'ses_2Hd6RE', q: 'I think the alert fired about ten minutes in, though I would have to check the timeline.', why: 'Honest, but unverifiable. Rehearse the timeline of one incident until the numbers are yours.' }
+      ]
+    },
+    'collaboration': {
+      sub: [ ['Conflict handling', 70], ['Cross-team influence', 66], ['Feedback given', 75], ['Feedback received', 78] ],
+      move: 'Your influence stories tend to end with somebody else deciding. Pick one example and describe what you changed the other person’s mind about, and what you said that did it.',
+      ev: [
+        { kind: 'supporting', sid: 'ses_1Ab5VJ', q: 'I asked the product lead to sit in on the on-call handover for a week. After that, the conversation about deprioritising the queue work took ten minutes instead of a month.', why: 'Influence through evidence rather than argument, with an outcome attached.' },
+        { kind: 'gap', sid: 'ses_3Mn8PB', q: 'We disagreed for a while, and eventually the tech lead made the call.', why: 'Ends where the interesting part starts. What was your position, and what did you do with it?' },
+        { kind: 'supporting', sid: 'ses_9Vt4LC', q: 'I wrote the migration plan and circulated it to the three teams that depended on us before I wrote a line of code.', why: 'Concrete, pre-emptive, and clearly yours.' }
+      ]
+    },
+    'ownership': {
+      sub: [ ['Personal accountability', 55], ['Follow-through', 52], ['Scope of decisions', 64], ['Learning from failure', 61] ],
+      move: 'Scores here stabilise at about six examples; you have three, which is why the range is 21 points wide. Each new example needs three parts: a decision you personally made, what happened afterwards, and what you changed as a result.',
+      ev: [
+        { kind: 'supporting', sid: 'ses_1Ab5VJ', q: 'I owned that migration end to end — I wrote the plan, ran the cutover at two in the morning and stayed on it through two weeks of follow-up bugs.', why: 'First person, whole arc, including the unglamorous tail. Your best ownership span.' },
+        { kind: 'gap', sid: 'ses_3Mn8PB', q: 'We took the incident seriously and the team fixed it that week.', why: '“We” and “the team”. Nothing here tells an interviewer what you did.' },
+        { kind: 'gap', sid: 'ses_9Vt4LC', q: 'I am not sure who followed up after that, to be honest.', why: 'The follow-through half of the competency is missing more often than the decision half.' }
+      ]
+    },
+    'prioritisation': {
+      sub: [ ['Triage under time pressure', null], ['Saying no', null], ['Sequencing dependencies', null], ['Communicating trade-offs', null] ],
+      move: 'One relevant answer is not three, so there is nothing to move yet. A case or scenario session forces four or five prioritisation calls in half an hour, which is usually enough to score it for the first time.',
+      ev: [
+        { kind: 'claim', sid: 'ses_2Hd6RE', q: 'I would triage by whatever is on fire, and take the rest to standup.', why: 'A reasonable instinct, but it is one sentence in one session. It supports nothing on its own.' }
+      ]
+    }
+  };
+
+  var KIND_LABEL = { supporting: 'Supports', contradiction: 'Contradicts', claim: 'Unverified claim', gap: 'Gap' };
+
+  function bandOf(c) { return c.band === 'insufficient' ? 'insufficient' : Prepeet.band(c.score); }
+
+  function subskillRow(name, val) {
+    if (val == null) {
+      return '<div class="comp-row"><div class="comp-name">' + name + '</div>' +
+        '<div class="comp-bar band-insufficient"><span style="width:100%"></span></div>' +
+        '<div class="comp-val"><span class="hint">No evidence</span></div></div>';
+    }
+    var b = Prepeet.band(val);
+    return '<div class="comp-row"><div class="comp-name">' + name + '</div>' +
+      '<div class="comp-bar band-' + b + '"><span style="width:' + val + '%"></span></div>' +
+      '<div class="comp-val tnum">' + val + '</div></div>';
+  }
+
+  function evCard(e) {
+    return '<div class="ev-card ' + e.kind + '">' +
+      '<div class="ev-meta"><span>' + KIND_LABEL[e.kind] + '</span><span aria-hidden="true">·</span>' +
+      '<a href="candidate-session-review.html?id=' + e.sid + '">' + sessionTitle(e.sid) + '</a></div>' +
+      '<blockquote>“' + e.q + '”</blockquote>' +
+      '<p class="hint" style="line-height:1.5">' + e.why + '</p></div>';
+  }
+
+  function renderComps() {
+    var host = document.getElementById('comp-accordion');
+    host.innerHTML = D.competencies.map(function (c, i) {
+      var d = DETAIL[c.id];
+      var band = bandOf(c);
+      var pid = 'panel-' + c.id;
+      var pct = c.score == null ? 0 : c.score;
+      var ci = '';
+      if (c.ci) { ci = '<span class="ci" style="left:' + c.ci[0] + '%;width:' + (c.ci[1] - c.ci[0]) + '%"></span>'; }
+
+      var rangeText = c.ci
+        ? 'Range ' + c.ci[0] + '–' + c.ci[1]
+        : 'No range — not scored';
+
+      var head =
+        '<div class="comp-row" style="flex:1;min-width:0">' +
+          '<div class="comp-name">' + c.name +
+            '<small>' + Prepeet.bandLabel(band) + ' · ' + c.evidence + ' evidence span' + (c.evidence === 1 ? '' : 's') + ' · ' + rangeText + '</small>' +
+          '</div>' +
+          '<div class="comp-bar band-' + band + '"><span style="width:' + pct + '%"></span>' + ci + '</div>' +
+          '<div class="comp-val">' + (c.score == null ? '—' : c.score) + '</div>' +
+        '</div>';
+
+      var insufficient = c.score == null;
+
+      var panel =
+        '<div class="accordion-panel" id="' + pid + '" hidden>' +
+          (insufficient
+            ? '<div class="banner banner-warning" style="margin-bottom:14px"><i data-lucide="help-circle" class="ic"></i>' +
+              '<div><strong>Not enough evidence to score.</strong> There is one relevant span on record and the threshold is three, from at least two different sessions. We would rather show you nothing than a number built on a single sentence.</div></div>'
+            : '<div class="cluster" style="margin-bottom:14px">' +
+              '<span class="band band-' + band + '">' + Prepeet.bandLabel(band) + '</span>' +
+              '<span class="hint">Latest ' + c.score + ' · previous ' + c.prev + ' · confidence range ' + c.ci[0] + '–' + c.ci[1] + '</span>' +
+              '</div>') +
+          '<p style="font-size:var(--text-sm);line-height:1.6;color:var(--fg-2);margin-bottom:16px">' + c.note + '</p>' +
+
+          '<h4 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);font-weight:700;margin-bottom:8px">Evidence from your answers</h4>' +
+          '<div class="stack-sm" style="margin-bottom:18px">' + d.ev.map(evCard).join('') + '</div>' +
+
+          '<h4 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);font-weight:700;margin-bottom:8px">What would move this</h4>' +
+          '<p style="font-size:var(--text-sm);line-height:1.6;color:var(--fg-2);margin-bottom:18px">' + d.move + '</p>' +
+
+          '<h4 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);font-weight:700;margin-bottom:8px">Sub-skills</h4>' +
+          '<div class="subskills" style="margin-bottom:18px">' + d.sub.map(function (s) { return subskillRow(s[0], s[1]); }).join('') + '</div>' +
+
+          '<div class="cluster">' +
+            '<a class="btn btn-sm btn-primary" href="candidate-start-interview.html?focus=' + c.id + '"><i data-lucide="circle-play" class="ic ic-sm"></i>Practise this</a>' +
+            '<a class="btn btn-sm btn-ghost" href="candidate-progression.html#' + c.id + '">See how it changed over time</a>' +
+            '<a class="btn btn-sm btn-ghost" href="candidate-sessions.html?kind=practice">All practice sessions</a>' +
+          '</div>' +
+        '</div>';
+
+      return '<div class="accordion-item comp-anchor" id="' + c.id + '">' +
+        '<h3 style="font-weight:400">' +
+          '<button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="' + pid + '">' +
+            head + '<i data-lucide="chevron-down" class="ic"></i>' +
+          '</button>' +
+        '</h3>' + panel + '</div>';
+    }).join('');
+  }
+
+  function applyMode() {
+    var mode = Prepeet.getMode();
+    document.querySelectorAll('[data-mode-view]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-mode-view') !== mode;
+    });
+    /* the page header sits outside both views, so keep it honest in screen mode */
+    if (mode === 'screen') {
+      document.getElementById('hdr-progression').hidden = true;
+      document.getElementById('page-desc').textContent =
+        'Competency tracking belongs to practice mode. Your screening interview is reviewed by the hiring team, not scored for you.';
+    }
+    return mode;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var mode = applyMode();
+    if (mode === 'practice') {
+      renderComps();
+      Prepeet.init();
+
+      /* Deep links: #ownership from the dashboard, ?focus= from anywhere */
+      var target = (location.hash || '').replace('#', '') || Prepeet.query.get('focus', '');
+      if (target && document.getElementById(target)) {
+        var item = document.getElementById(target);
+        var trigger = item.querySelector('.accordion-trigger');
+        if (trigger && trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
+        item.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        Prepeet.announce(item.querySelector('.comp-name').textContent + ' expanded.');
+      }
+    } else {
+      Prepeet.init();
+    }
+  });
+})();
+</script>
+</body>
+</html>

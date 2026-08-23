@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rubrics · Prepeet</title>
+<meta name="description" content="The rubric library for Northwind Health System: create, clone, archive and inspect the scoring rubrics used across open roles.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+.tmpl-grid { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.comp-weight-row { display: grid; grid-template-columns: minmax(0,1fr) 56px; gap: 10px; align-items: baseline; font-size: var(--text-sm); padding: 8px 0; border-top: 1px solid var(--border-subtle); }
+.comp-weight-row:first-child { border-top: 0; }
+.anchor-preview { font-size: var(--text-xs); color: var(--fg-2); line-height: 1.55; margin-top: 4px; }
+.menu-fixed { position: fixed; right: auto; }
+.table .td-actions { position: relative; }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="rubrics" data-search="off"
+      data-title="Rubrics" data-crumbs="Tenant configuration">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Tenant configuration · Northwind Health System</p>
+        <h1>Rubrics</h1>
+        <p class="page-desc">A rubric is the set of competencies, weights and band anchors a role is scored against. Roles point at a rubric; calibration is where you tune one.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono">/admin/rubrics</span>
+          <span class="badge badge-neutral" id="count-chip">8 rubrics</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-recruiter-calibration.html"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Calibration</a>
+        <button class="btn btn-primary" type="button" data-admin-control data-dialog-open="dlg-create"><i data-lucide="plus" class="ic ic-sm"></i>Create rubric</button>
+      </div>
+    </div>
+
+    <div class="banner banner-warning" id="readonly-banner" hidden role="status" style="margin-bottom:var(--sp-5)">
+      <i data-lucide="eye" class="ic"></i>
+      <div>
+        <strong>You can view this configuration but not change it.</strong>
+        Creating, cloning and archiving rubrics needs the Tenant admin role. You are signed in as a Recruiter.
+      </div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-secondary" href="error-403.html">What this role can do</a>
+        <a class="btn btn-sm btn-ghost" href="admin-members.html">Request access</a>
+      </div>
+    </div>
+
+    <div class="between" style="margin-bottom:var(--sp-4)">
+      <p class="hint" style="max-width:520px">Archived rubrics stay readable so that any evaluation scored with them can still be reproduced during a re-review.</p>
+      <div class="cluster" style="margin-left:auto">
+        <span class="hint">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+          <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+          <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ LOADING ══════════ -->
+    <div data-state="loading" hidden>
+      <div class="card" aria-busy="true">
+        <div class="card-header"><div class="skeleton skeleton-text" style="width:180px;height:16px"></div></div>
+        <div class="card-body stack">
+          <div class="skeleton skeleton-text w-50"></div>
+          <div class="skeleton skeleton-text w-75"></div>
+          <div class="skeleton skeleton-text"></div>
+          <div class="skeleton skeleton-text w-75"></div>
+          <div class="skeleton skeleton-text w-50"></div>
+          <div class="skeleton skeleton-block"></div>
+        </div>
+      </div>
+      <p class="hint" role="status" style="margin-top:12px">Loading the rubric library for Northwind Health System…</p>
+    </div>
+
+    <!-- ══════════ EMPTY ══════════ -->
+    <div data-state="empty" hidden>
+      <div class="card">
+        <div class="state primary">
+          <div class="state-icon"><i data-lucide="list-checks" class="ic"></i></div>
+          <h2 style="font-size:var(--text-md)">No rubrics yet</h2>
+          <p>Nothing has been scored in this workspace yet because no rubric exists. Start from one of the three templates below — you can rewrite every anchor afterwards — or build one from a blank sheet.</p>
+          <div class="actions">
+            <button class="btn btn-primary" type="button" data-admin-control data-dialog-open="dlg-create"><i data-lucide="plus" class="ic ic-sm"></i>Create your first rubric</button>
+            <a class="btn btn-secondary" href="admin-tenant-settings.html">Tenant settings</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ DEFAULT ══════════ -->
+    <div data-state="default">
+      <div class="grid grid-main-aside">
+        <div class="stack-lg">
+
+          <section class="card" aria-labelledby="library-h">
+            <div class="card-header">
+              <div>
+                <h2 id="library-h">Rubric library</h2>
+                <p class="hint" style="margin-top:3px">Eight rubrics — six published, one draft, one archived.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="filterbar" style="margin-bottom:var(--sp-4)">
+                <div class="input-wrap">
+                  <i data-lucide="search" class="ic ic-sm"></i>
+                  <label class="sr-only" for="rubric-search">Search rubrics by name or owner</label>
+                  <input class="input" id="rubric-search" type="search" placeholder="Search by name, family or owner…">
+                </div>
+                <div>
+                  <label class="sr-only" for="status-filter">Filter by status</label>
+                  <select class="select" id="status-filter">
+                    <option value="all">All statuses</option>
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="sr-only" for="sort-select">Sort rubrics</label>
+                  <select class="select" id="sort-select">
+                    <option value="updated">Sort: last updated</option>
+                    <option value="name">Sort: name</option>
+                    <option value="usage">Sort: roles using it</option>
+                    <option value="family">Sort: role family</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table class="table table-responsive">
+                  <caption class="sr-only">Rubrics with role family, competency count, version, status, owner, last update and number of roles using them</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Rubric</th>
+                      <th scope="col">Role family</th>
+                      <th scope="col" class="num">Competencies</th>
+                      <th scope="col">Version</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Owner</th>
+                      <th scope="col">Last updated</th>
+                      <th scope="col" class="num">Used by</th>
+                      <th scope="col"><span class="sr-only">Actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="rubric-rows"></tbody>
+                </table>
+              </div>
+              <p class="hint" id="filter-summary" role="status" style="margin-top:10px"></p>
+              <div id="no-results" hidden>
+                <div class="state state-compact">
+                  <div class="state-icon"><i data-lucide="search-x" class="ic"></i></div>
+                  <h3>No rubrics match that search</h3>
+                  <p>Try a shorter term, or clear the status filter.</p>
+                  <div class="actions"><button class="btn btn-secondary btn-sm" type="button" id="clear-filters">Clear filters</button></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section aria-labelledby="templates-h">
+            <div class="section-head">
+              <div>
+                <h2 id="templates-h" class="section-title" style="margin:0">Starter templates</h2>
+                <p class="hint">Three starting points, written by our assessment team with practising panellists. None of them is validated for your organisation — treat every anchor as a draft until your own panel has read it.</p>
+              </div>
+            </div>
+            <div class="tmpl-grid">
+              <article class="card">
+                <div class="card-body">
+                  <div class="cluster" style="margin-bottom:8px"><span class="badge badge-primary">Clinical panel</span><span class="badge badge-outline">4 competencies</span></div>
+                  <h3 style="font-size:var(--text-base)">Clinical panel</h3>
+                  <p class="hint" style="margin-top:6px;line-height:1.55">Built for structured clinical interviews: clinical reasoning, patient safety, escalation and handover, compassionate communication. Anchors expect the candidate to name observations and sequence. Written against UK NHS-style panel practice — if you hire to different escalation routes, the Escalation anchors will need rewriting first.</p>
+                  <button class="btn btn-sm btn-secondary" style="margin-top:12px" type="button" data-admin-control data-template="Clinical panel" data-dialog-open="dlg-create">Start from this template</button>
+                </div>
+              </article>
+              <article class="card">
+                <div class="card-body">
+                  <div class="cluster" style="margin-bottom:8px"><span class="badge badge-accent">Commercial</span><span class="badge badge-outline">4 competencies</span></div>
+                  <h3 style="font-size:var(--text-base)">Commercial</h3>
+                  <p class="hint" style="margin-top:6px;line-height:1.55">For analytical and customer-facing commercial roles: discovery or analysis, judgement under constraint, stakeholder work, and discipline in reporting. The anchors reward candidates who can name figures, so they under-serve people moving in from a domain where those figures were not theirs to see.</p>
+                  <button class="btn btn-sm btn-secondary" style="margin-top:12px" type="button" data-admin-control data-template="Commercial" data-dialog-open="dlg-create">Start from this template</button>
+                </div>
+              </article>
+              <article class="card">
+                <div class="card-body">
+                  <div class="cluster" style="margin-bottom:8px"><span class="badge badge-info">Technical</span><span class="badge badge-outline">4 competencies</span></div>
+                  <h3 style="font-size:var(--text-base)">Technical</h3>
+                  <p class="hint" style="margin-top:6px;line-height:1.55">For engineering roles assessed by conversation rather than code: design, diagnosis, technical communication, collaboration. It assumes the interview is verbal — it will not tell you whether somebody can write the code, and it should not be used as though it does.</p>
+                  <button class="btn btn-sm btn-secondary" style="margin-top:12px" type="button" data-admin-control data-template="Technical" data-dialog-open="dlg-create">Start from this template</button>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="usage-h">
+            <div class="card-header">
+              <div>
+                <h2 id="usage-h">Usage across open roles</h2>
+                <p class="hint" style="margin-top:3px">Which rubric each open role is scored against, and how many evaluations have been produced with each version.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="table-wrap">
+                <table class="table table-responsive table-dense">
+                  <caption class="sr-only">Open roles, the rubric and version they use, and the number of evaluations produced</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Open role</th>
+                      <th scope="col">Rubric</th>
+                      <th scope="col">Version</th>
+                      <th scope="col" class="num">Evaluations</th>
+                      <th scope="col">In review</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usage-rows"></tbody>
+                </table>
+              </div>
+              <p class="chart-summary">Text summary: 604 evaluations have been produced across seven open roles. Technical — integrations v5.0 accounts for 143 of them, Clinical panel — ICU v4.2 for 214, and the older Clinical panel — ICU v4.1 for a further 96 that are still readable but no longer produced.</p>
+            </div>
+          </section>
+
+        </div>
+
+        <aside class="stack sticky-aside" aria-label="Rubric library at a glance">
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">At a glance</h2></div>
+            <div class="card-body stack-sm">
+              <dl class="kv">
+                <dt>Published</dt><dd>6</dd>
+                <dt>Draft</dt><dd>1</dd>
+                <dt>Archived</dt><dd>1</dd>
+                <dt>Roles covered</dt><dd>7 of 7 open roles</dd>
+                <dt>Oldest live version</dt><dd>Commercial — enterprise sales v1.6, 30 June 2026</dd>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="scale" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Before you publish a rubric</strong></div>
+              <p class="hint" style="line-height:1.55">Have somebody who does the job read the anchors. An anchor that only a recruiter can picture will be applied inconsistently, and inconsistency is where adverse impact starts.</p>
+              <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="admin-recruiter-calibration.html">Run a calibration check</a>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Recently changed</h2></div>
+            <div class="card-body">
+              <ol class="timeline">
+                <li class="tl-item active"><div class="tl-title">Technical — integrations v5.0</div><div class="tl-meta">14 August 2026 · Jonas Brandt</div><div class="tl-body">All anchors rewritten around observable answer content.</div></li>
+                <li class="tl-item done"><div class="tl-title">Clinical panel — theatre recovery v0.3</div><div class="tl-meta">19 August 2026 · Priya Raman</div><div class="tl-body">Draft — two competencies still have placeholder weights.</div></li>
+                <li class="tl-item done"><div class="tl-title">Clinical panel — ICU v4.2</div><div class="tl-meta">28 July 2026 · Priya Raman</div><div class="tl-body">Escalation anchors rewritten after the June panel review.</div></li>
+              </ol>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ══ Rubric detail drawer ══ -->
+<dialog class="drawer" id="drw-rubric" aria-labelledby="drw-rubric-h">
+  <div class="drawer-panel wide">
+    <div class="drawer-header">
+      <div>
+        <h2 id="drw-rubric-h">Clinical panel — ICU</h2>
+        <p class="hint" id="drw-rubric-sub">Clinical · v4.2 · Published</p>
+      </div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close rubric details"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body stack" id="drw-rubric-body"></div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" type="button" data-drawer-close>Close</button>
+      <a class="btn btn-primary" id="drw-open-cal" href="admin-recruiter-calibration.html?role=rn-icu"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Open in calibration</a>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Create rubric dialog ══ -->
+<dialog class="dialog" id="dlg-create" aria-labelledby="dlg-create-h">
+  <div class="dialog-panel wide">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dlg-create-h">Create a rubric</h2>
+        <p class="hint">A new rubric starts as a draft. Nothing is scored against it until you publish it from the calibration screen.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close create rubric dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form class="dialog-body stack" id="create-form">
+      <div class="field">
+        <label class="label" for="new-name">Rubric name</label>
+        <input class="input" id="new-name" type="text" required placeholder="e.g. Clinical panel — emergency department" aria-describedby="new-name-err">
+        <p class="error-text" id="new-name-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Give the rubric a name your colleagues will recognise.</p>
+      </div>
+      <div class="field">
+        <label class="label" for="new-family">Role family</label>
+        <select class="select" id="new-family">
+          <option>Clinical</option>
+          <option>Commercial</option>
+          <option>Technical</option>
+          <option>Operations</option>
+        </select>
+        <p class="hint">Role family only groups rubrics in this list; it does not change how anything is scored.</p>
+      </div>
+      <fieldset style="border:0;padding:0;margin:0">
+        <legend class="label" style="margin-bottom:8px">Start from</legend>
+        <div class="stack-sm">
+          <label class="option-card">
+            <input type="radio" name="start-from" value="template" checked>
+            <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+            <span class="option-title">A starter template</span>
+            <span class="option-desc">Four competencies with anchors already written. Fastest start, and the one most likely to need rewriting for your panel.</span>
+          </label>
+          <div class="field" id="template-picker" style="padding-left:16px">
+            <label class="label" for="new-template">Template</label>
+            <select class="select" id="new-template">
+              <option>Clinical panel</option>
+              <option>Commercial</option>
+              <option>Technical</option>
+            </select>
+          </div>
+          <label class="option-card">
+            <input type="radio" name="start-from" value="clone">
+            <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+            <span class="option-title">Clone an existing rubric</span>
+            <span class="option-desc">Copies competencies, weights, thresholds and every anchor from one of your own rubrics, including the wording your panel already agreed.</span>
+          </label>
+          <div class="field" id="clone-picker" style="padding-left:16px" hidden>
+            <label class="label" for="new-clone">Rubric to clone</label>
+            <select class="select" id="new-clone"></select>
+          </div>
+          <label class="option-card">
+            <input type="radio" name="start-from" value="blank">
+            <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+            <span class="option-title">A blank rubric</span>
+            <span class="option-desc">No competencies and no anchors. You will need to add at least two competencies and write five anchors for each before it can be published.</span>
+          </label>
+        </div>
+      </fieldset>
+    </form>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="create-confirm">Create draft rubric</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Archive confirm dialog ══ -->
+<dialog class="dialog" id="dlg-archive" aria-labelledby="dlg-archive-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-archive-h">Archive this rubric?</h2></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close archive dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>You are about to archive <strong id="archive-name">Clinical panel — ICU</strong>.</p>
+      <ul class="stack-sm" style="font-size:var(--text-sm)">
+        <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>Existing evaluations keep their scores and stay readable, so a re-review can still reproduce them.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>The rubric can be restored from the Archived filter at any time.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="alert-triangle" class="ic ic-sm" style="color:var(--warning);margin-top:3px"></i><span id="archive-warn">No open role is using it, so nothing in flight is affected.</span></li>
+      </ul>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-danger" type="button" id="archive-confirm">Archive rubric</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var RUBRICS = [
+    { id: 'rb_icu', name: 'Clinical panel — ICU', family: 'Clinical', version: '4.2', status: 'published',
+      owner: 'Priya Raman', updated: '2026-07-28', usedBy: 3, role: 'rn-icu',
+      comps: [
+        { n: 'Clinical reasoning', w: 30, a: 'Names the observations they acted on, the differential they held open, and what would have changed their mind.' },
+        { n: 'Patient safety', w: 30, a: 'Gives a specific incident, the action taken, the escalation, and what changed afterwards.' },
+        { n: 'Escalation & handover', w: 22, a: 'Structured handover with the words they would use, a named threshold and a fallback route.' },
+        { n: 'Compassionate communication', w: 18, a: 'Reproduces what they said to the patient or family and checks the other person understood.' }
+      ] },
+    { id: 'rb_cne', name: 'Clinical panel — education', family: 'Clinical', version: '2.4', status: 'published',
+      owner: 'Dr Helen Achebe', updated: '2026-07-09', usedBy: 1, role: 'cne',
+      comps: [
+        { n: 'Teaching & assessment', w: 32, a: 'Describes a session they designed and how they checked the learning transferred to practice.' },
+        { n: 'Clinical currency', w: 23, a: 'Concrete recent practice with dates, connected to something they changed in their teaching.' },
+        { n: 'Feedback delivery', w: 25, a: 'Reproduces the feedback conversation and the follow-up that confirmed the change.' },
+        { n: 'Programme design', w: 20, a: 'A programme they built, the constraint it had to survive, and the measure they judged it by.' }
+      ] },
+    { id: 'rb_fpa', name: 'Commercial — analytical', family: 'Commercial', version: '3.1', status: 'published',
+      owner: 'Jonas Brandt', updated: '2026-06-21', usedBy: 2, role: 'fp-a',
+      comps: [
+        { n: 'Financial modelling', w: 30, a: 'Names the drivers modelled and why, how the model was checked, and a limitation of it.' },
+        { n: 'Variance analysis', w: 28, a: 'Decomposes a real variance with figures and separates timing from run-rate.' },
+        { n: 'Business partnering', w: 24, a: 'Translates analysis for a non-finance decision-maker and says how it landed.' },
+        { n: 'Controls awareness', w: 18, a: 'A real control weakness identified or respected, and what they did about it.' }
+      ] },
+    { id: 'rb_pm', name: 'Commercial — product', family: 'Commercial', version: '2.0', status: 'published',
+      owner: 'Priya Raman', updated: '2026-06-02', usedBy: 1, role: 'pm-patient-apps',
+      comps: [
+        { n: 'Product sense', w: 28, a: 'States the user problem in the user’s terms with the evidence it was real.' },
+        { n: 'Prioritisation', w: 26, a: 'Names what they chose not to do and the cost of that choice.' },
+        { n: 'Stakeholder management', w: 24, a: 'A real disagreement, what the other side wanted, and how it was resolved.' },
+        { n: 'Data reasoning', w: 22, a: 'Specific numbers, and what would have falsified their conclusion.' }
+      ] },
+    { id: 'rb_swe', name: 'Technical — integrations', family: 'Technical', version: '5.0', status: 'published',
+      owner: 'Jonas Brandt', updated: '2026-08-14', usedBy: 2, role: 'swe-integrations',
+      comps: [
+        { n: 'Systems design', w: 30, a: 'Chooses a design, names the trade-off it costs, and describes the failure mode they fear.' },
+        { n: 'Debugging & incident response', w: 26, a: 'How they narrowed the problem before fixing it, and what catches it sooner next time.' },
+        { n: 'Technical communication', w: 24, a: 'Explains in the listener’s terms, leads with impact, is explicit about the unknowns.' },
+        { n: 'Collaboration', w: 20, a: 'A real disagreement with a colleague settled on evidence.' }
+      ] },
+    { id: 'rb_eae', name: 'Commercial — enterprise sales', family: 'Commercial', version: '1.6', status: 'published',
+      owner: 'Jonas Brandt', updated: '2026-06-30', usedBy: 1, role: 'eae',
+      comps: [
+        { n: 'Discovery', w: 30, a: 'The questions they asked and what the answers changed about their approach.' },
+        { n: 'Commercial qualification', w: 25, a: 'How they tested budget, authority and timing — including a deal they disqualified.' },
+        { n: 'Objection handling', w: 25, a: 'The objection in the customer’s words and what was actually behind it.' },
+        { n: 'Forecast discipline', w: 20, a: 'How they forecast, an occasion they were wrong, and what they changed.' }
+      ] },
+    { id: 'rb_theatre', name: 'Clinical panel — theatre recovery', family: 'Clinical', version: '0.3', status: 'draft',
+      owner: 'Priya Raman', updated: '2026-08-19', usedBy: 0, role: 'rn-icu',
+      comps: [
+        { n: 'Airway & recovery assessment', w: 35, a: 'Draft — anchors written, awaiting review by the theatre matron.' },
+        { n: 'Post-operative escalation', w: 25, a: 'Draft — reuses the ICU escalation anchors unchanged.' },
+        { n: 'Pain management judgement', w: 20, a: 'Placeholder weight; anchors not written yet.' },
+        { n: 'Team communication in theatre', w: 20, a: 'Placeholder weight; anchors not written yet.' }
+      ] },
+    { id: 'rb_dataplat', name: 'Technical — data platform (2025)', family: 'Technical', version: '3.4', status: 'archived',
+      owner: 'Jonas Brandt', updated: '2025-11-12', usedBy: 0, role: 'swe-integrations',
+      comps: [
+        { n: 'Pipeline design', w: 30, a: 'Retired. Superseded by Technical — integrations v5.0.' },
+        { n: 'Data quality', w: 25, a: 'Retired.' },
+        { n: 'Cost awareness', w: 20, a: 'Retired.' },
+        { n: 'Technical communication', w: 15, a: 'Retired.' },
+        { n: 'Collaboration', w: 10, a: 'Retired.' }
+      ] }
+  ];
+
+  var USAGE = [
+    { role: 'Registered Nurse — ICU, night rotation Ward 4', rubric: 'Clinical panel — ICU', v: '4.2', evals: 214, review: 11 },
+    { role: 'Registered Nurse — ICU, bank pool autumn intake', rubric: 'Clinical panel — ICU', v: '4.1 (superseded)', evals: 96, review: 0 },
+    { role: 'Clinical Nurse Educator — practice development', rubric: 'Clinical panel — education', v: '2.4', evals: 38, review: 4 },
+    { role: 'Financial Analyst — FP&A, service lines', rubric: 'Commercial — analytical', v: '3.1', evals: 96, review: 9 },
+    { role: 'Product Manager — Patient Apps', rubric: 'Commercial — product', v: '2.0', evals: 61, review: 7 },
+    { role: 'Software Engineer — Integrations', rubric: 'Technical — integrations', v: '5.0', evals: 143, review: 8 },
+    { role: 'Enterprise Account Executive — provider accounts', rubric: 'Commercial — enterprise sales', v: '1.6', evals: 52, review: 5 }
+  ];
+
+  var STATUS = {
+    published: { label: 'Published', badge: 'badge-success', icon: 'check-circle-2' },
+    draft: { label: 'Draft', badge: 'badge-warning', icon: 'pencil-line' },
+    archived: { label: 'Archived', badge: 'badge-neutral', icon: 'archive' }
+  };
+
+  var readOnly = false;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  /* ------------------------------------------------------------------ table */
+  function filtered() {
+    var q = document.getElementById('rubric-search').value.trim().toLowerCase();
+    var st = document.getElementById('status-filter').value;
+    var sort = document.getElementById('sort-select').value;
+    var rows = RUBRICS.filter(function (r) {
+      if (st !== 'all' && r.status !== st) return false;
+      if (!q) return true;
+      return (r.name + ' ' + r.family + ' ' + r.owner).toLowerCase().indexOf(q) > -1;
+    });
+    rows.sort(function (a, b) {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      if (sort === 'usage') return b.usedBy - a.usedBy;
+      if (sort === 'family') return a.family.localeCompare(b.family) || a.name.localeCompare(b.name);
+      return b.updated.localeCompare(a.updated);
+    });
+    return rows;
+  }
+
+  function renderTable() {
+    var rows = filtered();
+    var host = document.getElementById('rubric-rows');
+    host.innerHTML = rows.map(function (r) {
+      var s = STATUS[r.status];
+      return '<tr>' +
+        '<td data-label="Rubric" class="td-primary"><a class="row-link" href="admin-recruiter-calibration.html?role=' + esc(r.role) + '">' + esc(r.name) + '</a>' +
+          '<span class="td-sub mono">' + esc(r.id) + '</span></td>' +
+        '<td data-label="Role family">' + esc(r.family) + '</td>' +
+        '<td data-label="Competencies" class="num tnum">' + r.comps.length + '</td>' +
+        '<td data-label="Version" class="mono">v' + esc(r.version) + '</td>' +
+        '<td data-label="Status"><span class="badge ' + s.badge + '"><i data-lucide="' + s.icon + '" class="ic-sm ic"></i>' + s.label + '</span></td>' +
+        '<td data-label="Owner">' + esc(r.owner) + '</td>' +
+        '<td data-label="Last updated">' + Prepeet.fmt.date(r.updated) + '</td>' +
+        '<td data-label="Used by" class="num tnum">' + r.usedBy + (r.usedBy === 1 ? ' role' : ' roles') + '</td>' +
+        '<td class="td-actions" data-label="Actions">' +
+          '<button class="btn btn-sm btn-ghost" type="button" data-detail="' + r.id + '">Details<span class="sr-only"> for ' + esc(r.name) + '</span></button>' +
+          '<button class="icon-btn icon-btn-sm" type="button" data-menu="menu-' + r.id + '" aria-haspopup="true" aria-expanded="false" aria-label="More actions for ' + esc(r.name) + '"><i data-lucide="more-horizontal" class="ic ic-sm"></i></button>' +
+          '<div class="menu" id="menu-' + r.id + '" hidden role="menu" style="right:24px">' +
+            '<a class="menu-item" role="menuitem" href="admin-recruiter-calibration.html?role=' + esc(r.role) + '"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Open in calibration</a>' +
+            '<button class="menu-item" role="menuitem" type="button" data-detail="' + r.id + '"><i data-lucide="panel-right-open" class="ic ic-sm"></i>Rubric details</button>' +
+            '<button class="menu-item" role="menuitem" type="button" data-admin-control data-duplicate="' + r.id + '"><i data-lucide="copy" class="ic ic-sm"></i>Duplicate</button>' +
+            '<div class="menu-sep"></div>' +
+            (r.status === 'archived'
+              ? '<button class="menu-item" role="menuitem" type="button" data-admin-control data-restore="' + r.id + '"><i data-lucide="archive-restore" class="ic ic-sm"></i>Restore</button>'
+              : '<button class="menu-item danger" role="menuitem" type="button" data-admin-control data-archive="' + r.id + '"><i data-lucide="archive" class="ic ic-sm"></i>Archive</button>') +
+          '</div>' +
+        '</td></tr>';
+    }).join('');
+    document.getElementById('no-results').hidden = rows.length > 0;
+    document.getElementById('count-chip').textContent = RUBRICS.length + ' rubrics';
+    document.getElementById('filter-summary').textContent =
+      'Showing ' + rows.length + ' of ' + RUBRICS.length + ' rubrics.';
+    applyReadOnly();
+    Prepeet.init(host);
+  }
+
+  function renderUsage() {
+    document.getElementById('usage-rows').innerHTML = USAGE.map(function (u) {
+      return '<tr>' +
+        '<td data-label="Open role" class="td-primary">' + esc(u.role) + '</td>' +
+        '<td data-label="Rubric">' + esc(u.rubric) + '</td>' +
+        '<td data-label="Version" class="mono">v' + esc(u.v) + '</td>' +
+        '<td data-label="Evaluations" class="num tnum">' + u.evals + '</td>' +
+        '<td data-label="In review">' + (u.review ? '<a href="admin-recruiter.html">' + u.review + ' awaiting review</a>' : '<span class="text-muted">None</span>') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  /* ----------------------------------------------------------------- drawer */
+  function openDetail(id) {
+    var r = RUBRICS.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    var s = STATUS[r.status];
+    document.getElementById('drw-rubric-h').textContent = r.name;
+    document.getElementById('drw-rubric-sub').textContent = r.family + ' · v' + r.version + ' · ' + s.label + ' · owned by ' + r.owner;
+    document.getElementById('drw-open-cal').href = 'admin-recruiter-calibration.html?role=' + r.role;
+    var total = r.comps.reduce(function (a, c) { return a + c.w; }, 0);
+    document.getElementById('drw-rubric-body').innerHTML =
+      '<dl class="kv">' +
+        '<dt>Rubric id</dt><dd class="mono">' + esc(r.id) + '</dd>' +
+        '<dt>Last updated</dt><dd>' + Prepeet.fmt.date(r.updated) + '</dd>' +
+        '<dt>Open roles using it</dt><dd>' + r.usedBy + '</dd>' +
+        '<dt>Weights total</dt><dd>' + total + '%' + (total === 100 ? '' : ' — must reach 100% before publishing') + '</dd>' +
+      '</dl>' +
+      '<hr>' +
+      '<h3 style="font-size:var(--text-sm)">Competencies and weights</h3>' +
+      '<div>' + r.comps.map(function (c) {
+        return '<div class="comp-weight-row"><div><strong>' + esc(c.n) + '</strong><p class="anchor-preview"><span class="band band-strong">Strong</span> ' + esc(c.a) + '</p></div><div class="tnum" style="text-align:right;font-weight:700">' + c.w + '%</div></div>';
+      }).join('') + '</div>' +
+      '<div class="banner banner-info"><i data-lucide="info" class="ic"></i><div>This is the Strong anchor only. All five bands, the example answers and the evidence rules live on the calibration screen.</div></div>';
+    Prepeet.openDialog('drw-rubric');
+    Prepeet.init(document.getElementById('drw-rubric-body'));
+  }
+
+  /* ----------------------------------------------------------------- states */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) { var b = e.target.closest('[data-state-btn]'); if (b) apply(b.getAttribute('data-state-btn')); });
+    apply(cur);
+  }
+
+  function applyReadOnly() {
+    readOnly = !Prepeet.can('tenant_admin');
+    document.getElementById('readonly-banner').hidden = !readOnly;
+    if (!readOnly) return;
+    document.querySelectorAll('[data-admin-control]').forEach(function (el) {
+      if ('disabled' in el && el.tagName !== 'A') el.disabled = true;
+      el.setAttribute('aria-disabled', 'true');
+    });
+  }
+
+  /* ----------------------------------------------------------------- wiring */
+  document.addEventListener('DOMContentLoaded', function () {
+    renderTable(); renderUsage(); initStates();
+
+    document.getElementById('new-clone').innerHTML = RUBRICS.filter(function (r) { return r.status !== 'archived'; })
+      .map(function (r) { return '<option value="' + r.id + '">' + esc(r.name) + ' (v' + r.version + ')</option>'; }).join('');
+
+    ['rubric-search', 'status-filter', 'sort-select'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', renderTable);
+      document.getElementById(id).addEventListener('change', renderTable);
+    });
+    document.getElementById('clear-filters').addEventListener('click', function () {
+      document.getElementById('rubric-search').value = '';
+      document.getElementById('status-filter').value = 'all';
+      renderTable();
+    });
+
+    document.querySelectorAll('input[name="start-from"]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        document.getElementById('template-picker').hidden = r.value !== 'template';
+        document.getElementById('clone-picker').hidden = r.value !== 'clone';
+      });
+    });
+
+    var archiveTarget = null;
+
+    document.addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-detail]'))) { openDetail(t.getAttribute('data-detail')); return; }
+      if ((t = e.target.closest('[data-template]'))) {
+        document.querySelector('input[name="start-from"][value="template"]').checked = true;
+        document.getElementById('template-picker').hidden = false;
+        document.getElementById('clone-picker').hidden = true;
+        document.getElementById('new-template').value = t.getAttribute('data-template');
+        return;
+      }
+      if ((t = e.target.closest('[data-duplicate]'))) {
+        if (readOnly) return;
+        var src = RUBRICS.filter(function (x) { return x.id === t.getAttribute('data-duplicate'); })[0];
+        var copy = JSON.parse(JSON.stringify(src));
+        copy.id = src.id + '_copy'; copy.name = src.name + ' (copy)'; copy.status = 'draft';
+        copy.version = '0.1'; copy.updated = '2026-08-23'; copy.usedBy = 0; copy.owner = Prepeet.data.adminUser.name;
+        RUBRICS.unshift(copy);
+        renderTable();
+        Prepeet.toast({ title: 'Duplicated as a draft', desc: copy.name + ' · v0.1. It scores nothing until you publish it.', kind: 'success' });
+        return;
+      }
+      if ((t = e.target.closest('[data-archive]'))) {
+        if (readOnly) return;
+        archiveTarget = t.getAttribute('data-archive');
+        var r = RUBRICS.filter(function (x) { return x.id === archiveTarget; })[0];
+        document.getElementById('archive-name').textContent = r.name;
+        document.getElementById('archive-warn').textContent = r.usedBy
+          ? r.usedBy + ' open role' + (r.usedBy === 1 ? '' : 's') + ' still points at this rubric. Those roles will keep scoring on v' + r.version + ' until you move them to another rubric.'
+          : 'No open role is using it, so nothing in flight is affected.';
+        Prepeet.openDialog('dlg-archive');
+        return;
+      }
+      if ((t = e.target.closest('[data-restore]'))) {
+        if (readOnly) return;
+        var rr = RUBRICS.filter(function (x) { return x.id === t.getAttribute('data-restore'); })[0];
+        rr.status = 'draft'; rr.updated = '2026-08-23';
+        renderTable();
+        Prepeet.toast({ title: 'Restored as a draft', desc: rr.name + ' is editable again but is not scoring anything.', kind: 'success' });
+      }
+    });
+
+    document.getElementById('archive-confirm').addEventListener('click', function () {
+      var r = RUBRICS.filter(function (x) { return x.id === archiveTarget; })[0];
+      if (r) { r.status = 'archived'; r.updated = '2026-08-23'; r.usedBy = 0; renderTable(); }
+      Prepeet.closeDialog('dlg-archive');
+      Prepeet.toast({ title: 'Rubric archived', desc: (r ? r.name : 'Rubric') + ' is read-only. Past evaluations are unaffected.', kind: 'success' });
+      Prepeet.announce('Rubric archived.');
+    });
+
+    document.getElementById('create-confirm').addEventListener('click', function () {
+      var name = document.getElementById('new-name');
+      if (!name.value.trim()) {
+        name.setAttribute('aria-invalid', 'true');
+        document.getElementById('new-name-err').hidden = false;
+        name.focus();
+        return;
+      }
+      name.setAttribute('aria-invalid', 'false');
+      document.getElementById('new-name-err').hidden = true;
+      var from = document.querySelector('input[name="start-from"]:checked').value;
+      var family = document.getElementById('new-family').value;
+      var base;
+      if (from === 'clone') {
+        base = JSON.parse(JSON.stringify(RUBRICS.filter(function (x) { return x.id === document.getElementById('new-clone').value; })[0]));
+      } else if (from === 'template') {
+        var tpl = document.getElementById('new-template').value;
+        var srcId = tpl === 'Clinical panel' ? 'rb_icu' : tpl === 'Technical' ? 'rb_swe' : 'rb_fpa';
+        base = JSON.parse(JSON.stringify(RUBRICS.filter(function (x) { return x.id === srcId; })[0]));
+      } else {
+        base = { comps: [] };
+      }
+      base.id = 'rb_' + Math.abs(name.value.length * 7919).toString(16);
+      base.name = name.value.trim();
+      base.family = family;
+      base.status = 'draft';
+      base.version = '0.1';
+      base.owner = Prepeet.data.adminUser.name;
+      base.updated = '2026-08-23';
+      base.usedBy = 0;
+      base.role = base.role || 'rn-icu';
+      RUBRICS.unshift(base);
+      renderTable();
+      Prepeet.closeDialog('dlg-create');
+      Prepeet.toast({
+        title: 'Draft rubric created',
+        desc: base.name + ' · ' + (from === 'blank' ? 'blank — add competencies before publishing' : base.comps.length + ' competencies copied'),
+        kind: 'success'
+      });
+      Prepeet.announce('Draft rubric ' + base.name + ' created.');
+    });
+  });
+
+  /* Row action menus live inside .table-wrap, which scrolls horizontally and would
+     clip an absolutely-positioned dropdown. Reposition them as fixed on open.
+     ui.js registers its own click handler first, so the menu is already unhidden here. */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-menu]');
+    if (!b) return;
+    var m = document.getElementById(b.getAttribute('data-menu'));
+    if (!m || m.hidden || !m.closest('.table-wrap')) return;
+    m.classList.add('menu-fixed');
+    var r = b.getBoundingClientRect();
+    var w = m.offsetWidth || 200, h = m.offsetHeight || 160;
+    m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
+    m.style.top = (r.bottom + 6 + h > window.innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
+  });
+})();
+</script>
+</body>
+</html>

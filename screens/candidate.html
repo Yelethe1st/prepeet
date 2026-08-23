@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opening your workspace · Prepeet</title>
+<meta name="description" content="Prepeet checks your workspace, invitations and plan, then sends you to the right place to start.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth-full">
+
+<div class="auth-top">
+  <a class="mk-brand" href="index.html" style="display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--fg);text-decoration:none">
+    <span class="logo-mark" id="brandmark"></span>Prepeet
+  </a>
+  <div class="cluster">
+    <a class="btn btn-sm btn-ghost" href="screens.html">Prototype index</a>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</div>
+
+<main class="auth-card" id="main-content">
+
+  <div class="cluster" style="margin-bottom:14px">
+    <span class="badge badge-outline mono">/candidate</span>
+    <span class="badge badge-neutral"><i data-lucide="route" class="ic-sm ic"></i>Routing state</span>
+  </div>
+
+  <h1 id="route-h1" style="font-size:var(--text-2xl);letter-spacing:-.02em">Opening your workspace</h1>
+  <p class="lead" id="route-lead" style="color:var(--fg-2);font-size:var(--text-sm);line-height:1.55;margin-top:6px">
+    One moment, Daniel — we are working out where you should land.
+  </p>
+
+  <!-- ════════════════════ RESOLVING ════════════════════ -->
+  <section class="card" id="resolving" aria-labelledby="resolving-h" style="margin-top:var(--sp-6)">
+    <div class="card-body">
+      <h2 id="resolving-h" class="sr-only">Checks in progress</h2>
+      <div class="row" style="gap:14px;margin-bottom:var(--sp-4)">
+        <span class="spinner spinner-lg" aria-hidden="true"></span>
+        <div style="min-width:0">
+          <p role="status" aria-live="polite" id="resolve-status" style="font-weight:650;font-size:var(--text-sm)">Checking your workspace…</p>
+          <p class="hint" style="margin-top:3px">This normally takes under two seconds.</p>
+        </div>
+      </div>
+
+      <ol class="stages" id="resolve-stages">
+        <li class="stage" data-step="0">
+          <span class="stage-icon"><i data-lucide="circle-dashed" class="ic"></i></span>
+          <span><span class="stage-name">Checking your workspace</span><span class="stage-sub">Account, region and consent record</span></span>
+          <span class="stage-time" data-step-time>waiting</span>
+        </li>
+        <li class="stage" data-step="1">
+          <span class="stage-icon"><i data-lucide="circle-dashed" class="ic"></i></span>
+          <span><span class="stage-name">Looking for pending invitations</span><span class="stage-sub">Screening requests from employers</span></span>
+          <span class="stage-time" data-step-time>waiting</span>
+        </li>
+        <li class="stage" data-step="2">
+          <span class="stage-icon"><i data-lucide="circle-dashed" class="ic"></i></span>
+          <span><span class="stage-name">Loading your plan</span><span class="stage-sub">Target role, goals and session history</span></span>
+          <span class="stage-time" data-step-time>waiting</span>
+        </li>
+      </ol>
+
+      <div class="progress sm indeterminate" style="margin-top:var(--sp-4)" role="presentation"><span></span></div>
+    </div>
+  </section>
+
+  <!-- ════════════════════ RESOLVED · RETURNING ════════════════════ -->
+  <div id="resolved" hidden>
+
+    <section class="card card-accent" data-state="returning" hidden aria-labelledby="ret-h" style="margin-top:var(--sp-6)">
+      <div class="card-body">
+        <div class="cluster" style="margin-bottom:12px">
+          <span class="badge badge-success"><i data-lucide="check-circle-2" class="ic-sm ic"></i>Workspace ready</span>
+          <span class="badge badge-mode practice">Practice</span>
+        </div>
+        <h2 id="ret-h" style="font-size:var(--text-lg)">Welcome back</h2>
+        <p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:6px">
+          You have 12 sessions on record and an active plan for <strong>Senior Backend Engineer</strong>. No invitation is waiting, so we are sending you to your dashboard.
+        </p>
+
+        <dl class="kv" style="margin-top:var(--sp-4)">
+          <dt>Workspace</dt><dd>Daniel Okonkwo · Candidate practice</dd>
+          <dt>Last session</dt><dd>Systems design deep-dive · 21 August 2026</dd>
+          <dt>Pending invitations</dt><dd>None</dd>
+          <dt>Destination</dt><dd class="mono">/candidate/dashboard</dd>
+        </dl>
+
+        <div class="banner" id="countdown-banner" style="margin-top:var(--sp-4)" role="status" hidden>
+          <i data-lucide="timer" class="ic"></i>
+          <div>Continuing to your dashboard in <strong class="tnum" id="countdown-num">6</strong> seconds.</div>
+          <div class="banner-actions">
+            <button class="btn btn-sm btn-ghost" type="button" id="countdown-stop">Stay here</button>
+          </div>
+        </div>
+
+        <p class="hint" id="autohint" style="margin-top:var(--sp-4)">
+          Auto-continue is paused so you can inspect this screen. Open
+          <a href="candidate.html?auto=1">this route with <span class="mono">?auto=1</span></a> to watch the real countdown redirect.
+        </p>
+
+        <div class="cluster" style="margin-top:var(--sp-4)">
+          <a class="btn btn-primary" href="candidate-dashboard.html"><i data-lucide="arrow-right" class="ic ic-sm"></i>Go now</a>
+          <a class="btn btn-secondary" href="candidate-sessions.html">Open sessions instead</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ RESOLVED · FIRST RUN ════════════════════ -->
+    <section class="card card-accent" data-state="first-run" hidden aria-labelledby="fr-h" style="margin-top:var(--sp-6)">
+      <div class="card-body">
+        <div class="cluster" style="margin-bottom:12px">
+          <span class="badge badge-primary"><i data-lucide="sparkles" class="ic-sm ic"></i>New workspace</span>
+          <span class="badge badge-mode practice">Practice</span>
+        </div>
+        <h2 id="fr-h" style="font-size:var(--text-lg)">Let’s start with one interview</h2>
+        <p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:6px">
+          There are no sessions in this workspace yet, so there is nothing for a dashboard to show. The fastest way to get a useful picture of where you stand is to talk through one interview.
+        </p>
+
+        <h3 style="font-size:var(--text-sm);margin-top:var(--sp-5)">What the first one is like</h3>
+        <ul class="stack-sm" style="margin-top:8px">
+          <li class="row" style="align-items:flex-start;gap:10px"><i data-lucide="mic" class="ic" style="color:var(--primary);margin-top:2px"></i><span style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.5"><strong style="color:var(--fg)">You speak, we listen.</strong> Five questions, about 25 minutes, out loud — no code editor, no camera.</span></li>
+          <li class="row" style="align-items:flex-start;gap:10px"><i data-lucide="user-round" class="ic" style="color:var(--primary);margin-top:2px"></i><span style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.5"><strong style="color:var(--fg)">You pick the interviewer.</strong> Ama is warm and structured; Ravi is direct and technical. Start with Ama.</span></li>
+          <li class="row" style="align-items:flex-start;gap:10px"><i data-lucide="file-text" class="ic" style="color:var(--primary);margin-top:2px"></i><span style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.5"><strong style="color:var(--fg)">You get evidence, not a verdict.</strong> Afterwards you see what you actually said, quoted back, with a competency signal and where the gaps were.</span></li>
+          <li class="row" style="align-items:flex-start;gap:10px"><i data-lucide="lock" class="ic" style="color:var(--primary);margin-top:2px"></i><span style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.5"><strong style="color:var(--fg)">Nobody else sees it.</strong> Practice sessions are never shared with employers.</span></li>
+        </ul>
+
+        <div class="cluster" style="margin-top:var(--sp-5)">
+          <a class="btn btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Continue to your first interview</a>
+          <a class="btn btn-ghost" href="candidate-profile.html">Add my résumé first</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ RESOLVED · INVITED ════════════════════ -->
+    <section class="card card-accent" data-state="invited" hidden aria-labelledby="inv-h" style="margin-top:var(--sp-6)">
+      <div class="card-body">
+        <div class="cluster" style="margin-bottom:12px">
+          <span class="badge badge-warning"><i data-lucide="mail" class="ic-sm ic"></i>Invitation pending</span>
+          <span class="badge badge-mode screen">Screening</span>
+        </div>
+        <h2 id="inv-h" style="font-size:var(--text-lg)">An employer is waiting on you</h2>
+        <p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:6px">
+          A screening invitation takes priority over practice, because it has a deadline someone else set. We will take you to the invitation rather than your dashboard.
+        </p>
+
+        <dl class="kv" style="margin-top:var(--sp-4)">
+          <dt>Employer</dt><dd>Northwind Health System</dd>
+          <dt>Role</dt><dd>Registered Nurse — Intensive Care</dd>
+          <dt>Invited</dt><dd>12 August 2026</dd>
+          <dt>Respond by</dt><dd>26 August 2026 — 3 days left</dd>
+          <dt>Invitation</dt><dd class="mono">inv_QX72HL</dd>
+        </dl>
+
+        <div class="banner banner-info" style="margin-top:var(--sp-4)">
+          <i data-lucide="info" class="ic"></i>
+          <div>Screening interviews are reviewed by the hiring team. You will not see a score or coaching for one — that boundary is deliberate.</div>
+        </div>
+
+        <div class="cluster" style="margin-top:var(--sp-4)">
+          <a class="btn btn-primary" href="invitation-accept.html?id=inv_QX72HL"><i data-lucide="arrow-right" class="ic ic-sm"></i>Continue to the invitation</a>
+          <a class="btn btn-secondary" href="candidate-dashboard.html">Not now — go to my dashboard</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ RESOLVED · ERROR ════════════════════ -->
+    <section class="card" data-state="error" hidden aria-labelledby="err-h" style="margin-top:var(--sp-6)">
+      <div class="card-body">
+        <div class="state state-compact danger">
+          <div class="state-icon"><i data-lucide="cloud-off" class="ic"></i></div>
+          <h2 id="err-h" style="font-size:var(--text-md)">We could not load your workspace</h2>
+          <p>Your account is fine and nothing has been lost. The service that assembles your plan did not answer in time, so we stopped rather than guess where to send you.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="candidate.html"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Try again</a>
+            <a class="btn btn-secondary" href="candidate-dashboard.html">Skip to dashboard</a>
+            <a class="btn btn-ghost" href="login.html">Sign in again</a>
+          </div>
+          <p class="hint" style="margin-top:14px">If it keeps happening, quote reference <span class="mono">req_8f2c4a·cand_R4T9MP</span> when you contact support.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Preview controls -->
+  <div class="card card-subtle" style="margin-top:var(--sp-6)">
+    <div class="card-body">
+      <div class="between" style="align-items:flex-start">
+        <div>
+          <h2 style="font-size:var(--text-sm)">Preview the routing outcome</h2>
+          <p class="hint" style="margin-top:4px;max-width:34em">
+            <span class="mono">/candidate</span> renders no application shell on purpose. It is the decision point: the app has to know whether you are a returning candidate, brand new, or being asked to sit a screening <em>before</em> it can choose which navigation, mode and home screen you belong in. Rendering a dashboard first and correcting it afterwards would flash the wrong thing at people.
+          </p>
+        </div>
+      </div>
+      <div class="cluster" style="margin-top:14px">
+        <span class="hint">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview routing outcome">
+          <button type="button" data-state-btn="returning" aria-pressed="true">Returning</button>
+          <button type="button" data-state-btn="first-run" aria-pressed="false">First run</button>
+          <button type="button" data-state-btn="invited" aria-pressed="false">Invited</button>
+          <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+        </div>
+        <button class="btn btn-sm btn-ghost" type="button" id="replay"><i data-lucide="rotate-ccw" class="ic ic-sm"></i>Replay checks</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="auth-foot" style="justify-content:center;padding:20px 0 8px">
+  <a href="candidate-dashboard.html">Dashboard</a>
+  <a href="candidate-start-interview.html">Start an interview</a>
+  <a href="invitation-accept.html">Invitation</a>
+  <a href="login.html">Sign in</a>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var STATES = ['returning', 'first-run', 'invited', 'error'];
+  var COPY = {
+    'returning': { h1: 'Welcome back, Daniel', lead: 'Your workspace loaded cleanly. Practice mode, Senior Backend Engineer plan.' },
+    'first-run': { h1: 'Your workspace is ready', lead: 'There is nothing to show on a dashboard yet — one interview changes that.' },
+    'invited':   { h1: 'You have an invitation waiting', lead: 'Northwind Health System asked you to sit a screening interview.' },
+    'error':     { h1: 'Something went wrong', lead: 'We stopped before sending you anywhere, so nothing is half-loaded.' }
+  };
+
+  var timers = [], countdownTimer = null, revealed = false;
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function setStage(i, cls, timeText) {
+    var li = document.querySelector('.stage[data-step="' + i + '"]');
+    if (!li) return;
+    li.className = 'stage ' + cls;
+    var icon = cls === 'done' ? 'check' : (cls === 'active' ? 'loader' : 'circle-dashed');
+    li.querySelector('.stage-icon').innerHTML = '<i data-lucide="' + icon + '" class="ic"></i>';
+    li.querySelector('[data-step-time]').textContent = timeText;
+    Prepeet.init(li);
+  }
+
+  function reveal(state) {
+    revealed = true;
+    clearTimers();
+    document.getElementById('resolving').hidden = true;
+    document.getElementById('resolved').hidden = false;
+    apply(state);
+  }
+
+  function startCountdown() {
+    var banner = document.getElementById('countdown-banner');
+    var num = document.getElementById('countdown-num');
+    var hint = document.getElementById('autohint');
+    banner.hidden = false; hint.hidden = true;
+    var left = 6;
+    num.textContent = left;
+    Prepeet.announce('Continuing to your dashboard in 6 seconds. Choose “Stay here” to cancel.');
+    countdownTimer = setInterval(function () {
+      left -= 1;
+      num.textContent = left;
+      if (left <= 0) { clearInterval(countdownTimer); location.href = 'candidate-dashboard.html'; }
+    }, 1000);
+  }
+  function stopCountdown() {
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    var banner = document.getElementById('countdown-banner');
+    banner.innerHTML = '<i data-lucide="hand" class="ic"></i><div>Auto-continue cancelled. Use <strong>Go now</strong> when you are ready.</div>';
+    Prepeet.announce('Auto-continue cancelled. You are staying on this page.');
+    Prepeet.init(banner);
+  }
+
+  function apply(state) {
+    if (STATES.indexOf(state) === -1) state = 'returning';
+    document.querySelectorAll('[data-state]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-state') !== state;
+    });
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === state));
+    });
+    document.getElementById('route-h1').textContent = COPY[state].h1;
+    document.getElementById('route-lead').textContent = COPY[state].lead;
+    Prepeet.query.set({ state: state === 'returning' ? null : state }, true);
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    if (state === 'returning' && Prepeet.query.get('auto') === '1') startCountdown();
+    Prepeet.init();
+  }
+
+  function runChecks(state) {
+    revealed = false;
+    clearTimers();
+    document.getElementById('resolved').hidden = true;
+    document.getElementById('resolving').hidden = false;
+    document.getElementById('route-h1').textContent = 'Opening your workspace';
+    document.getElementById('route-lead').textContent = 'One moment, Daniel — we are working out where you should land.';
+    [0, 1, 2].forEach(function (i) { setStage(i, '', 'waiting'); });
+
+    var status = document.getElementById('resolve-status');
+    var steps = [
+      { at: 0,    i: 0, msg: 'Checking your workspace…' },
+      { at: 800,  i: 1, msg: 'Looking for pending invitations…', doneMsg: '0.8s' },
+      { at: 1600, i: 2, msg: 'Loading your plan…', doneMsg: '0.7s' }
+    ];
+    steps.forEach(function (s) {
+      timers.push(setTimeout(function () {
+        if (s.i > 0) setStage(s.i - 1, 'done', s.doneMsg);
+        setStage(s.i, 'active', 'running');
+        status.textContent = s.msg;
+      }, s.at));
+    });
+    timers.push(setTimeout(function () {
+      setStage(2, state === 'error' ? 'failed' : 'done', state === 'error' ? 'timed out' : '0.6s');
+      status.textContent = state === 'error' ? 'Could not load your plan.' : 'Ready.';
+    }, 2400));
+    timers.push(setTimeout(function () { reveal(state); }, 2900));
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (Prepeet.favicon) Prepeet.favicon();
+    var mark = document.getElementById('brandmark');
+    if (mark) mark.innerHTML = Prepeet.logoSvg;
+
+    var initial = Prepeet.query.get('state', 'returning');
+    if (STATES.indexOf(initial) === -1) initial = 'returning';
+
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) {
+        var s = b.getAttribute('data-state-btn');
+        if (!revealed) reveal(s); else apply(s);
+        return;
+      }
+      if (e.target.closest('#replay')) { runChecks(Prepeet.query.get('state', 'returning')); return; }
+      if (e.target.closest('#countdown-stop')) { stopCountdown(); }
+    });
+
+    Prepeet.init();
+    runChecks(initial);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,999 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile &amp; résumé · Prepeet</title>
+<meta name="description" content="Your profile, CV, parsed experience, skills, career context and the evidence bank you practise from.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-unique: résumé drop zone + file row (not reusable enough for components.css) */
+  .dropzone {
+    display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+    padding: var(--sp-6) var(--sp-4); border: 2px dashed var(--border-strong); border-radius: var(--r-lg);
+    background: var(--surface-2); color: var(--fg-2);
+    transition: border-color var(--dur-fast), background-color var(--dur-fast);
+  }
+  .dropzone:hover, .dropzone:focus-within { border-color: var(--primary); background: var(--primary-soft); }
+  .dropzone.is-dragover { border-color: var(--primary); background: var(--primary-soft); border-style: solid; }
+  .dropzone .dz-icon { width: 44px; height: 44px; border-radius: var(--r-md); display: grid; place-items: center; background: var(--surface-3); color: var(--fg-3); }
+  .dropzone.is-dragover .dz-icon { background: var(--primary); color: var(--primary-fg); }
+  .file-row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  .file-thumb { width: 44px; height: 56px; border-radius: var(--r-sm); border: 1px solid var(--border-strong); background: var(--surface-2); display: grid; place-items: center; color: var(--danger); flex: 0 0 auto; }
+  .vis-yes { color: var(--warning-fg); } .vis-no { color: var(--success-fg); }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="profile" data-title="Profile &amp; résumé" data-crumbs="Candidate>candidate-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Account</p>
+        <h1>Profile &amp; résumé</h1>
+        <p class="page-desc">Everything Prepeet uses to make your practice questions specific to you — and the exact list of what an employer sees if you accept a screening invitation.</p>
+      </div>
+      <div class="page-actions">
+        <span class="badge badge-outline mono" style="align-self:center">/candidate/profile</span>
+        <a class="btn btn-secondary" href="candidate-settings.html"><i data-lucide="settings" class="ic ic-sm"></i>Settings</a>
+        <a class="btn btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start an interview</a>
+      </div>
+    </div>
+
+    <!-- ══════════════ PROFILE HEADER CARD ══════════════ -->
+    <section class="card" aria-labelledby="who-h" style="margin-bottom:var(--sp-6)">
+      <div class="card-body">
+        <div style="display:flex;gap:var(--sp-5);align-items:flex-start;flex-wrap:wrap">
+          <span class="avatar avatar-xl" aria-hidden="true">DO</span>
+          <div style="flex:1;min-width:220px">
+            <h2 id="who-h" style="font-size:var(--text-lg)">Daniel Okonkwo</h2>
+            <p class="text-2" style="font-size:var(--text-sm);margin-top:4px">Backend engineer · 6 years · Manchester, UK</p>
+            <div class="cluster" style="margin-top:12px">
+              <span class="badge badge-neutral"><i data-lucide="map-pin" class="ic-sm ic"></i>Manchester, United Kingdom</span>
+              <span class="badge badge-neutral"><i data-lucide="clock" class="ic-sm ic"></i>Europe/London (BST, UTC+1)</span>
+              <span class="badge badge-primary"><i data-lucide="target" class="ic-sm ic"></i>Targeting Senior Backend Engineer</span>
+              <span class="badge badge-outline"><i data-lucide="compass" class="ic-sm ic"></i>Also exploring Engineering Manager</span>
+            </div>
+            <dl class="kv" style="margin-top:var(--sp-4);max-width:520px">
+              <dt>Email</dt><dd>daniel.okonkwo@example.com</dd>
+              <dt>Account reference</dt><dd class="mono">cand_R4T9MP</dd>
+              <dt>Member since</dt><dd>11 July 2026</dd>
+            </dl>
+          </div>
+          <div class="cluster" style="align-items:flex-start">
+            <button class="btn btn-secondary" type="button" data-dialog-open="dlg-edit-profile"><i data-lucide="pencil" class="ic ic-sm"></i>Edit profile</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <p class="hint">Your name and email are shown to an employer only after you accept one of their screening invitations. See <a href="#visibility">what an employer sees</a>.</p>
+      </div>
+    </section>
+
+    <div class="grid grid-main-aside">
+      <div class="stack-lg">
+
+        <!-- ══════════════ RÉSUMÉ MANAGEMENT ══════════════ -->
+        <section class="card" aria-labelledby="cv-h" id="resume">
+          <div class="card-header">
+            <div>
+              <h2 id="cv-h">Résumé / CV</h2>
+              <p class="hint" style="margin-top:3px">One current CV. Prepeet reads it to write questions about your actual work, not generic ones.</p>
+            </div>
+            <div class="cluster">
+              <span class="hint">Preview state</span>
+              <div class="segmented" role="group" aria-label="Preview screen state">
+                <button type="button" data-state-btn="default" aria-pressed="true">Parsed</button>
+                <button type="button" data-state-btn="parsing" aria-pressed="false">Parsing</button>
+                <button type="button" data-state-btn="failed" aria-pressed="false">Parse failed</button>
+                <button type="button" data-state-btn="empty" aria-pressed="false">No CV</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body stack">
+
+            <!-- default: parsed CV on file -->
+            <div data-state="default">
+              <div class="file-row">
+                <div class="file-thumb" aria-hidden="true"><i data-lucide="file-text" class="ic"></i></div>
+                <div style="flex:1;min-width:200px">
+                  <p style="font-weight:650;font-size:var(--text-sm)">Daniel-Okonkwo-CV-2026.pdf</p>
+                  <p class="hint" style="margin-top:3px">214 KB · PDF · uploaded 2 August 2026 at 21:07</p>
+                  <div class="cluster" style="margin-top:10px">
+                    <span class="badge badge-success"><i data-lucide="check-circle-2" class="ic-sm ic"></i>Parsed</span>
+                    <span class="badge badge-neutral">3 roles found</span>
+                    <span class="badge badge-neutral">17 skills found</span>
+                    <span class="badge badge-outline">2 pages</span>
+                  </div>
+                </div>
+                <div class="cluster" style="align-items:flex-start">
+                  <button class="btn btn-sm btn-secondary" type="button" id="btn-replace-cv"><i data-lucide="repeat-2" class="ic ic-sm"></i>Replace</button>
+                  <button class="btn btn-sm btn-secondary" type="button" data-toast="Download started" data-toast-desc="Daniel-Okonkwo-CV-2026.pdf (214 KB)" data-toast-kind="success"><i data-lucide="download" class="ic ic-sm"></i>Download</button>
+                  <button class="btn btn-sm btn-danger-soft" type="button" data-dialog-open="dlg-remove-cv"><i data-lucide="trash-2" class="ic ic-sm"></i>Remove</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- parsing in progress -->
+            <div data-state="parsing" hidden>
+              <div class="file-row">
+                <div class="file-thumb" aria-hidden="true"><i data-lucide="file-text" class="ic"></i></div>
+                <div style="flex:1;min-width:200px">
+                  <p style="font-weight:650;font-size:var(--text-sm)">Daniel-Okonkwo-CV-2026.pdf</p>
+                  <p class="hint" style="margin-top:3px">214 KB · PDF · uploading finished, reading the document</p>
+                  <div class="progress indeterminate" style="margin-top:10px" role="progressbar" aria-label="Reading your CV"><span></span></div>
+                </div>
+              </div>
+              <ul class="stages" style="margin-top:var(--sp-4)" role="status" aria-live="polite">
+                <li class="stage done"><span class="stage-icon"><i data-lucide="check" class="ic"></i></span><span><span class="stage-name">File received</span><span class="stage-sub">Virus-scanned and stored in the EU (Frankfurt)</span></span><span class="stage-time">0.4s</span></li>
+                <li class="stage done"><span class="stage-icon"><i data-lucide="check" class="ic"></i></span><span><span class="stage-name">Text extracted</span><span class="stage-sub">2 pages, no scanned images detected</span></span><span class="stage-time">1.2s</span></li>
+                <li class="stage active"><span class="stage-icon"><i data-lucide="loader" class="ic"></i></span><span><span class="stage-name">Finding roles, dates and skills</span><span class="stage-sub">Usually takes under 30 seconds</span></span><span class="stage-time">…</span></li>
+                <li class="stage"><span class="stage-icon"><i data-lucide="circle" class="ic"></i></span><span><span class="stage-name">Ready for you to check</span><span class="stage-sub">Nothing is saved to your timeline until you confirm it</span></span><span class="stage-time"></span></li>
+              </ul>
+              <p class="hint" style="margin-top:var(--sp-3)">You can leave this page — parsing carries on and you will get a notification when it finishes.</p>
+            </div>
+
+            <!-- parse failed -->
+            <div data-state="failed" hidden>
+              <div class="banner banner-danger" role="alert">
+                <i data-lucide="alert-triangle" class="ic"></i>
+                <div>
+                  <strong>We could not read Daniel-Okonkwo-CV-2026.pdf.</strong>
+                  The file looks like a scan or an exported image, so there is no selectable text to extract. Your file is still stored and you can still download it.
+                </div>
+              </div>
+              <div class="card card-subtle" style="margin-top:var(--sp-4)">
+                <div class="card-body">
+                  <h3 style="font-size:var(--text-sm)">What usually fixes it</h3>
+                  <ul class="stack-sm" style="margin-top:8px;font-size:var(--text-sm);color:var(--fg-2)">
+                    <li>· Export a PDF straight from Word, Pages or Google Docs rather than scanning a printout.</li>
+                    <li>· Remove password protection — encrypted PDFs cannot be opened for text.</li>
+                    <li>· If your CV is in a design tool, export with “text as text”, not “text as outlines”.</li>
+                  </ul>
+                  <div class="cluster" style="margin-top:var(--sp-4)">
+                    <button class="btn btn-sm btn-primary" type="button" data-loading-sim="1400" data-loading-done="Retrying the parse" data-loading-kind="info"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Try again</button>
+                    <button class="btn btn-sm btn-secondary" type="button" id="btn-replace-cv-2"><i data-lucide="repeat-2" class="ic ic-sm"></i>Upload a different file</button>
+                    <button class="btn btn-sm btn-ghost" type="button" data-dialog-open="dlg-add-role">Enter my experience by hand</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- no CV yet -->
+            <div data-state="empty" hidden>
+              <div class="state state-compact">
+                <div class="state-icon"><i data-lucide="file-plus-2" class="ic"></i></div>
+                <h3>No CV on file yet</h3>
+                <p>Prepeet can still interview you without one, but questions will be generic. With a CV, the interviewer asks about the systems you actually shipped.</p>
+                <div class="actions">
+                  <button class="btn btn-primary btn-sm" type="button" id="btn-upload-empty"><i data-lucide="upload" class="ic ic-sm"></i>Upload a CV</button>
+                  <button class="btn btn-secondary btn-sm" type="button" data-dialog-open="dlg-add-role">Add a role by hand</button>
+                </div>
+              </div>
+            </div>
+
+            <hr>
+
+            <!-- Drag and drop upload -->
+            <div>
+              <h3 class="section-title" style="font-size:var(--text-sm);margin-bottom:8px">Upload a new version</h3>
+              <div class="dropzone" id="dropzone">
+                <span class="dz-icon" aria-hidden="true"><i data-lucide="upload-cloud" class="ic-lg ic"></i></span>
+                <p style="font-weight:650;font-size:var(--text-sm);color:var(--fg)">Drag a file here, or
+                  <label for="cv-file" style="color:var(--primary);cursor:pointer;text-decoration:underline;text-underline-offset:2px">choose a file</label>
+                </p>
+                <p class="hint">PDF, DOCX or ODT · up to 8 MB · replaces your current CV</p>
+                <input class="sr-only" type="file" id="cv-file" accept=".pdf,.docx,.odt" aria-describedby="cv-file-hint">
+                <p class="sr-only" id="cv-file-hint">Uploading a new file replaces Daniel-Okonkwo-CV-2026.pdf.</p>
+                <p class="hint" id="dz-status" role="status" aria-live="polite"></p>
+              </div>
+            </div>
+
+            <!-- Explainer -->
+            <div class="accordion" data-accordion-single>
+              <div class="accordion-item">
+                <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="acc-extract">What we extract from your CV, and why<i data-lucide="chevron-down" class="ic"></i></button></h3>
+                <div class="accordion-panel" id="acc-extract" hidden>
+                  <p>We read four things and nothing else:</p>
+                  <dl class="kv" style="margin-top:10px">
+                    <dt>Roles, employers and dates</dt><dd>So the interviewer can say “at Halcyon in 2024” instead of “in a previous role”.</dd>
+                    <dt>Achievement bullets</dt><dd>To pick follow-up questions that push on the claims you have already made in writing.</dd>
+                    <dt>Skills and tools</dt><dd>To choose a technical depth that matches your stack rather than a generic one.</dd>
+                    <dt>Seniority signals</dt><dd>Titles and scope, so the questions are pitched at senior level rather than graduate level.</dd>
+                  </dl>
+                  <p style="margin-top:12px">We do <strong>not</strong> infer personality, communication style, nationality, age or health from your CV, and none of those things are used anywhere in Prepeet. Parsing is a text extraction step — everything it produces is shown to you here and is editable. Where the parser is unsure, it leaves the field blank rather than guessing.</p>
+                  <p style="margin-top:12px">Your CV file is stored in the EU (Frankfurt). You can <a href="candidate-settings.html#privacy">delete it or export it</a> at any time.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ══════════════ PARSED EXPERIENCE ══════════════ -->
+        <section class="card" aria-labelledby="exp-h" id="experience">
+          <div class="card-header">
+            <div>
+              <h2 id="exp-h">Experience</h2>
+              <p class="hint" style="margin-top:3px">Parsed from your CV on 2 August, then edited by you. This is what the interviewer reads before your session.</p>
+            </div>
+            <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-add-role"><i data-lucide="plus" class="ic ic-sm"></i>Add role</button>
+          </div>
+          <div class="card-body">
+            <ol class="timeline" id="exp-timeline">
+
+              <li class="tl-item active">
+                <div class="tl-title">Senior Backend Engineer
+                  <span class="badge badge-primary">Current</span>
+                </div>
+                <div class="tl-meta">Halcyon Logistics · Manchester, hybrid · March 2023 – present</div>
+                <div class="tl-body">
+                  <ul class="stack-sm">
+                    <li>· Rebuilt the consignment tracking pipeline from nightly batch to event streaming, cutting customer-visible status lag from 6 hours to under 40 seconds.</li>
+                    <li>· Led the split of the monolithic pricing service into three services, with a contract-test suite that let four teams deploy independently.</li>
+                    <li>· On-call lead for the tracking domain: reduced P1 incidents from 9 to 2 per quarter by adding idempotency keys and a replay tool.</li>
+                  </ul>
+                  <div class="cluster" style="margin-top:10px">
+                    <button class="btn btn-sm btn-ghost" type="button" data-edit-role="halcyon"><i data-lucide="pencil" class="ic ic-sm"></i>Edit this role</button>
+                    <span class="hint">Used in 6 of your sessions</span>
+                  </div>
+                </div>
+              </li>
+
+              <li class="tl-item done">
+                <div class="tl-title">Backend Engineer</div>
+                <div class="tl-meta">Kettlewell Health Digital · Leeds, hybrid · January 2022 – February 2023</div>
+                <div class="tl-body">
+                  <ul class="stack-sm">
+                    <li>· Built the appointment reservation service for an NHS trust pilot, holding soft locks on slots so two patients could not take the same appointment.</li>
+                    <li>· Introduced integration tests against a sandboxed EHR, which caught a field-mapping error before it reached patient records.</li>
+                  </ul>
+                  <div class="cluster" style="margin-top:10px">
+                    <button class="btn btn-sm btn-ghost" type="button" data-edit-role="kettlewell"><i data-lucide="pencil" class="ic ic-sm"></i>Edit this role</button>
+                    <span class="hint">Used in 3 of your sessions</span>
+                  </div>
+                </div>
+              </li>
+
+              <li class="tl-item done">
+                <div class="tl-title">Software Engineer</div>
+                <div class="tl-meta">Northgate Retail Systems · Manchester, on-site · September 2020 – December 2021</div>
+                <div class="tl-body">
+                  <ul class="stack-sm">
+                    <li>· Maintained the stock reconciliation job across 240 stores and rewrote its retry logic after a duplicate-order incident.</li>
+                    <li>· First engineer on the team to add structured logging, which became the house standard.</li>
+                  </ul>
+                  <div class="cluster" style="margin-top:10px">
+                    <button class="btn btn-sm btn-ghost" type="button" data-edit-role="northgate"><i data-lucide="pencil" class="ic ic-sm"></i>Edit this role</button>
+                    <span class="hint">Used in 1 of your sessions</span>
+                  </div>
+                </div>
+              </li>
+
+            </ol>
+            <p class="hint" style="margin-top:var(--sp-4)">Dates the parser was unsure about are left blank rather than guessed. Two bullets from page 2 were skipped because they had no date attached — <button class="btn btn-sm btn-ghost" type="button" data-dialog-open="dlg-skipped" style="padding:0 4px;min-height:auto">review the 2 skipped lines</button>.</p>
+          </div>
+        </section>
+
+        <!-- ══════════════ SKILLS & TOOLS ══════════════ -->
+        <section class="card" aria-labelledby="skills-h" id="skills">
+          <div class="card-header">
+            <div>
+              <h2 id="skills-h">Skills &amp; tools</h2>
+              <p class="hint" style="margin-top:3px">These set the technical depth of your questions. Remove anything you would not want to be asked about.</p>
+            </div>
+          </div>
+          <div class="card-body stack">
+            <div>
+              <h3 class="label" id="skills-lbl">Your skills <span class="hint" style="font-weight:500">(<span id="skill-count">17</span>)</span></h3>
+              <div class="cluster" id="skill-list" style="margin-top:8px" role="list" aria-labelledby="skills-lbl"></div>
+            </div>
+            <form class="row" id="skill-add-form" style="align-items:flex-end;gap:var(--sp-2);flex-wrap:wrap">
+              <div class="field" style="flex:1;min-width:200px">
+                <label class="label" for="skill-input">Add a skill or tool</label>
+                <input class="input" id="skill-input" type="text" placeholder="e.g. Terraform" autocomplete="off">
+              </div>
+              <button class="btn btn-secondary" type="submit"><i data-lucide="plus" class="ic ic-sm"></i>Add</button>
+            </form>
+            <p class="hint" role="status" aria-live="polite" id="skill-status"></p>
+          </div>
+        </section>
+
+        <!-- ══════════════ CAREER CONTEXT ══════════════ -->
+        <section class="card" aria-labelledby="career-h" id="career">
+          <div class="card-header">
+            <div>
+              <h2 id="career-h">Career context</h2>
+              <p class="hint" style="margin-top:3px">What you are aiming for. Used to pick roles, rubrics and question difficulty for practice.</p>
+            </div>
+          </div>
+          <form class="card-body stack-lg" id="career-form">
+
+            <fieldset style="border:0;padding:0;margin:0">
+              <legend class="label" style="margin-bottom:8px">Target roles <span class="hint" style="font-weight:500">— choose up to three</span></legend>
+              <div class="grid grid-2">
+                <label class="check"><input type="checkbox" name="target" value="rl_swe" checked><span>Senior Backend Engineer<span class="hint">Primary target · used for your readiness score</span></span></label>
+                <label class="check"><input type="checkbox" name="target" value="rl_em" checked><span>Engineering Manager<span class="hint">Exploring · 2 sessions so far</span></span></label>
+                <label class="check"><input type="checkbox" name="target" value="rl_pm"><span>Senior Product Manager<span class="hint">Not currently practising for this</span></span></label>
+                <label class="check"><input type="checkbox" name="target" value="rl_staff"><span>Staff Engineer<span class="hint">Not currently practising for this</span></span></label>
+              </div>
+            </fieldset>
+
+            <div class="grid grid-2">
+              <div class="field">
+                <label class="label" for="seniority">Seniority you are interviewing at</label>
+                <select class="select" id="seniority" name="seniority">
+                  <option>Mid-level (3–5 years)</option>
+                  <option selected>Senior (5–9 years)</option>
+                  <option>Staff / Principal</option>
+                  <option>First-line management</option>
+                </select>
+                <p class="hint">Senior means the interviewer will push on trade-offs and ownership rather than syntax.</p>
+              </div>
+              <div class="field">
+                <label class="label" for="notice">Notice period</label>
+                <select class="select" id="notice" name="notice">
+                  <option>Immediately available</option>
+                  <option>2 weeks</option>
+                  <option selected>1 month</option>
+                  <option>2 months</option>
+                  <option>3 months</option>
+                </select>
+                <p class="hint">Asked in most recruiter screens, so we ask it too.</p>
+              </div>
+            </div>
+
+            <fieldset style="border:0;padding:0;margin:0">
+              <legend class="label" style="margin-bottom:8px">Sectors you are interested in</legend>
+              <div class="grid grid-2">
+                <label class="check"><input type="checkbox" name="sector" value="health" checked><span>Health and care technology</span></label>
+                <label class="check"><input type="checkbox" name="sector" value="logistics" checked><span>Logistics and supply chain</span></label>
+                <label class="check"><input type="checkbox" name="sector" value="fintech"><span>Financial services</span></label>
+                <label class="check"><input type="checkbox" name="sector" value="public" checked><span>Public sector and government</span></label>
+                <label class="check"><input type="checkbox" name="sector" value="retail"><span>Retail and commerce</span></label>
+                <label class="check"><input type="checkbox" name="sector" value="edu"><span>Education</span></label>
+              </div>
+            </fieldset>
+
+            <div class="grid grid-2">
+              <div class="field">
+                <label class="label" for="locations">Locations you would work in</label>
+                <input class="input" id="locations" name="locations" type="text" value="Manchester, Leeds, London (occasional)">
+                <p class="hint">Comma separated. Used for realistic commute and relocation questions.</p>
+              </div>
+              <fieldset style="border:0;padding:0;margin:0">
+                <legend class="label" style="margin-bottom:8px">Remote preference</legend>
+                <div class="stack-sm">
+                  <label class="radio"><input type="radio" name="remote" value="onsite"><span>On-site</span></label>
+                  <label class="radio"><input type="radio" name="remote" value="hybrid" checked><span>Hybrid — 2 days in office<span class="hint">Your current pattern at Halcyon</span></span></label>
+                  <label class="radio"><input type="radio" name="remote" value="remote"><span>Fully remote</span></label>
+                </div>
+              </fieldset>
+            </div>
+
+            <fieldset style="border:0;padding:0;margin:0">
+              <legend class="label" style="margin-bottom:8px">Salary expectation</legend>
+              <div class="row" style="flex-wrap:wrap;align-items:flex-end;gap:var(--sp-3)">
+                <div class="field" style="flex:1;min-width:130px">
+                  <label class="label" for="sal-min" style="font-weight:500">Minimum (£, base)</label>
+                  <input class="input tnum" id="sal-min" name="salmin" type="number" inputmode="numeric" value="78000" min="0" step="1000">
+                </div>
+                <div class="field" style="flex:1;min-width:130px">
+                  <label class="label" for="sal-max" style="font-weight:500">Ideal (£, base)</label>
+                  <input class="input tnum" id="sal-max" name="salmax" type="number" inputmode="numeric" value="92000" min="0" step="1000">
+                </div>
+                <div class="field" style="flex:1;min-width:150px">
+                  <label class="label" for="sal-vis" style="font-weight:500">Who can see it</label>
+                  <select class="select" id="sal-vis" name="salvis">
+                    <option selected>Only employers I accept an invitation from</option>
+                    <option>Nobody — keep it for practice only</option>
+                  </select>
+                </div>
+              </div>
+              <div class="banner banner-info" style="margin-top:var(--sp-3)">
+                <i data-lucide="lock" class="ic"></i>
+                <div>Your salary range is never shown in search, never used for ranking, and is only released to an employer <strong>after you accept their screening invitation</strong>. Until then it is used only to make recruiter-screen practice realistic.</div>
+              </div>
+            </fieldset>
+
+            <div class="cluster">
+              <button class="btn btn-primary" type="submit"><i data-lucide="check" class="ic ic-sm"></i>Save career context</button>
+              <button class="btn btn-ghost" type="reset">Undo changes</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ══════════════ EVIDENCE BANK ══════════════ -->
+        <section class="card" aria-labelledby="bank-h" id="evidence-bank">
+          <div class="card-header">
+            <div>
+              <h2 id="bank-h">Evidence bank</h2>
+              <p class="hint" style="margin-top:3px">Your own written-up examples in Situation · Task · Action · Result form. Private practice notes — nobody else reads them.</p>
+            </div>
+            <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-add-example"><i data-lucide="plus" class="ic ic-sm"></i>Add example</button>
+          </div>
+          <div class="card-body stack">
+
+            <div class="banner">
+              <i data-lucide="notebook-pen" class="ic"></i>
+              <div>These are <strong>notes you wrote, not scores we gave you</strong>. Prepeet never sends them to an employer and never quotes them in an evaluation. They exist so you can rehearse a specific example instead of improvising one.</div>
+            </div>
+
+            <div class="accordion" id="bank-list">
+
+              <div class="accordion-item">
+                <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="ex-1">
+                  <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Tracking pipeline rewrite<span class="badge badge-primary">Systems design</span><span class="hint">Updated 19 August</span></span>
+                  <i data-lucide="chevron-down" class="ic"></i></button></h3>
+                <div class="accordion-panel" id="ex-1" hidden>
+                  <dl class="kv kv-row">
+                    <dt>Situation</dt><dd>Halcyon's consignment status was rebuilt by a nightly batch, so customers phoned in about parcels the website said had not moved for hours.</dd>
+                    <dt>Task</dt><dd>I owned the tracking domain and was asked to get status lag under a minute without a rewrite freeze on the rest of the platform.</dd>
+                    <dt>Action</dt><dd>I moved scan events onto a stream, kept the batch running in parallel for six weeks and diffed the two outputs nightly so we could prove the stream matched before switching reads over.</dd>
+                    <dt>Result</dt><dd>Lag went from about 6 hours to under 40 seconds. Tracking-related contact volume dropped by a third in the quarter after launch.</dd>
+                  </dl>
+                  <div class="cluster" style="margin-top:14px">
+                    <button class="btn btn-sm btn-ghost" type="button" data-dialog-open="dlg-add-example"><i data-lucide="pencil" class="ic ic-sm"></i>Edit</button>
+                    <a class="btn btn-sm btn-ghost" href="candidate-start-interview.html?shape=shape_technical&amp;focus=systems-design">Practise this<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="ex-2">
+                  <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Duplicate orders at Northgate<span class="badge badge-primary">Debugging &amp; incident response</span><span class="hint">Updated 14 August</span></span>
+                  <i data-lucide="chevron-down" class="ic"></i></button></h3>
+                <div class="accordion-panel" id="ex-2" hidden>
+                  <dl class="kv kv-row">
+                    <dt>Situation</dt><dd>Over one weekend, 1,400 stock reconciliation jobs re-ran and created duplicate purchase orders across 240 stores.</dd>
+                    <dt>Task</dt><dd>I was second on call and picked it up at 06:20 on the Sunday.</dd>
+                    <dt>Action</dt><dd>I started from the symptom rather than the code: compared order timestamps against job start times, found the retry had no idempotency key, stopped the scheduler, then wrote a reversal script that only touched orders with an identical line-item hash.</dd>
+                    <dt>Result</dt><dd>Reversed 1,382 duplicates before stores opened on Monday. The remaining 18 had already been received, so we handled those with the supplier by hand. Idempotency keys went in the following sprint.</dd>
+                  </dl>
+                  <div class="cluster" style="margin-top:14px">
+                    <button class="btn btn-sm btn-ghost" type="button" data-dialog-open="dlg-add-example"><i data-lucide="pencil" class="ic ic-sm"></i>Edit</button>
+                    <a class="btn btn-sm btn-ghost" href="candidate-start-interview.html?shape=shape_case&amp;focus=debugging">Practise this<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="ex-3">
+                  <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Disagreement over the pricing split<span class="badge badge-primary">Collaboration &amp; influence</span><span class="hint">Updated 9 August</span></span>
+                  <i data-lucide="chevron-down" class="ic"></i></button></h3>
+                <div class="accordion-panel" id="ex-3" hidden>
+                  <dl class="kv kv-row">
+                    <dt>Situation</dt><dd>The platform lead wanted the pricing monolith split into seven services. I thought three was right and that seven would leave us with distributed transactions we could not staff.</dd>
+                    <dt>Task</dt><dd>Reach a decision the four consuming teams could actually live with, without turning it into a stand-off.</dd>
+                    <dt>Action</dt><dd>I wrote up both options with the specific call paths that would cross a network boundary in each, then asked each consuming team which of those calls they would have to make synchronously. Three of the four flagged the same two boundaries.</dd>
+                    <dt>Result</dt><dd>We landed on three services. The platform lead reviewed the doc and changed position on the basis of the call-path table, not because I argued harder.</dd>
+                  </dl>
+                  <div class="cluster" style="margin-top:14px">
+                    <button class="btn btn-sm btn-ghost" type="button" data-dialog-open="dlg-add-example"><i data-lucide="pencil" class="ic ic-sm"></i>Edit</button>
+                    <a class="btn btn-sm btn-ghost" href="candidate-start-interview.html?shape=shape_behavioural&amp;focus=collaboration">Practise this<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="ex-4">
+                  <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Taking the EHR mapping bug to the trust<span class="badge badge-primary">Ownership &amp; follow-through</span><span class="hint">Updated 4 August</span></span>
+                  <i data-lucide="chevron-down" class="ic"></i></button></h3>
+                <div class="accordion-panel" id="ex-4" hidden>
+                  <dl class="kv kv-row">
+                    <dt>Situation</dt><dd>At Kettlewell our integration tests caught that a patient's second telephone number was being written into the next-of-kin field for one trust's EHR profile.</dd>
+                    <dt>Task</dt><dd>Nobody owned the integration end to end. I had found it, so I took it.</dd>
+                    <dt>Action</dt><dd>I paused the pilot's writes myself before asking permission, wrote up the affected record count, and sat in the trust's clinical safety call to explain it in their language rather than ours. Then I fixed the mapping and added a schema assertion so it could not recur silently.</dd>
+                    <dt>Result</dt><dd>41 records were affected and all were corrected within two days. The trust kept the pilot running. I still run the schema-assertion pattern on every integration I build.</dd>
+                  </dl>
+                  <div class="cluster" style="margin-top:14px">
+                    <button class="btn btn-sm btn-ghost" type="button" data-dialog-open="dlg-add-example"><i data-lucide="pencil" class="ic ic-sm"></i>Edit</button>
+                    <a class="btn btn-sm btn-ghost" href="candidate-start-interview.html?shape=shape_behavioural&amp;focus=ownership">Practise this<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="ex-5">
+                  <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Coaching a struggling grad through their first on-call<span class="badge badge-accent">People development</span><span class="hint">Draft · started 22 August</span></span>
+                  <i data-lucide="chevron-down" class="ic"></i></button></h3>
+                <div class="accordion-panel" id="ex-5" hidden>
+                  <dl class="kv kv-row">
+                    <dt>Situation</dt><dd>A graduate on my team froze during their first solo page and escalated 40 minutes in, after the SLA had already gone.</dd>
+                    <dt>Task</dt><dd>Get them confident enough to hold the pager without me shadowing every shift.</dd>
+                    <dt>Action</dt><dd class="text-muted"><em>Not written up yet — this is the part you keep skipping in sessions. Say what you specifically did, week by week.</em></dd>
+                    <dt>Result</dt><dd class="text-muted"><em>Not written up yet.</em></dd>
+                  </dl>
+                  <div class="banner banner-warning" style="margin-top:12px">
+                    <i data-lucide="pen-line" class="ic"></i>
+                    <div>This is your only Engineering Manager example, and it is half finished. Your EM readiness is held back mainly by having two examples instead of six.</div>
+                  </div>
+                  <div class="cluster" style="margin-top:14px">
+                    <button class="btn btn-sm btn-primary" type="button" data-dialog-open="dlg-add-example"><i data-lucide="pencil" class="ic ic-sm"></i>Finish this example</button>
+                    <a class="btn btn-sm btn-ghost" href="candidate-progression.html">See EM readiness<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ══════════════ ASIDE ══════════════ -->
+      <aside class="stack sticky-aside" aria-label="Profile completeness and visibility">
+
+        <div class="card">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Profile completeness</h2></div>
+          <div class="card-body stack">
+            <div>
+              <div class="between" style="margin-bottom:6px">
+                <span style="font-size:var(--text-sm);font-weight:600">82% complete</span>
+                <span class="tnum text-muted" style="font-size:var(--text-xs)">9 of 11</span>
+              </div>
+              <div class="progress"><span style="width:82%"></span></div>
+            </div>
+            <ul class="stack-sm" style="font-size:var(--text-sm)">
+              <li class="row"><i data-lucide="check-circle-2" class="ic ic-sm" style="color:var(--success)"></i><span>CV uploaded and parsed</span></li>
+              <li class="row"><i data-lucide="check-circle-2" class="ic ic-sm" style="color:var(--success)"></i><span>Three roles with achievements</span></li>
+              <li class="row"><i data-lucide="check-circle-2" class="ic ic-sm" style="color:var(--success)"></i><span>Target roles and seniority set</span></li>
+              <li class="row"><i data-lucide="circle" class="ic ic-sm" style="color:var(--fg-muted)"></i><a href="#evidence-bank">Finish the people-development example</a></li>
+              <li class="row"><i data-lucide="circle" class="ic ic-sm" style="color:var(--fg-muted)"></i><a href="#career">Confirm your sectors of interest</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Employer visibility -->
+        <div class="card card-accent" id="visibility">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)"><i data-lucide="eye" class="ic ic-sm" style="vertical-align:-3px"></i> What an employer sees</h2></div>
+          <div class="card-body stack">
+            <p class="hint" style="line-height:1.55">If — and only if — you accept a screening invitation, that one employer receives the fields marked <strong>Shared</strong>. Nothing here is public, searchable, or sold.</p>
+            <div class="table-wrap">
+              <table class="table table-dense table-responsive">
+                <caption class="sr-only">Which profile fields an employer receives when you accept a screening invitation</caption>
+                <thead>
+                  <tr><th scope="col">Field</th><th scope="col">On acceptance</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td data-label="Field" class="td-primary">Name and email</td><td data-label="On acceptance"><span class="vis-yes">Shared</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">CV file</td><td data-label="On acceptance"><span class="vis-yes">Shared</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Experience timeline</td><td data-label="On acceptance"><span class="vis-yes">Shared</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Skills &amp; tools</td><td data-label="On acceptance"><span class="vis-yes">Shared</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Notice period</td><td data-label="On acceptance"><span class="vis-yes">Shared</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Location &amp; remote preference</td><td data-label="On acceptance"><span class="vis-yes">Shared</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Salary expectation</td><td data-label="On acceptance"><span class="vis-yes">Shared</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Evidence bank notes</td><td data-label="On acceptance"><span class="vis-no">Never</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Practice scores &amp; bands</td><td data-label="On acceptance"><span class="vis-no">Never</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Practice transcripts &amp; audio</td><td data-label="On acceptance"><span class="vis-no">Never</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Progression &amp; readiness</td><td data-label="On acceptance"><span class="vis-no">Never</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Coaching notes &amp; retries</td><td data-label="On acceptance"><span class="vis-no">Never</span></td></tr>
+                  <tr><td data-label="Field" class="td-primary">Accessibility settings</td><td data-label="On acceptance"><span class="vis-no">Never</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="hint">Accessibility settings such as extra thinking time are applied during a screening interview but are not disclosed to the employer and are not recorded in the evaluation.</p>
+            <a class="btn btn-sm btn-secondary btn-block" href="candidate-settings.html#privacy">Privacy &amp; data settings</a>
+          </div>
+        </div>
+
+        <div class="card card-subtle">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:8px"><i data-lucide="shield-check" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Practice stays private</strong></div>
+            <p class="hint" style="line-height:1.55">Practice mode and screening are separate. An employer who screens you sees the screening interview and the profile fields above — never your practice history.</p>
+            <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-dashboard.html">Back to dashboard</a>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+  </div>
+</main>
+
+<!-- ══════════════ DIALOGS ══════════════ -->
+
+<dialog class="dialog" id="dlg-edit-profile" aria-labelledby="dlg-edit-h">
+  <form class="dialog-panel" method="dialog" id="form-edit-profile">
+    <div class="dialog-header">
+      <h2 id="dlg-edit-h">Edit profile</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="field">
+        <label class="label" for="pf-name">Full name</label>
+        <input class="input" id="pf-name" name="name" type="text" value="Daniel Okonkwo" required>
+      </div>
+      <div class="field">
+        <label class="label" for="pf-headline">Headline</label>
+        <input class="input" id="pf-headline" name="headline" type="text" value="Backend engineer · 6 years · Manchester, UK" maxlength="90">
+        <p class="hint">Shown at the top of your profile. Employers see this if you accept an invitation.</p>
+      </div>
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="label" for="pf-location">Location</label>
+          <input class="input" id="pf-location" name="location" type="text" value="Manchester, United Kingdom">
+        </div>
+        <div class="field">
+          <label class="label" for="pf-tz">Time zone</label>
+          <select class="select" id="pf-tz" name="tz">
+            <option selected>Europe/London</option>
+            <option>Europe/Dublin</option>
+            <option>Europe/Berlin</option>
+            <option>Europe/Lisbon</option>
+            <option>America/New_York</option>
+          </select>
+          <p class="hint">Used for session reminders and quiet hours.</p>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="pf-pronouns">Pronouns <span class="optional">optional</span></label>
+        <input class="input" id="pf-pronouns" name="pronouns" type="text" value="he/him" placeholder="e.g. she/her">
+        <p class="hint">Used by the interviewer persona when speaking about you. Never used in evaluation.</p>
+      </div>
+      <div class="field">
+        <label class="label" for="pf-avatar">Initials shown on your avatar</label>
+        <input class="input" id="pf-avatar" name="initials" type="text" value="DO" maxlength="2" style="max-width:90px">
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Save profile</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dialog" id="dlg-remove-cv" aria-labelledby="dlg-rm-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 id="dlg-rm-h">Remove your CV?</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>This deletes <strong>Daniel-Okonkwo-CV-2026.pdf</strong> and the file cannot be recovered.</p>
+      <div class="banner banner-warning">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>Your parsed experience timeline and skills <strong>stay</strong> — they are yours now, not the file's. Only the PDF is deleted. Future sessions will use the timeline instead of the document.</div>
+      </div>
+      <p class="hint">If you have a screening invitation open, the employer will not receive a CV file unless you upload a new one before accepting.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Keep it</button>
+      <button class="btn btn-danger" type="button" data-dialog-close data-toast="CV removed" data-toast-desc="Daniel-Okonkwo-CV-2026.pdf has been deleted." data-toast-kind="danger">Remove CV</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-skipped" aria-labelledby="dlg-sk-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 id="dlg-sk-h">Lines we skipped</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>Two lines on page 2 had no employer or date attached, so the parser left them out rather than guessing where they belonged.</p>
+      <div class="codeblock">· AWS Certified Solutions Architect – Associate
+· Volunteer mentor, Manchester Codes (2 hours/week)</div>
+      <p class="hint">You can add either of these to a role, or leave them out. Certifications are not scored.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Leave them out</button>
+      <button class="btn btn-primary" type="button" data-dialog-close data-toast="Added to your profile" data-toast-kind="success">Add both to my profile</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-add-role" aria-labelledby="dlg-ar-h">
+  <form class="dialog-panel" method="dialog">
+    <div class="dialog-header">
+      <h2 id="dlg-ar-h">Add a role</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="field">
+        <label class="label" for="ar-title">Job title</label>
+        <input class="input" id="ar-title" type="text" placeholder="e.g. Backend Engineer" required>
+      </div>
+      <div class="field">
+        <label class="label" for="ar-employer">Employer</label>
+        <input class="input" id="ar-employer" type="text" placeholder="e.g. Halcyon Logistics" required>
+      </div>
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="label" for="ar-from">From</label>
+          <input class="input" id="ar-from" type="month">
+        </div>
+        <div class="field">
+          <label class="label" for="ar-to">To</label>
+          <input class="input" id="ar-to" type="month">
+          <label class="check" style="margin-top:8px"><input type="checkbox" id="ar-current"><span>This is my current role</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="ar-bullets">Achievements <span class="optional">one per line</span></label>
+        <textarea class="textarea" id="ar-bullets" rows="4" placeholder="What you did, and what changed because of it."></textarea>
+        <p class="hint">Two or three lines is enough. Concrete numbers give the interviewer something to push on.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit" data-toast="Role added" data-toast-kind="success">Add role</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dialog" id="dlg-add-example" aria-labelledby="dlg-ae-h">
+  <form class="dialog-panel wide" method="dialog">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dlg-ae-h">Add a STAR example</h2>
+        <p class="hint" style="margin-top:4px">Private to you. Never sent to an employer, never quoted in an evaluation.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="label" for="ae-title">Short title</label>
+          <input class="input" id="ae-title" type="text" placeholder="e.g. Duplicate orders at Northgate" required>
+        </div>
+        <div class="field">
+          <label class="label" for="ae-comp">Competency this evidences</label>
+          <select class="select" id="ae-comp">
+            <option>Systems design</option>
+            <option>Technical communication</option>
+            <option>Debugging &amp; incident response</option>
+            <option>Collaboration &amp; influence</option>
+            <option>Ownership &amp; follow-through</option>
+            <option>Prioritisation under pressure</option>
+            <option>People development</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="ae-s">Situation</label>
+        <textarea class="textarea" id="ae-s" rows="2" placeholder="What was going on, and why did it matter?"></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="ae-t">Task</label>
+        <textarea class="textarea" id="ae-t" rows="2" placeholder="What were you specifically responsible for?"></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="ae-a">Action</label>
+        <textarea class="textarea" id="ae-a" rows="3" placeholder="What did you personally do? Use “I”, not “we”."></textarea>
+        <p class="hint">This is the section interviewers score hardest. Say how you knew what to do, not only what you did.</p>
+      </div>
+      <div class="field">
+        <label class="label" for="ae-r">Result</label>
+        <textarea class="textarea" id="ae-r" rows="2" placeholder="What changed? A number is better than an adjective."></textarea>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit" data-toast="Example saved to your evidence bank" data-toast-kind="success">Save example</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Role edit drawer -->
+<dialog class="drawer" id="drw-role" aria-labelledby="drw-role-h">
+  <form class="drawer-panel" method="dialog">
+    <div class="drawer-header">
+      <div>
+        <h2 id="drw-role-h">Edit role</h2>
+        <p class="hint" id="drw-role-sub">—</p>
+      </div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body stack">
+      <div class="field">
+        <label class="label" for="dr-title">Job title</label>
+        <input class="input" id="dr-title" type="text" value="">
+      </div>
+      <div class="field">
+        <label class="label" for="dr-employer">Employer</label>
+        <input class="input" id="dr-employer" type="text" value="">
+      </div>
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="label" for="dr-from">From</label>
+          <input class="input" id="dr-from" type="month" value="">
+        </div>
+        <div class="field">
+          <label class="label" for="dr-to">To</label>
+          <input class="input" id="dr-to" type="month" value="">
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="dr-loc">Location and pattern</label>
+        <input class="input" id="dr-loc" type="text" value="">
+      </div>
+      <div class="field">
+        <label class="label" for="dr-bullets">Achievements <span class="optional">one per line</span></label>
+        <textarea class="textarea" id="dr-bullets" rows="7"></textarea>
+        <p class="hint">Edited text replaces what the parser found. Your CV file is not modified.</p>
+      </div>
+      <div class="banner">
+        <i data-lucide="info" class="ic"></i>
+        <div>Changes here take effect from your next session onwards. Sessions you have already completed keep the version of your history they were run against.</div>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" type="button" data-drawer-close>Cancel</button>
+      <button class="btn btn-primary" type="submit" data-toast="Role updated" data-toast-kind="success">Save role</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+
+  /* ---------------- résumé states ---------------- */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(cur);
+  }
+
+  /* ---------------- drag and drop ---------------- */
+  function initDropzone() {
+    var dz = document.getElementById('dropzone');
+    var input = document.getElementById('cv-file');
+    var status = document.getElementById('dz-status');
+    if (!dz || !input) return;
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('is-dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('is-dragover'); });
+    });
+    dz.addEventListener('drop', function (e) {
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      accept(f ? f.name : 'your file');
+    });
+    input.addEventListener('change', function () {
+      accept(input.files && input.files[0] ? input.files[0].name : 'your file');
+    });
+    function accept(name) {
+      status.textContent = 'Uploading ' + name + '…';
+      Prepeet.toast({ title: 'Upload started', desc: name + ' — we will tell you when parsing finishes.', kind: 'info' });
+      setTimeout(function () {
+        status.textContent = name + ' uploaded. Reading the document.';
+        Prepeet.announce(name + ' uploaded, reading the document.');
+        document.querySelector('[data-state-btn="parsing"]').click();
+      }, 900);
+    }
+    ['btn-replace-cv', 'btn-replace-cv-2', 'btn-upload-empty'].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) b.addEventListener('click', function () { input.click(); });
+    });
+  }
+
+  /* ---------------- skills chips ---------------- */
+  var SKILLS = ['Go', 'Python', 'PostgreSQL', 'Kafka', 'gRPC', 'Kubernetes', 'AWS', 'Terraform',
+    'Redis', 'Event sourcing', 'OpenTelemetry', 'Domain-driven design', 'HL7 / FHIR',
+    'Contract testing', 'CI/CD (GitHub Actions)', 'Incident command', 'Postgres partitioning'];
+
+  function renderSkills() {
+    var host = document.getElementById('skill-list');
+    var count = document.getElementById('skill-count');
+    host.innerHTML = SKILLS.map(function (s, i) {
+      return '<span role="listitem"><button class="chip" type="button" data-remove-skill="' + i + '">' +
+        s + '<i data-lucide="x" class="ic x"></i><span class="sr-only">Remove ' + s + '</span></button></span>';
+    }).join('');
+    count.textContent = SKILLS.length;
+    Prepeet.init();
+  }
+
+  function initSkills() {
+    renderSkills();
+    document.getElementById('skill-list').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-remove-skill]');
+      if (!b) return;
+      var i = Number(b.getAttribute('data-remove-skill'));
+      var name = SKILLS[i];
+      SKILLS.splice(i, 1);
+      renderSkills();
+      document.getElementById('skill-status').textContent = name + ' removed.';
+      Prepeet.announce(name + ' removed from your skills.');
+    });
+    document.getElementById('skill-add-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var input = document.getElementById('skill-input');
+      var v = input.value.trim();
+      if (!v) { input.focus(); return; }
+      if (SKILLS.indexOf(v) > -1) {
+        document.getElementById('skill-status').textContent = v + ' is already on your list.';
+        input.select(); return;
+      }
+      SKILLS.push(v);
+      renderSkills();
+      input.value = '';
+      input.focus();
+      document.getElementById('skill-status').textContent = v + ' added.';
+      Prepeet.announce(v + ' added to your skills.');
+    });
+  }
+
+  /* ---------------- role edit drawer ---------------- */
+  var ROLES = {
+    halcyon: {
+      title: 'Senior Backend Engineer', employer: 'Halcyon Logistics', from: '2023-03', to: '',
+      loc: 'Manchester, hybrid', sub: 'March 2023 – present',
+      bullets: 'Rebuilt the consignment tracking pipeline from nightly batch to event streaming, cutting customer-visible status lag from 6 hours to under 40 seconds.\nLed the split of the monolithic pricing service into three services, with a contract-test suite that let four teams deploy independently.\nOn-call lead for the tracking domain: reduced P1 incidents from 9 to 2 per quarter by adding idempotency keys and a replay tool.'
+    },
+    kettlewell: {
+      title: 'Backend Engineer', employer: 'Kettlewell Health Digital', from: '2022-01', to: '2023-02',
+      loc: 'Leeds, hybrid', sub: 'January 2022 – February 2023',
+      bullets: 'Built the appointment reservation service for an NHS trust pilot, holding soft locks on slots so two patients could not take the same appointment.\nIntroduced integration tests against a sandboxed EHR, which caught a field-mapping error before it reached patient records.'
+    },
+    northgate: {
+      title: 'Software Engineer', employer: 'Northgate Retail Systems', from: '2020-09', to: '2021-12',
+      loc: 'Manchester, on-site', sub: 'September 2020 – December 2021',
+      bullets: 'Maintained the stock reconciliation job across 240 stores and rewrote its retry logic after a duplicate-order incident.\nFirst engineer on the team to add structured logging, which became the house standard.'
+    }
+  };
+
+  function initRoleDrawer() {
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-edit-role]');
+      if (!b) return;
+      var r = ROLES[b.getAttribute('data-edit-role')];
+      if (!r) return;
+      document.getElementById('drw-role-h').textContent = 'Edit ' + r.title;
+      document.getElementById('drw-role-sub').textContent = r.employer + ' · ' + r.sub;
+      document.getElementById('dr-title').value = r.title;
+      document.getElementById('dr-employer').value = r.employer;
+      document.getElementById('dr-from').value = r.from;
+      document.getElementById('dr-to').value = r.to;
+      document.getElementById('dr-loc').value = r.loc;
+      document.getElementById('dr-bullets').value = r.bullets;
+      Prepeet.openDialog('drw-role');
+    });
+  }
+
+  /* ---------------- forms ---------------- */
+  function initForms() {
+    document.getElementById('career-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      Prepeet.toast({ title: 'Career context saved', desc: 'Your next session will use these targets.', kind: 'success' });
+      Prepeet.announce('Career context saved.');
+    });
+    document.getElementById('form-edit-profile').addEventListener('submit', function () {
+      Prepeet.toast({ title: 'Profile updated', kind: 'success' });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    initStates(); initDropzone(); initSkills(); initRoleDrawer(); initForms(); Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

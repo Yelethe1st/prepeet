@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery · Prepeet</title>
+<meta name="description" content="How your answers landed in the Systems design deep-dive: measured pace, pauses, fillers and restarts, ten delivery dimensions with evidence, drills, and your redo compared with the original.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: delivery measurement surfaces that exist on no other screen */
+  .sub-nav-wrap { margin-bottom: var(--sp-5); }
+
+  /* Dimension rows — a word-level, never a percentage */
+  .dim { display:grid; grid-template-columns: 1fr auto; gap: var(--sp-3) var(--sp-4);
+         padding: var(--sp-4) 0; border-bottom: 1px solid var(--border-subtle); }
+  .dim:last-child { border-bottom: 0; }
+  .dim-name { font-weight: 600; font-size: var(--text-sm); display:flex; align-items:center; gap:8px; }
+  .dim-note { font-size: var(--text-sm); color: var(--fg-2); margin-top: 4px; line-height: var(--leading-normal); }
+  .dim-ev { margin-top: 8px; display:flex; flex-wrap:wrap; gap:6px; }
+  /* level chip: word first, colour second — colour alone never carries meaning */
+  .level { display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+           font-size: var(--text-xs); font-weight:600; padding: 3px 10px; border-radius: var(--r-pill);
+           border:1px solid var(--border); background: var(--surface-2); color: var(--fg-2); }
+  .level .dot { width:8px; height:8px; border-radius:50%; background: var(--fg-muted); flex:none; }
+  .level.strong     { color: var(--success-fg); border-color: var(--success-border); background: var(--success-soft); }
+  .level.strong .dot     { background: var(--score-strong); }
+  .level.solid      { color: var(--primary-soft-fg); border-color: var(--primary-border); background: var(--primary-soft); }
+  .level.solid .dot      { background: var(--score-solid); }
+  .level.developing { color: var(--warning-fg); border-color: var(--warning-border); background: var(--warning-soft); }
+  .level.developing .dot { background: var(--score-developing); }
+  .level.not-measured { border-style: dashed; }
+
+  /* Pace timeline — one bar per answer, drawn as plain divs so it reflows on mobile */
+  .pace { display:grid; gap: 10px; }
+  .pace-row { display:grid; grid-template-columns: 92px 1fr 76px; align-items:center; gap: var(--sp-3); }
+  .pace-track { position:relative; height: 22px; border-radius: var(--r-sm); background: var(--surface-inset);
+                border:1px solid var(--border-subtle); overflow:hidden; }
+  .pace-band { position:absolute; top:0; bottom:0; background: var(--primary-soft); border-left:1px dashed var(--primary-border); border-right:1px dashed var(--primary-border); }
+  .pace-fill { position:absolute; top:4px; bottom:4px; left:0; border-radius: var(--r-xs); background: var(--chart-1); }
+  .pace-fill.fast { background: var(--chart-3); }
+  .pace-fill.slow { background: var(--chart-4); }
+  .pace-pause { position:absolute; top:0; bottom:0; width:3px; background: var(--fg-muted); opacity:.75; }
+  .pace-lbl { font-size: var(--text-xs); color: var(--fg-2); }
+  .pace-val { font-size: var(--text-xs); text-align:right; color: var(--fg-2); font-variant-numeric: tabular-nums; }
+
+  /* Timestamped observation list */
+  .obs { display:flex; gap: var(--sp-3); padding: var(--sp-3) 0; border-bottom:1px solid var(--border-subtle); }
+  .obs:last-child { border-bottom:0; }
+  .obs-time { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--primary); flex:none; width: 54px;
+             padding-top:2px; background:none; border:0; cursor:pointer; text-align:left; font-weight:600; }
+  .obs-time:hover { text-decoration: underline; }
+  summary.link { color: var(--primary); cursor: pointer; font-weight: 600; }
+
+  /* Original ↔ redo comparison */
+  .redo-grid { display:grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+  .redo-col { border:1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4); background: var(--surface-2); }
+  .redo-col.is-redo { border-color: var(--primary-border); background: var(--primary-soft); }
+  .delta { font-size: var(--text-xs); font-weight:600; font-variant-numeric: tabular-nums; }
+  .delta.better { color: var(--success-fg); }
+  .delta.same { color: var(--fg-3); }
+  @media (max-width: 720px) { .redo-grid { grid-template-columns: 1fr; } .pace-row { grid-template-columns: 76px 1fr 64px; } }
+
+  /* Baseline sparkline */
+  .spark { width:100%; height: 96px; display:block; }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="sessions"
+      data-title="Delivery" data-crumbs="Candidate>candidate-dashboard.html|Sessions>candidate-sessions.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SCREEN-MODE GUARD
+         Articulation is excluded from employer scoring by default, so a
+         screening session has no delivery page at all — not a locked one.
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="screen-guard" hidden>
+      <div class="page-header">
+        <div>
+          <p class="eyebrow eyebrow--muted">Session <span class="mono">ses_4Bz9QD</span></p>
+          <h1>Screening interview — no delivery coaching</h1>
+          <p class="page-desc">Delivery coaching belongs to practice. It is not measured for employers and it is not part of a screening evaluation.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-main-aside">
+        <section class="card card-accent" aria-labelledby="guard-h">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:12px">
+              <span class="badge badge-mode screen">Screening</span>
+              <span class="badge badge-outline mono">/candidate/session/ses_4Bz9QD/articulation</span>
+            </div>
+            <h2 id="guard-h" style="font-size:var(--text-lg)">Why there is nothing here</h2>
+            <div class="prose" style="margin-top:10px;font-size:var(--text-sm)">
+              <p>How you sound is not scored for an employer. Northwind Health System receives evidence about what you said — your reasoning, your examples, the competencies the conversation reached — and nothing about your pace, your pauses or your accent.</p>
+              <p>That is a deliberate boundary rather than a setting. A communication criterion could only enter a screening interview after it was shown to be job-related, disclosed to you, tested for accessibility and bias, and approved — and even then it would be evidence a person reads, not a delivery score.</p>
+            </div>
+            <div class="cluster" style="margin-top:var(--sp-5)">
+              <a class="btn btn-primary" href="candidate-session-complete.html?id=ses_4Bz9QD&amp;mode=screen"><i data-lucide="file-check" class="ic ic-sm"></i>See what was submitted</a>
+              <a class="btn btn-secondary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Practise on your own</a>
+            </div>
+          </div>
+        </section>
+        <aside class="stack">
+          <section class="card"><div class="card-body">
+            <h2 class="section-title" style="font-size:var(--text-sm)">Practice is separate</h2>
+            <p class="hint" style="margin-top:8px">Delivery coaching runs on your own practice sessions. Employers never see it, and practice history is never attached to a screening.</p>
+          </div></section>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         PRACTICE VIEW
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="practice-view">
+
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">Practice session · <span class="mono" id="sess-id">ses_7Kq2XA</span></p>
+          <h1>Delivery</h1>
+          <p class="page-desc">How your answers landed in <strong>Systems design deep-dive</strong> — measured first, interpreted second. Nothing on this page changes your score, and none of it reaches an employer.</p>
+        </div>
+        <div class="cluster">
+          <a class="btn btn-secondary" href="candidate-session-results.html?id=ses_7Kq2XA"><i data-lucide="clipboard-check" class="ic ic-sm"></i>Outcome &amp; evidence</a>
+          <a class="btn btn-primary" href="candidate-start-interview.html?drill=headline_first"><i data-lucide="dumbbell" class="ic ic-sm"></i>Start a drill</a>
+        </div>
+      </div>
+
+      <!-- Shared sub-navigation across the three session views -->
+      <div class="sub-nav-wrap">
+        <nav class="tabs" aria-label="Session views">
+          <a class="tab" href="candidate-session-results.html?id=ses_7Kq2XA"><i data-lucide="clipboard-check" class="ic ic-sm"></i>Outcome &amp; evidence</a>
+          <a class="tab" href="candidate-session-review.html?id=ses_7Kq2XA"><i data-lucide="messages-square" class="ic ic-sm"></i>Coaching review</a>
+          <a class="tab" href="candidate-session-articulation.html?id=ses_7Kq2XA" aria-current="page"><i data-lucide="audio-lines" class="ic ic-sm"></i>Delivery</a>
+        </nav>
+        <p class="hint" style="margin-top:10px;max-width:820px">
+          <strong>Coaching review</strong> is about <em>what</em> you said. <strong>Delivery</strong> is about how it arrived — pace, pauses, structure, and whether a listener could follow you. The two are scored separately and neither is a verdict on you.
+        </p>
+      </div>
+
+      <!-- Preview state control (prototype only) -->
+      <div class="between" style="margin-bottom:var(--sp-5)">
+        <p class="hint" style="margin:0">Measured from 38 minutes of audio recorded 21 August, 18:40.</p>
+        <div class="cluster" style="margin-left:auto">
+          <span class="hint">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview assessability state">
+            <button type="button" data-state-btn="assessable" aria-pressed="true">Assessable</button>
+            <button type="button" data-state-btn="partial" aria-pressed="false">Partial</button>
+            <button type="button" data-state-btn="none" aria-pressed="false">Not assessable</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────── assessability banners ─────────────── -->
+      <div class="banner banner-info" id="ban-assessable" role="status" style="margin-bottom:var(--sp-5)">
+        <i data-lucide="audio-lines" class="ic"></i>
+        <div>
+          <strong>All six answers could be measured.</strong>
+          <p style="margin:4px 0 0">Audio quality 91%, transcript confidence 94%. Every number below comes from the recording itself, before any model looked at it.</p>
+        </div>
+      </div>
+
+      <div class="banner banner-warning" id="ban-partial" hidden role="status" style="margin-bottom:var(--sp-5)">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>
+          <strong>Four of six answers could be measured.</strong>
+          <p style="margin:4px 0 0">Questions 3 and 5 had background noise loud enough that pace and pause timings would be guesswork, so we left them out rather than estimate them. The four we kept are unaffected, and your competency scores used the full transcript.</p>
+        </div>
+      </div>
+
+      <div class="banner" id="ban-none" hidden role="status" style="margin-bottom:var(--sp-5)">
+        <i data-lucide="mic-off" class="ic"></i>
+        <div>
+          <strong>We could not measure delivery for this session.</strong>
+          <p style="margin:4px 0 0">The recording clipped for most of the session — the input level was set high enough that words were cut off at the peaks. <strong>This is not a low result and it has not affected your score.</strong> It means we have nothing honest to say about pace or pauses this time.</p>
+        </div>
+      </div>
+
+      <!-- Not-assessable body -->
+      <div id="view-none" hidden>
+        <div class="grid grid-main-aside">
+          <section class="card" aria-labelledby="none-h">
+            <div class="card-body">
+              <h2 id="none-h" class="section-title">What to change before the next one</h2>
+              <ul class="stack" style="margin-top:var(--sp-4);font-size:var(--text-sm)">
+                <li class="row"><i data-lucide="sliders-horizontal" class="ic" style="color:var(--primary)"></i><span><strong>Lower your input level.</strong> The device check on the prepare screen shows a live meter — aim for the middle of the green, not the top.</span></li>
+                <li class="row"><i data-lucide="mic" class="ic" style="color:var(--primary)"></i><span><strong>Move the microphone slightly off-axis.</strong> Speaking directly into a close mic is the most common cause of clipping.</span></li>
+                <li class="row"><i data-lucide="door-closed" class="ic" style="color:var(--primary)"></i><span><strong>Nothing about your speech caused this.</strong> Clipping is a recording fault, and we will not turn a recording fault into a delivery judgement.</span></li>
+              </ul>
+              <div class="cluster" style="margin-top:var(--sp-5)">
+                <a class="btn btn-primary" href="candidate-session-prepare.html?id=ses_7Kq2XA"><i data-lucide="headphones" class="ic ic-sm"></i>Run the device check</a>
+                <a class="btn btn-secondary" href="candidate-session-review.html?id=ses_7Kq2XA">Your coaching review is unaffected<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+            </div>
+          </section>
+          <aside class="stack">
+            <section class="card"><div class="card-body">
+              <h2 class="section-title" style="font-size:var(--text-sm)">Status</h2>
+              <dl class="kv" style="margin-top:10px">
+                <dt>Assessability</dt><dd><span class="level not-measured"><span class="dot"></span>Not assessable</span></dd>
+                <dt>Audio quality</dt><dd class="tnum">0.31</dd>
+                <dt>Transcript confidence</dt><dd class="tnum">0.62</dd>
+                <dt>Warning</dt><dd>Clipping on 71% of speech</dd>
+              </dl>
+            </div></section>
+          </aside>
+        </div>
+      </div>
+
+      <!-- Measured body (assessable + partial) -->
+      <div id="view-measured">
+      <div class="grid grid-main-aside">
+        <div class="stack-lg">
+
+          <!-- ─────────────────── 1 · deterministic measurements ─────────── -->
+          <section class="card" aria-labelledby="meas-h">
+            <div class="card-header">
+              <div>
+                <h2 id="meas-h" class="section-title">What we measured</h2>
+                <p class="hint" style="margin-top:4px">Counted from the audio and the transcript. A model cannot invent these numbers, and it did not produce them.</p>
+              </div>
+              <span class="badge badge-outline mono">articulation-features-v1</span>
+            </div>
+            <div class="card-body">
+              <div class="metrics-row" id="metrics"></div>
+              <p class="hint" style="margin-top:var(--sp-4)">
+                The range beside each number is <strong>your own</strong> range across your last eight practice sessions — not a target and not an industry standard. There is no correct speaking rate.
+              </p>
+            </div>
+          </section>
+
+          <!-- ─────────────────── 2 · pace and pauses ────────────────────── -->
+          <section class="card" aria-labelledby="pace-h">
+            <div class="card-header">
+              <div>
+                <h2 id="pace-h" class="section-title">Pace and pauses, answer by answer</h2>
+                <p class="hint" style="margin-top:4px">Bar length is your speaking rate for that answer. Vertical marks are pauses longer than one second.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <p class="chart-summary" id="pace-summary">
+                You spoke between 148 and 214 words per minute across six answers. Question 4 was your fastest by a clear margin and also carried your fewest pauses — it is the answer where the interviewer asked you to repeat a point. Questions 1 and 6 sit inside your usual range.
+              </p>
+              <div class="pace" id="pace-rows" role="img" aria-labelledby="pace-summary"></div>
+              <div class="chart-legend" style="margin-top:var(--sp-4)">
+                <span><span class="dot" style="background:var(--chart-1)"></span>Inside your usual range</span>
+                <span><span class="dot" style="background:var(--chart-3)"></span>Faster than your usual range</span>
+                <span><span class="dot" style="background:var(--chart-4)"></span>Slower than your usual range</span>
+                <span><span class="dot" style="background:var(--fg-muted)"></span>Pause over 1 second</span>
+              </div>
+              <details style="margin-top:var(--sp-4)">
+                <summary class="link" style="font-size:var(--text-sm)">Read this as a table</summary>
+                <div class="table-wrap" style="margin-top:var(--sp-3)">
+                  <table class="table table-dense">
+                    <caption class="sr-only">Speaking rate, pause count and answer length for each of the six answers.</caption>
+                    <thead><tr><th scope="col">Answer</th><th scope="col">Words per minute</th><th scope="col">Pauses over 1s</th><th scope="col">Length</th><th scope="col">Measured</th></tr></thead>
+                    <tbody id="pace-table"></tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <!-- ─────────────────── 3 · ten dimensions ─────────────────────── -->
+          <section class="card" aria-labelledby="dims-h">
+            <div class="card-header">
+              <div>
+                <h2 id="dims-h" class="section-title">Ten things a listener notices</h2>
+                <p class="hint" style="margin-top:4px">Each one is judged on its own. We do not add them up — a single delivery percentage would hide exactly the thing you need to see.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="dims"></div>
+            </div>
+          </section>
+
+          <!-- ─────────────────── 4 · priorities ─────────────────────────── -->
+          <section class="card card-accent" aria-labelledby="prio-h">
+            <div class="card-body">
+              <h2 id="prio-h" class="section-title">Two things to change next</h2>
+              <p class="hint" style="margin-top:4px">Not ten. Two.</p>
+
+              <div class="stack" style="margin-top:var(--sp-5)">
+                <div>
+                  <h3 style="font-size:var(--text-md);font-family:var(--font-display)">State the decision before the background</h3>
+                  <p style="font-size:var(--text-sm);color:var(--fg-2);margin-top:6px;line-height:var(--leading-relaxed)">
+                    In question 1 your main answer arrived 38 seconds in, after three sentences of context. A listener who is deciding whether to follow you has usually decided by then. Your reasoning was sound — it simply arrived after the point at which it was being judged.
+                  </p>
+                  <div class="card card-flat" style="margin-top:10px">
+                    <div class="card-body" style="padding:var(--sp-4)">
+                      <p class="label" style="margin-bottom:8px">A shape that would have worked</p>
+                      <ol class="stack-sm" style="font-size:var(--text-sm);padding-left:1.1rem;color:var(--fg-2)">
+                        <li>Lead with the decision — “I would separate the availability read path from the reservation write path.”</li>
+                        <li>One sentence of context — why the load shape forces it.</li>
+                        <li>Your reasoning.</li>
+                        <li>Close with the result you saw when you did it.</li>
+                      </ol>
+                      <p class="hint" style="margin-top:10px"><i data-lucide="shield-check" class="ic ic-sm"></i> This is your own sentence reordered. We have not added a fact, a metric or an outcome you did not say.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 style="font-size:var(--text-md);font-family:var(--font-display)">Let the pause do the work the filler is doing</h3>
+                  <p style="font-size:var(--text-sm);color:var(--fg-2);margin-top:6px;line-height:var(--leading-relaxed)">
+                    4.8 fillers per 100 words, clustered almost entirely at the start of answers — you are thinking out loud while you decide where to begin. A one-second silence reads as consideration. “So, um, I think what I would probably do” reads as hesitation, and it is the same second of thinking.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ─────────────────── 5 · timestamped observations ───────────── -->
+          <section class="card" aria-labelledby="obs-h">
+            <div class="card-header">
+              <div>
+                <h2 id="obs-h" class="section-title">Where it showed up</h2>
+                <p class="hint" style="margin-top:4px">Every observation points at a moment in your own recording. Play it and judge for yourself.</p>
+              </div>
+              <a class="link" style="font-size:var(--text-xs)" href="candidate-session-results.html?id=ses_7Kq2XA#transcript">Full transcript<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+            <div class="card-body">
+              <div id="obs-list"></div>
+            </div>
+          </section>
+
+          <!-- ─────────────────── 6 · original vs redo ───────────────────── -->
+          <section class="card" aria-labelledby="redo-h" id="redo">
+            <div class="card-header">
+              <div>
+                <h2 id="redo-h" class="section-title">Your redo, next to the original</h2>
+                <p class="hint" style="margin-top:4px">Question 4 · redone 21 August, 19:31. The original is kept — a redo never overwrites what you actually said in the session.</p>
+              </div>
+              <span class="badge badge-primary"><i data-lucide="repeat" class="ic ic-sm"></i>1 redo</span>
+            </div>
+            <div class="card-body">
+              <div class="redo-grid">
+                <div class="redo-col">
+                  <div class="between" style="margin-bottom:10px">
+                    <span class="label">Original · 02:47</span>
+                    <span class="badge badge-outline">In the session</span>
+                  </div>
+                  <p style="font-size:var(--text-sm);line-height:var(--leading-relaxed)">“Probably a queue in front of it. I would let requests line up and process them in order.”</p>
+                  <dl class="kv" style="margin-top:var(--sp-4)">
+                    <dt>Words per minute</dt><dd class="tnum">214</dd>
+                    <dt>Time to main answer</dt><dd class="tnum">0.4s</dd>
+                    <dt>Answer length</dt><dd class="tnum">18 words</dd>
+                    <dt>Fillers</dt><dd class="tnum">1</dd>
+                  </dl>
+                </div>
+                <div class="redo-col is-redo">
+                  <div class="between" style="margin-bottom:10px">
+                    <span class="label">Redo · 44 seconds</span>
+                    <span class="badge badge-primary">Practice only</span>
+                  </div>
+                  <p style="font-size:var(--text-sm);line-height:var(--leading-relaxed)">“A per-shard queue with admission control. I would cap the depth, shed load once it is full rather than let it grow, and show the patient a soft reservation with a countdown so the wait is visible. I have not built the countdown before — I would check what our booking partners support.”</p>
+                  <dl class="kv" style="margin-top:var(--sp-4)">
+                    <dt>Words per minute</dt><dd class="tnum">171 <span class="delta better">−43</span></dd>
+                    <dt>Time to main answer</dt><dd class="tnum">0.3s <span class="delta same">≈</span></dd>
+                    <dt>Answer length</dt><dd class="tnum">57 words <span class="delta better">+39</span></dd>
+                    <dt>Fillers</dt><dd class="tnum">0 <span class="delta better">−1</span></dd>
+                  </dl>
+                </div>
+              </div>
+
+              <div class="banner banner-success" style="margin-top:var(--sp-5)">
+                <i data-lucide="check-circle-2" class="ic"></i>
+                <div>
+                  <strong>The redo answers the question the original skipped.</strong>
+                  <p style="margin:4px 0 0">Ravi asked what happens to the patient in the queue. The original did not say; the redo does, and it holds the boundary of what you have actually done — you flagged the countdown as something you would need to check rather than claiming it.</p>
+                </div>
+              </div>
+
+              <div class="cluster" style="margin-top:var(--sp-4)">
+                <button class="btn btn-secondary" type="button" data-toast="Playing the original answer" data-toast-desc="02:47 — 18 seconds"><i data-lucide="play" class="ic ic-sm"></i>Play original</button>
+                <button class="btn btn-secondary" type="button" data-toast="Playing your redo" data-toast-desc="44 seconds, recorded 19:31"><i data-lucide="play" class="ic ic-sm"></i>Play redo</button>
+                <a class="btn btn-ghost" href="candidate-session-review.html?id=ses_7Kq2XA#turn-4">Redo another answer<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+              <p class="hint" style="margin-top:var(--sp-4)">Redos are practice. They do not change the score for this session, and neither version is shared with anyone.</p>
+            </div>
+          </section>
+
+          <!-- ─────────────────── 7 · drills ─────────────────────────────── -->
+          <section class="card" aria-labelledby="drill-h">
+            <div class="card-header">
+              <div>
+                <h2 id="drill-h" class="section-title">Delivery drills</h2>
+                <p class="hint" style="margin-top:4px">Short and spoken out loud. The two selected for you sit at the top; the rest are always available.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <ul class="stack" id="drills"></ul>
+              <p class="hint" id="drill-status" role="status" style="margin-top:var(--sp-4)">Two drills selected from this session · about 11 minutes.</p>
+            </div>
+          </section>
+
+          <!-- ─────────────────── 8 · personal baseline ──────────────────── -->
+          <section class="card" aria-labelledby="base-h">
+            <div class="card-header">
+              <div>
+                <h2 id="base-h" class="section-title">Against your own baseline</h2>
+                <p class="hint" style="margin-top:4px">Nine practice sessions, same role family. Compared with you, not with anyone else.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <p class="chart-summary" id="base-summary">
+                Fillers per 100 words have fallen from 9.1 to 4.8 across nine sessions, with the sharpest drop after you started using the pause drill. Time to your main answer has improved more slowly — 51 seconds down to 38 — and is the reason it is one of this session's two priorities.
+              </p>
+              <svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none" role="img" aria-labelledby="base-summary">
+                <polyline fill="none" stroke="var(--chart-1)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"
+                  points="10,20 78,28 146,26 214,44 282,50 350,58 418,62 486,70 554,74"/>
+                <polyline fill="none" stroke="var(--chart-4)" stroke-width="2.5" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"
+                  points="10,14 78,18 146,30 214,32 282,40 350,38 418,48 486,52 554,56"/>
+              </svg>
+              <div class="chart-legend" style="margin-top:var(--sp-3)">
+                <span><span class="dot" style="background:var(--chart-1)"></span>Fillers per 100 words (lower is calmer)</span>
+                <span><span class="dot" style="background:var(--chart-4)"></span>Seconds to your main answer</span>
+              </div>
+              <details style="margin-top:var(--sp-4)">
+                <summary class="link" style="font-size:var(--text-sm)">Read this as a table</summary>
+                <div class="table-wrap" style="margin-top:var(--sp-3)">
+                  <table class="table table-dense">
+                    <caption class="sr-only">Fillers per 100 words and seconds to the main answer, across nine practice sessions.</caption>
+                    <thead><tr><th scope="col">Session</th><th scope="col">Date</th><th scope="col">Fillers / 100 words</th><th scope="col">Seconds to main answer</th></tr></thead>
+                    <tbody id="base-table"></tbody>
+                  </table>
+                </div>
+              </details>
+              <p class="hint" style="margin-top:var(--sp-4)"><i data-lucide="info" class="ic ic-sm"></i> A baseline needs at least five measured sessions before we draw it. Yours has nine.</p>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ─────────────────────────── aside ───────────────────────────── -->
+        <aside class="sticky-aside stack">
+
+          <section class="card"><div class="card-body">
+            <h2 class="section-title" style="font-size:var(--text-sm)">This session</h2>
+            <dl class="kv" style="margin-top:10px">
+              <dt>Interview</dt><dd>Systems design deep-dive</dd>
+              <dt>Interviewer</dt><dd>Ravi · direct and technical</dd>
+              <dt>Answers measured</dt><dd id="kv-measured">6 of 6</dd>
+              <dt>Speech analysed</dt><dd id="kv-speech">14 min 20 s</dd>
+              <dt>Audio quality</dt><dd class="tnum" id="kv-audio">0.91</dd>
+              <dt>Transcript confidence</dt><dd class="tnum" id="kv-conf">0.94</dd>
+            </dl>
+          </div></section>
+
+          <section class="card card-subtle"><div class="card-body">
+            <div class="cluster" style="margin-bottom:10px">
+              <i data-lucide="shield-off" class="ic" style="color:var(--primary)"></i>
+              <strong style="font-size:var(--text-sm)">What this never measures</strong>
+            </div>
+            <ul class="stack-sm" style="font-size:var(--text-sm);color:var(--fg-2);line-height:var(--leading-normal)">
+              <li><strong>Your accent.</strong> Intelligibility asks whether a listener can follow you. It never asks whether you sound like someone else.</li>
+              <li><strong>Your personality, mood or honesty.</strong> None of these are inferable from a voice, so none are inferred.</li>
+              <li><strong>How fast you answered.</strong> Response latency is coaching context only and is excluded from every score.</li>
+              <li><strong>Anything an employer sees.</strong> Delivery is excluded from screening evaluation by default.</li>
+            </ul>
+          </div></section>
+
+          <section class="card"><div class="card-body">
+            <h2 class="section-title" style="font-size:var(--text-sm)">Versions</h2>
+            <dl class="kv" style="margin-top:10px">
+              <dt>Measurement</dt><dd class="mono" style="font-size:var(--text-2xs)">articulation-features-v1</dd>
+              <dt>Coaching policy</dt><dd class="mono" style="font-size:var(--text-2xs)">articulation-practice-v1</dd>
+              <dt>Result schema</dt><dd class="mono" style="font-size:var(--text-2xs)">1.0</dd>
+            </dl>
+            <p class="hint" style="margin-top:10px">Pinned when the session was composed. A later change to how we measure will not silently rewrite this page.</p>
+          </div></section>
+
+          <section class="card"><div class="card-body">
+            <h2 class="section-title" style="font-size:var(--text-sm)">Next</h2>
+            <div class="stack-sm" style="margin-top:10px">
+              <a class="btn btn-sm btn-primary btn-block" href="candidate-start-interview.html?drill=headline_first"><i data-lucide="dumbbell" class="ic ic-sm"></i>Run the headline-first drill</a>
+              <a class="btn btn-sm btn-secondary btn-block" href="candidate-progression.html">See delivery over time<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+          </div></section>
+
+        </aside>
+      </div>
+      </div><!-- /view-measured -->
+
+    </div><!-- /practice-view -->
+  </div>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+  /* ------------------------------------------------- deterministic metrics */
+  var METRICS = [
+    { icon: 'gauge',        label: 'Words per minute', value: '172', range: 'your usual 158–185', note: 'Comfortable. No rushed passages.' },
+    { icon: 'message-circle', label: 'Fillers per 100 words', value: '4.8', range: 'your usual 4.2–9.1', note: 'Almost all at the start of answers.' },
+    { icon: 'pause',        label: 'Average pause', value: '0.62s', range: 'your usual 0.5–0.8s', note: '3 pauses longer than 2 seconds.' },
+    { icon: 'rotate-ccw',   label: 'Restarts', value: '2', range: 'your usual 1–5', note: 'Both in the first two minutes.' },
+    { icon: 'timer',        label: 'Seconds to main answer', value: '38s', range: 'your usual 34–51s', note: 'The slowest of the five measures.' }
+  ];
+
+  /* ---------------------------------------------------------- pace by answer */
+  var ANSWERS = [
+    { q: 1, wpm: 165, pauses: 4, words: 96,  cls: '',     pos: [22, 41, 63, 80], measured: true },
+    { q: 2, wpm: 158, pauses: 3, words: 142, cls: '',     pos: [18, 52, 74],     measured: true },
+    { q: 3, wpm: 148, pauses: 6, words: 61,  cls: 'slow', pos: [12, 26, 38, 55, 68, 84], measured: true },
+    { q: 4, wpm: 214, pauses: 1, words: 18,  cls: 'fast', pos: [46],             measured: true },
+    { q: 5, wpm: 176, pauses: 3, words: 88,  cls: '',     pos: [24, 49, 77],     measured: true },
+    { q: 6, wpm: 169, pauses: 2, words: 104, cls: '',     pos: [33, 71],         measured: true }
+  ];
+  var WPM_MIN = 130, WPM_MAX = 230;
+
+  /* --------------------------------------------------------- ten dimensions */
+  var DIMS = [
+    { name: 'Structure',      level: 'developing', note: 'Four of six answers opened with context and reached the decision late. Question 5 did the opposite and was your clearest.', ev: ['00:24', '04:22'] },
+    { name: 'Conciseness',    level: 'solid',      note: 'Little digression. Question 2 circled the same point twice before moving on.', ev: ['01:12'] },
+    { name: 'Fluency',        level: 'solid',      note: '4.8 fillers per 100 words with two restarts, both early. Steady once you settled.', ev: ['00:24'] },
+    { name: 'Pace',           level: 'strong',     note: '172 words per minute, inside your own range, with no rushed passage over 10 seconds.', ev: [] },
+    { name: 'Pausing',        level: 'solid',      note: 'Pauses mostly land at clause boundaries, which is where a listener expects them.', ev: ['02:41'] },
+    { name: 'Precision',      level: 'strong',     note: 'Concrete throughout — a unique constraint, a named failure mode, and a real incident count.', ev: ['01:12'] },
+    { name: 'Signposting',    level: 'developing', note: 'You rarely told the listener how many parts an answer had. “Two things — first the write path, then the read path” would have carried question 1.', ev: ['00:24'] },
+    { name: 'Intelligibility', level: 'strong',    note: 'Transcript confidence 94% with no unclear stretches. This measures whether you were followable, never how you sound.', ev: [] },
+    { name: 'Vocal delivery', level: 'solid',      note: 'Volume consistent. Emphasis lands on the right words when you are certain, flattens when you are not.', ev: ['03:26'] },
+    { name: 'Responsiveness', level: 'developing', note: 'Question 4 answered a narrower question than the one asked — Ravi asked what the patient sees, and the original answer described the mechanism.', ev: ['03:20'] }
+  ];
+  var LEVEL_WORD = { strong: 'Strong', solid: 'Solid', developing: 'Developing', 'not-measured': 'Not measured' };
+
+  /* -------------------------------------------------------- observations */
+  var OBS = [
+    { t: '00:24', kind: 'Structure', text: 'The main answer — separating the read and write paths — arrives after three sentences of context. Thirty-eight seconds in.' },
+    { t: '00:31', kind: 'Fluency',   text: 'Cluster of three fillers while deciding where to start. Every one of them at a point where a silence would have read as thought.' },
+    { t: '01:12', kind: 'Precision', text: 'A concrete constraint, a real incident count and a time period, in one answer. This is the sentence a listener remembers.' },
+    { t: '02:41', kind: 'Pausing',   text: 'A deliberate two-second pause before answering the hotspot question. It reads as consideration, not hesitation.' },
+    { t: '03:26', kind: 'Vocal delivery', text: 'Volume drops noticeably while saying “I have not designed that part before”. The honesty is a strength; the delivery undersells it.' },
+    { t: '05:24', kind: 'Responsiveness', text: 'Direct, immediate correction when the contradiction is raised. No defensiveness, no drift.' }
+  ];
+
+  /* -------------------------------------------------------------- drills */
+  var DRILLS = [
+    { id: 'headline_first', name: 'Headline first', mins: 6, selected: true,
+      desc: 'Six prompts. Every answer must open with the decision in one sentence before any context is allowed.' },
+    { id: 'pause_not_filler', name: 'Pause instead of filler', mins: 5, selected: true,
+      desc: 'Four prompts with a forced one-second silence at every point where a filler would normally land.' },
+    { id: 'compression_60', name: '60-second compression', mins: 8, selected: false,
+      desc: 'Take one of your longer answers and give it again in under a minute without dropping a fact.' },
+    { id: 'star_compression', name: 'STAR compression', mins: 8, selected: false,
+      desc: 'Situation and task in two sentences, so the action and result get the time they deserve.' },
+    { id: 'signposting', name: 'Signposting', mins: 5, selected: false,
+      desc: 'Name the shape before you fill it — “three reasons”, “first the failure, then the fix”.' },
+    { id: 'concrete_language', name: 'Concrete-language substitution', mins: 6, selected: false,
+      desc: 'Replace every abstract noun with the thing it stands for. “Improved reliability” becomes the number.' },
+    { id: 'one_example', name: 'One-example constraint', mins: 5, selected: false,
+      desc: 'One example per answer, told fully. Stops the drift into a second half-told story.' },
+    { id: 'playback_redo', name: 'Playback and redo', mins: 10, selected: false,
+      desc: 'Listen to your own answer before you redo it. The most uncomfortable drill and the fastest one.' }
+  ];
+
+  /* ----------------------------------------------------------- baseline */
+  var BASE = [
+    { s: 1, d: '11 Jul', f: 9.1, m: 51 }, { s: 2, d: '19 Jul', f: 8.4, m: 49 },
+    { s: 3, d: '24 Jul', f: 8.6, m: 44 }, { s: 4, d: '30 Jul', f: 7.0, m: 43 },
+    { s: 5, d: '4 Aug',  f: 6.5, m: 40 }, { s: 6, d: '9 Aug',  f: 5.9, m: 41 },
+    { s: 7, d: '12 Aug', f: 5.6, m: 38 }, { s: 8, d: '18 Aug', f: 5.0, m: 37 },
+    { s: 9, d: '21 Aug', f: 4.8, m: 38 }
+  ];
+
+  /* ------------------------------------------------------------ rendering */
+  function renderMetrics() {
+    document.getElementById('metrics').innerHTML = METRICS.map(function (m) {
+      return '<div class="metric metric-dense">' +
+        '<span class="metric-label"><i data-lucide="' + m.icon + '" class="ic ic-sm"></i>' + esc(m.label) + '</span>' +
+        '<span class="metric-value tnum">' + esc(m.value) + '</span>' +
+        '<span class="metric-foot">' + esc(m.range) + '</span>' +
+        '<span class="metric-foot" style="color:var(--fg-3)">' + esc(m.note) + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderPace(list) {
+    document.getElementById('pace-rows').innerHTML = list.map(function (a) {
+      var pct = Math.round(((a.wpm - WPM_MIN) / (WPM_MAX - WPM_MIN)) * 100);
+      var bandL = Math.round(((158 - WPM_MIN) / (WPM_MAX - WPM_MIN)) * 100);
+      var bandW = Math.round(((185 - 158) / (WPM_MAX - WPM_MIN)) * 100);
+      return '<div class="pace-row">' +
+        '<span class="pace-lbl">Question ' + a.q + '</span>' +
+        '<div class="pace-track">' +
+          '<span class="pace-band" style="left:' + bandL + '%;width:' + bandW + '%"></span>' +
+          '<span class="pace-fill ' + a.cls + '" style="width:' + pct + '%"></span>' +
+          a.pos.map(function (p) { return '<span class="pace-pause" style="left:' + p + '%"></span>'; }).join('') +
+        '</div>' +
+        '<span class="pace-val">' + a.wpm + ' wpm</span>' +
+      '</div>';
+    }).join('');
+
+    document.getElementById('pace-table').innerHTML = ANSWERS.map(function (a) {
+      var shown = list.indexOf(a) !== -1;
+      return '<tr><th scope="row">Question ' + a.q + '</th>' +
+        '<td class="tnum">' + (shown ? a.wpm : '—') + '</td>' +
+        '<td class="tnum">' + (shown ? a.pauses : '—') + '</td>' +
+        '<td class="tnum">' + (shown ? a.words + ' words' : '—') + '</td>' +
+        '<td>' + (shown ? 'Yes' : 'No — background noise') + '</td></tr>';
+    }).join('');
+  }
+
+  function renderDims() {
+    document.getElementById('dims').innerHTML = DIMS.map(function (d) {
+      return '<div class="dim">' +
+        '<div>' +
+          '<div class="dim-name">' + esc(d.name) + '</div>' +
+          '<p class="dim-note">' + esc(d.note) + '</p>' +
+          (d.ev.length ? '<div class="dim-ev">' + d.ev.map(function (t) {
+            return '<button class="chip" type="button" data-toast="Playing ' + esc(t) + '" data-toast-desc="' + esc(d.name) + ' — from your own recording">' +
+              '<i data-lucide="play" class="ic ic-sm"></i>' + esc(t) + '</button>'; }).join('') + '</div>' : '') +
+        '</div>' +
+        '<div><span class="level ' + d.level + '"><span class="dot"></span>' + LEVEL_WORD[d.level] + '</span></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderObs() {
+    document.getElementById('obs-list').innerHTML = OBS.map(function (o) {
+      return '<div class="obs">' +
+        '<button class="obs-time link" type="button" data-toast="Playing ' + esc(o.t) + '" data-toast-desc="' + esc(o.kind) + '">' + esc(o.t) + '</button>' +
+        '<div><span class="badge badge-outline" style="margin-bottom:6px">' + esc(o.kind) + '</span>' +
+        '<p style="font-size:var(--text-sm);color:var(--fg-2);line-height:var(--leading-normal)">' + esc(o.text) + '</p></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderDrills() {
+    var order = DRILLS.slice().sort(function (a, b) { return (b.selected ? 1 : 0) - (a.selected ? 1 : 0); });
+    document.getElementById('drills').innerHTML = order.map(function (d) {
+      return '<li class="card card-flat"><div class="card-body" style="padding:var(--sp-4)">' +
+        '<div class="between" style="gap:var(--sp-3);align-items:flex-start">' +
+          '<div>' +
+            '<div class="cluster" style="margin-bottom:4px">' +
+              '<strong style="font-size:var(--text-sm)">' + esc(d.name) + '</strong>' +
+              (d.selected ? '<span class="badge badge-primary">Selected for you</span>' : '') +
+              '<span class="hint">' + d.mins + ' min</span>' +
+            '</div>' +
+            '<p class="hint" style="max-width:60ch">' + esc(d.desc) + '</p>' +
+          '</div>' +
+          '<a class="btn btn-sm btn-secondary" href="candidate-start-interview.html?drill=' + esc(d.id) + '"><i data-lucide="play" class="ic ic-sm"></i>Start</a>' +
+        '</div>' +
+      '</div></li>';
+    }).join('');
+  }
+
+  function renderBase() {
+    document.getElementById('base-table').innerHTML = BASE.map(function (b) {
+      return '<tr><th scope="row">Session ' + b.s + '</th><td>' + esc(b.d) + '</td><td class="tnum">' + b.f + '</td><td class="tnum">' + b.m + 's</td></tr>';
+    }).join('');
+  }
+
+  /* ------------------------------------------------------- preview states */
+  function setState(state) {
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === state));
+    });
+    document.getElementById('ban-assessable').hidden = state !== 'assessable';
+    document.getElementById('ban-partial').hidden = state !== 'partial';
+    document.getElementById('ban-none').hidden = state !== 'none';
+    document.getElementById('view-measured').hidden = state === 'none';
+    document.getElementById('view-none').hidden = state !== 'none';
+
+    if (state === 'partial') {
+      var kept = ANSWERS.filter(function (a) { return a.q !== 3 && a.q !== 5; });
+      renderPace(kept);
+      document.getElementById('kv-measured').textContent = '4 of 6';
+      document.getElementById('kv-speech').textContent = '9 min 05 s';
+      document.getElementById('kv-audio').textContent = '0.68';
+      document.getElementById('kv-conf').textContent = '0.81';
+      document.getElementById('pace-summary').textContent =
+        'Four of six answers could be measured. Across those four you spoke between 158 and 214 words per minute. Questions 3 and 5 are missing here because the recording was too noisy to time them honestly — not because anything was wrong with the answers.';
+    } else if (state === 'assessable') {
+      renderPace(ANSWERS);
+      document.getElementById('kv-measured').textContent = '6 of 6';
+      document.getElementById('kv-speech').textContent = '14 min 20 s';
+      document.getElementById('kv-audio').textContent = '0.91';
+      document.getElementById('kv-conf').textContent = '0.94';
+      document.getElementById('pace-summary').textContent =
+        'You spoke between 148 and 214 words per minute across six answers. Question 4 was your fastest by a clear margin and also carried your fewest pauses — it is the answer where the interviewer asked you to repeat a point. Questions 1 and 6 sit inside your usual range.';
+    }
+    Prepeet.icons();
+    Prepeet.announce(state === 'none' ? 'Delivery could not be measured for this session.'
+      : state === 'partial' ? 'Showing four measured answers of six.' : 'Showing all six measured answers.');
+  }
+
+  /* ------------------------------------------------------------ mode guard */
+  function applyMode() {
+    var mode = Prepeet.getMode();
+    document.getElementById('screen-guard').hidden = mode !== 'screen';
+    document.getElementById('practice-view').hidden = mode === 'screen';
+    return mode;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (applyMode() === 'practice') {
+      renderMetrics(); renderDims(); renderObs(); renderDrills(); renderBase();
+      setState(Prepeet.query.get('state', 'assessable'));
+      document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-state-btn]');
+        if (b) setState(b.getAttribute('data-state-btn'));
+      });
+    }
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

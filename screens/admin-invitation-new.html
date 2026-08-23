@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New invitation · Prepeet</title>
+<meta name="description" content="Invite candidates to a recorded screening interview: choose the role and rubric, set a deadline, and preview exactly what the candidate is told.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped: the recipient chip field and the email preview surface. */
+  .chip-field { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px; min-height: 48px;
+    border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface); }
+  .chip-field:focus-within { border-color: var(--primary); box-shadow: var(--focus-ring); }
+  .chip-field .chip-input { flex: 1 1 180px; min-width: 140px; border: 0; outline: none; background: transparent;
+    font-size: var(--text-sm); padding: 6px 8px; color: var(--fg); }
+  .chip-field .chip { padding-left: 10px; padding-right: 4px; cursor: default; }
+  .chip-field .chip.is-bad { border-color: var(--danger); background: var(--danger-soft); color: var(--danger-fg); }
+  .chip-field .chip .icon-btn { width: 22px; height: 22px; border-radius: 50%; }
+  .mail { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+  .mail-head { padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--text-xs); color: var(--fg-3); }
+  .mail-head b { color: var(--fg-2); font-weight: 600; }
+  .mail-body { padding: 16px 14px; font-size: var(--text-sm); line-height: 1.6; color: var(--fg-2); white-space: pre-wrap; }
+  .mail-body strong { color: var(--fg); }
+  .var-btn { font-family: var(--font-mono); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="invitations" data-title="New invitation"
+      data-crumbs="Hiring>admin-dashboard.html|Invitations>admin-invitations.html" data-search="off">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Northwind Health System</p>
+        <h1>New invitation</h1>
+        <p class="page-desc">Invite one or many candidates to the same recorded screening interview. Everyone invited here gets the same questions, the same rubric and the same wording.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono">/admin/invitations/new</span>
+          <span class="badge badge-mode screen">Screen mode</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-invitations.html"><i data-lucide="arrow-left" class="ic ic-sm"></i>All invitations</a>
+      </div>
+    </div>
+
+    <form id="inv-form" novalidate>
+    <div class="grid grid-main-aside">
+
+      <!-- ════════════════ FORM COLUMN ════════════════ -->
+      <div class="stack-lg">
+
+        <!-- ─── 1 · Candidates ─── -->
+        <section class="card" aria-labelledby="cand-h">
+          <div class="card-header">
+            <div>
+              <h2 id="cand-h">Candidates</h2>
+              <p class="hint" style="margin-top:3px">Add email addresses one at a time, paste a list, or pull an applicant stage from your ATS.</p>
+            </div>
+            <span class="badge badge-neutral" id="cand-badge">0 recipients</span>
+          </div>
+          <div class="card-body stack">
+
+            <div class="field">
+              <label class="label" for="cand-input">Candidate email addresses</label>
+              <div class="chip-field" id="chip-field">
+                <span id="chips"></span>
+                <input class="chip-input" id="cand-input" type="email" inputmode="email" autocomplete="off"
+                       placeholder="name@example.com, then press Enter" aria-describedby="cand-hint cand-err">
+              </div>
+              <p class="hint" id="cand-hint">Press Enter or type a comma to add each address. Use Backspace on an empty box to remove the last one. Addresses that are not valid, or already on the list, are flagged rather than silently dropped.</p>
+              <p class="error-text" id="cand-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Add at least one valid email address before sending.</p>
+            </div>
+
+            <div class="accordion">
+              <div class="accordion-item">
+                <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="paste-panel">
+                  <span><i data-lucide="clipboard-list" class="ic ic-sm" style="vertical-align:-3px;margin-right:6px"></i>Paste a list</span>
+                  <i data-lucide="chevron-down" class="ic"></i></button></h3>
+                <div class="accordion-panel" id="paste-panel" hidden>
+                  <div class="field">
+                    <label class="label" for="paste-list">Paste addresses separated by commas, semicolons, spaces or new lines</label>
+                    <textarea class="textarea" id="paste-list" rows="4" placeholder="nadia.rahman@example.com&#10;callum.stewart@example.com"></textarea>
+                    <div class="cluster" style="margin-top:8px">
+                      <button class="btn btn-sm btn-secondary" type="button" id="paste-add"><i data-lucide="list-plus" class="ic ic-sm"></i>Add these addresses</button>
+                      <span class="hint" id="paste-status" role="status"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="banner">
+              <i data-lucide="webhook" class="ic"></i>
+              <div><strong>Greenhouse is connected.</strong> Pull candidates sitting at the “Phone screen” stage for the selected role instead of typing them.</div>
+              <div class="banner-actions">
+                <button class="btn btn-sm btn-secondary" type="button" id="import-gh" data-loading-sim="900"><i data-lucide="download" class="ic ic-sm"></i>Import from Greenhouse</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 2 · Role ─── -->
+        <section class="card" aria-labelledby="role-h">
+          <div class="card-header"><div>
+            <h2 id="role-h">Role</h2>
+            <p class="hint" style="margin-top:3px">The role fixes the rubric and the competencies every answer is evidenced against.</p>
+          </div></div>
+          <div class="card-body stack">
+            <div class="field">
+              <label class="label" for="f-role">Open role at Northwind Health System</label>
+              <select class="select" id="f-role" aria-describedby="role-err">
+                <option value="">Choose a role…</option>
+              </select>
+              <p class="error-text" id="role-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Choose the role this screening is for.</p>
+            </div>
+            <div id="rubric-box" hidden>
+              <dl class="kv">
+                <dt>Rubric</dt><dd id="rubric-name">—</dd>
+                <dt>Last calibrated</dt><dd id="rubric-cal">—</dd>
+                <dt>Competencies</dt><dd><div class="cluster" id="comp-chips"></div></dd>
+              </dl>
+              <p class="hint" style="margin-top:10px">Competencies are read-only here — they come from the rubric so that everyone invited to this role is assessed on the same things.
+                <a href="admin-recruiter-calibration.html">Review the rubric and calibration</a>.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 3 · Interview configuration ─── -->
+        <section class="card" aria-labelledby="cfg-h">
+          <div class="card-header"><div>
+            <h2 id="cfg-h">Interview configuration</h2>
+            <p class="hint" style="margin-top:3px">How the conversation is run. Every candidate invited from this screen gets the same configuration.</p>
+          </div></div>
+          <div class="card-body stack">
+            <div class="grid grid-2">
+              <div class="field">
+                <label class="label" for="f-shape">Interview shape</label>
+                <select class="select" id="f-shape"></select>
+                <p class="hint" id="shape-desc"></p>
+              </div>
+              <div class="field">
+                <label class="label" for="f-duration">Target duration</label>
+                <select class="select" id="f-duration"></select>
+                <p class="hint">Candidates can finish early. The interview stops at the target duration.</p>
+              </div>
+            </div>
+
+            <div class="grid grid-2">
+              <div class="field">
+                <label class="label" for="f-questions">Number of questions</label>
+                <select class="select" id="f-questions">
+                  <option value="4">4 questions</option>
+                  <option value="5">5 questions</option>
+                  <option value="6">6 questions</option>
+                  <option value="8" selected>8 questions</option>
+                </select>
+                <p class="hint">Fewer questions means less evidence per competency, and lower confidence in the summary.</p>
+              </div>
+              <div class="field">
+                <span class="label" id="cap-label">Captions</span>
+                <label class="switch" style="margin-top:6px"><input type="checkbox" id="f-captions" checked aria-labelledby="cap-label"><span>Live captions on for the candidate</span></label>
+                <p class="hint">Captions are on by default. Candidates can also turn them on themselves at any point.</p>
+              </div>
+            </div>
+
+            <fieldset style="border:0;padding:0;margin:0">
+              <legend class="label" style="margin-bottom:6px">Interviewer persona</legend>
+              <p class="hint" style="margin-bottom:10px">Personas are <strong>interview styles, not assessments of candidates</strong>. The persona changes how a question is asked and followed up — it never changes the rubric, the competencies or how an answer is evidenced.</p>
+              <div class="grid grid-2" id="persona-grid"></div>
+            </fieldset>
+          </div>
+        </section>
+
+        <!-- ─── 4 · Deadline & reminders ─── -->
+        <section class="card" aria-labelledby="dl-h">
+          <div class="card-header"><div>
+            <h2 id="dl-h">Deadline and reminders</h2>
+            <p class="hint" style="margin-top:3px">Give people enough room to find a quiet 40 minutes. Two weeks is the default.</p>
+          </div></div>
+          <div class="card-body stack">
+            <div class="grid grid-2">
+              <div class="field">
+                <label class="label" for="f-deadline">Deadline</label>
+                <input class="input" id="f-deadline" type="date" value="2026-09-06" min="2026-08-24" max="2026-12-31" aria-describedby="dl-hint">
+                <p class="hint" id="dl-hint">Closes at 23:59 in each candidate's own timezone, not yours. Northwind Health System is set to Europe/Berlin.</p>
+              </div>
+              <div class="field">
+                <span class="label" id="rem-label">Reminder schedule</span>
+                <div class="stack-sm" style="margin-top:6px" role="group" aria-labelledby="rem-label">
+                  <label class="check"><input type="checkbox" class="rem" value="7 days before the deadline" checked><span>7 days before the deadline</span></label>
+                  <label class="check"><input type="checkbox" class="rem" value="48 hours before the deadline" checked><span>48 hours before the deadline</span></label>
+                  <label class="check"><input type="checkbox" class="rem" value="the morning of the deadline"><span>The morning of the deadline</span></label>
+                </div>
+                <p class="hint" style="margin-top:6px">Reminders stop as soon as the candidate starts. Nobody gets more than two.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 5 · Candidate message ─── -->
+        <section class="card" aria-labelledby="msg-h">
+          <div class="card-header"><div>
+            <h2 id="msg-h">Message to the candidate</h2>
+            <p class="hint" style="margin-top:3px">This sits at the top of the email, above the link and the transparency notice.</p>
+          </div></div>
+          <div class="card-body stack">
+            <div class="field">
+              <span class="label" id="var-label">Insert a variable</span>
+              <div class="cluster" role="group" aria-labelledby="var-label">
+                <button class="chip var-btn" type="button" data-var="{{candidate_name}}">{{candidate_name}}</button>
+                <button class="chip var-btn" type="button" data-var="{{role}}">{{role}}</button>
+                <button class="chip var-btn" type="button" data-var="{{deadline}}">{{deadline}}</button>
+              </div>
+              <p class="hint">Variables are replaced per recipient when the email is sent. The preview on the right uses the first candidate on your list.</p>
+            </div>
+            <div class="field">
+              <label class="label" for="f-message">Message</label>
+              <textarea class="textarea" id="f-message" rows="12"></textarea>
+              <p class="hint">Plain English works best. Candidates who understand what the interview is for finish it far more often.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 6 · Accessibility & accommodations ─── -->
+        <section class="card" aria-labelledby="a11y-h">
+          <div class="card-header"><div>
+            <h2 id="a11y-h">Accessibility and accommodations</h2>
+          </div></div>
+          <div class="card-body stack">
+            <label class="check"><input type="checkbox" id="f-extratime" checked><span>Offer 25% extra thinking time to anyone who asks
+              <span class="hint">The offer appears in the email and again on the interview start screen, so a candidate never has to explain themselves to a person to take it.</span></span></label>
+            <div class="field">
+              <label class="label" for="f-accom">Accommodations already agreed <span class="optional">optional</span></label>
+              <textarea class="textarea" id="f-accom" rows="3" placeholder="For example: extended time agreed with Rosalind Achebe; screen-reader compatible transcript requested."></textarea>
+              <p class="hint">Recorded on the invitation so a reviewer reading the evaluation knows the conditions the interview was taken under.</p>
+            </div>
+            <div class="banner banner-info">
+              <i data-lucide="accessibility" class="ic"></i>
+              <div>Accommodations do not affect evaluation. Extra time, captions, transcripts and pauses change how the interview is taken, never how the answers are scored against the rubric, and they are not shown as a flag on the candidate's evaluation.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 7 · Transparency block ─── -->
+        <section class="card card-accent" aria-labelledby="trans-h">
+          <div class="card-header">
+            <div>
+              <h2 id="trans-h">What the candidate is told</h2>
+              <p class="hint" style="margin-top:3px">Sent with every invitation. This block cannot be edited or switched off.</p>
+            </div>
+            <span class="badge badge-primary"><i data-lucide="lock" class="ic-sm ic"></i>Always included</span>
+          </div>
+          <div class="card-body">
+            <dl class="kv">
+              <dt>What Northwind receives</dt>
+              <dd>A recording and transcript of the answers, plus a competency summary that quotes what the candidate actually said and says where the evidence was thin.</dd>
+              <dt>What the candidate sees</dt>
+              <dd>Confirmation that the interview was submitted. No score, no band, no ranking and no recommendation.</dd>
+              <dt>Who decides</dt>
+              <dd>A named person on the Northwind hiring team. Prepeet does not decide the outcome.</dd>
+              <dt>What is never assessed</dt>
+              <dd>Personality, accent, appearance, emotion or how confident somebody sounds. Only what was said, against the published rubric.</dd>
+              <dt>Candidate rights</dt>
+              <dd>Request a human re-review, request a copy of their data, or withdraw at any time using the link in the email.</dd>
+              <dt>Retention</dt>
+              <dd>18 months from the interview date, then deleted.</dd>
+            </dl>
+            <p class="hint" style="margin-top:12px">Wording is set by your tenant's policy. <a href="admin-tenant-settings.html#privacy">Tenant privacy settings</a>.</p>
+          </div>
+        </section>
+
+        <!-- ─── Submit ─── -->
+        <div class="card card-subtle">
+          <div class="card-body">
+            <div class="between">
+              <p class="hint" id="submit-summary" style="max-width:460px">Nothing is sent until you press Send. You can revoke an invitation at any time.</p>
+              <div class="cluster">
+                <a class="btn btn-ghost" href="admin-invitations.html">Cancel</a>
+                <button class="btn btn-secondary" type="button" id="save-draft" data-toast="Draft saved" data-toast-desc="Find it under Invitations, filtered by draft." data-toast-kind="success">Save as draft</button>
+                <button class="btn btn-primary" type="submit" id="send-btn"><i data-lucide="send" class="ic ic-sm"></i>Send invitations</button>
+              </div>
+            </div>
+            <p class="error-text" id="form-err" hidden style="margin-top:10px"><i data-lucide="alert-circle" class="ic-sm ic"></i><span id="form-err-text"></span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════ PREVIEW COLUMN ════════════════ -->
+      <aside class="stack sticky-aside" aria-labelledby="prev-h">
+        <div class="card">
+          <div class="card-header">
+            <h2 id="prev-h" style="font-size:var(--text-sm)">Email preview</h2>
+            <span class="badge badge-outline" id="prev-recipient-count">0 recipients</span>
+          </div>
+          <div class="card-body stack">
+            <div class="mail">
+              <div class="mail-head">
+                <div><b>From</b> Priya Raman via Prepeet &lt;no-reply@prepeet.example&gt;</div>
+                <div><b>To</b> <span id="prev-to">the first candidate you add</span></div>
+                <div><b>Subject</b> <span id="prev-subject">Interview invitation from Northwind Health System</span></div>
+              </div>
+              <div class="mail-body" id="prev-body"></div>
+            </div>
+            <div class="cluster">
+              <button class="btn btn-sm btn-secondary" type="button" id="test-send" data-loading-sim="800"><i data-lucide="mail-check" class="ic ic-sm"></i>Send test to myself</button>
+              <span class="hint">Goes to priya.raman@northwindhealth.example</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Summary</h2></div>
+          <div class="card-body">
+            <dl class="kv kv-row">
+              <dt>Recipients</dt><dd id="s-recipients">None yet</dd>
+              <dt>Role</dt><dd id="s-role">Not chosen</dd>
+              <dt>Rubric</dt><dd id="s-rubric">—</dd>
+              <dt>Shape and length</dt><dd id="s-shape">—</dd>
+              <dt>Persona</dt><dd id="s-persona">—</dd>
+              <dt>Questions</dt><dd id="s-questions">8</dd>
+              <dt>Deadline</dt><dd id="s-deadline">6 Sep 2026</dd>
+              <dt>Reminders</dt><dd id="s-reminders">—</dd>
+              <dt>Captions</dt><dd id="s-captions">On</dd>
+              <dt>Extra time offered</dt><dd id="s-extratime">Yes</dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="card card-subtle">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:8px"><i data-lucide="link" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">One link per candidate</strong></div>
+            <p class="hint" style="line-height:1.55">Each recipient gets their own single-use link tied to their email address. Links stop working at the deadline, or the moment you revoke the invitation.</p>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+    </form>
+  </div>
+</main>
+
+<!-- ═══════════ SUCCESS DIALOG ═══════════ -->
+<dialog class="dialog" id="dlg-sent" aria-labelledby="dlg-sent-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div class="row">
+        <span class="state-icon" style="width:40px;height:40px;background:var(--success-soft);color:var(--success);margin:0"><i data-lucide="check" class="ic"></i></span>
+        <h2 id="dlg-sent-h">Invitations sent</h2>
+      </div>
+    </div>
+    <div class="dialog-body stack">
+      <p id="sent-summary">—</p>
+      <dl class="kv">
+        <dt>Role</dt><dd id="sent-role">—</dd>
+        <dt>Deadline</dt><dd id="sent-deadline">—</dd>
+        <dt>Reminders</dt><dd id="sent-reminders">—</dd>
+      </dl>
+      <div class="banner banner-info">
+        <i data-lucide="info" class="ic"></i>
+        <div>Delivery is confirmed on the invitation list within a minute or two. Anything that bounces is shown there with the reason so you can correct the address.</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Create another</button>
+      <a class="btn btn-primary" href="admin-invitations.html"><i data-lucide="list" class="ic ic-sm"></i>Go to invitations</a>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt;
+
+  /* ---------------------------------------------------- tenant open roles */
+  var ROLES = [
+    { id: 'role_icu_rn_2026', title: 'Registered Nurse — Intensive Care', rubric: 'ICU Nursing v4.2', cal: '4 August 2026', shape: 'shape_panel', mins: 40,
+      comps: ['Clinical reasoning', 'Patient safety', 'Escalation & handover', 'Compassionate communication'] },
+    { id: 'role_cne_2026', title: 'Clinical Nurse Educator', rubric: 'Nurse Educator v2.1', cal: '21 July 2026', shape: 'shape_behavioural', mins: 25,
+      comps: ['Teaching & assessment', 'Clinical currency', 'Feedback delivery', 'Programme design'] },
+    { id: 'role_fpa_2026', title: 'Financial Analyst — FP&A', rubric: 'FP&A Analyst v3.0', cal: '30 July 2026', shape: 'shape_case', mins: 40,
+      comps: ['Financial modelling', 'Variance analysis', 'Business partnering', 'Controls awareness'] },
+    { id: 'role_pm_2026', title: 'Product Manager — Patient Apps', rubric: 'Product Management v5.1', cal: '11 August 2026', shape: 'shape_behavioural', mins: 25,
+      comps: ['Product sense', 'Prioritisation', 'Stakeholder management', 'Data reasoning'] },
+    { id: 'role_swe_2026', title: 'Software Engineer — Integrations', rubric: 'Integration Engineering v2.4', cal: '7 August 2026', shape: 'shape_technical', mins: 40,
+      comps: ['Systems design', 'Debugging & incident response', 'Collaboration', 'Technical communication'] },
+    { id: 'role_ae_2026', title: 'Enterprise Account Executive', rubric: 'Commercial Screening v1.8', cal: '18 June 2026', shape: 'shape_screen', mins: 25,
+      comps: ['Discovery', 'Commercial qualification', 'Objection handling', 'Forecast discipline'] }
+  ];
+
+  var DEFAULT_MSG =
+    'Hi {{candidate_name}},\n\n' +
+    'Thank you for applying for the {{role}} role at Northwind Health System. The next step is a recorded interview you can take on your own, at whatever time suits you, any time before {{deadline}}.\n\n' +
+    'It takes about 40 minutes. You talk to an AI interviewer that asks everyone applying for this role the same questions, and you can pause between them. There is nothing to prepare and no trick questions — we are asking about work you have actually done.\n\n' +
+    'Your answers and the transcript go to the hiring team here at Northwind. A person reads them and decides what happens next.\n\n' +
+    'If you need an adjustment to take part, reply to this email and we will sort it out. It will not count against you.\n\n' +
+    'Priya Raman\nTalent acquisition, Northwind Health System';
+
+  /* --------------------------------------------------------------- state */
+  var chips = [];       /* { email, name, valid, dup } */
+  var persona = 'per_lena';
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function validEmail(v) { return /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]{2,}$/.test(v); }
+  function nameFrom(email) {
+    return email.split('@')[0].split(/[._-]+/).filter(Boolean)
+      .map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+  }
+  function el(id) { return document.getElementById(id); }
+
+  /* ---------------------------------------------------------- chip input */
+  function addEmail(raw, name) {
+    var v = String(raw).trim().replace(/^[<]|[>]$/g, '');
+    if (!v) return 'blank';
+    var dup = chips.some(function (c) { return c.email.toLowerCase() === v.toLowerCase(); });
+    chips.push({ email: v, name: name || nameFrom(v), valid: validEmail(v), dup: dup });
+    return dup ? 'dup' : (validEmail(v) ? 'ok' : 'bad');
+  }
+  function renderChips() {
+    el('chips').innerHTML = chips.map(function (c, i) {
+      var bad = !c.valid || c.dup;
+      var why = !c.valid ? 'not a valid email address' : (c.dup ? 'already on the list' : '');
+      return '<span class="chip' + (bad ? ' is-bad' : '') + '">' +
+        (bad ? '<i data-lucide="alert-circle" class="ic-sm ic"></i>' : '') +
+        '<span>' + esc(c.email) + '</span>' +
+        (bad ? '<span class="sr-only"> — ' + why + '</span>' : '') +
+        '<button class="icon-btn icon-btn-sm" type="button" data-remove="' + i + '" aria-label="Remove ' + esc(c.email) + '"><i data-lucide="x" class="ic x"></i></button>' +
+        '</span>';
+    }).join('');
+    var good = chips.filter(function (c) { return c.valid && !c.dup; });
+    var badN = chips.length - good.length;
+    el('cand-badge').textContent = good.length + (good.length === 1 ? ' recipient' : ' recipients') + (badN ? ' · ' + badN + ' to fix' : '');
+    el('cand-badge').className = 'badge ' + (badN ? 'badge-danger' : (good.length ? 'badge-primary' : 'badge-neutral'));
+    if (good.length) el('cand-err').hidden = true;
+    update();
+    Prepeet.init();
+  }
+
+  el('cand-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
+      e.preventDefault();
+      var r = addEmail(this.value); this.value = '';
+      if (r !== 'blank') renderChips();
+      if (r === 'dup') Prepeet.announce('That address is already on the list.');
+    } else if (e.key === 'Backspace' && this.value === '' && chips.length) {
+      chips.pop(); renderChips();
+    }
+  });
+  el('cand-input').addEventListener('blur', function () { if (this.value.trim()) { addEmail(this.value); this.value = ''; renderChips(); } });
+  el('chip-field').addEventListener('click', function (e) { if (e.target === this || e.target.id === 'chips') el('cand-input').focus(); });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-remove]');
+    if (b) { chips.splice(Number(b.getAttribute('data-remove')), 1);
+      /* re-evaluate duplicates after a removal */
+      var seen = {}; chips.forEach(function (c) { var k = c.email.toLowerCase(); c.dup = !!seen[k]; seen[k] = 1; });
+      renderChips(); el('cand-input').focus(); }
+  });
+
+  el('paste-add').addEventListener('click', function () {
+    var raw = el('paste-list').value.split(/[\s,;]+/).filter(Boolean);
+    var added = 0, bad = 0, dupes = 0;
+    raw.forEach(function (v) { var r = addEmail(v); if (r === 'ok') added++; else if (r === 'dup') dupes++; else if (r === 'bad') bad++; });
+    el('paste-list').value = '';
+    el('paste-status').textContent = added + ' added' + (dupes ? ', ' + dupes + ' duplicate' : '') + (bad ? ', ' + bad + ' need fixing' : '') + '.';
+    renderChips();
+    Prepeet.announce(added + ' addresses added from the pasted list.');
+  });
+
+  el('import-gh').addEventListener('click', function () {
+    setTimeout(function () {
+      var imported = [
+        { e: 'nadia.rahman@example.com', n: 'Nadia Rahman' },
+        { e: 'callum.stewart@example.com', n: 'Callum Stewart' },
+        { e: 'yewande.balogun@example.com', n: 'Yewande Balogun' },
+        { e: 'peter.lindqvist@example.com', n: 'Peter Lindqvist' }
+      ];
+      imported.forEach(function (c) { addEmail(c.e, c.n); });
+      renderChips();
+      Prepeet.toast({ title: '4 candidates imported from Greenhouse', desc: 'Stage “Phone screen”. Nothing has been sent yet.', kind: 'success' });
+      Prepeet.announce('Four candidates imported from Greenhouse.');
+    }, 950);
+  });
+
+  /* ------------------------------------------------------------- selects */
+  ROLES.forEach(function (r) {
+    var o = document.createElement('option'); o.value = r.id; o.textContent = r.title; el('f-role').appendChild(o);
+  });
+  D.shapes.forEach(function (s) {
+    var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; el('f-shape').appendChild(o);
+  });
+  function shapeById(id) { return D.shapes.filter(function (s) { return s.id === id; })[0] || D.shapes[0]; }
+  function roleById(id) { return ROLES.filter(function (r) { return r.id === id; })[0] || null; }
+
+  function fillDurations(keep) {
+    var s = shapeById(el('f-shape').value);
+    el('f-duration').innerHTML = s.minutes.map(function (m) { return '<option value="' + m + '">' + m + ' minutes</option>'; }).join('');
+    if (keep && s.minutes.indexOf(Number(keep)) >= 0) el('f-duration').value = String(keep);
+    el('shape-desc').textContent = s.desc;
+  }
+
+  el('f-shape').addEventListener('change', function () { fillDurations(); update(); });
+
+  el('f-role').addEventListener('change', function () {
+    var r = roleById(this.value);
+    el('role-err').hidden = true; this.setAttribute('aria-invalid', 'false');
+    el('rubric-box').hidden = !r;
+    if (r) {
+      el('rubric-name').textContent = r.rubric;
+      el('rubric-cal').textContent = r.cal;
+      el('comp-chips').innerHTML = r.comps.map(function (c) {
+        return '<span class="badge badge-outline">' + esc(c) + '</span>';
+      }).join('');
+      el('f-shape').value = r.shape;
+      fillDurations(r.mins);
+      Prepeet.announce('Rubric ' + r.rubric + ' loaded with ' + r.comps.length + ' competencies.');
+    }
+    update(); Prepeet.init();
+  });
+
+  /* ------------------------------------------------------------- persona */
+  el('persona-grid').innerHTML = D.personas.map(function (p) {
+    return '<label class="option-card">' +
+      '<input type="radio" name="persona" value="' + p.id + '"' + (p.id === persona ? ' checked' : '') + '>' +
+      '<span class="option-check"><i data-lucide="check" class="ic"></i></span>' +
+      '<span class="option-title"><span class="avatar avatar-persona avatar-sm">' + p.initials + '</span>' + p.name + '</span>' +
+      '<span class="option-desc"><strong>' + p.style + '.</strong> ' + p.desc + '</span>' +
+      '<span class="option-desc" style="color:var(--fg-3)">Used for: ' + p.best + '</span>' +
+      '</label>';
+  }).join('');
+  document.addEventListener('change', function (e) {
+    if (e.target.name === 'persona') { persona = e.target.value; update(); }
+  });
+
+  /* ------------------------------------------------- message + variables */
+  el('f-message').value = DEFAULT_MSG;
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-var]');
+    if (!b) return;
+    var ta = el('f-message'), v = b.getAttribute('data-var');
+    var s = ta.selectionStart, en = ta.selectionEnd;
+    ta.value = ta.value.slice(0, s) + v + ta.value.slice(en);
+    ta.focus(); ta.setSelectionRange(s + v.length, s + v.length);
+    update();
+    Prepeet.announce(v + ' inserted into the message.');
+  });
+
+  /* ------------------------------------------------------- live preview */
+  function reminders() {
+    var r = Array.prototype.map.call(document.querySelectorAll('.rem:checked'), function (c) { return c.value; });
+    return r.length ? r.join(', ') : 'None';
+  }
+  function update() {
+    var good = chips.filter(function (c) { return c.valid && !c.dup; });
+    var role = roleById(el('f-role').value);
+    var shape = shapeById(el('f-shape').value);
+    var per = D.personas.filter(function (p) { return p.id === persona; })[0];
+    var dl = el('f-deadline').value || '2026-09-06';
+    var first = good[0];
+
+    el('prev-recipient-count').textContent = good.length + (good.length === 1 ? ' recipient' : ' recipients');
+    el('prev-to').textContent = first ? (first.name + ' <' + first.email + '>') : 'the first candidate you add';
+    el('prev-subject').textContent = role
+      ? 'Interview invitation: ' + role.title + ' at Northwind Health System'
+      : 'Interview invitation from Northwind Health System';
+
+    var body = el('f-message').value
+      .replace(/\{\{candidate_name\}\}/g, first ? first.name : 'there')
+      .replace(/\{\{role\}\}/g, role ? role.title : 'the role')
+      .replace(/\{\{deadline\}\}/g, F.date(dl));
+
+    var tail = '\n\n— — —\n' +
+      'Start your interview: https://app.prepeet.example/i/…\n' +
+      'Closes ' + F.date(dl) + ' at 23:59 in your timezone. ' + shape.name + ', about ' + (el('f-duration').value || shape.minutes[0]) + ' minutes, ' + el('f-questions').value + ' questions.\n' +
+      (el('f-captions').checked ? 'Captions are on. ' : '') +
+      (el('f-extratime').checked ? 'You can ask for 25% extra thinking time — just tick the box on the start screen, you do not need to explain why.\n' : '\n') +
+      '\nWhat Northwind Health System receives: a recording and transcript of your answers, and a competency summary that quotes what you said and states where the evidence was thin.\n' +
+      'What you will see: confirmation that your interview was submitted. Not a score, a band, a ranking or a recommendation.\n' +
+      'Who decides: a person on the Northwind hiring team. Prepeet does not decide the outcome.\n' +
+      'What is never assessed: your personality, accent, appearance or how confident you sound. Only what you said, against the published rubric.\n' +
+      'Your rights: ask for a human re-review, request a copy of your data, or withdraw at any time — https://app.prepeet.example/i/…/withdraw\n' +
+      'Retention: 18 months from your interview date, then deleted.';
+
+    el('prev-body').textContent = body + tail;
+
+    el('s-recipients').textContent = good.length ? good.length + (good.length === 1 ? ' candidate' : ' candidates') : 'None yet';
+    el('s-role').textContent = role ? role.title : 'Not chosen';
+    el('s-rubric').textContent = role ? role.rubric : '—';
+    el('s-shape').textContent = shape.name + ' · ' + (el('f-duration').value || shape.minutes[0]) + ' minutes';
+    el('s-persona').textContent = per ? per.name + ' — ' + per.style.toLowerCase() : '—';
+    el('s-questions').textContent = el('f-questions').value;
+    el('s-deadline').textContent = F.date(dl);
+    el('s-reminders').textContent = reminders();
+    el('s-captions').textContent = el('f-captions').checked ? 'On' : 'Off';
+    el('s-extratime').textContent = el('f-extratime').checked ? 'Yes, offered in the email' : 'Not offered';
+
+    el('submit-summary').textContent = good.length && role
+      ? 'Ready to send ' + good.length + ' invitation' + (good.length === 1 ? '' : 's') + ' for ' + role.title + ', closing ' + F.date(dl) + '. Nothing is sent until you press Send.'
+      : 'Nothing is sent until you press Send. You can revoke an invitation at any time.';
+  }
+
+  el('inv-form').addEventListener('input', update);
+  el('inv-form').addEventListener('change', update);
+
+  el('test-send').addEventListener('click', function () {
+    setTimeout(function () {
+      Prepeet.toast({ title: 'Test invitation sent to you', desc: 'priya.raman@northwindhealth.example · no candidate was contacted.', kind: 'success' });
+    }, 850);
+  });
+
+  /* ---------------------------------------------------------- validation */
+  el('inv-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var good = chips.filter(function (c) { return c.valid && !c.dup; });
+    var role = roleById(el('f-role').value);
+    var problems = [];
+
+    if (!good.length) {
+      problems.push('at least one valid email address');
+      el('cand-err').hidden = false;
+      el('cand-input').setAttribute('aria-invalid', 'true');
+    } else { el('cand-err').hidden = true; el('cand-input').setAttribute('aria-invalid', 'false'); }
+
+    if (!role) {
+      problems.push('a role');
+      el('role-err').hidden = false;
+      el('f-role').setAttribute('aria-invalid', 'true');
+    } else { el('role-err').hidden = true; el('f-role').setAttribute('aria-invalid', 'false'); }
+
+    if (problems.length) {
+      el('form-err-text').textContent = 'This invitation needs ' + problems.join(' and ') + ' before it can be sent.';
+      el('form-err').hidden = false;
+      (!good.length ? el('cand-input') : el('f-role')).focus();
+      Prepeet.announce('Cannot send yet: ' + problems.join(' and ') + ' missing.');
+      return;
+    }
+
+    el('form-err').hidden = true;
+    var btn = el('send-btn'); btn.classList.add('is-loading'); btn.setAttribute('aria-busy', 'true');
+    setTimeout(function () {
+      btn.classList.remove('is-loading'); btn.removeAttribute('aria-busy');
+      el('sent-summary').innerHTML = '<strong>' + good.length + ' invitation' + (good.length === 1 ? '' : 's') + ' sent</strong> to ' +
+        esc(good.slice(0, 3).map(function (c) { return c.name; }).join(', ')) +
+        (good.length > 3 ? ' and ' + (good.length - 3) + ' more' : '') + '.';
+      el('sent-role').textContent = role.title + ' · ' + role.rubric;
+      el('sent-deadline').textContent = F.date(el('f-deadline').value || '2026-09-06') + ', 23:59 in each candidate’s timezone';
+      el('sent-reminders').textContent = reminders();
+      Prepeet.openDialog('dlg-sent');
+      Prepeet.announce(good.length + ' invitations sent.');
+    }, 950);
+  });
+
+  /* ------------------------------------------------------------- startup */
+  document.addEventListener('DOMContentLoaded', function () {
+    fillDurations();
+    renderChips();
+    update();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

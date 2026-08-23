@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Permission denied · Prepeet</title>
+<meta name="description" content="You do not have permission to open this page. See what your role can reach, or request access with a reason.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped: this 403 has real content beneath the state block, so the
+     full-height variant would leave a screen of empty space. */
+  .state-page { min-height: 44vh; padding-top: var(--sp-10); }
+  .state-page p { max-width: 560px; }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-title="Permission denied" data-crumbs="Prepeet>admin-dashboard.html" data-search="off">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content narrow" id="main-content">
+
+    <div class="state state-page danger">
+      <div class="state-icon"><i data-lucide="shield-x" class="ic"></i></div>
+      <p class="eyebrow" style="color:var(--danger-fg)">403 · permission denied</p>
+      <h1>You cannot open this page</h1>
+      <p id="lead">Your navigation is still here, so nothing has gone wrong with your account — this one route is closed to your role.</p>
+      <p class="code" id="ref-line">Reference <span class="mono" id="ref-id">req_01K3ZCF8N2VQ</span></p>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" data-dialog-open="dlg-access"><i data-lucide="key-round" class="ic ic-sm"></i>Request access</button>
+        <a class="btn btn-secondary" href="admin-dashboard.html"><i data-lucide="layout-dashboard" class="ic ic-sm"></i>Back to overview</a>
+      </div>
+    </div>
+
+    <div class="stack-lg" style="margin-top:var(--sp-6)">
+
+      <section class="card" aria-labelledby="what-h">
+        <div class="card-header"><h2 id="what-h">What was requested, and why it was refused</h2></div>
+        <div class="card-body">
+          <dl class="kv">
+            <dt>Route requested</dt><dd class="mono" id="req-path">/admin/god</dd>
+            <dt>Required role</dt><dd><span class="badge badge-danger" id="req-role">Super administrator</span> <span class="mono" id="req-role-code">god</span></dd>
+            <dt>Your role</dt><dd><span class="badge badge-neutral" id="cur-role">Tenant admin</span> <span class="mono" id="cur-role-code">tenant_admin</span></dd>
+            <dt>Decision</dt><dd>Refused at the authorisation boundary. No data from that page was read or returned.</dd>
+            <dt>Reference</dt><dd class="mono" id="ref-id-2">req_01K3ZCF8N2VQ</dd>
+            <dt>When</dt><dd id="when">23 August 2026, 09:47 UTC</dd>
+          </dl>
+
+          <div class="banner banner-warning" style="margin-top:var(--sp-4)">
+            <i data-lucide="scroll-text" class="ic"></i>
+            <div>
+              <strong>The attempt was logged.</strong> A <span class="mono">privileged.console.denied</span> entry was written to the append-only audit log with your name, the route, your IP address and this reference. A refused attempt is not a mark against you — it is recorded so that a real one can be told apart from an accident.
+            </div>
+          </div>
+
+          <p class="hint" id="explain" style="margin-top:var(--sp-4);line-height:1.6"></p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="can-h">
+        <div class="card-header">
+          <div>
+            <h2 id="can-h">What your role can reach</h2>
+            <p class="hint" style="margin-top:3px" id="can-sub">Everything below is open to you right now.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="grid grid-2" id="can-list" style="gap:var(--sp-3)"></ul>
+        </div>
+        <div class="card-footer">
+          <p class="hint">Roles are set per tenant by a tenant admin, and platform roles by the Prepeet platform team. The “Viewing as” switcher in the top bar is a prototype device for reviewing screens, not a way to gain access.</p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<!-- Request access -->
+<dialog class="dialog" id="dlg-access" aria-labelledby="dlg-access-h">
+  <div class="dialog-panel">
+    <form id="access-form" novalidate>
+      <div class="dialog-header">
+        <div>
+          <h2 id="dlg-access-h">Request access</h2>
+          <p class="hint" style="margin-top:4px" id="dlg-access-sub">For <span class="mono">/admin/god</span></p>
+        </div>
+        <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+      </div>
+      <div class="dialog-body stack">
+        <div class="field">
+          <label class="label" for="ac-approver">Send to</label>
+          <select class="select" id="ac-approver">
+            <option value="tenant">Your tenant admin — Priya Raman</option>
+            <option value="platform">Prepeet platform team</option>
+            <option value="oncall">Ops on-call rota (elevation grants)</option>
+          </select>
+          <p class="hint" id="ac-approver-hint">Super-administrator access is granted only by the Ops on-call rota, per incident, and expires automatically.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="ac-reason">Why do you need it?</label>
+          <textarea class="textarea" id="ac-reason" required minlength="20" rows="4" placeholder="What are you trying to do, and what have you already tried with your current access?" aria-describedby="ac-reason-hint ac-reason-err"></textarea>
+          <p class="hint" id="ac-reason-hint">At least 20 characters. This is shown to the approver in full.</p>
+          <p class="error-text" id="ac-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Tell the approver what you need and why — at least 20 characters.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="ac-ticket">Ticket reference <span class="optional">optional</span></label>
+          <input class="input" id="ac-ticket" placeholder="INC-2291" autocomplete="off">
+          <p class="hint">Attaching an incident or change reference usually gets a faster answer.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="ac-duration">How long do you need it?</label>
+          <select class="select" id="ac-duration">
+            <option value="60">One hour</option>
+            <option value="480">One working day</option>
+            <option value="perm">Permanently — change my role</option>
+          </select>
+        </div>
+
+        <div class="banner banner-info"><i data-lucide="info" class="ic"></i><div>The request itself is audited, whether or not it is approved. You will get an answer by email either way.</div></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Send request</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var ROUTE_LABEL = {
+    '/admin/god': 'the super-admin console',
+    '/admin/god/audit': 'the platform audit log',
+    '/admin/platform/analytics': 'platform analytics',
+    '/admin/platform/system': 'platform system health',
+    '/admin/tenant/settings': 'tenant settings',
+    '/admin/rubrics': 'rubric management'
+  };
+
+  /* Pages each role can reach, in the order they appear in the sidebar. */
+  var REACHABLE = {
+    recruiter: [
+      { label: 'Overview', href: 'admin-dashboard.html', icon: 'layout-dashboard', desc: 'Your hiring queue and this week’s activity' },
+      { label: 'Candidates', href: 'admin-recruiter.html', icon: 'users-round', desc: 'Evidence-backed evaluations awaiting review' },
+      { label: 'Compare', href: 'admin-recruiter-compare.html', icon: 'columns-3', desc: 'Two or three candidates side by side' },
+      { label: 'Invitations', href: 'admin-invitations.html', icon: 'mail-plus', desc: 'Screening invitations you have sent' },
+      { label: 'Re-review queue', href: 'admin-appeals.html', icon: 'gavel', desc: 'Candidates who have asked for a second look' }
+    ],
+    tenant_admin: [
+      { label: 'Overview', href: 'admin-dashboard.html', icon: 'layout-dashboard', desc: 'Your hiring queue and this week’s activity' },
+      { label: 'Candidates', href: 'admin-recruiter.html', icon: 'users-round', desc: 'Evidence-backed evaluations awaiting review' },
+      { label: 'Calibration', href: 'admin-recruiter-calibration.html', icon: 'sliders-horizontal', desc: 'How your reviewers score against each other' },
+      { label: 'Rubrics', href: 'admin-rubrics.html', icon: 'list-checks', desc: 'Competencies and anchors used to evaluate' },
+      { label: 'Members & roles', href: 'admin-members.html', icon: 'user-cog', desc: 'Who has access to this workspace' },
+      { label: 'Integrations', href: 'admin-integrations.html', icon: 'webhook', desc: 'ATS, SSO and webhook connections' },
+      { label: 'Tenant settings', href: 'admin-tenant-settings.html', icon: 'building-2', desc: 'Data region, retention and branding' }
+    ],
+    platform_admin: [
+      { label: 'Platform analytics', href: 'admin-platform-analytics.html', icon: 'bar-chart-3', desc: 'Volume, quality and cost across all tenants' },
+      { label: 'Sessions', href: 'admin-platform-analytics-sessions.html', icon: 'activity', desc: 'Interview throughput and drop-off' },
+      { label: 'Evaluation quality', href: 'admin-platform-analytics-evaluations.html', icon: 'scale', desc: 'Coverage, confidence and reviewer agreement' },
+      { label: 'System health', href: 'admin-platform-system.html', icon: 'server', desc: 'Queues, error budget and failing jobs' },
+      { label: 'AI usage & cost', href: 'admin-platform-system-llm-usage.html', icon: 'cpu', desc: 'Model spend per tenant and per stage' },
+      { label: 'Quotas', href: 'admin-platform-quotas.html', icon: 'gauge', desc: 'Per-tenant limits and current usage' }
+    ],
+    god: [
+      { label: 'Super-admin console', href: 'admin-god.html', icon: 'shield-alert', desc: 'Restricted cross-tenant operations' },
+      { label: 'Audit log', href: 'admin-god-audit.html', icon: 'scroll-text', desc: 'Append-only record of every action' },
+      { label: 'Platform analytics', href: 'admin-platform-analytics.html', icon: 'bar-chart-3', desc: 'Volume, quality and cost across all tenants' },
+      { label: 'System health', href: 'admin-platform-system.html', icon: 'server', desc: 'Queues, error budget and failing jobs' }
+    ]
+  };
+  var ORDER = ['recruiter', 'tenant_admin', 'platform_admin', 'god'];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var role = Prepeet.getRole();
+    var roles = Prepeet.roles;
+    var path = Prepeet.query.get('path', '/admin/god');
+    var required = Prepeet.query.get('required', 'god');
+    if (!roles[required]) required = 'god';
+    var ref = Prepeet.query.get('ref', 'req_01K3ZCF8N2VQ');
+
+    document.getElementById('req-path').textContent = path;
+    document.getElementById('req-role').textContent = roles[required].label;
+    document.getElementById('req-role-code').textContent = required;
+    document.getElementById('cur-role').textContent = roles[role].label;
+    document.getElementById('cur-role-code').textContent = role;
+    document.getElementById('ref-id').textContent = ref;
+    document.getElementById('ref-id-2').textContent = ref;
+    document.getElementById('dlg-access-sub').innerHTML = 'For <span class="mono">' + esc(path) + '</span> · ' + esc(roles[required].label) + ' required';
+
+    var what = ROUTE_LABEL[path] || ('the page at ' + path);
+    var lead = document.getElementById('lead');
+    lead.innerHTML = 'You asked for <span class="mono">' + esc(path) + '</span> — ' + esc(what) + '. That route needs <strong>' + esc(roles[required].label) + '</strong> and you are signed in as <strong>' + esc(roles[role].label) + '</strong>. Your navigation is still here; only this route is closed.';
+
+    var explain = required === 'god'
+      ? 'Super-administrator access is not attached to any standing role. It is granted per incident by the Ops on-call rota against a ticket, it is time-boxed, and everything done under it is attributed to the person who asked for it. If you need something from that console once, it is usually faster to ask an on-call super administrator to do it and send you the result.'
+      : roles[required].rank > roles[role].rank
+        ? 'This route sits above your current role. Ask a ' + roles[required].label.toLowerCase() + ' to either do the task for you or change your role — role changes take effect on your next page load.'
+        : 'Your role would normally reach this route, so something else is refusing it: the page may belong to a different tenant, or the resource may have been deleted. Send the reference below to support.';
+    document.getElementById('explain').textContent = explain;
+
+    var d = new Date();
+    document.getElementById('when').textContent = '23 August 2026, ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0') + ' UTC';
+
+    /* Everything at or below the current rank */
+    var mine = [];
+    ORDER.forEach(function (r) { if (roles[r].rank <= roles[role].rank) mine = mine.concat(REACHABLE[r]); });
+    var seen = {};
+    mine = mine.filter(function (x) { if (seen[x.href]) return false; seen[x.href] = 1; return true; });
+
+    document.getElementById('can-sub').textContent = 'As ' + roles[role].label.toLowerCase() + ' — ' + roles[role].desc.toLowerCase() + '. Everything below is open to you right now.';
+    document.getElementById('can-list').innerHTML = mine.map(function (x) {
+      return '<li><a class="card card-interactive card-subtle" href="' + x.href + '" style="display:block">' +
+        '<div class="card-body" style="padding:var(--sp-3) var(--sp-4)">' +
+          '<div class="cluster"><i data-lucide="' + x.icon + '" class="ic ic-sm" style="color:var(--primary)"></i>' +
+          '<strong style="font-size:var(--text-sm)">' + esc(x.label) + '</strong></div>' +
+          '<p class="hint" style="margin-top:4px">' + esc(x.desc) + '</p>' +
+        '</div></a></li>';
+    }).join('');
+
+    /* Approver hint follows the picker */
+    var HINTS = {
+      tenant: 'Tenant admins can change roles inside your workspace and grant access to rubrics, members and integrations.',
+      platform: 'The platform team handles cross-tenant analytics, quotas and system access. Expect an answer within one working day.',
+      oncall: 'Super-administrator access is granted only by the Ops on-call rota, per incident, and expires automatically.'
+    };
+    var sel = document.getElementById('ac-approver');
+    sel.value = required === 'god' ? 'oncall' : required === 'platform_admin' ? 'platform' : 'tenant';
+    function syncHint() { document.getElementById('ac-approver-hint').textContent = HINTS[sel.value]; }
+    sel.addEventListener('change', syncHint);
+    syncHint();
+
+    document.getElementById('access-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var r = document.getElementById('ac-reason');
+      var ok = r.value.trim().length >= 20;
+      r.setAttribute('aria-invalid', String(!ok));
+      document.getElementById('ac-reason-err').hidden = ok;
+      if (!ok) { r.focus(); return; }
+      var to = sel.options[sel.selectedIndex].text;
+      var ticket = document.getElementById('ac-ticket').value.trim();
+      Prepeet.closeDialog('dlg-access');
+      Prepeet.toast({
+        title: 'Access request sent',
+        desc: 'Sent to ' + to + (ticket ? ' against ' + ticket : '') + '. Reference ' + ref + '. You will get an answer by email either way.',
+        kind: 'success', duration: 7000
+      });
+      r.value = ''; document.getElementById('ac-ticket').value = '';
+    });
+
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

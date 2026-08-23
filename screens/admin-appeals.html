@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Re-review queue · Prepeet</title>
+<meta name="description" content="Candidates who have asked for a re-review, plus evaluations the system flagged as low confidence, with the triage actions and rationale each one needs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped only */
+  .appeal-head { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: var(--sp-3); align-items: start; }
+  @media (max-width: 640px) { .appeal-head { grid-template-columns: auto minmax(0,1fr); } .appeal-head .appeal-sla { grid-column: 1 / -1; } }
+  .appeal-sla { min-width: 180px; }
+  .appeal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--sp-4); }
+  .appeal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .appeal-actions .btn { flex: 1 1 auto; }
+  .reason-quote { margin: 0; padding: 12px 14px; background: var(--surface-2); border-left: 3px solid var(--border-strong); border-radius: 0 var(--r-md) var(--r-md) 0; font-size: var(--text-sm); line-height: 1.6; color: var(--fg); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="appeals" data-title="Re-review queue"
+      data-crumbs="Hiring>admin-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Northwind Health System</p>
+        <h1>Re-review queue</h1>
+        <p class="page-desc">Candidates who have asked for their screening to be looked at again, and evaluations that Prepeet flagged itself because the evidence was thin. Every item here needs a person to close it — including the ones where nothing changes.</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-recruiter.html"><i data-lucide="users-round" class="ic ic-sm"></i>All candidates</a>
+        <a class="btn btn-secondary" href="admin-recruiter-calibration.html"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Calibration</a>
+      </div>
+    </div>
+
+    <div class="cluster" style="margin-bottom:var(--sp-5)">
+      <span class="badge badge-outline mono">/admin/recruiter/appeals</span>
+      <div class="cluster" style="margin-left:auto">
+        <span class="hint">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+          <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+          <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════ LOADING ════════════════════ -->
+    <div data-state="loading" hidden>
+      <div class="metrics-row" style="margin-bottom:var(--sp-5)">
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px"></div></div></div>
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px"></div></div></div>
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px"></div></div></div>
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px"></div></div></div>
+      </div>
+      <div class="stack">
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-25"></div><div class="skeleton skeleton-block" style="height:150px;margin-top:12px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-25"></div><div class="skeleton skeleton-block" style="height:150px;margin-top:12px"></div></div></div>
+      </div>
+      <p class="hint" role="status" style="margin-top:var(--sp-4)">Loading open appeals, system flags and resolution history…</p>
+    </div>
+
+    <!-- ════════════════════ EMPTY ════════════════════ -->
+    <div data-state="empty" hidden>
+      <div class="card"><div class="state primary">
+        <div class="state-icon"><i data-lucide="gavel" class="ic"></i></div>
+        <h2>No open appeals or flags</h2>
+        <p>Nothing is waiting for a re-review. When a candidate asks for their screening to be looked at again, or when Prepeet flags an evaluation as low confidence, it arrives here with a clock attached.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="admin-recruiter.html">Review the candidate queue</a>
+          <a class="btn btn-secondary" href="admin-recruiter-calibration.html">Open calibration</a>
+        </div>
+      </div></div>
+      <section class="card" style="margin-top:var(--sp-5)" aria-labelledby="empty-hist-h">
+        <div class="card-header"><h2 id="empty-hist-h">Resolution history is still available</h2></div>
+        <div class="card-body">
+          <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">Closed appeals are kept for 18 months under the Northwind retention policy, including the rationale written at the time. Switch the preview back to <strong>Default</strong> to see the full history.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ════════════════════ DEFAULT ════════════════════ -->
+    <div data-state="default">
+
+      <div class="banner banner-info" style="margin-bottom:var(--sp-5)">
+        <i data-lucide="scale" class="ic"></i>
+        <div>
+          <strong>Every appeal is recorded, and every appeal is read by a person.</strong>
+          Asking for a re-review never counts against a candidate and is never shown to the hiring manager as a signal. Upholding the original decision is a legitimate outcome — but it still requires a written rationale, which is sent to the candidate and kept in the audit trail. The original evaluation is never overwritten: a re-run creates a second record alongside the first.
+        </div>
+      </div>
+
+      <div class="metrics-row" style="margin-bottom:var(--sp-6)">
+        <div class="card"><div class="metric">
+          <span class="metric-label"><i data-lucide="gavel" class="ic-sm ic"></i>Open appeals</span>
+          <span class="metric-value">2</span>
+          <span class="metric-foot">1 is past its response target</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label"><i data-lucide="flag" class="ic-sm ic"></i>System flags</span>
+          <span class="metric-value">3</span>
+          <span class="metric-foot">Low confidence or short session</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label"><i data-lucide="timer" class="ic-sm ic"></i>Median time to resolve</span>
+          <span class="metric-value">3.2<small>days</small></span>
+          <span class="metric-foot">Target is 5 working days</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label"><i data-lucide="repeat" class="ic-sm ic"></i>Outcome changed</span>
+          <span class="metric-value">5<small>of 14</small></span>
+          <span class="metric-foot">Last 90 days · 36%</span>
+        </div></div>
+      </div>
+
+      <div data-tabs data-tabs-param="tab">
+        <div class="tabs" role="tablist" aria-label="Re-review queue sections">
+          <button class="tab" role="tab" id="tab-appeals" data-tab="appeals" aria-controls="panel-appeals" aria-selected="true" tabindex="0">
+            <i data-lucide="gavel" class="ic ic-sm"></i>Candidate appeals<span class="count">2</span></button>
+          <button class="tab" role="tab" id="tab-flags" data-tab="flags" aria-controls="panel-flags" aria-selected="false" tabindex="-1">
+            <i data-lucide="flag" class="ic ic-sm"></i>Flagged by the system<span class="count">3</span></button>
+        </div>
+
+        <!-- ───────── CANDIDATE APPEALS ───────── -->
+        <div class="tab-panel stack" role="tabpanel" id="panel-appeals" aria-labelledby="tab-appeals" tabindex="0" style="padding-top:var(--sp-5)">
+
+          <p class="hint">Raised by the candidate through the link in their submission confirmation. Sorted by response deadline.</p>
+
+          <!-- Appeal 1 -->
+          <section class="card card-accent" aria-labelledby="ap-sofia-h" data-appeal="a1"
+                   data-name="Sofia Marchetti" data-candidate="cand_C8R6JY" data-role="Enterprise Account Executive"
+                   data-outcome="On hold">
+            <div class="card-header">
+              <div class="appeal-head" style="width:100%">
+                <span class="avatar avatar-lg">SM</span>
+                <div style="min-width:0">
+                  <h2 id="ap-sofia-h">Sofia Marchetti</h2>
+                  <div class="cluster" style="margin-top:5px">
+                    <span class="badge badge-outline">Enterprise Account Executive</span>
+                    <span class="badge badge-neutral"><i data-lucide="pause-circle" class="ic-sm ic"></i>Original outcome: On hold</span>
+                    <span class="badge badge-outline mono">cand_C8R6JY</span>
+                  </div>
+                </div>
+                <div class="appeal-sla">
+                  <div class="between" style="margin-bottom:4px">
+                    <span class="badge badge-danger"><i data-lucide="alarm-clock" class="ic-sm ic"></i>2 days overdue</span>
+                  </div>
+                  <div class="progress danger"><span style="width:100%"></span></div>
+                  <p class="hint" style="margin-top:4px">Response was due 21 Aug 2026</p>
+                </div>
+              </div>
+            </div>
+            <div class="card-body stack">
+              <div class="appeal-grid">
+                <dl class="kv kv-row">
+                  <dt>Raised</dt><dd>14 August 2026, 16:22 · 9 days ago</dd>
+                  <dt>Original decision</dt><dd>On hold — recorded by Jonas Brandt, 13 Aug 2026</dd>
+                </dl>
+                <dl class="kv kv-row">
+                  <dt>Session</dt><dd class="mono">ses_SM01</dd>
+                  <dt>Assigned reviewer</dt><dd><span class="badge badge-warning"><i data-lucide="user-x" class="ic-sm ic"></i>Unassigned</span></dd>
+                </dl>
+              </div>
+
+              <div>
+                <h3 style="font-size:var(--text-sm);margin-bottom:6px">What the candidate has asked for</h3>
+                <blockquote class="reason-quote">“My interview ended at nineteen minutes when my home connection dropped. I tried to rejoin twice and the link said the session was closed. I would rather do the interview again than have the half I completed scored — I never got to the commercial qualification questions at all. If a new interview is not possible, please could someone tell me what the evidence covered so I understand the decision.”</blockquote>
+                <p class="hint" style="margin-top:6px">Submitted through the candidate re-review form. Text is reproduced exactly as written.</p>
+              </div>
+
+              <div class="banner banner-warning">
+                <i data-lucide="wifi-off" class="ic"></i>
+                <div>Session telemetry agrees with the candidate: the client disconnected at 19 min 06 s and two reconnection attempts were refused because the session window had closed. Coverage on the recorded portion was 68%.</div>
+              </div>
+
+              <div class="appeal-actions">
+                <button class="btn btn-secondary btn-sm" type="button" data-act="rerun" data-appeal="a1"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Re-run evaluation</button>
+                <button class="btn btn-primary btn-sm" type="button" data-act="interview" data-appeal="a1"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Offer a new interview</button>
+                <button class="btn btn-secondary btn-sm" type="button" data-act="uphold" data-appeal="a1"><i data-lucide="shield-check" class="ic ic-sm"></i>Uphold the original decision</button>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="escalate" data-appeal="a1"><i data-lucide="arrow-up-right" class="ic ic-sm"></i>Escalate to tenant admin</button>
+              </div>
+            </div>
+            <div class="card-footer">
+              <div class="between" style="width:100%">
+                <button class="btn btn-sm btn-soft" type="button" data-toast="Appeal assigned to you" data-toast-desc="Sofia Marchetti's appeal is now assigned to Priya Raman." data-toast-kind="success"><i data-lucide="user-check" class="ic ic-sm"></i>Assign to me</button>
+                <a class="link" href="admin-recruiter-detail.html?id=cand_C8R6JY">Open the candidate record<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+            </div>
+          </section>
+
+          <!-- Appeal 2 -->
+          <section class="card" aria-labelledby="ap-tomas-h" data-appeal="a2"
+                   data-name="Tomás Herrera" data-candidate="cand_L7X2QN" data-role="Registered Nurse — Intensive Care"
+                   data-outcome="Not progressing">
+            <div class="card-header">
+              <div class="appeal-head" style="width:100%">
+                <span class="avatar avatar-lg">TH</span>
+                <div style="min-width:0">
+                  <h2 id="ap-tomas-h">Tomás Herrera</h2>
+                  <div class="cluster" style="margin-top:5px">
+                    <span class="badge badge-outline">Registered Nurse — Intensive Care</span>
+                    <span class="badge badge-danger"><i data-lucide="x-circle" class="ic-sm ic"></i>Original outcome: Not progressing</span>
+                    <span class="badge badge-outline mono">cand_L7X2QN</span>
+                  </div>
+                </div>
+                <div class="appeal-sla">
+                  <div class="between" style="margin-bottom:4px">
+                    <span class="badge badge-success"><i data-lucide="alarm-clock" class="ic-sm ic"></i>4 working days left</span>
+                  </div>
+                  <div class="progress"><span style="width:20%"></span></div>
+                  <p class="hint" style="margin-top:4px">Respond by 29 Aug 2026</p>
+                </div>
+              </div>
+            </div>
+            <div class="card-body stack">
+              <div class="appeal-grid">
+                <dl class="kv kv-row">
+                  <dt>Raised</dt><dd>22 August 2026, 07:40 · 1 day ago</dd>
+                  <dt>Original decision</dt><dd>Not progressing — recorded by Jonas Brandt, 21 Aug 2026</dd>
+                </dl>
+                <dl class="kv kv-row">
+                  <dt>Session</dt><dd class="mono">ses_TH01</dd>
+                  <dt>Assigned reviewer</dt><dd>Priya Raman <span class="hint">(you)</span></dd>
+                </dl>
+              </div>
+
+              <div>
+                <h3 style="font-size:var(--text-sm);margin-bottom:6px">What the candidate has asked for</h3>
+                <blockquote class="reason-quote">“My audio dropped for most of the escalation question. I could hear the interviewer but I was told afterwards that my answer was not recorded, and escalation is the part of the job I have the most experience in — I was a resus team lead for two years. I am not asking anyone to change their mind about the rest of it. I am asking for that one question to be asked again, or for a short call so I can answer it.”</blockquote>
+                <p class="hint" style="margin-top:6px">Submitted through the candidate re-review form. Text is reproduced exactly as written.</p>
+              </div>
+
+              <div class="banner banner-warning">
+                <i data-lucide="mic-off" class="ic"></i>
+                <div>Recording quality agrees in part: 2 min 48 s from 14:10 to 16:58 transcribed at low confidence, which covers the escalation question. The evaluation marked escalation &amp; handover as <strong>insufficient evidence</strong>, and the overall band of Solid (74) was produced without it.</div>
+              </div>
+
+              <div class="appeal-actions">
+                <button class="btn btn-secondary btn-sm" type="button" data-act="rerun" data-appeal="a2"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Re-run evaluation</button>
+                <button class="btn btn-primary btn-sm" type="button" data-act="interview" data-appeal="a2"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Offer a new interview</button>
+                <button class="btn btn-secondary btn-sm" type="button" data-act="uphold" data-appeal="a2"><i data-lucide="shield-check" class="ic ic-sm"></i>Uphold the original decision</button>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="escalate" data-appeal="a2"><i data-lucide="arrow-up-right" class="ic ic-sm"></i>Escalate to tenant admin</button>
+              </div>
+            </div>
+            <div class="card-footer">
+              <div class="between" style="width:100%">
+                <span class="hint">A partial re-record is not supported — a new interview covers the whole rubric again.</span>
+                <a class="link" href="admin-recruiter-detail.html?id=cand_L7X2QN">Open the candidate record<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ───────── SYSTEM FLAGS ───────── -->
+        <div class="tab-panel stack" role="tabpanel" id="panel-flags" aria-labelledby="tab-flags" tabindex="0" style="padding-top:var(--sp-5)" hidden>
+
+          <div class="banner">
+            <i data-lucide="info" class="ic"></i>
+            <div>Prepeet raises these itself when an evaluation does not meet the evidence thresholds in the rubric. The candidate has not complained and is not told that a flag exists. Internal target for clearing a flag is 10 working days.</div>
+          </div>
+
+          <!-- Flag 1 -->
+          <section class="card" aria-labelledby="fl-mateusz-h" data-appeal="f1"
+                   data-name="Mateusz Zielinski" data-candidate="cand_T3W7KL" data-role="Registered Nurse — Intensive Care"
+                   data-outcome="Insufficient evidence">
+            <div class="card-header">
+              <div class="appeal-head" style="width:100%">
+                <span class="avatar avatar-lg">MZ</span>
+                <div style="min-width:0">
+                  <h2 id="fl-mateusz-h">Mateusz Zielinski</h2>
+                  <div class="cluster" style="margin-top:5px">
+                    <span class="badge badge-outline">Registered Nurse — Intensive Care</span>
+                    <span class="badge badge-outline"><i data-lucide="help-circle" class="ic-sm ic"></i>No score produced</span>
+                    <span class="badge badge-outline mono">cand_T3W7KL</span>
+                  </div>
+                </div>
+                <div class="appeal-sla">
+                  <span class="badge badge-warning"><i data-lucide="flag" class="ic-sm ic"></i>Short session</span>
+                  <p class="hint" style="margin-top:6px">Flagged 20 Aug 2026 · 3 days open</p>
+                </div>
+              </div>
+            </div>
+            <div class="card-body stack">
+              <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">The session ended at 12 min 04 s of a scheduled 25 minutes when the candidate's browser lost its connection and did not reconnect. Three of eight questions were answered and 4 of 13 rubric areas were reached, so no competency was scored. Nothing here is a signal about the candidate.</p>
+              <div class="cluster">
+                <span class="badge badge-neutral tnum">34% coverage</span>
+                <span class="badge badge-neutral tnum">5 evidence spans</span>
+                <span class="badge badge-neutral tnum">3 of 8 questions</span>
+              </div>
+              <div class="appeal-actions">
+                <button class="btn btn-secondary btn-sm" type="button" data-act="rerun" data-appeal="f1"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Re-run evaluation</button>
+                <button class="btn btn-primary btn-sm" type="button" data-act="interview" data-appeal="f1"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Offer a new interview</button>
+                <button class="btn btn-secondary btn-sm" type="button" data-act="uphold" data-appeal="f1"><i data-lucide="shield-check" class="ic ic-sm"></i>Close the flag as reviewed</button>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="escalate" data-appeal="f1"><i data-lucide="arrow-up-right" class="ic ic-sm"></i>Escalate to tenant admin</button>
+              </div>
+            </div>
+            <div class="card-footer"><div class="between" style="width:100%">
+              <span class="hint">Re-running will not produce a score — there is not enough transcript for one.</span>
+              <a class="link" href="admin-recruiter-detail.html?id=cand_T3W7KL">Open the candidate record<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div></div>
+          </section>
+
+          <!-- Flag 2 -->
+          <section class="card" aria-labelledby="fl-priyanka-h" data-appeal="f2"
+                   data-name="Priyanka Shah" data-candidate="cand_N7Q2CE" data-role="Product Manager — Patient Apps"
+                   data-outcome="Awaiting review">
+            <div class="card-header">
+              <div class="appeal-head" style="width:100%">
+                <span class="avatar avatar-lg">PS</span>
+                <div style="min-width:0">
+                  <h2 id="fl-priyanka-h">Priyanka Shah</h2>
+                  <div class="cluster" style="margin-top:5px">
+                    <span class="badge badge-outline">Product Manager — Patient Apps</span>
+                    <span class="badge badge-warning"><i data-lucide="clock" class="ic-sm ic"></i>Awaiting review · 71</span>
+                    <span class="badge badge-outline mono">cand_N7Q2CE</span>
+                  </div>
+                </div>
+                <div class="appeal-sla">
+                  <span class="badge badge-warning"><i data-lucide="flag" class="ic-sm ic"></i>Low confidence</span>
+                  <p class="hint" style="margin-top:6px">Flagged 18 Aug 2026 · 5 days open</p>
+                </div>
+              </div>
+            </div>
+            <div class="card-body stack">
+              <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">A score of 71 was produced, but three of the four competencies rest on a single supporting answer each and coverage reached 58%. The number looks like the other candidates' numbers and is not comparable to them. Do not place this record side by side with a well-covered one without saying so.</p>
+              <div class="cluster">
+                <span class="badge badge-neutral tnum">58% coverage</span>
+                <span class="badge badge-neutral tnum">9 evidence spans</span>
+                <span class="badge badge-danger">3 of 4 competencies single-answer</span>
+              </div>
+              <div class="appeal-actions">
+                <button class="btn btn-secondary btn-sm" type="button" data-act="rerun" data-appeal="f2"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Re-run evaluation</button>
+                <button class="btn btn-primary btn-sm" type="button" data-act="interview" data-appeal="f2"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Offer a new interview</button>
+                <button class="btn btn-secondary btn-sm" type="button" data-act="uphold" data-appeal="f2"><i data-lucide="shield-check" class="ic ic-sm"></i>Close the flag as reviewed</button>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="escalate" data-appeal="f2"><i data-lucide="arrow-up-right" class="ic ic-sm"></i>Escalate to tenant admin</button>
+              </div>
+            </div>
+            <div class="card-footer"><div class="between" style="width:100%">
+              <span class="hint">Flagged automatically by the evaluation quality check, not by a reviewer.</span>
+              <a class="link" href="admin-recruiter-detail.html?id=cand_N7Q2CE">Open the candidate record<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div></div>
+          </section>
+
+          <!-- Flag 3 -->
+          <section class="card" aria-labelledby="fl-chloe-h" data-appeal="f3"
+                   data-name="Chloe Whitfield" data-candidate="cand_B2K8WD" data-role="Financial Analyst — FP&amp;A"
+                   data-outcome="Awaiting review">
+            <div class="card-header">
+              <div class="appeal-head" style="width:100%">
+                <span class="avatar avatar-lg">CW</span>
+                <div style="min-width:0">
+                  <h2 id="fl-chloe-h">Chloe Whitfield</h2>
+                  <div class="cluster" style="margin-top:5px">
+                    <span class="badge badge-outline">Financial Analyst — FP&amp;A</span>
+                    <span class="badge badge-warning"><i data-lucide="clock" class="ic-sm ic"></i>Awaiting review · 69</span>
+                    <span class="badge badge-outline mono">cand_B2K8WD</span>
+                  </div>
+                </div>
+                <div class="appeal-sla">
+                  <span class="badge badge-warning"><i data-lucide="git-compare-arrows" class="ic-sm ic"></i>Answers differ</span>
+                  <p class="hint" style="margin-top:6px">Flagged 21 Aug 2026 · 2 days open</p>
+                </div>
+              </div>
+            </div>
+            <div class="card-body stack">
+              <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">Two answers describe ownership of the month-end close differently — “I ran the close for four entities” at 09:41 and “I supported the close, the financial controller ran it” at 24:03. Separately, 4 min 12 s of audio was transcribed at low confidence, which may explain part of the difference. Neither is a finding about the candidate; both need a person to look.</p>
+              <div class="cluster">
+                <span class="badge badge-neutral tnum">71% coverage</span>
+                <span class="badge badge-neutral tnum">14 evidence spans</span>
+                <span class="badge badge-neutral">1 pair of differing answers</span>
+              </div>
+              <div class="appeal-actions">
+                <button class="btn btn-secondary btn-sm" type="button" data-act="rerun" data-appeal="f3"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Re-run evaluation</button>
+                <button class="btn btn-primary btn-sm" type="button" data-act="interview" data-appeal="f3"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Offer a new interview</button>
+                <button class="btn btn-secondary btn-sm" type="button" data-act="uphold" data-appeal="f3"><i data-lucide="shield-check" class="ic ic-sm"></i>Close the flag as reviewed</button>
+                <button class="btn btn-ghost btn-sm" type="button" data-act="escalate" data-appeal="f3"><i data-lucide="arrow-up-right" class="ic ic-sm"></i>Escalate to tenant admin</button>
+              </div>
+            </div>
+            <div class="card-footer"><div class="between" style="width:100%">
+              <span class="hint">Re-transcribing the low-confidence audio is included in a re-run.</span>
+              <a class="link" href="admin-recruiter-detail.html?id=cand_B2K8WD">Open the candidate record<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ───────── RESOLUTION HISTORY ───────── -->
+      <section class="card" style="margin-top:var(--sp-6)" aria-labelledby="hist-h">
+        <div class="card-header">
+          <div>
+            <h2 id="hist-h">Resolution history</h2>
+            <p class="hint" style="margin-top:3px">Closed appeals and flags from the last 90 days, with what was decided and whether it changed the outcome.</p>
+          </div>
+          <a class="btn btn-sm btn-ghost" href="admin-recruiter-calibration.html">Feed into calibration<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        </div>
+        <div class="card-body">
+          <h3 style="font-size:var(--text-sm);margin-bottom:10px">Appeals raised per month</h3>
+          <div class="bars" style="height:88px" role="img" aria-label="Appeals raised per month: March 3, April 5, May 4, June 6, July 7, August 5">
+            <span style="height:43%"></span><span style="height:71%"></span><span style="height:57%"></span>
+            <span style="height:86%"></span><span style="height:100%"></span><span class="alt" style="height:71%"></span>
+          </div>
+          <div class="chart-legend" style="margin-top:8px">
+            <span><i style="background:var(--chart-1)"></i>Closed months (Mar–Jul)</span>
+            <span><i style="background:var(--chart-2)"></i>August, in progress</span>
+          </div>
+          <p class="chart-summary">Text summary: appeals raised per month — March 3, April 5, May 4, June 6, July 7, August 5 so far. Across the 14 appeals resolved in the last 90 days, 5 changed the outcome and 9 upheld the original decision, each with a written rationale.</p>
+
+          <div class="table-wrap" style="margin-top:var(--sp-5)">
+            <table class="table table-responsive">
+              <caption class="sr-only">Past appeals, what was decided and whether the outcome changed</caption>
+              <thead><tr>
+                <th scope="col">Candidate</th>
+                <th scope="col">Raised</th>
+                <th scope="col">Closed</th>
+                <th scope="col">Decided by</th>
+                <th scope="col">What was decided</th>
+                <th scope="col">Outcome changed</th>
+              </tr></thead>
+              <tbody id="history-rows"></tbody>
+            </table>
+          </div>
+          <p class="hint" style="margin-top:var(--sp-3)">Rationales are stored with each row and are visible to the candidate on request. Nothing in this table can be edited after it is closed.</p>
+        </div>
+      </section>
+
+      <div class="grid grid-2" style="margin-top:var(--sp-5)">
+        <div class="card card-subtle"><div class="card-body">
+          <div class="cluster" style="margin-bottom:8px"><i data-lucide="shield-check" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">What a re-run can and cannot do</strong></div>
+          <p class="hint" style="line-height:1.6">A re-run evaluates the <strong>same transcript</strong> against the current rubric version. It cannot recover audio that was never captured, and it frequently produces the same band. Where the complaint is about the recording rather than the reading of it, a new interview is the honest answer.</p>
+        </div></div>
+        <div class="card card-subtle"><div class="card-body">
+          <div class="cluster" style="margin-bottom:8px"><i data-lucide="file-text" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Why upholding needs writing</strong></div>
+          <p class="hint" style="line-height:1.6">A candidate who appeals is owed an explanation whichever way it goes. Northwind requires a written rationale on every upheld decision; it is sent to the candidate, kept for 18 months and sampled at calibration to check that upholding is not becoming a reflex.</p>
+        </div></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ════════════════════ DIALOGS ════════════════════ -->
+<dialog class="dialog" id="dlg-rerun" aria-labelledby="dlg-rerun-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-rerun-h">Re-run the evaluation</h2>
+      <p class="hint" style="margin-top:4px" data-subject>for this candidate</p></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>This re-evaluates <strong>the same transcript</strong> against the rubric version you choose. No new audio is recorded and the candidate is not interviewed again.</p>
+      <div class="banner banner-warning">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div><strong>A re-run may not change the outcome.</strong> Where the original evidence was thin, re-reading it produces the same thin evidence. If the complaint is about what the recording captured, a new interview is the only thing that fixes it.</div>
+      </div>
+      <div class="field">
+        <label class="label" for="rerun-rubric">Rubric version</label>
+        <select class="select" id="rerun-rubric">
+          <option value="current" selected>Current published version — icu-rn-v4.2 (14 Jul 2026)</option>
+          <option value="original">The version used originally — icu-rn-v4.1 (2 Apr 2026)</option>
+        </select>
+        <p class="hint">Re-running against a newer rubric is legitimate, but note in your rationale that the two records were scored against different rubrics.</p>
+      </div>
+      <label class="check"><input type="checkbox" id="rerun-notify" checked><span>Tell the candidate their evaluation is being looked at again<span class="hint">Recommended. They asked; they should know it is happening.</span></span></label>
+      <p class="hint">The original evaluation is kept. A re-run is written as a second record, and both stay visible in the audit trail.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-confirm="rerun"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Re-run evaluation</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-interview" aria-labelledby="dlg-interview-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-interview-h">Offer a new interview</h2>
+      <p class="hint" style="margin-top:4px" data-subject>for this candidate</p></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form class="dialog-body stack" id="form-interview" novalidate>
+      <p>A fresh invitation covering the whole rubric again. The earlier session stays on record and is not deleted.</p>
+      <div class="grid grid-2">
+        <div class="field">
+          <label class="label" for="iv-date">Available from</label>
+          <input class="input" type="date" id="iv-date" value="2026-08-26" min="2026-08-24">
+        </div>
+        <div class="field">
+          <label class="label" for="iv-deadline">Complete by</label>
+          <input class="input" type="date" id="iv-deadline" value="2026-09-04" min="2026-08-25">
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="iv-message">Message to the candidate <span class="sr-only">(required)</span></label>
+        <textarea class="textarea" id="iv-message" rows="5" required aria-describedby="err-iv-message">Thank you for letting us know what happened. We are offering you a fresh screening interview covering the same questions — the earlier recording will not be used in the decision. Please book any time that suits you before 4 September.</textarea>
+        <p class="error-text" id="err-iv-message" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Write a short message. The candidate should hear why they are being asked again.</p>
+      </div>
+      <p class="hint">Sent from Northwind Health System. Prepeet does not write to candidates on your behalf.</p>
+    </form>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-confirm="interview"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Send the invitation</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-uphold" aria-labelledby="dlg-uphold-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-uphold-h">Uphold the original decision</h2>
+      <p class="hint" style="margin-top:4px" data-subject>for this candidate</p></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form class="dialog-body stack" id="form-uphold" novalidate>
+      <div class="banner banner-info">
+        <i data-lucide="file-text" class="ic"></i>
+        <div>Upholding is a legitimate outcome and needs no apology. It does need an explanation: your rationale is sent to the candidate, kept for 18 months and sampled at calibration.</div>
+      </div>
+      <div class="field">
+        <label class="label" for="up-rationale">Written rationale <span class="sr-only">(required)</span></label>
+        <p class="hint">Say what you looked at and why the original decision stands. Avoid restating the score — point at the evidence.</p>
+        <textarea class="textarea" id="up-rationale" rows="5" required aria-describedby="err-up-rationale" placeholder="e.g. I re-read the full transcript and listened to 14:10–16:58. The escalation answer is audible and was scored; the decision rested on the commercial qualification answers, which were complete."></textarea>
+        <p class="error-text" id="err-up-rationale" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>A written rationale is required before an appeal can be closed as upheld.</p>
+      </div>
+      <label class="check"><input type="checkbox" id="up-second" ><span>Ask a second reviewer to countersign<span class="hint">Optional. Recommended where the original decision was Not progressing.</span></span></label>
+    </form>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-confirm="uphold"><i data-lucide="shield-check" class="ic ic-sm"></i><span data-confirm-label>Uphold and notify</span></button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-escalate" aria-labelledby="dlg-escalate-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-escalate-h">Escalate to a tenant administrator</h2>
+      <p class="hint" style="margin-top:4px" data-subject>for this candidate</p></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form class="dialog-body stack" id="form-escalate" novalidate>
+      <p>Use this when the appeal raises something a reviewer cannot settle — a process failure, a possible adjustment that was not offered, or a decision you disagree with.</p>
+      <div class="field">
+        <label class="label" for="esc-to">Escalate to</label>
+        <select class="select" id="esc-to">
+          <option>Rebecca Lindqvist — Tenant administrator</option>
+          <option>Adeola Bankole — Head of resourcing</option>
+          <option>Northwind people team — shared inbox</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="label" for="esc-note">What you want them to look at <span class="sr-only">(required)</span></label>
+        <textarea class="textarea" id="esc-note" rows="4" required aria-describedby="err-esc-note" placeholder="e.g. The candidate asked for a reasonable adjustment at booking and there is no record of it being applied. I do not think a re-run answers this."></textarea>
+        <p class="error-text" id="err-esc-note" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Say what you want the administrator to look at.</p>
+      </div>
+      <p class="hint">The appeal stays open and its clock keeps running while it is escalated.</p>
+    </form>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-confirm="escalate"><i data-lucide="arrow-up-right" class="ic ic-sm"></i>Escalate</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+
+  /* ─────────────────────────── resolution history ─────────────────────────── */
+  var HISTORY = [
+    { name: 'Grace Mbeki', role: 'Clinical Nurse Educator', raised: '5 Aug 2026', closed: '8 Aug 2026', by: 'Priya Raman',
+      what: 'Re-ran the evaluation against rubric cne-v2.1 after the original used a superseded version.', changed: true, delta: 'On hold → Advanced' },
+    { name: 'Oliver Nakamura', role: 'Financial Analyst — FP&amp;A', raised: '2 Aug 2026', closed: '6 Aug 2026', by: 'Jonas Brandt',
+      what: 'Upheld. Re-read the transcript in full; the variance-analysis answers were complete and audible.', changed: false, delta: 'Not progressing — unchanged' },
+    { name: 'Liam Ferguson', role: 'Software Engineer — Integrations', raised: '28 Jul 2026', closed: '30 Jul 2026', by: 'Priya Raman',
+      what: 'Offered a new interview after the candidate reported a screen-reader incompatibility in the booking flow.', changed: true, delta: 'Not progressing → Advanced' },
+    { name: 'Yusuf Demir', role: 'Enterprise Account Executive', raised: '22 Jul 2026', closed: '27 Jul 2026', by: 'Jonas Brandt',
+      what: 'Upheld. Candidate disputed the coverage figure; coverage was recalculated by hand and matched.', changed: false, delta: 'Awaiting review — unchanged' },
+    { name: 'Ifeoma Adeyemi', role: 'Product Manager — Patient Apps', raised: '14 Jul 2026', closed: '15 Jul 2026', by: 'Rebecca Lindqvist',
+      what: 'Escalated, then re-run. The original evaluation had been generated from a truncated transcript.', changed: true, delta: 'On hold → Advanced' },
+    { name: 'Sofia Marchetti', role: 'Enterprise Account Executive', raised: '9 Jul 2026', closed: '13 Jul 2026', by: 'Priya Raman',
+      what: 'Upheld, with a written summary of what the evidence covered sent to the candidate.', changed: false, delta: 'On hold — unchanged' }
+  ];
+
+  function renderHistory() {
+    document.getElementById('history-rows').innerHTML = HISTORY.map(function (h) {
+      return '<tr>' +
+        '<td class="td-primary" data-label="Candidate"><strong>' + h.name + '</strong><span class="td-sub">' + h.role + '</span></td>' +
+        '<td data-label="Raised">' + h.raised + '</td>' +
+        '<td data-label="Closed">' + h.closed + '</td>' +
+        '<td data-label="Decided by">' + h.by + '</td>' +
+        '<td data-label="What was decided" style="max-width:340px">' + h.what + '</td>' +
+        '<td data-label="Outcome changed"><span class="badge ' + (h.changed ? 'badge-success' : 'badge-neutral') + '">' +
+          (h.changed ? 'Changed' : 'Unchanged') + '</span><span class="td-sub">' + h.delta + '</span></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function prettyDate(iso) {
+    if (!iso) return 'the agreed date';
+    try { return Prepeet.fmt.date(iso); } catch (e) { return iso; }
+  }
+
+  /* ─────────────────────────── triage actions ─────────────────────────── */
+  var DIALOG = { rerun: 'dlg-rerun', interview: 'dlg-interview', uphold: 'dlg-uphold', escalate: 'dlg-escalate' };
+  var current = null;
+
+  function subjectOf(key) {
+    var card = document.querySelector('[data-appeal="' + key + '"]');
+    return card ? { key: key, name: card.getAttribute('data-name'), id: card.getAttribute('data-candidate'),
+                    role: card.getAttribute('data-role'), outcome: card.getAttribute('data-outcome'), card: card } : null;
+  }
+
+  function openAction(act, key) {
+    current = subjectOf(key);
+    if (!current) return;
+    var dlg = document.getElementById(DIALOG[act]);
+    dlg.querySelectorAll('[data-subject]').forEach(function (el) {
+      el.textContent = current.name + ' · ' + current.role + ' · original outcome: ' + current.outcome;
+    });
+    /* uphold wording differs for a system flag, where there is no candidate complaint */
+    if (act === 'uphold') {
+      var isFlag = key.charAt(0) === 'f';
+      document.getElementById('dlg-uphold-h').textContent = isFlag ? 'Close the flag as reviewed' : 'Uphold the original decision';
+      document.querySelector('#dlg-uphold [data-confirm-label]').textContent = isFlag ? 'Close the flag' : 'Uphold and notify';
+    }
+    Prepeet.openDialog(dlg);
+    Prepeet.init();
+  }
+
+  function requireText(input, errId) {
+    var ok = input.value.trim().length > 0;
+    input.setAttribute('aria-invalid', ok ? 'false' : 'true');
+    document.getElementById(errId).hidden = ok;
+    if (!ok) input.focus();
+    return ok;
+  }
+
+  function closeAppeal(text) {
+    if (!current) return;
+    var card = current.card;
+    card.querySelectorAll('.appeal-actions .btn').forEach(function (b) { b.disabled = true; });
+    var done = document.createElement('div');
+    done.className = 'banner banner-success';
+    done.setAttribute('role', 'status');
+    done.innerHTML = '<i data-lucide="check-circle-2" class="ic"></i><div>' + text + '</div>';
+    card.querySelector('.card-body').appendChild(done);
+    Prepeet.init();
+  }
+
+  function confirmAction(act) {
+    if (!current) return;
+    var name = current.name;
+
+    if (act === 'rerun') {
+      var rubric = document.getElementById('rerun-rubric');
+      var version = rubric.value === 'current' ? 'icu-rn-v4.2' : 'icu-rn-v4.1';
+      var notify = document.getElementById('rerun-notify').checked;
+      Prepeet.closeDialog('dlg-rerun');
+      Prepeet.toast({ title: 'Re-run queued for ' + name, desc: 'Same transcript, rubric ' + version + '. It may not change the outcome.' + (notify ? ' The candidate has been told.' : ''), kind: 'success' });
+      closeAppeal('<strong>Re-run queued.</strong> The transcript is being re-evaluated against ' + version + '. A second record will appear alongside the original — the original is unchanged.');
+      Prepeet.announce('Re-run queued for ' + name);
+      return;
+    }
+
+    if (act === 'interview') {
+      var msg = document.getElementById('iv-message');
+      if (!requireText(msg, 'err-iv-message')) { Prepeet.announce('The message to the candidate cannot be empty.'); return; }
+      var by = prettyDate(document.getElementById('iv-deadline').value);
+      Prepeet.closeDialog('dlg-interview');
+      Prepeet.toast({ title: 'New interview offered to ' + name, desc: 'Invitation sent, to be completed by ' + by + '.', kind: 'success' });
+      closeAppeal('<strong>New interview offered.</strong> An invitation has been sent to ' + name + ', to be completed by ' + by + '. The earlier session stays on record and will not be used in the decision.');
+      Prepeet.announce('New interview offered to ' + name);
+      return;
+    }
+
+    if (act === 'uphold') {
+      var rat = document.getElementById('up-rationale');
+      if (!requireText(rat, 'err-up-rationale')) {
+        Prepeet.toast({ title: 'Rationale required', desc: 'An appeal cannot be closed as upheld without a written rationale.', kind: 'danger' });
+        Prepeet.announce('A written rationale is required before this appeal can be upheld.');
+        return;
+      }
+      var second = document.getElementById('up-second').checked;
+      var isFlag = current.key.charAt(0) === 'f';
+      Prepeet.closeDialog('dlg-uphold');
+      Prepeet.toast({ title: (isFlag ? 'Flag closed for ' : 'Decision upheld for ') + name, desc: 'Your rationale has been recorded' + (isFlag ? '.' : ' and sent to the candidate.'), kind: 'success' });
+      closeAppeal('<strong>' + (isFlag ? 'Flag closed as reviewed.' : 'Original decision upheld.') + '</strong> Rationale recorded by Priya Raman, 23 Aug 2026' +
+        (second ? ', countersignature requested from a second reviewer' : '') + '. ' +
+        (isFlag ? 'The evaluation stands as generated.' : 'Your rationale has been sent to ' + name + ' and kept for 18 months.'));
+      HISTORY.unshift({ name: name, role: current.role, raised: 'Open', closed: '23 Aug 2026', by: 'Priya Raman',
+        what: (isFlag ? 'Flag closed as reviewed. ' : 'Upheld. ') + rat.value.trim(), changed: false, delta: current.outcome + ' — unchanged' });
+      renderHistory();
+      Prepeet.announce('Decision upheld for ' + name + ' with a written rationale.');
+      return;
+    }
+
+    if (act === 'escalate') {
+      var note = document.getElementById('esc-note');
+      if (!requireText(note, 'err-esc-note')) { Prepeet.announce('Say what you want the administrator to look at.'); return; }
+      var to = document.getElementById('esc-to');
+      Prepeet.closeDialog('dlg-escalate');
+      Prepeet.toast({ title: 'Escalated for ' + name, desc: 'Sent to ' + to.options[to.selectedIndex].text + '. The appeal stays open.', kind: 'warning' });
+      closeAppeal('<strong>Escalated.</strong> Sent to ' + to.options[to.selectedIndex].text + ' on 23 Aug 2026. This appeal stays open and its response clock keeps running.');
+      Prepeet.announce('Appeal escalated for ' + name);
+    }
+  }
+
+  /* ─────────────────────────── states ─────────────────────────── */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    if (['default', 'loading', 'empty'].indexOf(cur) === -1) cur = 'default';
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(cur);
+  }
+
+  /* ─────────────────────────── wiring ─────────────────────────── */
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('[data-act]');
+    if (a) { openAction(a.getAttribute('data-act'), a.getAttribute('data-appeal')); return; }
+    var c = e.target.closest('[data-confirm]');
+    if (c) { confirmAction(c.getAttribute('data-confirm')); }
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    renderHistory();
+    initStates();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

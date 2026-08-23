@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Members &amp; roles · Prepeet</title>
+<meta name="description" content="Who can see and act on candidate evaluations at Northwind Health System, what each role can do, and how Okta provisioning affects it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+.matrix th.rowhead { text-align: left; text-transform: none; letter-spacing: 0; font-size: var(--text-sm); font-weight: 600; color: var(--fg); background: var(--surface); white-space: normal; min-width: 260px; }
+.matrix td { text-align: center; white-space: nowrap; }
+.matrix th[scope="col"] { text-align: center; }
+.scope-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.member-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.menu-fixed { position: fixed; right: auto; }
+.table .td-actions { position: relative; }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="members" data-search="off"
+      data-title="Members &amp; roles" data-crumbs="Tenant configuration">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Tenant configuration · Northwind Health System</p>
+        <h1>Members &amp; roles</h1>
+        <p class="page-desc">Nine people can sign in to this workspace. Access is the main control you have over who sees a candidate's transcript, so keep the scopes tight and review them when a hire closes.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono">/admin/members</span>
+          <span class="badge badge-neutral" id="seat-chip">41 of 48 seats used</span>
+          <span class="badge badge-success"><i data-lucide="shield-check" class="ic-sm ic"></i>Okta SCIM on</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-tenant-settings.html"><i data-lucide="building-2" class="ic ic-sm"></i>Tenant settings</a>
+        <button class="btn btn-primary" type="button" data-admin-control data-dialog-open="dlg-invite"><i data-lucide="user-plus" class="ic ic-sm"></i>Invite a member</button>
+      </div>
+    </div>
+
+    <div class="banner banner-warning" id="readonly-banner" hidden role="status" style="margin-bottom:var(--sp-5)">
+      <i data-lucide="eye" class="ic"></i>
+      <div>
+        <strong>You can view this configuration but not change it.</strong>
+        Inviting people, changing roles and deactivating members needs the Tenant admin role. You are signed in as a Recruiter.
+      </div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-secondary" href="error-403.html">What this role can do</a>
+      </div>
+    </div>
+
+    <div class="grid grid-main-aside">
+      <div class="stack-lg">
+
+        <!-- ══ Members table ══ -->
+        <section class="card" aria-labelledby="members-h">
+          <div class="card-header">
+            <div>
+              <h2 id="members-h">Active members</h2>
+              <p class="hint" style="margin-top:3px">A member only sees candidates for the roles they are scoped to. “All roles” means every open role in this tenant, now and in future.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="filterbar" style="margin-bottom:var(--sp-4)">
+              <div class="input-wrap">
+                <i data-lucide="search" class="ic ic-sm"></i>
+                <label class="sr-only" for="member-search">Search members by name or email</label>
+                <input class="input" id="member-search" type="search" placeholder="Search name or email…">
+              </div>
+              <div>
+                <label class="sr-only" for="role-filter">Filter by role</label>
+                <select class="select" id="role-filter">
+                  <option value="all">All roles</option>
+                  <option value="Tenant admin">Tenant admin</option>
+                  <option value="Hiring manager">Hiring manager</option>
+                  <option value="Recruiter">Recruiter</option>
+                  <option value="Read-only">Read-only</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="table table-responsive">
+                <caption class="sr-only">Active members with role, scoped roles, last activity, single sign-on status and multi-factor status</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Member</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Can review</th>
+                    <th scope="col">Last active</th>
+                    <th scope="col">SSO</th>
+                    <th scope="col">MFA</th>
+                    <th scope="col"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody id="member-rows"></tbody>
+              </table>
+            </div>
+            <p class="hint" id="member-summary" role="status" style="margin-top:10px"></p>
+            <div id="member-empty" hidden>
+              <div class="state state-compact">
+                <div class="state-icon"><i data-lucide="user-search" class="ic"></i></div>
+                <h3>No members match</h3>
+                <p>Try part of a surname, or clear the role filter.</p>
+                <div class="actions"><button class="btn btn-sm btn-secondary" type="button" id="clear-member-filters">Clear filters</button></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ Pending invitations ══ -->
+        <section class="card" aria-labelledby="pending-h">
+          <div class="card-header">
+            <div>
+              <h2 id="pending-h">Pending invitations</h2>
+              <p class="hint" style="margin-top:3px">Invitations expire after 14 days. An expired invitation cannot be used to sign in.</p>
+            </div>
+            <span class="badge badge-warning" id="pending-count">2</span>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="table table-responsive table-dense">
+                <caption class="sr-only">Pending member invitations with role, who sent them and when they expire</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Email</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Scoped to</th>
+                    <th scope="col">Invited by</th>
+                    <th scope="col">Expires</th>
+                    <th scope="col"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody id="pending-rows"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ Role matrix ══ -->
+        <section class="card" aria-labelledby="matrix-h">
+          <div class="card-header">
+            <div>
+              <h2 id="matrix-h">What each role can do</h2>
+              <p class="hint" style="margin-top:3px">This is the whole permission model. There are no hidden capabilities behind any of these roles.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="hint" style="margin-bottom:10px">This table scrolls sideways on a narrow screen rather than stacking, because the point of it is comparing four roles side by side.</p>
+            <div class="scroll-x">
+              <table class="table table-dense matrix" style="min-width:660px">
+                <caption class="sr-only">Permission matrix: what Recruiter, Hiring manager, Tenant admin and Read-only can each do</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="rowhead">Capability</th>
+                    <th scope="col">Recruiter</th>
+                    <th scope="col">Hiring manager</th>
+                    <th scope="col">Tenant admin</th>
+                    <th scope="col">Read-only</th>
+                  </tr>
+                </thead>
+                <tbody id="matrix-rows"></tbody>
+              </table>
+            </div>
+            <div class="cluster" style="margin-top:12px">
+              <span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Yes</span>
+              <span class="badge badge-warning"><i data-lucide="target" class="ic-sm ic"></i>Scoped roles only</span>
+              <span class="badge badge-neutral"><i data-lucide="x" class="ic-sm ic"></i>No</span>
+            </div>
+            <p class="chart-summary">Text summary: Recruiters and hiring managers work only within the roles they are scoped to. Only tenant admins can change rubrics, members, integrations or retention. Read-only members can read evaluations but cannot record a decision, export data or send an invitation. No tenant role can see another tenant's data, and no tenant role can see platform operations.</p>
+            <div class="banner banner-info" style="margin-top:14px">
+              <i data-lucide="info" class="ic"></i>
+              <div>Everyone who opens a candidate's transcript is recorded in the audit log, whatever their role. Access is logged, not just granted.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ Deactivated members ══ -->
+        <section aria-labelledby="deact-h">
+          <h2 id="deact-h" class="section-title">Deactivated members <span class="count">3</span></h2>
+          <div class="accordion" data-accordion-single>
+            <div class="accordion-item">
+              <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="deact-panel">
+                <span class="row"><i data-lucide="user-x" class="ic ic-sm"></i><span>3 people can no longer sign in</span></span>
+                <i data-lucide="chevron-down" class="ic"></i></button></h3>
+              <div class="accordion-panel" id="deact-panel" hidden>
+                <p class="hint" style="margin-bottom:12px">Deactivated members keep their history — the decisions they recorded stay attributed to them, which is why they are not deleted. Removing the record entirely is a data-deletion request, handled from <a href="admin-tenant-settings.html#data">Data &amp; retention</a>.</p>
+                <div class="table-wrap">
+                  <table class="table table-responsive table-dense">
+                    <caption class="sr-only">Deactivated members, when and why they lost access</caption>
+                    <thead>
+                      <tr><th scope="col">Member</th><th scope="col">Last role</th><th scope="col">Deactivated</th><th scope="col">Reason</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td data-label="Member" class="td-primary">Fiona Sharpe<span class="td-sub">fiona.sharpe@northwindhealth.example</span></td>
+                        <td data-label="Last role">Recruiter</td>
+                        <td data-label="Deactivated">2 August 2026</td>
+                        <td data-label="Reason">Removed from the Talent group in Okta</td>
+                        <td class="td-actions" data-label="Actions"><button class="btn btn-sm btn-ghost" type="button" data-admin-control data-toast="Reactivation must happen in Okta" data-toast-desc="SCIM owns this member. Add them back to the Prepeet-Talent group and they will reappear within 15 minutes." data-toast-kind="info">Reactivate</button></td>
+                      </tr>
+                      <tr>
+                        <td data-label="Member" class="td-primary">Callum Reid<span class="td-sub">callum.reid@northwindhealth.example</span></td>
+                        <td data-label="Last role">Hiring manager</td>
+                        <td data-label="Deactivated">19 June 2026</td>
+                        <td data-label="Reason">Left the organisation</td>
+                        <td class="td-actions" data-label="Actions"><button class="btn btn-sm btn-ghost" type="button" data-admin-control data-toast="Reactivation must happen in Okta" data-toast-desc="SCIM owns this member. Add them back to the Prepeet-Talent group and they will reappear within 15 minutes." data-toast-kind="info">Reactivate</button></td>
+                      </tr>
+                      <tr>
+                        <td data-label="Member" class="td-primary">Meera Sundaram<span class="td-sub">meera.sundaram@northwindhealth.example</span></td>
+                        <td data-label="Last role">Recruiter</td>
+                        <td data-label="Deactivated">11 April 2026</td>
+                        <td data-label="Reason">Fixed-term cover ended</td>
+                        <td class="td-actions" data-label="Actions"><button class="btn btn-sm btn-ghost" type="button" data-admin-control data-toast="Reactivation must happen in Okta" data-toast-desc="SCIM owns this member. Add them back to the Prepeet-Talent group and they will reappear within 15 minutes." data-toast-kind="info">Reactivate</button></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ══ Aside ══ -->
+      <aside class="stack sticky-aside" aria-label="Access at a glance">
+        <div class="card card-accent">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Single sign-on</h2><span class="badge badge-success">Connected</span></div>
+          <div class="card-body stack-sm">
+            <dl class="kv kv-row">
+              <dt>Provider</dt><dd>Okta · northwindhealth.okta.com</dd>
+              <dt>Protocol</dt><dd>SAML 2.0 with SCIM 2.0 provisioning</dd>
+              <dt>Provisioning</dt><dd>On — users and deactivations sync automatically</dd>
+              <dt>Last sync</dt><dd>23 August 2026, 08:41 · 9 users, 0 errors</dd>
+            </dl>
+            <div class="banner banner-info">
+              <i data-lucide="info" class="ic"></i>
+              <div><strong>What SCIM means for role changes.</strong> Okta owns who exists and who is deactivated. Prepeet owns what they can do here. Changing someone's role in Prepeet works and sticks — but if you remove them from the <span class="mono">Prepeet-Talent</span> group in Okta they lose access within 15 minutes regardless.</div>
+            </div>
+            <a class="btn btn-sm btn-secondary btn-block" href="admin-integrations.html">Manage the Okta connection</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Access hygiene</h2></div>
+          <div class="card-body stack-sm">
+            <div>
+              <div class="between" style="margin-bottom:6px"><span style="font-size:var(--text-sm);font-weight:600">Multi-factor enabled</span><span class="hint tnum">7 of 9</span></div>
+              <div class="progress warning"><span style="width:78%"></span></div>
+              <p class="hint" style="margin-top:6px">Kwame Boateng and David Osei-Tutu have not enrolled. Both can read candidate transcripts.</p>
+            </div>
+            <hr>
+            <div>
+              <div class="between" style="margin-bottom:6px"><span style="font-size:var(--text-sm);font-weight:600">Scoped to all roles</span><span class="hint tnum">2 of 9</span></div>
+              <div class="progress"><span style="width:22%"></span></div>
+              <p class="hint" style="margin-top:6px">Fewer people with blanket access is the single cheapest privacy improvement available to you.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-subtle">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:8px"><i data-lucide="scroll-text" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Recent access changes</strong></div>
+            <ol class="timeline" style="margin-top:10px">
+              <li class="tl-item done"><div class="tl-title">Anita Kapoor scoped to Software Engineer — Integrations</div><div class="tl-meta">21 August 2026 · Priya Raman</div></li>
+              <li class="tl-item done"><div class="tl-title">Tobias Lindgren changed to Read-only</div><div class="tl-meta">14 August 2026 · Priya Raman</div></li>
+              <li class="tl-item warning"><div class="tl-title">Fiona Sharpe deactivated by SCIM</div><div class="tl-meta">2 August 2026 · Okta</div></li>
+            </ol>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+</main>
+
+<!-- ══ Invite dialog ══ -->
+<dialog class="dialog" id="dlg-invite" aria-labelledby="dlg-invite-h">
+  <div class="dialog-panel wide">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dlg-invite-h">Invite a member</h2>
+        <p class="hint">They will receive an email with a link that expires in 14 days.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close invite dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form class="dialog-body stack" id="invite-form">
+      <div class="field">
+        <label class="label" for="inv-email">Work email</label>
+        <input class="input" id="inv-email" type="email" required placeholder="name@northwindhealth.example" aria-describedby="inv-email-err inv-email-hint">
+        <p class="hint" id="inv-email-hint">Only addresses on <span class="mono">northwindhealth.example</span> can be invited, because that domain is verified for your Okta connection.</p>
+        <p class="error-text" id="inv-email-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i><span id="inv-email-err-text">Enter a valid work email address.</span></p>
+      </div>
+      <div class="field">
+        <label class="label" for="inv-role">Role</label>
+        <select class="select" id="inv-role" aria-describedby="inv-role-desc">
+          <option value="Recruiter">Recruiter</option>
+          <option value="Hiring manager">Hiring manager</option>
+          <option value="Tenant admin">Tenant admin</option>
+          <option value="Read-only">Read-only</option>
+        </select>
+        <p class="hint" id="inv-role-desc"></p>
+      </div>
+      <div class="field">
+        <label class="label" for="inv-scope">Roles they can review <span class="optional">hold Ctrl or Cmd to pick several</span></label>
+        <select class="select" id="inv-scope" multiple size="6" style="min-height:150px" aria-describedby="inv-scope-hint">
+          <option value="all">All roles (now and in future)</option>
+          <option value="Registered Nurse — ICU" selected>Registered Nurse — ICU</option>
+          <option value="Clinical Nurse Educator">Clinical Nurse Educator</option>
+          <option value="Financial Analyst — FP&amp;A">Financial Analyst — FP&amp;A</option>
+          <option value="Product Manager — Patient Apps">Product Manager — Patient Apps</option>
+          <option value="Software Engineer — Integrations">Software Engineer — Integrations</option>
+          <option value="Enterprise Account Executive">Enterprise Account Executive</option>
+        </select>
+        <p class="hint" id="inv-scope-hint">Scope decides which candidates' transcripts and evaluations this person can open. Tenant admins always see everything.</p>
+      </div>
+      <div class="field">
+        <label class="label" for="inv-message">Message <span class="optional">optional</span></label>
+        <textarea class="textarea" id="inv-message" rows="3" placeholder="e.g. Helen, you will be reviewing the ICU night rotation shortlist with me from Monday."></textarea>
+      </div>
+    </form>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="invite-send">Send invitation</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Change role dialog ══ -->
+<dialog class="dialog" id="dlg-role" aria-labelledby="dlg-role-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-role-h">Change role</h2><p class="hint" id="dlg-role-sub">Jonas Brandt</p></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close change role dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="field">
+        <label class="label" for="chg-role">New role</label>
+        <select class="select" id="chg-role">
+          <option value="Recruiter">Recruiter</option>
+          <option value="Hiring manager">Hiring manager</option>
+          <option value="Tenant admin">Tenant admin</option>
+          <option value="Read-only">Read-only</option>
+        </select>
+        <p class="hint" id="chg-role-desc"></p>
+      </div>
+      <div class="banner banner-warning" id="chg-warn" hidden>
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div id="chg-warn-text"></div>
+      </div>
+      <div class="banner banner-danger" id="chg-last-admin" hidden>
+        <i data-lucide="shield-alert" class="ic"></i>
+        <div><strong>This is the only tenant admin.</strong> Promote somebody else first, or nobody will be able to change rubrics, members or retention for this workspace.</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="chg-confirm">Change role</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Scope dialog ══ -->
+<dialog class="dialog" id="dlg-scope" aria-labelledby="dlg-scope-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-scope-h">Scope to specific roles</h2><p class="hint" id="dlg-scope-sub">Jonas Brandt</p></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close scope dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>Choose which open roles this person can review. Anything not ticked is invisible to them — they cannot search it, open a transcript from it, or receive a notification about it.</p>
+      <fieldset style="border:0;padding:0;margin:0">
+        <legend class="sr-only">Roles this member can review</legend>
+        <div class="stack-sm" id="scope-checks"></div>
+      </fieldset>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="scope-confirm">Save scope</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Deactivate dialog ══ -->
+<dialog class="dialog" id="dlg-deactivate" aria-labelledby="dlg-deact-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-deact-h">Deactivate this member?</h2></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close deactivate dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p><strong id="deact-name">Kwame Boateng</strong> will be signed out immediately and will not be able to sign in again.</p>
+      <ul class="stack-sm" style="font-size:var(--text-sm)">
+        <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>Decisions they recorded stay attributed to them, so the audit trail remains complete.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>Their seat is released, taking you to 40 of 48 used.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="alert-triangle" class="ic ic-sm" style="color:var(--warning);margin-top:3px"></i><span id="deact-warn">They are the only reviewer scoped to Registered Nurse — ICU besides Helen Achebe. Two candidates are waiting on that shortlist.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="info" class="ic ic-sm" style="color:var(--info);margin-top:3px"></i><span>Because Okta SCIM is on, this person will be recreated at the next sync unless you also remove them from the <span class="mono">Prepeet-Talent</span> group.</span></li>
+      </ul>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-danger" type="button" id="deact-confirm">Deactivate member</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var ALL_ROLES = ['Registered Nurse — ICU', 'Clinical Nurse Educator', 'Financial Analyst — FP&A',
+    'Product Manager — Patient Apps', 'Software Engineer — Integrations', 'Enterprise Account Executive'];
+
+  var ROLE_DESC = {
+    'Recruiter': 'Reviews candidates and records decisions for the roles they are scoped to. Can send interview invitations. Cannot change rubrics, members or retention.',
+    'Hiring manager': 'Everything a recruiter can do for their scoped roles, plus raising a re-review and exporting a candidate pack for a panel. Cannot change tenant configuration.',
+    'Tenant admin': 'Full access to every candidate in the workspace and to all configuration: rubrics, members, integrations, retention and billing. Grant this sparingly.',
+    'Read-only': 'Can read evaluations and transcripts for scoped roles. Cannot record a decision, send an invitation, export data or change anything.'
+  };
+  var RANK = { 'Read-only': 1, 'Recruiter': 2, 'Hiring manager': 3, 'Tenant admin': 4 };
+
+  var MEMBERS = [
+    { id: 'usr_priya', name: 'Priya Raman', initials: 'PR', email: 'priya.raman@northwindhealth.example', title: 'Talent acquisition lead', role: 'Tenant admin', scope: ['all'], active: '2 minutes ago', sso: true, mfa: true, self: true },
+    { id: 'usr_jonas', name: 'Jonas Brandt', initials: 'JB', email: 'jonas.brandt@northwindhealth.example', title: 'Senior recruiter, corporate', role: 'Recruiter', scope: ['Financial Analyst — FP&A', 'Enterprise Account Executive', 'Software Engineer — Integrations'], active: '14 minutes ago', sso: true, mfa: true },
+    { id: 'usr_helen', name: 'Dr Helen Achebe', initials: 'HA', email: 'helen.achebe@northwindhealth.example', title: 'Head of nursing workforce', role: 'Hiring manager', scope: ['Registered Nurse — ICU', 'Clinical Nurse Educator'], active: '1 hour ago', sso: true, mfa: true },
+    { id: 'usr_kwame', name: 'Kwame Boateng', initials: 'KB', email: 'kwame.boateng@northwindhealth.example', title: 'Recruiter, clinical', role: 'Recruiter', scope: ['Registered Nurse — ICU', 'Clinical Nurse Educator'], active: 'Yesterday, 17:20', sso: true, mfa: false },
+    { id: 'usr_sinead', name: 'Sinéad O’Connell', initials: 'SO', email: 'sinead.oconnell@northwindhealth.example', title: 'Director of digital products', role: 'Hiring manager', scope: ['Product Manager — Patient Apps'], active: '2 days ago', sso: true, mfa: true },
+    { id: 'usr_rachel', name: 'Rachel Duarte', initials: 'RD', email: 'rachel.duarte@northwindhealth.example', title: 'Commercial recruiter', role: 'Recruiter', scope: ['Enterprise Account Executive'], active: '3 days ago', sso: true, mfa: true },
+    { id: 'usr_tobias', name: 'Tobias Lindgren', initials: 'TL', email: 'tobias.lindgren@northwindhealth.example', title: 'Data protection officer', role: 'Read-only', scope: ['all'], active: '6 days ago', sso: true, mfa: true },
+    { id: 'usr_anita', name: 'Anita Kapoor', initials: 'AK', email: 'anita.kapoor@northwindhealth.example', title: 'Engineering manager, integrations', role: 'Hiring manager', scope: ['Software Engineer — Integrations'], active: '12 days ago', sso: false, mfa: true },
+    { id: 'usr_david', name: 'David Osei-Tutu', initials: 'DO', email: 'david.osei-tutu@northwindhealth.example', title: 'Finance business partner', role: 'Recruiter', scope: ['Financial Analyst — FP&A'], active: '21 days ago', sso: true, mfa: false }
+  ];
+
+  var PENDING = [
+    { email: 'ruth.namara@northwindhealth.example', role: 'Recruiter', scope: ['Registered Nurse — ICU'], by: 'Priya Raman', expires: '30 August 2026', sent: '16 August 2026' },
+    { email: 'george.pemberton@northwindhealth.example', role: 'Hiring manager', scope: ['Financial Analyst — FP&A'], by: 'Jonas Brandt', expires: '2 September 2026', sent: '19 August 2026' }
+  ];
+
+  var MATRIX = [
+    { cap: 'Open a candidate evaluation', r: 'scoped', h: 'scoped', a: 'yes', o: 'scoped' },
+    { cap: 'Read the full transcript and evidence spans', r: 'scoped', h: 'scoped', a: 'yes', o: 'scoped' },
+    { cap: 'Record a reviewer decision (advance, hold, decline)', r: 'scoped', h: 'scoped', a: 'yes', o: 'no' },
+    { cap: 'Send and revoke interview invitations', r: 'scoped', h: 'scoped', a: 'yes', o: 'no' },
+    { cap: 'Raise a re-review on an evaluation', r: 'scoped', h: 'scoped', a: 'yes', o: 'no' },
+    { cap: 'Resolve a re-review', r: 'no', h: 'scoped', a: 'yes', o: 'no' },
+    { cap: 'Export a candidate pack (PDF or CSV)', r: 'no', h: 'scoped', a: 'yes', o: 'no' },
+    { cap: 'Edit rubrics, anchors and calibration', r: 'no', h: 'no', a: 'yes', o: 'no' },
+    { cap: 'Invite members and change their roles', r: 'no', h: 'no', a: 'yes', o: 'no' },
+    { cap: 'Manage integrations, webhooks and API keys', r: 'no', h: 'no', a: 'yes', o: 'no' },
+    { cap: 'Change retention, residency and legal hold', r: 'no', h: 'no', a: 'yes', o: 'no' },
+    { cap: 'View billing, seats and invoices', r: 'no', h: 'no', a: 'yes', o: 'no' },
+    { cap: 'See any other tenant, or platform operations', r: 'no', h: 'no', a: 'no', o: 'no' }
+  ];
+
+  var readOnly = false;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function scopeText(scope) {
+    if (scope.indexOf('all') > -1) return 'All roles';
+    return scope.join(', ');
+  }
+  function scopeChips(scope) {
+    if (scope.indexOf('all') > -1) return '<span class="badge badge-primary">All roles</span>';
+    return scope.map(function (s) { return '<span class="badge badge-outline">' + esc(s) + '</span>'; }).join('');
+  }
+  function mark(v) {
+    if (v === 'yes') return '<span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Yes</span>';
+    if (v === 'scoped') return '<span class="badge badge-warning"><i data-lucide="target" class="ic-sm ic"></i>Scoped</span>';
+    return '<span class="badge badge-neutral"><i data-lucide="x" class="ic-sm ic"></i>No</span>';
+  }
+
+  function renderMembers() {
+    var q = document.getElementById('member-search').value.trim().toLowerCase();
+    var rf = document.getElementById('role-filter').value;
+    var rows = MEMBERS.filter(function (m) {
+      if (rf !== 'all' && m.role !== rf) return false;
+      if (!q) return true;
+      return (m.name + ' ' + m.email + ' ' + m.title).toLowerCase().indexOf(q) > -1;
+    });
+    document.getElementById('member-rows').innerHTML = rows.map(function (m) {
+      return '<tr>' +
+        '<td data-label="Member" class="td-primary"><span class="member-cell"><span class="avatar avatar-sm">' + esc(m.initials) + '</span>' +
+          '<span style="min-width:0"><span style="display:block;font-weight:600">' + esc(m.name) + (m.self ? ' <span class="badge badge-primary">You</span>' : '') + '</span>' +
+          '<span class="td-sub">' + esc(m.email) + ' · ' + esc(m.title) + '</span></span></span></td>' +
+        '<td data-label="Role"><span class="badge ' + (m.role === 'Tenant admin' ? 'badge-primary' : m.role === 'Read-only' ? 'badge-neutral' : 'badge-outline') + '">' + esc(m.role) + '</span></td>' +
+        '<td data-label="Can review"><span class="scope-list">' + scopeChips(m.scope) + '</span></td>' +
+        '<td data-label="Last active">' + esc(m.active) + '</td>' +
+        '<td data-label="SSO">' + (m.sso
+          ? '<span class="badge badge-success"><i data-lucide="shield-check" class="ic-sm ic"></i>Okta</span>'
+          : '<span class="badge badge-warning"><i data-lucide="key-round" class="ic-sm ic"></i>Password</span>') + '</td>' +
+        '<td data-label="MFA">' + (m.mfa
+          ? '<span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>On</span>'
+          : '<span class="badge badge-danger"><i data-lucide="alert-triangle" class="ic-sm ic"></i>Not enrolled</span>') + '</td>' +
+        '<td class="td-actions" data-label="Actions">' +
+          '<button class="icon-btn icon-btn-sm" type="button" data-menu="m-' + m.id + '" aria-haspopup="true" aria-expanded="false" aria-label="Actions for ' + esc(m.name) + '"><i data-lucide="more-horizontal" class="ic ic-sm"></i></button>' +
+          '<div class="menu" id="m-' + m.id + '" hidden role="menu" style="right:24px">' +
+            '<button class="menu-item" role="menuitem" type="button" data-admin-control data-change-role="' + m.id + '"><i data-lucide="user-cog" class="ic ic-sm"></i>Change role</button>' +
+            '<button class="menu-item" role="menuitem" type="button" data-admin-control data-scope="' + m.id + '"><i data-lucide="target" class="ic ic-sm"></i>Scope to roles</button>' +
+            (m.mfa ? '' : '<button class="menu-item" role="menuitem" type="button" data-admin-control data-toast="MFA reminder sent" data-toast-desc="' + esc(m.name) + ' has been asked to enrol a second factor." data-toast-kind="success"><i data-lucide="smartphone" class="ic ic-sm"></i>Ask them to enrol MFA</button>') +
+            '<div class="menu-sep"></div>' +
+            (m.self
+              ? '<span class="menu-item" style="color:var(--fg-3)"><i data-lucide="info" class="ic ic-sm"></i>You cannot deactivate yourself</span>'
+              : '<button class="menu-item danger" role="menuitem" type="button" data-admin-control data-deactivate="' + m.id + '"><i data-lucide="user-x" class="ic ic-sm"></i>Deactivate</button>') +
+          '</div>' +
+        '</td></tr>';
+    }).join('');
+    document.getElementById('member-empty').hidden = rows.length > 0;
+    document.getElementById('member-summary').textContent = 'Showing ' + rows.length + ' of ' + MEMBERS.length + ' active members.';
+    applyReadOnly();
+    Prepeet.init(document.getElementById('member-rows'));
+  }
+
+  function renderPending() {
+    document.getElementById('pending-count').textContent = String(PENDING.length);
+    document.getElementById('pending-rows').innerHTML = PENDING.length ? PENDING.map(function (p, i) {
+      return '<tr>' +
+        '<td data-label="Email" class="td-primary">' + esc(p.email) + '<span class="td-sub">Sent ' + esc(p.sent) + '</span></td>' +
+        '<td data-label="Role"><span class="badge badge-outline">' + esc(p.role) + '</span></td>' +
+        '<td data-label="Scoped to">' + esc(scopeText(p.scope)) + '</td>' +
+        '<td data-label="Invited by">' + esc(p.by) + '</td>' +
+        '<td data-label="Expires">' + esc(p.expires) + '</td>' +
+        '<td class="td-actions" data-label="Actions">' +
+          '<button class="btn btn-sm btn-ghost" type="button" data-admin-control data-toast="Invitation resent" data-toast-desc="A fresh link was emailed to ' + esc(p.email) + '. The previous link no longer works." data-toast-kind="success">Resend</button>' +
+          '<button class="btn btn-sm btn-ghost" type="button" data-admin-control data-revoke="' + i + '">Revoke</button>' +
+        '</td></tr>';
+    }).join('') : '<tr><td colspan="6"><p class="hint" style="padding:8px 0">No invitations are outstanding.</p></td></tr>';
+    applyReadOnly();
+    Prepeet.init(document.getElementById('pending-rows'));
+  }
+
+  function renderMatrix() {
+    document.getElementById('matrix-rows').innerHTML = MATRIX.map(function (m) {
+      return '<tr><th scope="row" class="rowhead">' + esc(m.cap) + '</th>' +
+        '<td>' + mark(m.r) + '</td><td>' + mark(m.h) + '</td><td>' + mark(m.a) + '</td><td>' + mark(m.o) + '</td></tr>';
+    }).join('');
+    Prepeet.init(document.getElementById('matrix-rows'));
+  }
+
+  function applyReadOnly() {
+    readOnly = !Prepeet.can('tenant_admin');
+    document.getElementById('readonly-banner').hidden = !readOnly;
+    if (!readOnly) return;
+    document.querySelectorAll('[data-admin-control]').forEach(function (el) {
+      if ('disabled' in el && el.tagName !== 'A') el.disabled = true;
+      el.setAttribute('aria-disabled', 'true');
+    });
+  }
+
+  /* ------------------------------------------------------------------ wiring */
+  document.addEventListener('DOMContentLoaded', function () {
+    renderMembers(); renderPending(); renderMatrix();
+
+    function describeRole(selId, descId) {
+      var sel = document.getElementById(selId);
+      document.getElementById(descId).textContent = ROLE_DESC[sel.value];
+    }
+    document.getElementById('inv-role').addEventListener('change', function () { describeRole('inv-role', 'inv-role-desc'); });
+    describeRole('inv-role', 'inv-role-desc');
+
+    ['member-search', 'role-filter'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', renderMembers);
+      document.getElementById(id).addEventListener('change', renderMembers);
+    });
+    document.getElementById('clear-member-filters').addEventListener('click', function () {
+      document.getElementById('member-search').value = '';
+      document.getElementById('role-filter').value = 'all';
+      renderMembers();
+    });
+
+    var target = null;
+
+    document.getElementById('chg-role').addEventListener('change', function () {
+      document.getElementById('chg-role-desc').textContent = ROLE_DESC[this.value];
+      var m = MEMBERS.filter(function (x) { return x.id === target; })[0];
+      if (!m) return;
+      var warn = document.getElementById('chg-warn');
+      var reducing = RANK[this.value] < RANK[m.role];
+      warn.hidden = !reducing;
+      if (reducing) {
+        document.getElementById('chg-warn-text').innerHTML =
+          '<strong>This reduces access.</strong> ' + esc(m.name) + ' goes from <strong>' + esc(m.role) + '</strong> to <strong>' + esc(this.value) + '</strong>' +
+          (this.value === 'Read-only' ? ' and will no longer be able to record decisions or send invitations.' : '.') +
+          ' Any work in progress stays where it is, but they may lose sight of it.';
+      }
+      var admins = MEMBERS.filter(function (x) { return x.role === 'Tenant admin'; }).length;
+      document.getElementById('chg-last-admin').hidden = !(m.role === 'Tenant admin' && this.value !== 'Tenant admin' && admins <= 1);
+      document.getElementById('chg-confirm').disabled = !document.getElementById('chg-last-admin').hidden;
+      Prepeet.init(warn);
+    });
+
+    document.addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-change-role]'))) {
+        if (readOnly) return;
+        target = t.getAttribute('data-change-role');
+        var m = MEMBERS.filter(function (x) { return x.id === target; })[0];
+        document.getElementById('dlg-role-sub').textContent = m.name + ' · currently ' + m.role;
+        document.getElementById('chg-role').value = m.role;
+        document.getElementById('chg-role-desc').textContent = ROLE_DESC[m.role];
+        document.getElementById('chg-warn').hidden = true;
+        document.getElementById('chg-last-admin').hidden = true;
+        document.getElementById('chg-confirm').disabled = false;
+        Prepeet.openDialog('dlg-role');
+        return;
+      }
+      if ((t = e.target.closest('[data-scope]'))) {
+        if (readOnly) return;
+        target = t.getAttribute('data-scope');
+        var m2 = MEMBERS.filter(function (x) { return x.id === target; })[0];
+        document.getElementById('dlg-scope-sub').textContent = m2.name + ' · ' + m2.role;
+        document.getElementById('scope-checks').innerHTML =
+          '<label class="check"><input type="checkbox" value="all"' + (m2.scope.indexOf('all') > -1 ? ' checked' : '') + '><span><strong>All roles</strong><span class="hint">Includes every role opened in future. Use only for people who genuinely need workspace-wide sight.</span></span></label>' +
+          ALL_ROLES.map(function (r) {
+            return '<label class="check"><input type="checkbox" value="' + esc(r) + '"' + (m2.scope.indexOf(r) > -1 ? ' checked' : '') + '><span>' + esc(r) + '</span></label>';
+          }).join('');
+        Prepeet.openDialog('dlg-scope');
+        return;
+      }
+      if ((t = e.target.closest('[data-deactivate]'))) {
+        if (readOnly) return;
+        target = t.getAttribute('data-deactivate');
+        var m3 = MEMBERS.filter(function (x) { return x.id === target; })[0];
+        document.getElementById('deact-name').textContent = m3.name;
+        var others = MEMBERS.filter(function (x) {
+          return x.id !== m3.id && (x.scope.indexOf('all') > -1 || m3.scope.some(function (s) { return x.scope.indexOf(s) > -1; }));
+        }).length;
+        document.getElementById('deact-warn').textContent =
+          others > 1
+            ? others + ' other members cover the same roles, so no shortlist is left without a reviewer.'
+            : 'Only one other member covers the same roles. Check the shortlist before you remove this person.';
+        Prepeet.openDialog('dlg-deactivate');
+        return;
+      }
+      if ((t = e.target.closest('[data-revoke]'))) {
+        if (readOnly) return;
+        var idx = Number(t.getAttribute('data-revoke'));
+        var gone = PENDING.splice(idx, 1)[0];
+        renderPending();
+        Prepeet.toast({ title: 'Invitation revoked', desc: 'The link sent to ' + gone.email + ' no longer works.', kind: 'default' });
+      }
+    });
+
+    document.getElementById('chg-confirm').addEventListener('click', function () {
+      var m = MEMBERS.filter(function (x) { return x.id === target; })[0];
+      var next = document.getElementById('chg-role').value;
+      var was = m.role;
+      m.role = next;
+      renderMembers();
+      Prepeet.closeDialog('dlg-role');
+      Prepeet.toast({ title: 'Role changed', desc: m.name + ' is now ' + next + ' (was ' + was + '). They will see the change on their next page load.', kind: 'success' });
+      Prepeet.announce(m.name + ' is now ' + next + '.');
+    });
+
+    document.getElementById('scope-confirm').addEventListener('click', function () {
+      var m = MEMBERS.filter(function (x) { return x.id === target; })[0];
+      var picked = Array.prototype.slice.call(document.querySelectorAll('#scope-checks input:checked')).map(function (i) { return i.value; });
+      m.scope = picked.length ? (picked.indexOf('all') > -1 ? ['all'] : picked) : ['Registered Nurse — ICU'];
+      renderMembers();
+      Prepeet.closeDialog('dlg-scope');
+      Prepeet.toast({ title: 'Scope saved', desc: m.name + ' can now review: ' + scopeText(m.scope) + '.', kind: 'success' });
+    });
+
+    document.getElementById('deact-confirm').addEventListener('click', function () {
+      var i = MEMBERS.map(function (x) { return x.id; }).indexOf(target);
+      var m = MEMBERS[i];
+      if (i > -1) MEMBERS.splice(i, 1);
+      renderMembers();
+      document.getElementById('seat-chip').textContent = (40) + ' of 48 seats used';
+      Prepeet.closeDialog('dlg-deactivate');
+      Prepeet.toast({ title: 'Member deactivated', desc: m.name + ' has been signed out. Their recorded decisions are unchanged.', kind: 'warning' });
+      Prepeet.announce(m.name + ' deactivated.');
+    });
+
+    document.getElementById('invite-send').addEventListener('click', function () {
+      var email = document.getElementById('inv-email');
+      var val = email.value.trim();
+      var err = document.getElementById('inv-email-err');
+      var errText = document.getElementById('inv-email-err-text');
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)) {
+        errText.textContent = 'Enter a valid work email address.';
+        err.hidden = false; email.setAttribute('aria-invalid', 'true'); email.focus(); return;
+      }
+      if (val.split('@')[1].toLowerCase() !== 'northwindhealth.example') {
+        errText.textContent = 'Only addresses on northwindhealth.example can be invited. Adding another domain is a tenant settings change.';
+        err.hidden = false; email.setAttribute('aria-invalid', 'true'); email.focus(); return;
+      }
+      err.hidden = true; email.setAttribute('aria-invalid', 'false');
+      var scope = Array.prototype.slice.call(document.getElementById('inv-scope').selectedOptions).map(function (o) { return o.value; });
+      PENDING.push({
+        email: val,
+        role: document.getElementById('inv-role').value,
+        scope: scope.length ? scope : ['Registered Nurse — ICU'],
+        by: Prepeet.data.adminUser.name,
+        expires: '6 September 2026',
+        sent: '23 August 2026'
+      });
+      renderPending();
+      document.getElementById('inv-email').value = '';
+      document.getElementById('inv-message').value = '';
+      Prepeet.closeDialog('dlg-invite');
+      Prepeet.toast({ title: 'Invitation sent', desc: val + ' has 14 days to accept. They appear under Pending invitations until then.', kind: 'success' });
+      Prepeet.announce('Invitation sent to ' + val + '.');
+    });
+  });
+
+  /* Row action menus live inside .table-wrap, which scrolls horizontally and would
+     clip an absolutely-positioned dropdown. Reposition them as fixed on open.
+     ui.js registers its own click handler first, so the menu is already unhidden here. */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-menu]');
+    if (!b) return;
+    var m = document.getElementById(b.getAttribute('data-menu'));
+    if (!m || m.hidden || !m.closest('.table-wrap')) return;
+    m.classList.add('menu-fixed');
+    var r = b.getBoundingClientRect();
+    var w = m.offsetWidth || 200, h = m.offsetHeight || 160;
+    m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
+    m.style.top = (r.bottom + 6 + h > window.innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
+  });
+})();
+</script>
+</body>
+</html>

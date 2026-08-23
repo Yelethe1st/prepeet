@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="en" data-theme-default="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prepeet · Voice interviews that leave evidence</title>
+<meta name="description" content="Prepeet runs realtime voice interviews in two modes: practice with honest coaching for candidates, and recruiter-controlled screens where every competency score is traceable to something the candidate actually said.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-unique: row-header styling for the practice/screen comparison table */
+  .cmp-table tbody th {
+    background: var(--surface); color: var(--fg); text-transform: none; letter-spacing: 0;
+    font-size: var(--text-sm); font-weight: 650; white-space: normal;
+    border-bottom: 1px solid var(--border-subtle); width: 26%; vertical-align: top;
+  }
+  .cmp-table td { vertical-align: top; color: var(--fg-2); }
+  /* Page-unique: <blockquote> is used as the testimonial card, so drop the UA margin */
+  .mk-quote { margin: 0; }
+  /* Page-unique: footer column labels are h3 (to keep heading levels contiguous)
+     while marketing.css styles .mk-footer h4 — mirror that rule for h3. */
+  .mk-footer h3 { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .1em; color: var(--fg-3); margin-bottom: 12px; font-weight: 600; }
+  .cmp-cell { display: flex; gap: 8px; align-items: flex-start; line-height: 1.45; }
+  .cmp-cell .ic { margin-top: 2px; }
+  .cmp-cell.yes .ic { color: var(--success); }
+  .cmp-cell.no .ic { color: var(--danger); }
+  .cmp-cell.na .ic { color: var(--fg-muted); }
+  @media (max-width: 767px) {
+    .cmp-table tbody th {
+      display: block; width: 100%; padding: 12px 0 6px; border: 0;
+      font-size: var(--text-base);
+    }
+    .cmp-table td { text-align: left; }
+    .cmp-table td::before { align-self: flex-start; padding-top: 2px; }
+  }
+</style>
+</head>
+
+<body class="mk">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<!-- ══════════════════════════════════ HEADER ══════════════════════════════ -->
+<header class="mk-header">
+  <div class="inner">
+    <a class="mk-brand" href="index.html" aria-label="Prepeet home"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+
+    <nav class="mk-nav" aria-label="Primary">
+      <a href="#product">Product</a>
+      <a href="#use-cases">Use cases</a>
+      <a href="#how">How it works</a>
+      <a href="#evidence">Evidence</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+
+    <div class="mk-actions">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="true">
+        <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+      </button>
+      <a class="btn btn-secondary btn-sm" href="login.html">Sign in</a>
+      <a class="btn btn-primary btn-sm" href="register.html">Get started</a>
+      <button class="icon-btn mk-burger" type="button" id="burger"
+              data-toggle-target="mk-mobile" data-toggle-class="is-open"
+              aria-expanded="false" aria-controls="mk-mobile" aria-label="Open navigation menu">
+        <i data-lucide="menu" class="ic"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="mk-mobile" id="mk-mobile">
+    <nav aria-label="Mobile">
+      <a href="#product">Product</a>
+      <a href="#use-cases">Use cases</a>
+      <a href="#how">How it works</a>
+      <a href="#evidence">Evidence</a>
+      <a href="#faq">FAQ</a>
+      <a href="screens.html">Prototype index</a>
+    </nav>
+    <div class="row">
+      <a class="btn btn-secondary btn-block" href="login.html">Sign in</a>
+      <a class="btn btn-primary btn-block" href="register.html">Get started</a>
+    </div>
+  </div>
+</header>
+
+<main id="main-content">
+
+<!-- ══════════════════════════════════ 1 · HERO ════════════════════════════ -->
+<section class="mk-hero" aria-labelledby="hero-h">
+  <div class="inner">
+    <div>
+      <p class="eyebrow">Realtime voice interviews · Practice &amp; screening</p>
+      <h1 id="hero-h" class="display">Interviews that leave <em>evidence</em>, not impressions.</h1>
+      <p class="lead">
+        Prepeet holds a real spoken conversation — it listens, follows up, and pushes back when an answer is thin.
+        Candidates practise with honest coaching. Recruiters get an evaluation where every competency score points
+        back to a sentence the candidate actually said, or says <strong>insufficient evidence</strong> and stops.
+      </p>
+      <div class="cta">
+        <a class="btn btn-primary btn-lg" href="register.html"><i data-lucide="mic" class="ic ic-sm"></i>Start practising</a>
+        <a class="btn btn-secondary btn-lg" href="admin-dashboard.html"><i data-lucide="clipboard-check" class="ic ic-sm"></i>See the recruiter view</a>
+      </div>
+      <p class="fine">
+        <span><i data-lucide="quote" class="ic ic-sm"></i>No score without a linked quote</span>
+        <span><i data-lucide="globe-2" class="ic ic-sm"></i>EU and US data residency</span>
+        <span><i data-lucide="accessibility" class="ic ic-sm"></i>WCAG 2.2 AA, captions and push-to-talk</span>
+      </p>
+    </div>
+
+    <!-- Miniature of the live interview screen -->
+    <div class="mk-frame" role="img"
+         aria-label="Preview of a live Prepeet interview: practice mode, question 4 of 6, 18 minutes 42 seconds elapsed, interviewer persona Ravi speaking, with a live caption of the question being asked.">
+      <div class="bar">
+        <i></i><i></i><i></i>
+        <span class="mono" style="margin-left:6px">/candidate/session/ses_7Kq2XA/live</span>
+      </div>
+      <div class="body" aria-hidden="true">
+
+        <div class="between" style="margin-bottom:18px">
+          <span class="phase" style="display:inline-flex;align-items:center;gap:8px;font-size:var(--text-sm);font-weight:600">
+            <i data-lucide="layers" class="ic ic-sm" style="color:var(--primary)"></i>Phase 2 · Technical depth
+          </span>
+          <span class="timer mono" style="font-size:var(--text-sm);font-weight:600">
+            <i data-lucide="timer" class="ic ic-sm" style="vertical-align:-3px"></i> 18:42
+          </span>
+        </div>
+
+        <div class="cluster" style="justify-content:center;margin-bottom:14px">
+          <span class="badge badge-mode practice">Practice</span>
+          <span class="badge badge-outline"><span class="status-dot ok pulse"></span>Connected</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+          <div class="persona-orb is-speaking" style="width:96px;height:96px">
+            <span class="avatar avatar-persona" style="width:62px;height:62px;font-size:var(--text-md)">RA</span>
+          </div>
+          <span class="speaking-pill ai"><i data-lucide="volume-2" class="ic ic-sm"></i>Ravi is speaking</span>
+          <div class="waveform is-ai" data-bars="26" style="height:44px"></div>
+        </div>
+
+        <div class="live-caption" style="margin-top:16px">
+          <span class="who">Ravi · question 4 of 6</span>
+          Say Monday at 08:00 you get thirty thousand booking attempts a minute against overlapping slots. How do you stop double booking?
+        </div>
+
+        <div class="between" style="margin-top:16px">
+          <span class="question-progress" aria-hidden="true">
+            <span class="done"></span><span class="done"></span><span class="done"></span><span class="current"></span><span></span><span></span>
+          </span>
+          <span class="hint">Captions on · Push-to-talk available</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 2 · SOCIAL PROOF ═══════════════════════════ -->
+<section class="mk-section tight" aria-labelledby="proof-h">
+  <h2 id="proof-h" class="sr-only">Organisations using Prepeet</h2>
+  <p class="hint" style="text-align:center;margin-bottom:26px">
+    Interview teams in health systems, software companies, school trusts, finance and commercial sales
+    run Prepeet alongside — never instead of — their own interviewers.
+  </p>
+  <div class="mk-logos">
+    <span><i aria-hidden="true">NH</i>Northwind Health System</span>
+    <span><i aria-hidden="true">OL</i>Orbital Labs</span>
+    <span><i aria-hidden="true">MS</i>Meridian Schools Trust</span>
+    <span><i aria-hidden="true">CC</i>Caldera Capital</span>
+    <span><i aria-hidden="true">BC</i>Brightpath Commercial</span>
+    <span><i aria-hidden="true">SM</i>Saltmarsh Care Trust</span>
+  </div>
+
+  <div class="mk-stats" style="margin-top:44px">
+    <div class="mk-stat"><div class="v tnum">41,200</div><div class="l">Interviews completed in the last 12 months</div></div>
+    <div class="mk-stat"><div class="v tnum">100%</div><div class="l">Screen evaluations reviewed by a person before any decision</div></div>
+    <div class="mk-stat"><div class="v tnum">0</div><div class="l">Scores published without a linked transcript quote</div></div>
+    <div class="mk-stat"><div class="v tnum">6</div><div class="l">Domains with maintained rubrics and calibration sets</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 3 · USE CASES ══════════════════════════════ -->
+<section class="mk-section" id="use-cases" aria-labelledby="usecases-h">
+  <div class="mk-section-head">
+    <p class="eyebrow">Use cases</p>
+    <h2 id="usecases-h">Six domains, six rubrics, six very different conversations</h2>
+    <p>
+      A nursing escalation question and a systems design question are not the same interview.
+      Each domain has its own competency set, its own follow-up logic and its own anchored rubric,
+      maintained with subject-matter reviewers.
+    </p>
+  </div>
+
+  <div class="mk-usecases">
+
+    <article class="mk-usecase">
+      <p class="tag">Software engineering</p>
+      <h3>Senior Backend Engineer</h3>
+      <p>Competency in focus: <strong>debugging &amp; incident response</strong> — does the candidate describe the diagnosis, or only the fix?</p>
+      <p class="q">“Your booking service is healthy but writes to the patient record are timing out. Walk me through your first ten minutes.”</p>
+    </article>
+
+    <article class="mk-usecase">
+      <p class="tag">Product management</p>
+      <h3>Senior Product Manager</h3>
+      <p>Competency in focus: <strong>prioritisation</strong> — is there a stated trade-off, or just a list of everything that matters?</p>
+      <p class="q">“You have one engineer for six weeks and three customers each threatening to leave over a different gap. How do you choose, and what do you tell the other two?”</p>
+    </article>
+
+    <article class="mk-usecase">
+      <p class="tag">Nursing</p>
+      <h3>Registered Nurse — Intensive Care</h3>
+      <p>Competency in focus: <strong>escalation &amp; handover</strong> — who gets called, when, and what is said in the first sentence.</p>
+      <p class="q">“Your ventilated patient’s mean arterial pressure drops to 52 and the registrar is in theatre. Talk me through what you do and who you escalate to.”</p>
+    </article>
+
+    <article class="mk-usecase">
+      <p class="tag">Teaching</p>
+      <h3>Secondary Mathematics Teacher</h3>
+      <p>Competency in focus: <strong>assessment &amp; feedback</strong> — does the plan change because of the data, or in spite of it?</p>
+      <p class="q">“Two thirds of your Year 9 class got the same simultaneous equations question wrong. What does tomorrow’s lesson look like, and how do you know it worked?”</p>
+    </article>
+
+    <article class="mk-usecase">
+      <p class="tag">Sales</p>
+      <h3>Enterprise Account Executive</h3>
+      <p>Competency in focus: <strong>commercial qualification</strong> — is the deal qualified on paper, or on hope?</p>
+      <p class="q">“Your champion loves the product, but procurement says the security review adds nine weeks. What do you do this week, and what do you change in the forecast?”</p>
+    </article>
+
+    <article class="mk-usecase">
+      <p class="tag">Finance</p>
+      <h3>Financial Analyst — FP&amp;A</h3>
+      <p>Competency in focus: <strong>variance analysis</strong> — from the number, to the cause, to a sentence an operator can act on.</p>
+      <p class="q">“Theatre staffing has come in 11% over budget for the third month running. How do you find out why, and what is the one line you put in front of the COO?”</p>
+    </article>
+
+  </div>
+
+  <p class="hint" style="margin-top:22px">
+    Rubrics are versioned per tenant and editable — see how they are anchored in
+    <a href="admin-rubrics.html">rubric management</a>.
+  </p>
+</section>
+
+<!-- ════════════════════════════ 4 · FEATURES ══════════════════════════════ -->
+<section class="mk-section" id="product" aria-labelledby="features-h">
+  <div class="mk-section-head">
+    <p class="eyebrow">Product</p>
+    <h2 id="features-h">Built for the part everyone skips: the write-up</h2>
+    <p>
+      Running the interview is the easy half. The hard half is producing something a hiring panel can argue with —
+      and a candidate can appeal.
+    </p>
+  </div>
+
+  <div class="mk-features">
+
+    <article class="mk-feature">
+      <div class="fi"><i data-lucide="mic" class="ic ic-lg"></i></div>
+      <h3>Realtime voice, not a form with a microphone</h3>
+      <p>
+        Sub-second turn-taking over WebRTC. The interviewer hears you pause, waits, and asks the follow-up your
+        answer actually invited. You can interrupt it; it will let you.
+      </p>
+    </article>
+
+    <article class="mk-feature">
+      <div class="fi"><i data-lucide="quote" class="ic ic-lg"></i></div>
+      <h3>Evidence-linked evaluation</h3>
+      <p>
+        Every competency score is assembled from spans of the transcript, each with a timestamp and a playable
+        audio range. Click a score, land on the sentence. Nothing is scored from tone, pace or hesitation.
+      </p>
+    </article>
+
+    <article class="mk-feature">
+      <div class="fi"><i data-lucide="ruler" class="ic ic-lg"></i></div>
+      <h3>Calibration and rubric anchors</h3>
+      <p>
+        Each rubric level carries a written anchor and two real example answers. Tenants run a calibration set
+        before go-live and re-run it whenever a rubric or model version changes; drift is reported, not hidden.
+      </p>
+    </article>
+
+    <article class="mk-feature">
+      <div class="fi"><i data-lucide="graduation-cap" class="ic ic-lg"></i></div>
+      <h3>Practice coaching that is specific</h3>
+      <p>
+        Practice mode returns per-answer feedback, a rewritten version of your own answer, and the one question
+        most likely to expose the same gap next time. Retry any question as many times as you like.
+      </p>
+    </article>
+
+    <article class="mk-feature">
+      <div class="fi"><i data-lucide="clipboard-check" class="ic ic-lg"></i></div>
+      <h3>Recruiter review tools</h3>
+      <p>
+        Side-by-side candidate comparison on the same rubric, coverage and confidence flags, structured reviewer
+        notes, and a decision that is recorded as a person’s decision — with their name on it.
+      </p>
+    </article>
+
+    <article class="mk-feature">
+      <div class="fi"><i data-lucide="shield-check" class="ic ic-lg"></i></div>
+      <h3>Multi-tenant governance and audit</h3>
+      <p>
+        Per-tenant data residency, retention windows, SSO and SCIM, role-scoped access down to a single requisition,
+        and an append-only audit log covering every view, export and override.
+      </p>
+    </article>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 5 · HOW IT WORKS ═══════════════════════════ -->
+<section class="mk-section" id="how" aria-labelledby="how-h">
+  <div class="mk-section-head">
+    <p class="eyebrow">How it works</p>
+    <h2 id="how-h">Four steps — then the part that matters, who sees what</h2>
+    <p>Same interview engine, same rubric, two very different products on either side of it.</p>
+  </div>
+
+  <ol class="mk-steps">
+    <li class="mk-step">
+      <div class="n" aria-hidden="true">1</div>
+      <h3>Set the interview up</h3>
+      <p>
+        A recruiter picks a role, a rubric version, a shape (behavioural, technical, case, panel) and a time box,
+        then sends an invitation. A practice candidate picks their target role and an interviewer persona instead.
+      </p>
+    </li>
+    <li class="mk-step">
+      <div class="n" aria-hidden="true">2</div>
+      <h3>Have the conversation</h3>
+      <p>
+        15 to 60 minutes of live voice. Microphone check first, captions throughout, push-to-talk if the room is
+        noisy, and a hard time box the candidate can see counting down.
+      </p>
+    </li>
+    <li class="mk-step">
+      <div class="n" aria-hidden="true">3</div>
+      <h3>Extract the evidence</h3>
+      <p>
+        The transcript is segmented into answers, and each answer is matched to rubric anchors. Spans are tagged as
+        supporting, contradicting, unverified claim, or gap. Thin competencies are marked, not guessed.
+      </p>
+    </li>
+    <li class="mk-step">
+      <div class="n" aria-hidden="true">4</div>
+      <h3>Review and decide</h3>
+      <p>
+        Practice candidates get coaching and a progression view. Recruiters get an evidence pack and make the
+        decision themselves. Prepeet never advances, rejects or ranks anyone on its own.
+      </p>
+    </li>
+  </ol>
+
+  <!-- Practice vs screen -->
+  <div style="margin-top:64px">
+    <h3 style="font-size:var(--text-lg);margin-bottom:8px">Practice mode vs screen mode: exactly who sees what</h3>
+    <p class="text-2" style="max-width:680px;margin-bottom:20px;font-size:var(--text-sm);line-height:1.6">
+      This boundary is enforced in the product, not by policy. In screen mode, a candidate is never shown a score,
+      a band, a competency chart, coaching, a recommendation or a reviewer note — only confirmation that their
+      interview was submitted.
+    </p>
+
+    <div class="table-wrap">
+      <table class="table table-responsive cmp-table">
+        <caption class="sr-only">
+          What is visible to a practice candidate, a screen candidate and a recruiter reviewing a screen interview.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">What</th>
+            <th scope="col">Practice candidate</th>
+            <th scope="col">Screen candidate</th>
+            <th scope="col">Recruiter reviewing a screen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">The live conversation</th>
+            <td data-label="Practice candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Yes — identical engine and personas</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Yes — identical engine and personas</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Audio and full transcript, afterwards</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Overall score and band</th>
+            <td data-label="Practice candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Shown immediately after processing</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell no"><i data-lucide="x" class="ic ic-sm"></i>Never shown</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Shown with confidence and coverage</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Per-competency chart and confidence range</th>
+            <td data-label="Practice candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Shown, tracked over time</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell no"><i data-lucide="x" class="ic ic-sm"></i>Never shown</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Shown, including “insufficient evidence” rows</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Per-answer coaching and model rewrites</th>
+            <td data-label="Practice candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Shown for every answer</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell no"><i data-lucide="x" class="ic ic-sm"></i>Never generated at all</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell no"><i data-lucide="x" class="ic ic-sm"></i>Not shown — coaching is practice-only</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Retry a question</th>
+            <td data-label="Practice candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Unlimited retries</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell no"><i data-lucide="x" class="ic ic-sm"></i>No — one submission per invitation</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell na"><i data-lucide="minus" class="ic ic-sm"></i>Can re-issue the invitation if something went wrong</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Evidence quotes linked to the transcript</th>
+            <td data-label="Practice candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Shown against their own answers</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell no"><i data-lucide="x" class="ic ic-sm"></i>Never shown</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Every score traceable to a timestamped span</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Reviewer notes and decision</th>
+            <td data-label="Practice candidate"><span class="cmp-cell na"><i data-lucide="minus" class="ic ic-sm"></i>Not applicable — no reviewer involved</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell no"><i data-lucide="x" class="ic ic-sm"></i>Never shown</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Written by them, attributed and audit-logged</span></td>
+          </tr>
+          <tr>
+            <th scope="row">What the end of the session looks like</th>
+            <td data-label="Practice candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Full report, plus a suggested next session</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell no"><i data-lucide="check-circle-2" class="ic ic-sm"></i>“Your interview was submitted” — and nothing more</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Evidence pack lands in the review queue</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Appeal or human re-review</th>
+            <td data-label="Practice candidate"><span class="cmp-cell na"><i data-lucide="minus" class="ic ic-sm"></i>Not applicable</span></td>
+            <td data-label="Screen candidate"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Can request a human review of the interview</span></td>
+            <td data-label="Recruiter"><span class="cmp-cell yes"><i data-lucide="check" class="ic ic-sm"></i>Appeals arrive in a tracked queue with a deadline</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cluster" style="margin-top:18px">
+      <a class="btn btn-secondary btn-sm" href="candidate-dashboard.html"><i data-lucide="user-round" class="ic ic-sm"></i>Look at the candidate side</a>
+      <a class="btn btn-secondary btn-sm" href="admin-recruiter.html"><i data-lucide="users-round" class="ic ic-sm"></i>Look at the recruiter side</a>
+      <a class="btn btn-ghost btn-sm" href="admin-appeals.html">How appeals are handled<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ 6 · THE REALTIME INTERVIEW EXPERIENCE ═══════════════ -->
+<section class="mk-section" id="realtime" aria-labelledby="realtime-h">
+  <div class="mk-split">
+    <div>
+      <p class="eyebrow">The live conversation</p>
+      <h2 id="realtime-h">It behaves like an interviewer, including when you cut it off</h2>
+      <p>
+        Most “AI interviews” are a queue of recorded questions. Prepeet holds one continuous conversation:
+        it tracks what you have already covered, notices when two answers disagree, and asks about it — in the
+        session, while you can still respond.
+      </p>
+      <ul>
+        <li><i data-lucide="split" class="ic ic-sm"></i><span><strong>Interruption handling.</strong> Start talking and the interviewer stops mid-sentence, keeps your first words, and resumes from where you took over. Barge-in is on by default and can be disabled per tenant.</span></li>
+        <li><i data-lucide="layers" class="ic ic-sm"></i><span><strong>Phase progression.</strong> Warm-up, core competencies, depth probes, candidate questions, close. Each phase has its own time budget, visible to the candidate the whole way through.</span></li>
+        <li><i data-lucide="captions" class="ic ic-sm"></i><span><strong>Live captions.</strong> Every word the interviewer says is captioned in real time, with an adjustable text size and a full scrollback.</span></li>
+        <li><i data-lucide="hand" class="ic ic-sm"></i><span><strong>Push-to-talk fallback.</strong> On a noisy line or a shared room, hold the space bar (or the on-screen button) to talk. Barge-in turns off automatically in this mode.</span></li>
+        <li><i data-lucide="rotate-ccw" class="ic ic-sm"></i><span><strong>Reconnection.</strong> If the network drops, the session pauses, the clock stops, and the candidate has ten minutes to rejoin on the same link. Nothing already said is lost.</span></li>
+      </ul>
+      <div class="cluster" style="margin-top:24px">
+        <a class="btn btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Try a practice interview</a>
+        <a class="btn btn-ghost" href="design-system.html">See the components<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3>Transcript excerpt</h3>
+          <p class="hint" style="margin-top:2px">Systems design deep-dive · persona Ravi · 21 Aug 2026</p>
+        </div>
+        <span class="badge badge-mode practice">Practice</span>
+      </div>
+      <div class="card-body">
+        <div class="transcript">
+
+          <div class="turn ai">
+            <span class="avatar avatar-sm avatar-persona" aria-hidden="true">RA</span>
+            <div>
+              <div class="turn-meta"><span class="who">Ravi</span><time datetime="PT2M5S">02:05</time></div>
+              <p class="turn-text">What happens when the database that holds that constraint is the thing under pressure?</p>
+            </div>
+          </div>
+
+          <div class="turn">
+            <span class="avatar avatar-sm" aria-hidden="true">DO</span>
+            <div>
+              <div class="turn-meta"><span class="who">Daniel</span><time datetime="PT2M14S">02:14</time></div>
+              <p class="turn-text">Then I’d shard by clinic, because bookings never cross clinics. Each shard owns its own slots, so the uniqueness constraint stays local.</p>
+            </div>
+          </div>
+
+          <div class="turn ai">
+            <span class="avatar avatar-sm avatar-persona" aria-hidden="true">RA</span>
+            <div>
+              <div class="turn-meta"><span class="who">Ravi</span><time datetime="PT2M41S">02:41</time><span class="badge badge-outline">Interrupted the answer</span></div>
+              <p class="turn-text">And if a clinic is itself the hotspot?</p>
+            </div>
+          </div>
+
+          <div class="turn">
+            <span class="avatar avatar-sm" aria-hidden="true">DO</span>
+            <div>
+              <div class="turn-meta"><span class="who">Daniel</span><time datetime="PT2M47S">02:47</time></div>
+              <p class="turn-text">Probably a queue in front of it. I’d let requests line up and process them in order.</p>
+            </div>
+          </div>
+
+          <div class="turn ai is-current">
+            <span class="avatar avatar-sm avatar-persona" aria-hidden="true">RA</span>
+            <div>
+              <div class="turn-meta"><span class="who">Ravi</span><time datetime="PT5M16S">05:16</time><span class="badge badge-warning">Consistency follow-up</span></div>
+              <p class="turn-text">Earlier you said you shard by clinic. A moment ago you described a global queue. Which is it?</p>
+            </div>
+          </div>
+
+          <div class="turn">
+            <span class="avatar avatar-sm" aria-hidden="true">DO</span>
+            <div>
+              <div class="turn-meta"><span class="who">Daniel</span><time datetime="PT5M24S">05:24</time></div>
+              <p class="turn-text">Per-shard queue, not global. I said it loosely the first time.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="card-footer">
+        <p class="hint">
+          The follow-up at 05:16 was generated because two answers conflicted — not because of how the candidate sounded.
+          Prepeet does not score tone, accent, pace or hesitation.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 7 · EVIDENCE AND FEEDBACK ══════════════════════ -->
+<section class="mk-section" id="evidence" aria-labelledby="evidence-h">
+  <div class="mk-split reverse">
+    <div>
+      <p class="eyebrow">Evidence and feedback</p>
+      <h2 id="evidence-h">A score you can’t trace back to a sentence isn’t a score</h2>
+      <p>
+        Prepeet builds each competency from tagged spans of the candidate’s own words. Open any score and you get
+        the quote, the timestamp and the audio. Where the conversation never produced enough material, the
+        competency reads <strong>insufficient evidence</strong> — a deliberate blank, not a low number.
+      </p>
+      <ul>
+        <li><i data-lucide="link" class="ic ic-sm"></i><span><strong>Traceable by construction.</strong> A competency cannot be published without at least three independent supporting spans; below that it is withheld.</span></li>
+        <li><i data-lucide="git-compare" class="ic ic-sm"></i><span><strong>Contradictions are surfaced, not averaged.</strong> Conflicting answers appear as their own evidence type so a reviewer can judge them.</span></li>
+        <li><i data-lucide="ban" class="ic ic-sm"></i><span><strong>Nothing inferred about the person.</strong> No personality inference, no emotion or honesty detection, no prediction of how someone will perform in the job.</span></li>
+        <li><i data-lucide="scale" class="ic ic-sm"></i><span><strong>Confidence ranges, always visible.</strong> Every score carries the interval it was derived from, so a 66 with a wide range never reads like a 66 with a narrow one.</span></li>
+      </ul>
+      <div class="cluster" style="margin-top:24px">
+        <a class="btn btn-secondary" href="admin-recruiter-detail.html"><i data-lucide="file-search" class="ic ic-sm"></i>Open a full evidence pack</a>
+        <a class="btn btn-ghost" href="admin-recruiter-calibration.html">See calibration<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="ev-card supporting">
+        <div class="between" style="margin-bottom:6px">
+          <strong>Patient-safety reasoning</strong>
+          <span class="band band-strong">Supporting evidence</span>
+        </div>
+        <blockquote>
+          “I would <span class="ev ev-supporting" tabindex="0" data-tooltip="Supporting evidence: chooses the safe failure direction and says why.">fail closed — reject the booking rather than confirm something the clinical record does not know about</span>.
+          Then queue a repair job and alert.
+          <span class="ev ev-claim" tabindex="0" data-tooltip="Unverified claim: a stated judgement, not yet backed by a concrete example.">Confirming a booking the record never received is the worse outcome for a patient.</span>”
+        </blockquote>
+        <p class="ev-meta"><span>ses_7Kq2XA</span><span>04:22–04:41</span><span>turn 12</span><span>audio available</span></p>
+      </div>
+
+      <div class="ev-card gap">
+        <div class="between" style="margin-bottom:6px">
+          <strong>Prioritisation under pressure</strong>
+          <span class="band band-insufficient">Gap — insufficient evidence</span>
+        </div>
+        <blockquote>“Probably a queue in front of it. I’d let requests line up and process them in order.”</blockquote>
+        <p style="margin-top:6px;color:var(--fg-2)">
+          One span, no trade-off stated and no constraint named. Prepeet records the gap and declines to score the
+          competency rather than inferring a level from a single thin answer.
+        </p>
+        <p class="ev-meta"><span>ses_7Kq2XA</span><span>02:47–02:56</span><span>turn 7</span><span>1 of 3 spans required</span></p>
+      </div>
+
+      <div class="card card-subtle card-pad">
+        <h3 style="font-size:var(--text-sm);margin-bottom:12px">Evidence types</h3>
+        <div class="ev-legend">
+          <span><i class="i-supporting" aria-hidden="true"></i>Supporting — backs the rubric anchor</span>
+          <span><i class="i-contradiction" aria-hidden="true"></i>Contradiction — conflicts with an earlier answer</span>
+          <span><i class="i-claim" aria-hidden="true"></i>Claim — asserted but unevidenced</span>
+          <span><i class="i-gap" aria-hidden="true"></i>Gap — the rubric point was never reached</span>
+        </div>
+      </div>
+
+      <div class="card card-pad">
+        <h3 style="font-size:var(--text-sm);margin-bottom:14px">Competency signal · confidence range shown</h3>
+        <div class="comp-list">
+
+          <div class="comp-row">
+            <div class="comp-name">Systems design<small>6 evidence spans · Solid</small></div>
+            <div class="comp-bar band-solid">
+              <span style="width:78%"></span>
+              <span class="ci" style="left:70%;width:14%"></span>
+            </div>
+            <div class="comp-val tnum">78</div>
+          </div>
+
+          <div class="comp-row">
+            <div class="comp-name">Debugging &amp; incident response<small>4 evidence spans · Solid</small></div>
+            <div class="comp-bar band-solid">
+              <span style="width:66%"></span>
+              <span class="ci" style="left:56%;width:18%"></span>
+            </div>
+            <div class="comp-val tnum">66</div>
+          </div>
+
+          <div class="comp-row">
+            <div class="comp-name">Prioritisation under pressure<small>1 evidence span · Insufficient evidence</small></div>
+            <div class="comp-bar band-insufficient"><span style="width:100%"></span></div>
+            <div class="comp-val">—<span class="sr-only">No score: insufficient evidence</span></div>
+          </div>
+
+        </div>
+        <p class="chart-summary">
+          Text summary: systems design scores 78 out of 100 (Solid) with a confidence range of 70 to 84, from
+          6 evidence spans. Debugging and incident response scores 66 (Solid) with a wider range of 56 to 74, from
+          4 spans. Prioritisation under pressure is not scored: only 1 supporting span was found, below the
+          minimum of 3, so it is reported as insufficient evidence.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 8 · TESTIMONIALS ═══════════════════════════ -->
+<section class="mk-section" aria-labelledby="quotes-h">
+  <div class="mk-section-head center">
+    <p class="eyebrow">What people say</p>
+    <h2 id="quotes-h">Three different jobs, three different reasons to trust it</h2>
+  </div>
+
+  <div class="mk-quotes">
+
+    <blockquote class="mk-quote">
+      <p>“We were doing 40 phone screens a week and writing four sentences each. Now I read an evidence pack and disagree with it in writing. The disagreement is the point — I can see what it heard and say why I read it differently.”</p>
+      <footer class="by">
+        <span class="avatar avatar-sm" aria-hidden="true">PR</span>
+        <span><strong>Priya Raman</strong>Talent acquisition lead · Northwind Health System</span>
+      </footer>
+    </blockquote>
+
+    <blockquote class="mk-quote">
+      <p>“It asked me the question I’d been avoiding for six months, then showed me my own answer rewritten. I did the same session four times. The fourth one, I heard myself name a trade-off out loud for the first time.”</p>
+      <footer class="by">
+        <span class="avatar avatar-sm" aria-hidden="true">DO</span>
+        <span><strong>Daniel Okonkwo</strong>Backend engineer, 6 years · Manchester</span>
+      </footer>
+    </blockquote>
+
+    <blockquote class="mk-quote">
+      <p>“I approved it because of the boring parts: Frankfurt-only storage, SCIM deprovisioning that actually works, and an audit log that told me exactly who exported which candidate and when. No black box for me to defend.”</p>
+      <footer class="by">
+        <span class="avatar avatar-sm" aria-hidden="true">ES</span>
+        <span><strong>Elin Sørensen</strong>Head of IT security · Meridian Schools Trust</span>
+      </footer>
+    </blockquote>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════ 9 · FAQ ═════════════════════════════════ -->
+<section class="mk-section" id="faq" aria-labelledby="faq-h">
+  <div class="mk-section-head">
+    <p class="eyebrow">Questions we get asked first</p>
+    <h2 id="faq-h">The awkward ones, answered plainly</h2>
+    <p>If the honest answer is “no, we don’t do that”, it says so.</p>
+  </div>
+
+  <div class="accordion" data-accordion-single>
+
+    <div class="accordion-item">
+      <h3><button class="accordion-trigger" type="button" aria-expanded="true" aria-controls="faq-1" id="faq-1-t">
+        Does Prepeet make hiring decisions?<i data-lucide="chevron-down" class="ic"></i></button></h3>
+      <div class="accordion-panel" id="faq-1" role="region" aria-labelledby="faq-1-t">
+        <p>
+          No. Prepeet produces evidence: a transcript, tagged spans, competency signals with confidence ranges, and
+          coverage flags. It does not advance, reject, rank or shortlist anyone. A named person makes every decision
+          and their name is recorded against it. Tenants can require a second reviewer for any outcome, and screen
+          candidates can request a human re-review of the interview.
+        </p>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="faq-2" id="faq-2-t">
+        Can it detect personality, emotion, confidence or honesty?<i data-lucide="chevron-down" class="ic"></i></button></h3>
+      <div class="accordion-panel" id="faq-2" role="region" aria-labelledby="faq-2-t">
+        <p>
+          No — and we will not build it. Prepeet does not analyse tone, pitch, accent, speaking rate, hesitation,
+          facial expression or “cultural fit”, and it makes no prediction about how someone will perform in the job.
+          It evaluates the content of what a candidate said against a written rubric, and nothing else. If a feature
+          request needs an inference about the person rather than the answer, the answer is no.
+        </p>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="faq-3" id="faq-3-t">
+        What does a candidate actually see in screen mode?<i data-lucide="chevron-down" class="ic"></i></button></h3>
+      <div class="accordion-panel" id="faq-3" role="region" aria-labelledby="faq-3-t">
+        <p>
+          The interview itself, a visible timer, live captions, and at the end a confirmation page saying the
+          interview was submitted and roughly when they will hear back. That is all. No score, no band, no
+          competency chart, no coaching, no recommendation and no reviewer note is generated or stored anywhere a
+          screen candidate can reach. Coaching output is not merely hidden in screen mode — it is never produced.
+          Practice mode is the opposite: candidates see everything about themselves.
+        </p>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="faq-4" id="faq-4-t">
+        Where is our data stored, and how long do you keep it?<i data-lucide="chevron-down" class="ic"></i></button></h3>
+      <div class="accordion-panel" id="faq-4" role="region" aria-labelledby="faq-4-t">
+        <p>
+          Each tenant is pinned to a region at creation — EU (Frankfurt) or US (Virginia) — and audio, transcripts
+          and evaluations never leave it. Retention is set per tenant, from 30 days to 24 months; the default for
+          screen interviews is 18 months, after which audio and transcripts are deleted and only the anonymised
+          decision record remains. Candidates can request deletion of a practice session at any time from
+          <a href="candidate-settings.html">their settings</a>. Deletion is a real delete, including backups, within 35 days.
+        </p>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="faq-5" id="faq-5-t">
+        Is it accessible? What if someone can’t use a microphone?<i data-lucide="chevron-down" class="ic"></i></button></h3>
+      <div class="accordion-panel" id="faq-5" role="region" aria-labelledby="faq-5-t">
+        <p>
+          Prepeet targets WCAG 2.2 AA throughout. Live captions are always on by default and resizable, the whole
+          interview is keyboard operable, push-to-talk replaces voice activity detection where that is easier, and
+          extra time can be granted per invitation without the candidate having to disclose why. Where a spoken
+          interview is not a reasonable format at all, the recruiter can withdraw the invitation and run the
+          conversation themselves — a request for an adjustment is never recorded as a candidate outcome.
+        </p>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="faq-6" id="faq-6-t">
+        What happens if the connection drops mid-interview?<i data-lucide="chevron-down" class="ic"></i></button></h3>
+      <div class="accordion-panel" id="faq-6" role="region" aria-labelledby="faq-6-t">
+        <p>
+          The session pauses and the clock stops. Everything said up to that point is already committed, so nothing
+          is lost. The candidate has ten minutes to rejoin using the same link, and the interviewer picks up with a
+          short recap of where you were. If they cannot get back, the session is marked <em>ended early</em> and the
+          recruiter sees a coverage warning rather than a low score — an interview that was cut short is reported as
+          short, not as weak. Re-issuing the invitation takes one click.
+        </p>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="faq-7" id="faq-7-t">
+        How do you manage bias?<i data-lucide="chevron-down" class="ic"></i></button></h3>
+      <div class="accordion-panel" id="faq-7" role="region" aria-labelledby="faq-7-t">
+        <p>
+          Four ways, none of them a silver bullet. First, scope: only rubric-relevant content is evaluated, and
+          speech characteristics are excluded by design. Second, anchors: every rubric level has written criteria
+          and worked examples, so scoring is comparison against text rather than against an impression. Third,
+          calibration: tenants run a fixed evidence set before go-live and again on every rubric or model change,
+          and the drift report is visible to them, not just to us. Fourth, measurement: adverse-impact reporting by
+          role and rubric version is available to tenant admins, and we publish our known limitations — accented
+          speech recognition accuracy and domain coverage outside our six maintained rubrics are the two we are
+          least happy with today. A human still decides, which is the most important control of all.
+        </p>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h3><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="faq-8" id="faq-8-t">
+        Can candidates use their practice history in a real application?<i data-lucide="chevron-down" class="ic"></i></button></h3>
+      <div class="accordion-panel" id="faq-8" role="region" aria-labelledby="faq-8-t">
+        <p>
+          No, and this one is deliberate. Practice sessions live in the candidate’s own account and are never
+          visible to any employer tenant, even if the candidate later interviews with that employer through
+          Prepeet. There is no shared score, no portable rating and no way for a recruiter to see that someone
+          practised. Practice is for the candidate, screening is for the employer, and the two data stores do not
+          talk to each other.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════ 10 · FINAL CTA ═════════════════════════════ -->
+<section class="mk-section tight" aria-labelledby="cta-h">
+  <div class="mk-cta">
+    <h2 id="cta-h">Start with one conversation</h2>
+    <p>
+      Practise free in your own account, or run a pilot requisition with your own rubric and see the evidence pack
+      before you commit to anything.
+    </p>
+    <div class="cta">
+      <a class="btn btn-primary btn-lg" href="register.html"><i data-lucide="mic" class="ic ic-sm"></i>Create a free account</a>
+      <a class="btn btn-secondary btn-lg" href="admin-invitation-new.html"><i data-lucide="send" class="ic ic-sm"></i>Set up a pilot screen</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ═══════════════════════════════ FOOTER ═════════════════════════════════ -->
+<footer class="mk-footer">
+  <div class="inner">
+    <div>
+      <a class="mk-brand" href="index.html" aria-label="Prepeet home"><span class="logo-mark" id="brandmark-foot"></span>Prepeet</a>
+      <p class="hint" style="margin-top:12px;max-width:280px">
+        Realtime voice interviews with evidence you can read, quote and argue with. People decide; Prepeet shows
+        its working.
+      </p>
+      <div class="cluster" style="margin-top:16px">
+        <button class="btn btn-ghost btn-sm" type="button" data-theme-toggle>
+          <i data-lucide="moon" class="ic ic-sm" data-icon-moon></i><i data-lucide="sun" class="ic ic-sm" data-icon-sun hidden></i>
+          <span data-theme-label>Light theme</span>
+        </button>
+      </div>
+    </div>
+
+    <nav aria-labelledby="foot-product">
+      <h3 id="foot-product">Product</h3>
+      <ul>
+        <li><a href="#product">Features</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#evidence">Evidence model</a></li>
+        <li><a href="#use-cases">Use cases</a></li>
+        <li><a href="design-system.html">Design system</a></li>
+        <li><a href="screens.html">Prototype index</a></li>
+      </ul>
+    </nav>
+
+    <nav aria-labelledby="foot-candidates">
+      <h3 id="foot-candidates">For candidates</h3>
+      <ul>
+        <li><a href="candidate-dashboard.html">Your dashboard</a></li>
+        <li><a href="candidate-start-interview.html">Start an interview</a></li>
+        <li><a href="candidate-sessions.html">Session history</a></li>
+        <li><a href="candidate-progression.html">Progression</a></li>
+        <li><a href="candidate-settings.html">Privacy &amp; data controls</a></li>
+        <li><a href="register.html">Create an account</a></li>
+      </ul>
+    </nav>
+
+    <nav aria-labelledby="foot-employers">
+      <h3 id="foot-employers">For employers</h3>
+      <ul>
+        <li><a href="admin-dashboard.html">Recruiter workspace</a></li>
+        <li><a href="admin-invitations.html">Invitations</a></li>
+        <li><a href="admin-rubrics.html">Rubrics &amp; anchors</a></li>
+        <li><a href="admin-recruiter-calibration.html">Calibration</a></li>
+        <li><a href="admin-integrations.html">ATS integrations</a></li>
+        <li><a href="admin-appeals.html">Appeals process</a></li>
+      </ul>
+    </nav>
+
+    <nav aria-labelledby="foot-company">
+      <h3 id="foot-company">Company &amp; legal</h3>
+      <ul>
+        <li><a href="admin-tenant-settings.html">Data residency &amp; retention</a></li>
+        <li><a href="admin-members.html">Access &amp; roles</a></li>
+        <li><a href="login.html">Sign in</a></li>
+        <li><span class="hint">Privacy notice — issued at contract</span></li>
+        <li><span class="hint">Terms of service — issued at contract</span></li>
+        <li><span class="hint">Sub-processor list — on request</span></li>
+      </ul>
+    </nav>
+  </div>
+
+  <div class="legal">
+    <span>© 2026 Prepeet Ltd. Registered in England &amp; Wales.</span>
+    <span>Prepeet produces evidence for human reviewers. It does not make hiring decisions, and it does not infer personality, emotion or honesty.</span>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    /* Favicon — shell.js no-ops on pages without data-shell, so call it directly. */
+    if (window.Prepeet && Prepeet.favicon) Prepeet.favicon();
+
+    /* Wordmark marks */
+    ['brandmark', 'brandmark-foot'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && window.Prepeet && Prepeet.logoSvg) el.innerHTML = Prepeet.logoSvg;
+    });
+
+    /* Mobile menu: ui.js handles the open/close toggle via data-toggle-*.
+       Here we keep the burger's accessible label honest and close on navigation. */
+    var burger = document.getElementById('burger');
+    var panel = document.getElementById('mk-mobile');
+    function sync() {
+      var open = panel.classList.contains('is-open');
+      burger.setAttribute('aria-expanded', String(open));
+      burger.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+    }
+    burger.addEventListener('click', function () { setTimeout(sync, 0); });
+    panel.addEventListener('click', function (e) {
+      if (e.target.closest('a')) { panel.classList.remove('is-open'); sync(); }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel.classList.contains('is-open')) {
+        panel.classList.remove('is-open'); sync(); burger.focus();
+      }
+    });
+    sync();
+
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

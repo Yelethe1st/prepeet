@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Something went wrong · Prepeet</title>
+<meta name="description" content="Prepeet hit an application error. Your in-flight interview is preserved, the error has been reported, and you can retry.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped: standalone centred error page. */
+  .err-wrap { width: 100%; max-width: 640px; margin: auto; padding: var(--sp-8) 0 var(--sp-12); }
+  .state-page { min-height: 40vh; }
+  .state-page p { max-width: 520px; }
+  .ok-list li { display: flex; gap: 10px; align-items: flex-start; font-size: var(--text-sm); color: var(--fg-2); line-height: 1.55; padding: 5px 0; }
+  .ok-list li .ic { color: var(--success); margin-top: 3px; }
+</style>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<header class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+    <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+  </button>
+</header>
+
+<main id="main-content" class="err-wrap">
+
+  <div class="state state-page danger">
+    <div class="state-icon"><i data-lucide="server-crash" class="ic"></i></div>
+    <p class="eyebrow" style="color:var(--danger-fg)">500 · application error</p>
+    <h1>Something went wrong on our side</h1>
+    <p>This is not something you did, and retrying the same thing may well work — the request failed inside the evaluation service, not in your browser. We would rather say that plainly than pretend it was a glitch.</p>
+    <p class="code">Incident reference <span class="mono" id="inc-ref">inc_01K3ZD4M7P2R</span></p>
+    <div class="actions">
+      <button class="btn btn-primary" type="button" id="retry"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Retry</button>
+      <a class="btn btn-secondary" href="candidate-dashboard.html"><i data-lucide="home" class="ic ic-sm"></i>Go to your dashboard</a>
+    </div>
+  </div>
+
+  <section class="card" aria-labelledby="auto-h" style="margin-top:var(--sp-2)">
+    <div class="card-header"><h2 id="auto-h">What has already happened, automatically</h2></div>
+    <div class="card-body">
+      <ul class="ok-list">
+        <li><i data-lucide="check-circle-2" class="ic ic-sm"></i><span><strong>The error was reported.</strong> A full diagnostic went to the on-call engineer the moment it happened. You do not need to tell us it occurred.</span></li>
+        <li><i data-lucide="check-circle-2" class="ic ic-sm"></i><span><strong>Any interview in progress is preserved.</strong> Answers already given were written before this failure. If you were mid-interview, reopening the session resumes at the question you were on.</span></li>
+        <li><i data-lucide="check-circle-2" class="ic ic-sm"></i><span><strong>Nothing was submitted twice.</strong> The request carried an idempotency key, so a retry cannot create a duplicate session, invitation or submission.</span></li>
+        <li><i data-lucide="check-circle-2" class="ic ic-sm"></i><span><strong>Screening deadlines are protected.</strong> If a failure like this stops you finishing a screening interview, the deadline is extended and the hiring team is told why.</span></li>
+      </ul>
+
+      <div class="banner banner-info" style="margin-top:var(--sp-4)">
+        <i data-lucide="clock" class="ic"></i>
+        <div>Evaluations queued before the failure are still being processed. If you were waiting for results, they will appear on their own — you do not need to re-run the interview.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="accordion" style="margin-top:var(--sp-4)">
+    <div class="accordion-item">
+      <h2>
+        <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="tech-panel" id="tech-trigger">
+          <span><i data-lucide="terminal" class="ic ic-sm" style="vertical-align:-3px;margin-right:8px"></i>Technical detail for support</span>
+          <i data-lucide="chevron-down" class="ic"></i>
+        </button>
+      </h2>
+      <div class="accordion-panel" id="tech-panel" role="region" aria-labelledby="tech-trigger" hidden>
+        <p style="margin-bottom:10px">Copy this and paste it into your message to support. It contains no personal data and no interview content.</p>
+        <div class="codeblock" id="tech-block" style="white-space:pre-wrap"></div>
+        <div class="cluster" style="margin-top:12px">
+          <button class="btn btn-sm btn-secondary" type="button" id="copy-tech"><i data-lucide="copy" class="ic ic-sm"></i>Copy details</button>
+          <span class="hint">Support will not ask you for a password, a code or a recording.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="card" aria-labelledby="help-h" style="margin-top:var(--sp-4)">
+    <div class="card-header"><h2 id="help-h">If it keeps happening</h2></div>
+    <div class="card-body">
+      <ol class="stack-sm" style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.55;list-style:decimal;padding-left:20px">
+        <li>Retry once. Most failures of this shape are transient and clear within a minute.</li>
+        <li><a class="ext" href="https://status.prepeet.example" target="_blank" rel="noopener noreferrer">Check the status page</a> — if there is an open incident, the fix is already in progress and there is nothing to report.</li>
+        <li>If the status page is clear and it fails a third time, contact <a href="index.html#faq">support</a> with the incident reference above. Include what you were doing and roughly when.</li>
+        <li>If you are mid-screening and running out of time, say so in the subject line — those are triaged first, and the deadline is extended either way.</li>
+      </ol>
+      <p class="hint" style="margin-top:var(--sp-4)">Typical first response: under two hours on a working day. Screening-blocking issues are picked up sooner.</p>
+    </div>
+    <div class="card-footer">
+      <div class="cluster">
+        <a class="btn btn-sm btn-secondary" href="candidate-sessions.html">Your sessions</a>
+        <a class="btn btn-sm btn-secondary" href="admin-dashboard.html">Hiring overview</a>
+        <a class="btn btn-sm btn-ghost ext" href="https://status.prepeet.example" target="_blank" rel="noopener noreferrer">Platform status</a>
+      </div>
+    </div>
+  </section>
+
+  <p class="hint" style="text-align:center;margin-top:var(--sp-5)">
+    <a href="index.html">Prepeet home</a> · <a href="screens.html">All screens</a> · <a href="error-404.html">Not-found page</a>
+  </p>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    if (Prepeet.favicon) Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+
+    var ref = Prepeet.query.get('ref', '') || 'inc_01K3ZD4M7P2R';
+    document.getElementById('inc-ref').textContent = ref;
+
+    var d = new Date();
+    var stamp = '2026-08-23T' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0') + ':' + String(d.getUTCSeconds()).padStart(2, '0') + 'Z';
+
+    var detail =
+      'incident      ' + ref + '\n' +
+      'request_id    req_01K3ZD4M7P2R\n' +
+      'correlation   cor_7f21e9b4a0\n' +
+      'timestamp     ' + stamp + '\n' +
+      'service       evaluation-api\n' +
+      'version       2026.08.19+build.4412\n' +
+      'region        eu-central (Frankfurt)\n' +
+      'route         POST /v1/evaluations/render\n' +
+      'status        500 upstream_unavailable\n' +
+      'summary       rubric-engine returned no response within 30s; request abandoned after 2 retries\n' +
+      'user_impact   page render failed; no data written\n' +
+      'contains_pii  no';
+
+    document.getElementById('tech-block').textContent = detail;
+    document.getElementById('copy-tech').setAttribute('data-copy', detail);
+
+    document.getElementById('retry').addEventListener('click', function () {
+      var b = this;
+      if (b.classList.contains('is-loading')) return;
+      b.classList.add('is-loading');
+      b.setAttribute('aria-busy', 'true');
+      Prepeet.announce('Retrying the failed request.');
+      setTimeout(function () {
+        b.classList.remove('is-loading');
+        b.removeAttribute('aria-busy');
+        Prepeet.toast({
+          title: 'Still failing',
+          desc: 'The evaluation service has not recovered yet. Check the status page, or try again in a minute — nothing is lost while you wait.',
+          kind: 'warning', duration: 7000
+        });
+      }, 1600);
+    });
+
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

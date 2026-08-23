@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create an account · Prepeet</title>
+<meta name="description" content="Create a Prepeet account — practise interviews as a candidate, or set up a workspace to run screening interviews for your organisation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<aside class="auth-side" aria-label="Why hiring teams screen with Prepeet">
+  <p class="eyebrow" style="color:var(--reef-300)">From a hiring team using Prepeet</p>
+  <blockquote class="quote" style="margin:18px 0 0">
+    “We were putting 300 ICU applicants through 20-minute phone screens with four different recruiters asking four different things. Now every candidate answers the same eight questions and we read the transcript with the evidence attached. The decision is still ours — it is just an argued one.”
+  </blockquote>
+  <p class="quote-by">Priya Raman · Talent acquisition lead · Northwind Health System<br>
+    <span style="color:#9B958B">48 seats · EU (Frankfurt) region · screening since March 2026</span></p>
+
+  <div class="side-foot">
+    <ul style="display:grid;gap:10px;font-size:var(--text-sm);color:#C4BFB6">
+      <li class="row" style="gap:10px;align-items:flex-start"><i data-lucide="scale" class="ic" style="color:var(--reef-300);margin-top:2px"></i><span>Every competency signal is tied to a quoted answer, or it is reported as insufficient evidence.</span></li>
+      <li class="row" style="gap:10px;align-items:flex-start"><i data-lucide="user-round-check" class="ic" style="color:var(--reef-300);margin-top:2px"></i><span>A named reviewer makes the decision. Prepeet never advances or rejects anyone.</span></li>
+      <li class="row" style="gap:10px;align-items:flex-start"><i data-lucide="split" class="ic" style="color:var(--reef-300);margin-top:2px"></i><span>Candidate practice and employer screening are separate products with separate data.</span></li>
+    </ul>
+    <div class="trust">
+      <span><i data-lucide="shield-check" class="ic"></i>EU, UK, US and AU regions</span>
+      <span><i data-lucide="accessibility" class="ic"></i>WCAG 2.2 AA</span>
+      <span><i data-lucide="file-check-2" class="ic"></i>SOC 2 Type II</span>
+    </div>
+  </div>
+</aside>
+
+<main class="auth-main" id="main-content">
+
+  <div class="auth-top">
+    <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+    <div class="cluster">
+      <span class="hint">Already have an account?</span>
+      <a class="btn btn-sm btn-secondary" href="login.html">Sign in</a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+        <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="auth-card" style="max-width:460px">
+    <span class="badge badge-outline mono" style="margin-bottom:12px">/register</span>
+    <h1>Create your Prepeet account</h1>
+    <p class="lead">Two different products share one sign-in. Tell us which one you need and we will set up the right workspace.</p>
+
+    <!-- ─────────── Account type ─────────── -->
+    <fieldset style="border:0;padding:0;margin:0 0 22px">
+      <legend class="label" style="margin-bottom:8px">What are you here to do?</legend>
+      <div class="grid" style="gap:10px">
+        <label class="option-card">
+          <input type="radio" name="account-type" value="candidate" checked>
+          <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+          <span class="option-title"><i data-lucide="mic" class="ic ic-sm"></i>Practise for my own interviews</span>
+          <span class="option-desc">Free. Voice sessions with coaching, per-answer feedback and a score you keep private. Also how you complete a screening you have been invited to.</span>
+        </label>
+        <label class="option-card">
+          <input type="radio" name="account-type" value="org">
+          <span class="option-check"><i data-lucide="check" class="ic"></i></span>
+          <span class="option-title"><i data-lucide="building-2" class="ic ic-sm"></i>Screen candidates for my organisation</span>
+          <span class="option-desc">Create a tenant workspace, invite your hiring team, and send structured screening interviews. 14-day trial, then per-seat billing.</span>
+        </label>
+      </div>
+    </fieldset>
+
+    <!-- ─────────── Single sign-on ─────────── -->
+    <section aria-labelledby="sso-h" style="margin-bottom:18px">
+      <h2 id="sso-h" class="sr-only">Sign up with a single sign-on provider</h2>
+      <div class="oauth-list" id="oauth-list" role="status" aria-live="polite" aria-busy="true"></div>
+    </section>
+
+    <div class="or" style="margin-bottom:18px">or use your email</div>
+
+    <!-- ═══════════ CANDIDATE FORM ═══════════ -->
+    <form id="form-candidate" data-account="candidate" data-validate="candidate-dashboard.html" data-validate-delay="900">
+      <div class="field">
+        <label class="label" for="c-name">Full name</label>
+        <input class="input" id="c-name" name="name" type="text" required autocomplete="name" placeholder="Amara Osei" aria-describedby="c-name-err">
+        <p class="error-text" id="c-name-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter the name you would like interviewers to use.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="c-email">Email</label>
+        <div class="input-wrap">
+          <i data-lucide="mail" class="ic ic-sm"></i>
+          <input class="input" id="c-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com" aria-describedby="c-email-err c-email-hint">
+        </div>
+        <p class="hint" id="c-email-hint">If an employer invited you, use the address the invitation was sent to.</p>
+        <p class="error-text" id="c-email-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>That does not look like a valid email address.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="c-password">Password</label>
+        <div class="input-wrap">
+          <i data-lucide="lock" class="ic ic-sm"></i>
+          <input class="input" id="c-password" name="password" type="password" required minlength="10"
+                 autocomplete="new-password" placeholder="At least 10 characters" style="padding-right:44px"
+                 aria-describedby="c-strength c-password-err">
+          <button class="icon-btn icon-btn-sm input-trail" type="button" data-pw-toggle="c-password"
+                  aria-pressed="false" aria-controls="c-password" aria-label="Show password">
+            <i data-lucide="eye" class="ic ic-sm" data-pw-show></i>
+            <i data-lucide="eye-off" class="ic ic-sm" data-pw-hide hidden></i>
+          </button>
+        </div>
+        <div class="progress sm" aria-hidden="true"><span data-strength-bar style="width:0"></span></div>
+        <p class="hint" id="c-strength" role="status" aria-live="polite" data-strength-text>Use 10 or more characters. A short phrase you will actually remember beats a mangled word.</p>
+        <p class="error-text" id="c-password-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Passwords need at least 10 characters.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="c-role">Role you are preparing for <span class="optional">(you can change this later)</span></label>
+        <select class="select" id="c-role" name="target-role" required aria-describedby="c-role-hint c-role-err">
+          <option value="">Choose a role…</option>
+        </select>
+        <p class="hint" id="c-role-hint">This picks your starting question bank and competency set.</p>
+        <p class="error-text" id="c-role-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Choose the role you want to practise for.</p>
+      </div>
+
+      <div class="field">
+        <label class="check">
+          <input type="checkbox" name="terms" id="c-terms" required aria-describedby="c-terms-err">
+          <span>I agree to the <a href="index.html#terms">terms of use</a> and <a href="index.html#privacy">privacy notice</a>, including that practice sessions are recorded and transcribed so they can be reviewed.
+            <span class="hint">Practice recordings are visible to you alone. No employer can see them.</span>
+          </span>
+        </label>
+        <p class="error-text" id="c-terms-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>You need to accept the terms before we can create the account.</p>
+      </div>
+
+      <button class="btn btn-primary btn-lg btn-block" type="submit">Create candidate account</button>
+      <p class="hint" style="text-align:center">Free forever for practice. No payment details required.</p>
+    </form>
+
+    <!-- ═══════════ ORGANISATION FORM ═══════════ -->
+    <form id="form-org" data-account="org" data-validate="admin-dashboard.html" data-validate-delay="900" hidden>
+      <div class="banner banner-info">
+        <i data-lucide="info" class="ic"></i>
+        <div>Your workspace starts on a 14-day trial with 5 screening interviews included. We ask for billing details only when you invite a sixth candidate.</div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="o-email">Work email</label>
+        <div class="input-wrap">
+          <i data-lucide="mail" class="ic ic-sm"></i>
+          <input class="input" id="o-email" name="email" type="email" required autocomplete="email"
+                 pattern="^[^@\s]+@(?!gmail\.|yahoo\.|hotmail\.|outlook\.|icloud\.)[^@\s]+\.[^@\s]+$"
+                 placeholder="priya.raman@northwindhealth.example" aria-describedby="o-email-hint o-email-err">
+        </div>
+        <p class="hint" id="o-email-hint">Your email domain becomes the default way colleagues join this workspace.</p>
+        <p class="error-text" id="o-email-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Use a work address — personal mailboxes cannot own a workspace.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="o-org">Organisation name</label>
+        <input class="input" id="o-org" name="organisation" type="text" required autocomplete="organization"
+               placeholder="Northwind Health System" aria-describedby="o-org-err">
+        <p class="error-text" id="o-org-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter the name candidates will see on their invitation.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="o-password">Password</label>
+        <div class="input-wrap">
+          <i data-lucide="lock" class="ic ic-sm"></i>
+          <input class="input" id="o-password" name="password" type="password" required minlength="10"
+                 autocomplete="new-password" placeholder="At least 10 characters" style="padding-right:44px"
+                 aria-describedby="o-strength o-password-err">
+          <button class="icon-btn icon-btn-sm input-trail" type="button" data-pw-toggle="o-password"
+                  aria-pressed="false" aria-controls="o-password" aria-label="Show password">
+            <i data-lucide="eye" class="ic ic-sm" data-pw-show></i>
+            <i data-lucide="eye-off" class="ic ic-sm" data-pw-hide hidden></i>
+          </button>
+        </div>
+        <div class="progress sm" aria-hidden="true"><span data-strength-bar style="width:0"></span></div>
+        <p class="hint" id="o-strength" role="status" aria-live="polite" data-strength-text>Workspace owners must use 10 or more characters. Single sign-on can be enforced later in tenant settings.</p>
+        <p class="error-text" id="o-password-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Passwords need at least 10 characters.</p>
+      </div>
+
+      <div class="grid grid-2" style="gap:14px">
+        <div class="field">
+          <label class="label" for="o-size">Hiring team size</label>
+          <select class="select" id="o-size" name="team-size" required aria-describedby="o-size-err">
+            <option value="">Choose…</option>
+            <option>1–5 people</option>
+            <option>6–20 people</option>
+            <option>21–60 people</option>
+            <option>61–200 people</option>
+            <option>More than 200 people</option>
+          </select>
+          <p class="error-text" id="o-size-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Pick the closest range.</p>
+        </div>
+        <div class="field">
+          <label class="label" for="o-region">Data region</label>
+          <select class="select" id="o-region" name="region" required aria-describedby="o-region-hint o-region-err">
+            <option value="">Choose…</option>
+            <option>EU — Frankfurt</option>
+            <option>UK — London</option>
+            <option>US — Northern Virginia</option>
+            <option>Australia — Sydney</option>
+          </select>
+          <p class="error-text" id="o-region-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Choose where recordings will be stored.</p>
+        </div>
+      </div>
+      <p class="hint" id="o-region-hint" style="margin-top:-6px">Recordings, transcripts and evaluations stay in the region you choose. This cannot be changed after the first interview.</p>
+
+      <div class="field">
+        <label class="check">
+          <input type="checkbox" name="terms" id="o-terms" required aria-describedby="o-terms-err">
+          <span>I have authority to accept the <a href="index.html#terms">customer agreement</a> and <a href="index.html#dpa">data processing addendum</a> for this organisation.
+            <span class="hint">You will be recorded as the workspace owner and the first tenant administrator.</span>
+          </span>
+        </label>
+        <p class="error-text" id="o-terms-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>A workspace owner must accept the agreement.</p>
+      </div>
+
+      <button class="btn btn-primary btn-lg btn-block" type="submit">Create organisation workspace</button>
+      <p class="hint" style="text-align:center">We will email a verification link before the workspace goes live.</p>
+    </form>
+
+    <hr style="margin:22px 0">
+    <p class="hint">
+      Already registered? <a href="login.html" style="font-weight:600">Sign in</a> ·
+      Invited to a screening? <a href="invitation-accept.html" style="font-weight:600">Open your invitation</a>
+    </p>
+  </div>
+
+  <footer class="auth-foot">
+    <span>© 2026 Prepeet</span>
+    <a href="index.html">About Prepeet</a>
+    <a href="login.html">Sign in</a>
+    <a href="screens.html">Prototype index</a>
+  </footer>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var PROVIDERS = [
+    { id: 'google',    label: 'Google',                  letter: 'G', bg: '#FFFFFF', fg: '#3C4043', ring: '#DADCE0' },
+    { id: 'microsoft', label: 'Microsoft',               letter: 'M', bg: '#0067B8', fg: '#FFFFFF' },
+    { id: 'okta',      label: 'Okta (Northwind Health)', letter: 'O', bg: '#00297A', fg: '#FFFFFF' }
+  ];
+
+  /* ---------- OAuth buttons, rendered from data ---------- */
+  function renderProviders(next) {
+    var list = document.getElementById('oauth-list');
+    list.setAttribute('aria-busy', 'true');
+    list.innerHTML = '<span class="sr-only">Loading sign-up options…</span>' +
+      '<div class="skeleton" style="height:40px;border-radius:var(--r-md)"></div>'.repeat(3);
+    setTimeout(function () {
+      list.setAttribute('aria-busy', 'false');
+      list.innerHTML = PROVIDERS.map(function (p) {
+        var mark = 'background:' + p.bg + ';color:' + p.fg + (p.ring ? ';box-shadow:inset 0 0 0 1px ' + p.ring : '');
+        return '<a class="btn btn-secondary btn-block oauth-btn" href="' +
+          Prepeet.query.withParams('oauth-callback.html', { provider: p.id, next: next }) + '">' +
+          '<span class="provider-mark" style="' + mark + '" aria-hidden="true">' + p.letter + '</span>' +
+          '<span>Sign up with ' + p.label + '</span></a>';
+      }).join('');
+      Prepeet.init(list);
+    }, 700);
+  }
+
+  /* ---------- Role library select ---------- */
+  function fillRoles() {
+    var sel = document.getElementById('c-role');
+    var domains = [];
+    Prepeet.data.roleLibrary.forEach(function (r) { if (domains.indexOf(r.domain) === -1) domains.push(r.domain); });
+    domains.forEach(function (d) {
+      var g = document.createElement('optgroup');
+      g.label = d;
+      Prepeet.data.roleLibrary.filter(function (r) { return r.domain === d; }).forEach(function (r) {
+        var o = document.createElement('option');
+        o.value = r.id; o.textContent = r.title;
+        g.appendChild(o);
+      });
+      sel.appendChild(g);
+    });
+    var other = document.createElement('option');
+    other.value = 'other'; other.textContent = 'Something else — I will describe it later';
+    sel.appendChild(other);
+  }
+
+  /* ---------- Password strength ---------- */
+  var LEVELS = [
+    { pct: 12, cls: 'danger',  text: 'Too short. Add more characters — length matters far more than symbols.' },
+    { pct: 35, cls: 'danger',  text: 'Weak. A password this short is guessable in minutes.' },
+    { pct: 60, cls: 'warning', text: 'Fair. Adding a second word, or a number and a capital, would help.' },
+    { pct: 82, cls: '',        text: 'Good. This would take a long time to guess.' },
+    { pct: 100, cls: 'success', text: 'Strong. Store it in your password manager.' }
+  ];
+  function score(v) {
+    if (!v) return -1;
+    var s = 0;
+    if (v.length >= 10) s++;
+    if (v.length >= 14) s++;
+    if (/[A-Z]/.test(v) && /[a-z]/.test(v)) s++;
+    if (/[0-9]/.test(v)) s++;
+    if (/[^A-Za-z0-9]/.test(v)) s++;
+    if (v.length < 10) s = Math.min(s, 1);
+    return Math.min(s, 4);
+  }
+  function wireStrength(input) {
+    var field = input.closest('.field');
+    var bar = field.querySelector('[data-strength-bar]');
+    var txt = field.querySelector('[data-strength-text]');
+    var base = txt.textContent;
+    var progress = bar.parentNode;
+    input.addEventListener('input', function () {
+      var i = score(input.value);
+      if (i < 0) { bar.style.width = '0'; txt.textContent = base; progress.className = 'progress sm'; return; }
+      var lv = LEVELS[i];
+      bar.style.width = lv.pct + '%';
+      progress.className = 'progress sm' + (lv.cls ? ' ' + lv.cls : '');
+      txt.textContent = 'Password strength: ' + lv.text;
+    });
+  }
+
+  /* ---------- Show / hide password ---------- */
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-pw-toggle]');
+    if (!btn) return;
+    var input = document.getElementById(btn.getAttribute('data-pw-toggle'));
+    var show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', String(show));
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    btn.querySelector('[data-pw-show]').hidden = show;
+    btn.querySelector('[data-pw-hide]').hidden = !show;
+    input.focus();
+  });
+
+  /* ---------- Account-type switch ---------- */
+  function applyType(t) {
+    document.querySelectorAll('[data-account]').forEach(function (f) { f.hidden = f.getAttribute('data-account') !== t; });
+    Prepeet.query.set({ as: t === 'candidate' ? null : t }, true);
+    Prepeet.announce(t === 'candidate'
+      ? 'Candidate sign-up form shown. Four fields and the terms checkbox.'
+      : 'Organisation sign-up form shown. Six fields and the customer agreement checkbox.');
+    Prepeet.init();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+    fillRoles();
+    wireStrength(document.getElementById('c-password'));
+    wireStrength(document.getElementById('o-password'));
+
+    var initial = Prepeet.query.get('as') === 'org' ? 'org' : 'candidate';
+    document.querySelector('input[name="account-type"][value="' + initial + '"]').checked = true;
+    applyType(initial);
+    renderProviders(initial === 'org' ? 'admin-dashboard.html' : 'candidate-dashboard.html');
+
+    document.querySelectorAll('input[name="account-type"]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        applyType(r.value);
+        renderProviders(r.value === 'org' ? 'admin-dashboard.html' : 'candidate-dashboard.html');
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

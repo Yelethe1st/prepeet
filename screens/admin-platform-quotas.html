@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en" data-theme-default="light" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quotas · Prepeet</title>
+<meta name="description" content="Interview and AI quota management: per-tenant allowances, soft and hard limits, overage policy, spend caps, per-model rate limits and quota events.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* ---- page-scoped: quotas only ---- */
+.qcell { display:flex; align-items:center; gap:8px; min-width:132px; }
+.qcell .progress { flex:1; min-width:56px; }
+.util { display:flex; align-items:center; gap:8px; min-width:120px; }
+.util .progress { flex:1; min-width:48px; }
+tr.row-alert td { background:color-mix(in srgb, var(--danger) 9%, transparent); }
+tr.row-alert td:first-child { box-shadow:inset 3px 0 0 var(--danger); }
+.table tbody tr.row-alert:hover td { background:color-mix(in srgb, var(--danger) 14%, transparent); }
+tr.row-warn td { background:color-mix(in srgb, var(--warning) 9%, transparent); }
+tr.row-warn td:first-child { box-shadow:inset 3px 0 0 var(--warning); }
+.table tbody tr.row-warn:hover td { background:color-mix(in srgb, var(--warning) 14%, transparent); }
+tr.row-focus td { outline:2px solid var(--primary); outline-offset:-2px; }
+.limit-steps { display:grid; gap:var(--sp-3); grid-template-columns:repeat(3,minmax(0,1fr)); }
+@media (max-width:768px){ .limit-steps { grid-template-columns:1fr; } }
+.limit-step { border:1px solid var(--border); border-radius:var(--r-md); padding:14px; background:var(--surface); border-top:3px solid var(--chart-7); }
+.limit-step.soft { border-top-color:var(--warning); }
+.limit-step.hard { border-top-color:var(--danger); }
+.limit-step.cap { border-top-color:var(--info); }
+.limit-step h3 { font-size:var(--text-sm); display:flex; align-items:center; gap:7px; margin-bottom:6px; }
+.msg-preview { border:1px dashed var(--border-strong); border-radius:var(--r-md); padding:14px 16px; background:var(--surface-2); }
+.evt-log dt { font-family:var(--font-mono); font-size:var(--text-2xs); color:var(--fg-3); }
+@media (max-width:640px){ .page-header .segmented { flex-wrap:wrap; } }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="pf-quotas" data-title="Quotas"
+      data-crumbs="Admin>admin-dashboard.html|Platform>admin-platform-analytics.html|AI usage &amp; cost>admin-platform-system-llm-usage.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content dense" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow eyebrow--muted">Platform operations</p>
+        <h1>Quotas</h1>
+        <p class="page-desc">Interview allowances, spend caps and model rate limits per tenant. Limits protect shared capacity; they are never used to influence how a candidate is evaluated.</p>
+        <div class="cluster" style="margin-top:8px">
+          <span class="badge badge-outline mono">/admin/platform/quotas</span>
+          <span class="badge badge-neutral"><i data-lucide="refresh-cw" class="ic-sm ic"></i>Counters reset 1 Sep, 00:00 UTC</span>
+          <span class="badge badge-neutral" id="tenant-filter-chip" hidden></span>
+        </div>
+      </div>
+      <div class="cluster" style="margin-left:auto;align-items:flex-end">
+        <div>
+          <span class="hint" style="display:block;margin-bottom:4px">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview screen state">
+            <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+            <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+            <button type="button" data-state-btn="throttled" aria-pressed="false">Throttled</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" type="button" data-dialog-open="dlg-grant"><i data-lucide="plus" class="ic ic-sm"></i>Grant headroom</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════ LOADING ══════════════════ -->
+    <div data-state="loading" hidden aria-busy="true">
+      <div class="metrics-row" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60%;margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60%;margin-top:10px"></div></div></div>
+      </div>
+      <div class="card" style="margin-bottom:var(--sp-4)"><div class="card-body"><div class="skeleton skeleton-block" style="height:260px"></div></div></div>
+      <div class="card"><div class="card-body"><div class="skeleton skeleton-block" style="height:160px"></div></div></div>
+      <p class="hint" style="margin-top:12px" role="status">Reading current consumption counters for 6 tenants and 6 models…</p>
+    </div>
+
+    <!-- ══════════════════ DEFAULT + THROTTLED ══════════════════ -->
+    <div data-state="default throttled">
+
+      <!-- throttled banner -->
+      <div class="banner banner-danger" data-state="throttled" hidden role="alert" style="margin-bottom:var(--sp-4)">
+        <i data-lucide="octagon-x" class="ic"></i>
+        <div>
+          <strong>Meridian Schools Trust has reached its hard limit.</strong>
+          40,000 of 40,000 interview minutes consumed at 11:42 UTC today. <strong>18 interview starts have been blocked</strong> since then; 6 interviews that were already in progress completed normally and were evaluated. The tenant owner was emailed automatically at 11:42.
+        </div>
+        <div class="banner-actions">
+          <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-grant">Grant headroom</button>
+          <a class="btn btn-sm btn-ghost" href="admin-platform-system-llm-usage.html">Cost impact</a>
+        </div>
+      </div>
+
+      <!-- ---------- Summary strip ---------- -->
+      <div class="metrics-row" style="margin-bottom:var(--sp-5)">
+        <div class="card"><div class="metric">
+          <span class="metric-label">Tenants over 80% of quota</span>
+          <span class="metric-value tnum">1</span>
+          <span class="metric-foot">Meridian Schools Trust · <span data-state="default">94%</span><span data-state="throttled" hidden>100%</span></span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Tenants throttled</span>
+          <span class="metric-value tnum" data-state="default">0</span>
+          <span class="metric-value tnum" data-state="throttled" hidden>1</span>
+          <span class="metric-foot" data-state="default">No new interviews are being blocked</span>
+          <span class="metric-foot" data-state="throttled" hidden>18 interview starts blocked today</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Allocated interview minutes</span>
+          <span class="metric-value tnum">262,000</span>
+          <span class="metric-foot">Across 6 tenants, this billing month</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Consumed</span>
+          <span class="metric-value tnum">174,160</span>
+          <span class="metric-foot">66.5% of allocation · day 23 of 31</span>
+        </div></div>
+        <div class="card"><div class="metric">
+          <span class="metric-label">Unallocated headroom</span>
+          <span class="metric-value tnum">87,840</span>
+          <span class="metric-foot">Platform ceiling 340,000 min/month</span>
+        </div></div>
+      </div>
+
+      <!-- ---------- Quota table ---------- -->
+      <section aria-labelledby="quota-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="quota-h" class="section-title" style="margin:0">Quota by tenant <span class="count">6 tenants</span></h2>
+          <a class="link" href="admin-platform-system-llm-usage.html">Cost by tenant<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        </div>
+        <div class="scroll-x table-wrap">
+          <table class="table table-dense" id="quota-table">
+            <caption class="sr-only">Interview minute allowance, consumption, limits, overage policy, spend cap and status for every tenant. Scroll horizontally to see all columns.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Tenant</th>
+                <th scope="col">Plan</th>
+                <th scope="col" class="num">Allowance</th>
+                <th scope="col">Consumed</th>
+                <th scope="col" class="num">Remaining</th>
+                <th scope="col" class="num">Soft limit</th>
+                <th scope="col" class="num">Hard limit</th>
+                <th scope="col">Overage policy</th>
+                <th scope="col" class="num">Spend cap</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="td-actions">Edit</th>
+              </tr>
+            </thead>
+            <tbody id="quota-rows"></tbody>
+          </table>
+        </div>
+        <p class="hint" style="margin-top:8px">This table scrolls sideways instead of stacking into cards below 768px: an allowance, its soft limit and its hard limit only make sense read across one line, and comparing tenants is the whole point of the view.</p>
+      </section>
+
+      <!-- ---------- Throttling policy ---------- -->
+      <section aria-labelledby="policy-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="policy-h" class="section-title" style="margin:0">Throttling policy</h2>
+          <span class="hint">Applies to every plan; per-tenant values are set in the table above</span>
+        </div>
+        <div class="limit-steps" style="margin-bottom:var(--sp-4)">
+          <div class="limit-step soft">
+            <h3><i data-lucide="bell-ring" class="ic ic-sm" style="color:var(--warning)"></i>Soft limit — warn</h3>
+            <p class="hint" style="line-height:1.6">Default 80% of the monthly allowance. The tenant owner and every tenant admin receive an email and an in-app banner showing consumption, the projected hard-limit date and how to request more. <strong>Nothing is blocked.</strong> Recruiters and candidates see no change.</p>
+            <p class="hint" style="margin-top:8px">Re-notified every 5 percentage points after the first crossing, at most once per day.</p>
+          </div>
+          <div class="limit-step hard">
+            <h3><i data-lucide="octagon-x" class="ic ic-sm" style="color:var(--danger)"></i>Hard limit — block new starts</h3>
+            <p class="hint" style="line-height:1.6">Default 100% of the allowance. New interviews cannot be started for that tenant. <strong>Interviews already in progress always complete</strong>, are transcribed, evaluated and delivered — we never cut a candidate off mid-answer. Scheduled invitations stay valid and become startable again as soon as headroom exists.</p>
+            <p class="hint" style="margin-top:8px">Platform admins can grant temporary headroom without changing the plan.</p>
+          </div>
+          <div class="limit-step cap">
+            <h3><i data-lucide="wallet" class="ic ic-sm" style="color:var(--info)"></i>Spend cap — stop overage billing</h3>
+            <p class="hint" style="line-height:1.6">Only applies to tenants whose overage policy is “allow with overage billing”. Once billed overage reaches the cap, the tenant behaves as if it hit a hard limit rather than continuing to accrue charges. This protects the customer from a surprise invoice.</p>
+            <p class="hint" style="margin-top:8px">A cap is never applied silently — the owner is notified at 80% of the cap.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 style="font-size:var(--text-sm)">What a candidate sees when a tenant is at its hard limit</h3>
+              <p class="hint" style="margin-top:3px">Exact copy. It never names quotas, billing or the employer's account status — that is not the candidate's problem to solve.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="msg-preview">
+              <div class="cluster" style="margin-bottom:10px">
+                <i data-lucide="clock" class="ic" style="color:var(--fg-3)"></i>
+                <strong style="font-size:var(--text-base)">This interview can't start just yet</strong>
+              </div>
+              <p style="font-size:var(--text-sm);line-height:1.65;color:var(--fg-2)">Northwind Health System is finishing setup for this round of interviews. Your invitation is still valid and nothing you have done is affected.</p>
+              <p style="font-size:var(--text-sm);line-height:1.65;color:var(--fg-2);margin-top:10px">We'll email you as soon as you can start — usually within a few hours. If your deadline is close, reply to your invitation email and the hiring team will extend it.</p>
+              <div class="cluster" style="margin-top:14px">
+                <span class="btn btn-primary btn-sm" role="presentation" aria-hidden="true">Notify me when it's ready</span>
+                <span class="btn btn-ghost btn-sm" role="presentation" aria-hidden="true">Back to your dashboard</span>
+              </div>
+            </div>
+            <p class="hint" style="margin-top:10px">The employer name is substituted from the invitation. Deadlines on affected invitations are automatically extended by the length of the block.</p>
+          </div>
+          <div class="card-footer">
+            <div class="cluster">
+              <a class="btn btn-sm btn-ghost" href="admin-invitations.html">Invitations affected by a block</a>
+              <a class="btn btn-sm btn-ghost" href="admin-tenant-settings.html#notifications">Tenant notification settings</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Per-model rate limits ---------- -->
+      <section aria-labelledby="rl-h" id="rate-limits" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="rl-h" class="section-title" style="margin:0">Per-model rate limits</h2>
+          <span class="hint">Platform-wide ceilings negotiated with each provider · utilisation is a 5-minute rolling mean</span>
+        </div>
+        <div class="scroll-x table-wrap">
+          <table class="table table-dense">
+            <caption class="sr-only">Requests per minute, tokens per minute and concurrent realtime session limits per model, with current utilisation. Scroll horizontally to see all columns.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Model</th>
+                <th scope="col" class="num">Requests / min</th>
+                <th scope="col">RPM utilisation</th>
+                <th scope="col" class="num">Tokens / min</th>
+                <th scope="col">TPM utilisation</th>
+                <th scope="col" class="num">Concurrent realtime</th>
+                <th scope="col">Concurrency</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">pp-realtime-voice-1</td>
+                <td class="num tnum">684 / 1,200</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:57%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">57%</span></span></td>
+                <td class="num tnum">2.1M / 4.0M</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:53%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">53%</span></span></td>
+                <td class="num tnum">287 / 480</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:60%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">60%</span></span></td>
+              </tr>
+              <tr>
+                <td class="mono">pp-transcribe-2</td>
+                <td class="num tnum">1,392 / 2,400</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:58%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">58%</span></span></td>
+                <td class="num tnum">2.8M / 6.0M</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:47%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">47%</span></span></td>
+                <td class="num tnum">—</td>
+                <td><span class="hint">Not applicable</span></td>
+              </tr>
+              <tr class="row-warn">
+                <td class="mono"><i data-lucide="alert-triangle" class="ic-sm ic" style="vertical-align:-2px;margin-right:5px;color:var(--warning)"></i>pp-eval-pro-3</td>
+                <td class="num tnum"><strong>486 / 600</strong></td>
+                <td><span class="util"><span class="progress sm warning" style="width:70px"><span style="width:81%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">81%</span><span class="badge badge-warning">High</span></span></td>
+                <td class="num tnum">8.9M / 12.0M</td>
+                <td><span class="util"><span class="progress sm warning" style="width:70px"><span style="width:74%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">74%</span></span></td>
+                <td class="num tnum">—</td>
+                <td><span class="hint">Not applicable</span></td>
+              </tr>
+              <tr>
+                <td class="mono">pp-eval-lite-3</td>
+                <td class="num tnum">502 / 1,800</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:28%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">28%</span></span></td>
+                <td class="num tnum">1.9M / 8.0M</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:24%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">24%</span></span></td>
+                <td class="num tnum">—</td>
+                <td><span class="hint">Not applicable</span></td>
+              </tr>
+              <tr>
+                <td class="mono">pp-embed-2</td>
+                <td class="num tnum">1,020 / 3,000</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:34%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">34%</span></span></td>
+                <td class="num tnum">2.4M / 10.0M</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:24%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">24%</span></span></td>
+                <td class="num tnum">—</td>
+                <td><span class="hint">Not applicable</span></td>
+              </tr>
+              <tr>
+                <td class="mono">alt-eval-omni-2</td>
+                <td class="num tnum">8 / 120</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:7%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">7%</span></span></td>
+                <td class="num tnum">0.14M / 2.0M</td>
+                <td><span class="util"><span class="progress sm" style="width:70px"><span style="width:7%"></span></span><span class="mono tnum" style="font-size:var(--text-2xs)">7%</span></span></td>
+                <td class="num tnum">—</td>
+                <td><span class="hint">Fallback only</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint" style="margin-top:8px">Scrolls sideways rather than stacking: a limit and its current utilisation belong on the same line.</p>
+        <div class="banner banner-warning" style="margin-top:var(--sp-3)">
+          <i data-lucide="alert-triangle" class="ic"></i>
+          <div><strong>pp-eval-pro-3 is at 81% of its request ceiling.</strong> Scaling evaluation consumers past 24 will hit the provider limit rather than drain the queue faster. Either raise the ceiling with the provider or route more short sessions to <span class="mono">pp-eval-lite-3</span>.</div>
+          <div class="banner-actions">
+            <a class="btn btn-sm btn-secondary" href="admin-platform-system.html#queues">Evaluation queue</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Quota events ---------- -->
+      <section class="card" aria-labelledby="events-h" id="events">
+        <div class="card-header">
+          <div>
+            <h2 id="events-h" style="font-size:var(--text-base)">Quota events</h2>
+            <p class="hint" style="margin-top:3px">Threshold crossings, overrides and limit changes. Every entry is mirrored to the immutable audit log.</p>
+          </div>
+          <a class="btn btn-sm btn-secondary" href="admin-god-audit.html?filter=quota">Open audit log</a>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="scroll-x">
+            <table class="table table-dense">
+              <caption class="sr-only">Recent quota events with time, tenant, event type, actor and reason.</caption>
+              <thead><tr><th scope="col">When (UTC)</th><th scope="col">Tenant</th><th scope="col">Event</th><th scope="col">Actor</th><th scope="col">Reason</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="mono">23 Aug 11:42</td>
+                  <td><a class="row-link" href="admin-platform-quotas.html?tenant=tn_meridian">Meridian Schools Trust</a></td>
+                  <td><span class="badge badge-warning"><i data-lucide="alert-triangle" class="ic-sm ic"></i>Soft limit crossed (90%)</span></td>
+                  <td>System</td>
+                  <td>36,000 of 40,000 minutes consumed. Owner and 3 tenant admins notified.</td>
+                </tr>
+                <tr>
+                  <td class="mono">22 Aug 16:05</td>
+                  <td><a class="row-link" href="admin-platform-quotas.html?tenant=tn_meridian">Meridian Schools Trust</a></td>
+                  <td><span class="badge badge-info">Overage policy changed</span></td>
+                  <td>Priya Raman</td>
+                  <td>Set to “block at hard limit” at the customer's written request ahead of their September campaign.</td>
+                </tr>
+                <tr>
+                  <td class="mono">21 Aug 09:18</td>
+                  <td><a class="row-link" href="admin-platform-quotas.html?tenant=tn_orbital">Orbital Labs</a></td>
+                  <td><span class="badge badge-success">Temporary headroom granted</span></td>
+                  <td>Jonas Brandt</td>
+                  <td>+6,000 minutes to 31 Aug. Migration of 140 candidates from a retired ATS.</td>
+                </tr>
+                <tr>
+                  <td class="mono">19 Aug 13:52</td>
+                  <td><a class="row-link" href="admin-platform-quotas.html?tenant=tn_northwind">Northwind Health System</a></td>
+                  <td><span class="badge badge-info">Allowance increased</span></td>
+                  <td>Priya Raman</td>
+                  <td>84,000 → 96,000 minutes. Contract expansion signed 18 Aug, effective this billing month.</td>
+                </tr>
+                <tr>
+                  <td class="mono">18 Aug 07:30</td>
+                  <td><a class="row-link" href="admin-platform-quotas.html?tenant=tn_meridian">Meridian Schools Trust</a></td>
+                  <td><span class="badge badge-warning"><i data-lucide="alert-triangle" class="ic-sm ic"></i>Soft limit crossed (80%)</span></td>
+                  <td>System</td>
+                  <td>32,000 of 40,000 minutes consumed. First notification for this billing month.</td>
+                </tr>
+                <tr>
+                  <td class="mono">14 Aug 10:11</td>
+                  <td><a class="row-link" href="admin-platform-quotas.html?tenant=tn_selfserve">Prepeet Practice (self-serve)</a></td>
+                  <td><span class="badge badge-neutral">Spend cap changed</span></td>
+                  <td>Elena Vasquez</td>
+                  <td>$4,200 → $5,000. Consumer practice demand up after the August campaign.</td>
+                </tr>
+                <tr>
+                  <td class="mono">09 Aug 15:44</td>
+                  <td><a class="row-link" href="admin-platform-quotas.html?tenant=tn_caldera">Caldera Capital</a></td>
+                  <td><span class="badge badge-neutral">Soft limit changed</span></td>
+                  <td>Jonas Brandt</td>
+                  <td>90% → 75%. Finance team asked for earlier warning after last month's surprise.</td>
+                </tr>
+                <tr>
+                  <td class="mono">03 Aug 08:02</td>
+                  <td><a class="row-link" href="admin-platform-quotas.html?tenant=tn_brightpath">Brightpath Commercial</a></td>
+                  <td><span class="badge badge-danger">Hard limit reached</span></td>
+                  <td>System</td>
+                  <td>18,000 of 18,000 minutes consumed. 4 interview starts blocked; headroom granted 22 minutes later.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="hint" style="padding:0 var(--sp-4) var(--sp-3)">Scrolls sideways on narrow screens so the actor and reason stay attached to the event they explain.</p>
+        <div class="card-footer">
+          <span class="hint">Showing the last 8 of 61 events in this billing month.</span>
+        </div>
+      </section>
+
+    </div><!-- /states -->
+  </div>
+</main>
+
+<!-- ══════════════════ EDIT QUOTA DRAWER ══════════════════ -->
+<dialog class="drawer" id="drw-quota" aria-labelledby="drw-quota-h">
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <div>
+        <h2 id="drw-quota-h">Edit quota</h2>
+        <p class="hint" id="drw-quota-sub">Tenant</p>
+      </div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close quota editor"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form class="drawer-body" id="quota-form" novalidate>
+      <div class="banner banner-info" style="margin-bottom:var(--sp-4)">
+        <i data-lucide="info" class="ic"></i>
+        <div>Current consumption for this billing month is <strong id="q-consumed">—</strong>. Lowering the hard limit below what is already consumed blocks the tenant immediately.</div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="q-allowance">Monthly interview allowance <span class="hint">minutes</span></label>
+        <input class="input" id="q-allowance" name="allowance" type="number" min="1000" step="1000" required
+               aria-describedby="q-allowance-hint q-allowance-err">
+        <p class="hint" id="q-allowance-hint">Plan default is restored if you clear this field and save.</p>
+        <p class="error-text" id="q-allowance-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter an allowance of at least 1,000 minutes.</p>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:var(--sp-4)">
+        <div class="field">
+          <label class="label" for="q-soft">Soft limit <span class="hint">% of allowance</span></label>
+          <input class="input" id="q-soft" name="soft" type="number" min="10" max="100" step="5" required
+                 aria-describedby="q-soft-hint q-soft-err">
+          <p class="hint" id="q-soft-hint">Warns the tenant owner. Nothing is blocked.</p>
+          <p class="error-text" id="q-soft-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>The soft limit cannot be higher than the hard limit.</p>
+        </div>
+        <div class="field">
+          <label class="label" for="q-hard">Hard limit <span class="hint">% of allowance</span></label>
+          <input class="input" id="q-hard" name="hard" type="number" min="10" max="150" step="5" required
+                 aria-describedby="q-hard-hint q-hard-err">
+          <p class="hint" id="q-hard-hint">Blocks new interview starts. In-flight interviews always finish.</p>
+          <p class="error-text" id="q-hard-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter a hard limit between 10% and 150%.</p>
+        </div>
+      </div>
+
+      <fieldset class="field" style="margin-top:var(--sp-4);border:0;padding:0">
+        <legend class="label" style="padding:0">Overage policy</legend>
+        <div class="stack-sm" style="margin-top:6px">
+          <label class="radio"><input type="radio" name="overage" value="block">
+            <span><strong>Block at the hard limit</strong><span class="hint">No overage is billed. New starts stop until headroom exists.</span></span></label>
+          <label class="radio"><input type="radio" name="overage" value="bill">
+            <span><strong>Allow with overage billing</strong><span class="hint">Interviews continue past the allowance and overage is invoiced, up to the spend cap.</span></span></label>
+          <label class="radio"><input type="radio" name="overage" value="notify">
+            <span><strong>Notify only</strong><span class="hint">Never blocks and never bills overage. Reserved for pilots and internal tenants.</span></span></label>
+        </div>
+      </fieldset>
+
+      <div class="field" style="margin-top:var(--sp-4)">
+        <label class="label" for="q-cap">Spend cap <span class="hint">USD per month</span></label>
+        <input class="input" id="q-cap" name="cap" type="number" min="0" step="100" aria-describedby="q-cap-hint">
+        <p class="hint" id="q-cap-hint">Only enforced when the overage policy is “allow with overage billing”.</p>
+      </div>
+
+      <div class="field" style="margin-top:var(--sp-4)">
+        <label class="label" for="q-effective">Effective from</label>
+        <input class="input" id="q-effective" name="effective" type="date" value="2026-08-24" min="2026-08-23" required aria-describedby="q-effective-hint">
+        <p class="hint" id="q-effective-hint">Backdating is not possible. Choosing a future date leaves today's limits in place until then.</p>
+      </div>
+
+      <div class="field" style="margin-top:var(--sp-4)">
+        <label class="label" for="q-reason">Change reason <span class="hint">Required</span></label>
+        <textarea class="textarea" id="q-reason" name="reason" required rows="3"
+                  placeholder="e.g. Contract expansion signed 18 Aug; customer confirmed by email."
+                  aria-describedby="q-reason-hint q-reason-err"></textarea>
+        <p class="hint" id="q-reason-hint">Written to the audit log with your name and shown to the tenant owner in their quota history.</p>
+        <p class="error-text" id="q-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>A change reason is required.</p>
+      </div>
+    </form>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" type="button" data-drawer-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="q-save">Save quota change</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══════════════════ GRANT HEADROOM DIALOG ══════════════════ -->
+<dialog class="dialog" id="dlg-grant" aria-labelledby="dlg-grant-h">
+  <div class="dialog-panel wide">
+    <div class="dialog-header">
+      <h2 id="dlg-grant-h">Grant temporary headroom</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form class="dialog-body" id="grant-form" novalidate>
+      <p>A grant adds interview minutes on top of the tenant's allowance for a fixed period. It does not change the plan, the invoice or the tenant's own settings.</p>
+
+      <div class="grid grid-2" style="margin-top:var(--sp-4)">
+        <div class="field">
+          <label class="label" for="g-tenant">Tenant</label>
+          <select class="select" id="g-tenant" name="tenant" required></select>
+        </div>
+        <div class="field">
+          <label class="label" for="g-amount">Extra allowance <span class="hint">minutes</span></label>
+          <input class="input" id="g-amount" name="amount" type="number" min="500" step="500" value="6000" required aria-describedby="g-amount-hint g-amount-err">
+          <p class="hint" id="g-amount-hint">Roughly 200 interviews at the 30-minute platform average.</p>
+          <p class="error-text" id="g-amount-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter at least 500 minutes.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:var(--sp-4)">
+        <div class="field">
+          <label class="label" for="g-expiry">Expires</label>
+          <input class="input" id="g-expiry" name="expiry" type="date" value="2026-08-31" min="2026-08-24" required aria-describedby="g-expiry-hint">
+          <p class="hint" id="g-expiry-hint">Unused granted minutes are discarded at expiry; they never roll into the next month.</p>
+        </div>
+        <div class="field">
+          <label class="label" for="g-notify">Notify</label>
+          <select class="select" id="g-notify" name="notify">
+            <option value="owner" selected>Tenant owner only</option>
+            <option value="admins">Tenant owner and all tenant admins</option>
+            <option value="none">No notification (internal grant)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:var(--sp-4)">
+        <label class="label" for="g-reason">Reason <span class="hint">Required</span></label>
+        <textarea class="textarea" id="g-reason" name="reason" rows="3" required
+                  placeholder="e.g. September teaching-post campaign; customer confirmed spend on a call with their account manager."
+                  aria-describedby="g-reason-hint g-reason-err"></textarea>
+        <p class="hint" id="g-reason-hint">Be specific — this is read by whoever reviews the account next month.</p>
+        <p class="error-text" id="g-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>A reason is required before a grant can be issued.</p>
+      </div>
+
+      <div class="banner banner-warning" style="margin-top:var(--sp-4)">
+        <i data-lucide="scroll-text" class="ic"></i>
+        <div>This grant is recorded in the <a href="admin-god-audit.html?filter=quota">immutable audit log</a> against your account, with the tenant, the amount, the expiry and the reason above. It cannot be deleted, only revoked — and the revocation is logged too.</div>
+      </div>
+    </form>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="g-save">Grant headroom</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var F = Prepeet.fmt;
+
+  /* ---------- quota seed, keyed to Prepeet.data.tenants ---------- */
+  var QUOTA = {
+    tn_northwind:  { allowance: 96000, consumed: 69120, soft: 80, hard: 100, overage: 'bill',   cap: 3500 },
+    tn_orbital:    { allowance: 64000, consumed: 39040, soft: 80, hard: 110, overage: 'bill',   cap: 2400 },
+    tn_meridian:   { allowance: 40000, consumed: 37600, soft: 80, hard: 100, overage: 'block',  cap: 1200 },
+    tn_caldera:    { allowance: 24000, consumed: 10560, soft: 75, hard: 100, overage: 'notify', cap: 1000 },
+    tn_brightpath: { allowance: 18000, consumed:  6840, soft: 80, hard: 100, overage: 'notify', cap:  900 },
+    tn_selfserve:  { allowance: 20000, consumed: 11000, soft: 85, hard: 100, overage: 'block',  cap: 5000 }
+  };
+  var OVERAGE_LABEL = {
+    block:  { text: 'Block at hard limit', badge: 'badge-neutral' },
+    bill:   { text: 'Allow, bill overage', badge: 'badge-info' },
+    notify: { text: 'Notify only', badge: 'badge-outline' }
+  };
+  var currentState = 'default';
+
+  /* ---------- permission guard ---------- */
+  function guard() {
+    if (Prepeet.can('platform_admin')) return true;
+    var roleLabel = Prepeet.roles[Prepeet.getRole()].label;
+    document.getElementById('main-content').innerHTML =
+      '<div class="state danger state-page">' +
+        '<div class="state-icon"><i data-lucide="shield-x" class="ic"></i></div>' +
+        '<h1>Quota management is restricted</h1>' +
+        '<p>You are signed in as <strong>' + roleLabel + '</strong>. Quotas are managed by <strong>Platform admin</strong> and above, because changing a limit affects what every tenant on the platform can do.</p>' +
+        '<p class="code">/admin/platform/quotas · 403</p>' +
+        '<div class="actions">' +
+          '<a class="btn btn-primary" href="admin-dashboard.html">Back to overview</a>' +
+          '<a class="btn btn-secondary" href="error-403.html">Why am I seeing this?</a>' +
+        '</div>' +
+        '<p class="hint" style="margin-top:12px">Tenant admins can see their own consumption in <a href="admin-tenant-settings.html">tenant settings</a>.</p>' +
+      '</div>';
+    Prepeet.init();
+    return false;
+  }
+
+  /* ---------- quota table ---------- */
+  function rowFor(t) {
+    var q = QUOTA[t.id];
+    var consumed = q.consumed;
+    var throttledMeridian = (currentState === 'throttled' && t.id === 'tn_meridian');
+    if (throttledMeridian) consumed = q.allowance;
+    var pct = Math.round(consumed / q.allowance * 100);
+    var remaining = q.allowance - consumed;
+    var ov = OVERAGE_LABEL[q.overage];
+
+    var cls = '', status, statusBadge;
+    if (pct >= 100) { cls = ' class="row-alert"'; status = 'At hard limit — new starts blocked'; statusBadge = 'badge-danger'; }
+    else if (pct >= q.soft) { cls = ' class="row-warn"'; status = 'Over soft limit — owner warned'; statusBadge = 'badge-warning'; }
+    else { status = 'Within limit'; statusBadge = 'badge-success'; }
+
+    var barCls = pct >= 100 ? ' danger' : (pct >= q.soft ? ' warning' : '');
+
+    return '<tr' + cls + ' data-tenant="' + t.id + '">' +
+      '<td><span class="row-link">' + t.name + '</span><span class="td-sub mono">' + t.id + '</span></td>' +
+      '<td>' + t.plan + '</td>' +
+      '<td class="num tnum">' + F.num(q.allowance) + '</td>' +
+      '<td><span class="qcell"><span class="progress sm' + barCls + '" style="width:64px"><span style="width:' + Math.min(100, pct) + '%"></span></span>' +
+        '<span class="mono tnum" style="font-size:var(--text-2xs)">' + F.num(consumed) + ' · ' + pct + '%</span></span></td>' +
+      '<td class="num tnum">' + (remaining <= 0 ? '<strong>0</strong>' : F.num(remaining)) + '</td>' +
+      '<td class="num tnum">' + q.soft + '% · ' + F.num(Math.round(q.allowance * q.soft / 100)) + '</td>' +
+      '<td class="num tnum">' + q.hard + '% · ' + F.num(Math.round(q.allowance * q.hard / 100)) + '</td>' +
+      '<td><span class="badge ' + ov.badge + '">' + ov.text + '</span></td>' +
+      '<td class="num tnum">$' + F.num(q.cap) + '</td>' +
+      '<td><span class="badge ' + statusBadge + '">' +
+        (statusBadge === 'badge-success' ? '<i data-lucide="check" class="ic-sm ic"></i>' : '<i data-lucide="alert-triangle" class="ic-sm ic"></i>') +
+        status + '</span></td>' +
+      '<td class="td-actions"><button class="btn btn-sm btn-secondary" type="button" data-edit="' + t.id + '">Edit<span class="sr-only"> quota for ' + t.name + '</span></button></td>' +
+    '</tr>';
+  }
+  function renderQuota() {
+    document.getElementById('quota-rows').innerHTML = Prepeet.data.tenants.map(rowFor).join('');
+    highlightTenant();
+    Prepeet.init();
+  }
+
+  /* ---------- ?tenant= deep link ---------- */
+  function highlightTenant() {
+    var id = Prepeet.query.get('tenant');
+    var chip = document.getElementById('tenant-filter-chip');
+    document.querySelectorAll('#quota-rows tr').forEach(function (tr) { tr.classList.remove('row-focus'); });
+    if (!id) { chip.hidden = true; return; }
+    var t = Prepeet.data.tenants.filter(function (x) { return x.id === id; })[0];
+    if (!t) { chip.hidden = true; return; }
+    chip.hidden = false;
+    chip.innerHTML = '<i data-lucide="filter" class="ic-sm ic"></i>Focused on ' + t.name;
+    var row = document.querySelector('#quota-rows tr[data-tenant="' + id + '"]');
+    if (row) row.classList.add('row-focus');
+  }
+
+  /* ---------- states ---------- */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    if (['default', 'loading', 'throttled'].indexOf(cur) === -1) cur = 'default';
+    function apply(s) {
+      currentState = s;
+      document.querySelectorAll('[data-state]').forEach(function (el) {
+        el.hidden = el.getAttribute('data-state').split(/\s+/).indexOf(s) === -1;
+      });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+      });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      if (s !== 'loading') renderQuota();
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(cur);
+  }
+
+  /* ---------- edit drawer ---------- */
+  var editing = null;
+  function openEditor(id) {
+    var t = Prepeet.data.tenants.filter(function (x) { return x.id === id; })[0];
+    var q = QUOTA[id];
+    if (!t || !q) return;
+    editing = id;
+    var consumed = (currentState === 'throttled' && id === 'tn_meridian') ? q.allowance : q.consumed;
+    document.getElementById('drw-quota-h').textContent = 'Edit quota · ' + t.name;
+    document.getElementById('drw-quota-sub').textContent = t.plan + ' plan · ' + t.id + ' · ' + t.seats + ' seats';
+    document.getElementById('q-consumed').textContent = F.num(consumed) + ' of ' + F.num(q.allowance) + ' minutes (' + Math.round(consumed / q.allowance * 100) + '%)';
+    document.getElementById('q-allowance').value = q.allowance;
+    document.getElementById('q-soft').value = q.soft;
+    document.getElementById('q-hard').value = q.hard;
+    document.getElementById('q-cap').value = q.cap;
+    document.getElementById('q-reason').value = '';
+    document.querySelectorAll('#quota-form input[name=overage]').forEach(function (r) { r.checked = r.value === q.overage; });
+    clearErrors();
+    Prepeet.openDialog('drw-quota');
+  }
+  function clearErrors() {
+    ['q-allowance', 'q-soft', 'q-hard', 'q-reason'].forEach(function (n) {
+      var f = document.getElementById(n); if (f) f.setAttribute('aria-invalid', 'false');
+      var e = document.getElementById(n + '-err'); if (e) e.hidden = true;
+    });
+  }
+  function fail(name, msg) {
+    var f = document.getElementById(name), e = document.getElementById(name + '-err');
+    f.setAttribute('aria-invalid', 'true');
+    if (e) { if (msg) e.lastChild.textContent = msg; e.hidden = false; }
+    return f;
+  }
+  function initEditor() {
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-edit]');
+      if (b) openEditor(b.getAttribute('data-edit'));
+    });
+
+    document.getElementById('q-save').addEventListener('click', function () {
+      clearErrors();
+      var allowance = Number(document.getElementById('q-allowance').value);
+      var soft = Number(document.getElementById('q-soft').value);
+      var hard = Number(document.getElementById('q-hard').value);
+      var reason = document.getElementById('q-reason').value.trim();
+      var first = null;
+
+      if (!allowance || allowance < 1000) first = first || fail('q-allowance');
+      if (!hard || hard < 10 || hard > 150) first = first || fail('q-hard');
+      if (!soft || soft < 10) first = first || fail('q-soft', 'Enter a soft limit of at least 10%.');
+      else if (soft > hard) first = first || fail('q-soft', 'The soft limit (' + soft + '%) cannot be higher than the hard limit (' + hard + '%).');
+      if (!reason) first = first || fail('q-reason');
+
+      if (first) { first.focus(); Prepeet.announce('The quota change could not be saved. Check the highlighted fields.'); return; }
+
+      var q = QUOTA[editing];
+      q.allowance = allowance; q.soft = soft; q.hard = hard;
+      q.cap = Number(document.getElementById('q-cap').value) || 0;
+      var ov = document.querySelector('#quota-form input[name=overage]:checked');
+      if (ov) q.overage = ov.value;
+
+      var t = Prepeet.data.tenants.filter(function (x) { return x.id === editing; })[0];
+      Prepeet.closeDialog('drw-quota');
+      renderQuota();
+      Prepeet.toast({
+        title: 'Quota updated for ' + t.name,
+        desc: 'Effective ' + document.getElementById('q-effective').value + '. Reason recorded in the audit log.',
+        kind: 'success'
+      });
+    });
+  }
+
+  /* ---------- grant headroom ---------- */
+  function initGrant() {
+    var sel = document.getElementById('g-tenant');
+    Prepeet.data.tenants.forEach(function (t) {
+      var o = document.createElement('option');
+      o.value = t.id; o.textContent = t.name + ' — ' + Math.round(QUOTA[t.id].consumed / QUOTA[t.id].allowance * 100) + '% used';
+      sel.appendChild(o);
+    });
+    sel.value = Prepeet.query.get('tenant') || 'tn_meridian';
+
+    document.getElementById('g-save').addEventListener('click', function () {
+      var amount = Number(document.getElementById('g-amount').value);
+      var reason = document.getElementById('g-reason').value.trim();
+      var first = null;
+      document.getElementById('g-amount-err').hidden = true;
+      document.getElementById('g-reason-err').hidden = true;
+      document.getElementById('g-amount').setAttribute('aria-invalid', 'false');
+      document.getElementById('g-reason').setAttribute('aria-invalid', 'false');
+
+      if (!amount || amount < 500) {
+        document.getElementById('g-amount').setAttribute('aria-invalid', 'true');
+        document.getElementById('g-amount-err').hidden = false;
+        first = document.getElementById('g-amount');
+      }
+      if (!reason) {
+        document.getElementById('g-reason').setAttribute('aria-invalid', 'true');
+        document.getElementById('g-reason-err').hidden = false;
+        first = first || document.getElementById('g-reason');
+      }
+      if (first) { first.focus(); Prepeet.announce('The grant could not be issued. Check the highlighted fields.'); return; }
+
+      var id = sel.value;
+      var t = Prepeet.data.tenants.filter(function (x) { return x.id === id; })[0];
+      QUOTA[id].allowance += amount;
+      Prepeet.closeDialog('dlg-grant');
+      renderQuota();
+      Prepeet.toast({
+        title: F.num(amount) + ' minutes granted to ' + t.name,
+        desc: 'Expires ' + document.getElementById('g-expiry').value + '. Recorded in the audit log.',
+        kind: 'success'
+      });
+    });
+  }
+
+  /* ui.js returns early for data-dialog-close, swallowing data-toast — re-fire it here */
+  function initConfirmToasts() {
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-dialog-close][data-toast]');
+      if (!t) return;
+      Prepeet.toast({ title: t.getAttribute('data-toast'), desc: t.getAttribute('data-toast-desc') || '', kind: t.getAttribute('data-toast-kind') || 'default' });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!guard()) return;
+    initStates();
+    initEditor();
+    initGrant();
+    initConfirmToasts();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

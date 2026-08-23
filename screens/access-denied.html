@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No access to this workspace · Prepeet</title>
+<meta name="description" content="You are signed in, but this Prepeet account is not a member of the workspace you tried to open. Switch account or request access.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="auth-full">
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<div class="auth-top">
+  <a class="mk-brand" href="index.html"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+  <div class="cluster">
+    <a class="btn btn-sm btn-ghost" href="candidate-dashboard.html">Candidate app</a>
+    <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+      <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+    </button>
+  </div>
+</div>
+
+<main class="auth-card" id="main-content" style="max-width:600px">
+
+  <div class="state danger" style="padding:var(--sp-6) 0 var(--sp-4)">
+    <div class="state-icon"><i data-lucide="shield-off" class="ic"></i></div>
+    <h1 style="font-size:var(--text-xl)">This account cannot open that workspace</h1>
+    <p>You are signed in — the sign-in worked. What is missing is membership of the Northwind Health System workspace, which only its administrators can grant.</p>
+    <p class="code mono">403 · tenant=tn_northwind · route=/admin/dashboard · request=req_5Cn8Yt</p>
+  </div>
+
+  <!-- Pending request confirmation -->
+  <div class="banner banner-success" id="request-sent" hidden role="status" style="margin-bottom:18px">
+    <i data-lucide="check-circle-2" class="ic"></i>
+    <div>
+      <strong>Access request sent to Priya Raman.</strong>
+      <p style="margin-top:4px;line-height:1.5">Requests are usually answered within one working day. You will get an email either way — nothing else is needed from you.</p>
+    </div>
+  </div>
+
+  <!-- ─────────── Identity and target ─────────── -->
+  <section class="card" aria-labelledby="who-h" style="margin-bottom:16px">
+    <div class="card-header"><h2 id="who-h" style="font-size:var(--text-sm)">What we know</h2></div>
+    <div class="card-body stack">
+
+      <div class="row" style="gap:14px;align-items:flex-start">
+        <span class="avatar avatar-lg" id="who-avatar">DO</span>
+        <div style="flex:1;min-width:0">
+          <div class="hint">Signed in as</div>
+          <div style="font-weight:650" id="who-name">Daniel Okonkwo</div>
+          <div class="mono truncate" style="font-size:var(--text-xs);color:var(--fg-3)" id="who-email">daniel.okonkwo@example.com</div>
+          <div class="cluster" style="margin-top:8px">
+            <span class="badge badge-neutral"><i data-lucide="user-round" class="ic-sm ic"></i>Candidate account</span>
+            <span class="badge badge-outline">No employer memberships</span>
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="row" style="gap:14px;align-items:flex-start">
+        <span class="avatar avatar-lg avatar-square" style="background:var(--surface-3);color:var(--fg-2)"><i data-lucide="building-2" class="ic"></i></span>
+        <div style="flex:1;min-width:0">
+          <div class="hint">You tried to open</div>
+          <div style="font-weight:650" id="ws-name">Northwind Health System</div>
+          <div class="mono truncate" style="font-size:var(--text-xs);color:var(--fg-3)">tn_northwind · recruiter console · /admin/dashboard</div>
+          <div class="cluster" style="margin-top:8px">
+            <span class="badge badge-danger"><i data-lucide="x" class="ic-sm ic"></i>Not a member</span>
+            <span class="badge badge-outline">EU (Frankfurt) · 48 seats</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── Actions ─────────── -->
+  <section class="card" aria-labelledby="do-h" style="margin-bottom:16px">
+    <div class="card-header"><h2 id="do-h" style="font-size:var(--text-sm)">What you can do</h2></div>
+    <div class="card-body stack">
+      <div class="row" style="gap:12px;align-items:flex-start">
+        <i data-lucide="repeat" class="ic" style="color:var(--primary);margin-top:2px"></i>
+        <div style="flex:1;min-width:0">
+          <strong style="font-size:var(--text-sm)">Signed in with the wrong account</strong>
+          <p class="hint" style="margin-top:2px;line-height:1.5">Work accounts and candidate accounts are separate on purpose. Sign out and use your <span class="mono">@northwindhealth.example</span> address.</p>
+          <a class="btn btn-sm btn-primary" style="margin-top:10px" href="login.html?next=admin-dashboard.html"><i data-lucide="log-in" class="ic ic-sm"></i>Switch account</a>
+        </div>
+      </div>
+      <hr>
+      <div class="row" style="gap:12px;align-items:flex-start">
+        <i data-lucide="hand" class="ic" style="color:var(--primary);margin-top:2px"></i>
+        <div style="flex:1;min-width:0">
+          <strong style="font-size:var(--text-sm)">You should have access but do not</strong>
+          <p class="hint" style="margin-top:2px;line-height:1.5">Ask the workspace administrators to add you. They will see your name, your address and the reason you give.</p>
+          <button class="btn btn-sm btn-secondary" type="button" style="margin-top:10px" data-dialog-open="request-dialog" id="request-btn"><i data-lucide="mail-plus" class="ic ic-sm"></i>Request access</button>
+        </div>
+      </div>
+      <hr>
+      <div class="row" style="gap:12px;align-items:flex-start">
+        <i data-lucide="mic" class="ic" style="color:var(--primary);margin-top:2px"></i>
+        <div style="flex:1;min-width:0">
+          <strong style="font-size:var(--text-sm)">You are here as a candidate</strong>
+          <p class="hint" style="margin-top:2px;line-height:1.5">A stale bookmark to the recruiter console is the usual cause. Your practice sessions and any screening invitations live in the candidate app.</p>
+          <div class="cluster" style="margin-top:10px">
+            <a class="btn btn-sm btn-secondary" href="candidate-dashboard.html">Go to the candidate app</a>
+            <a class="btn btn-sm btn-ghost" href="invitation-accept.html">Open my invitation</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── Who to contact ─────────── -->
+  <section class="card" aria-labelledby="contact-h" style="margin-bottom:16px">
+    <div class="card-header">
+      <div>
+        <h2 id="contact-h" style="font-size:var(--text-sm)">Who can grant access</h2>
+        <p class="hint" style="margin-top:3px">Prepeet support cannot add you to a customer workspace. Only these administrators can.</p>
+      </div>
+    </div>
+    <div class="table-wrap" style="border:0;border-radius:0">
+      <table class="table table-responsive table-dense">
+        <caption class="sr-only">Administrators of the Northwind Health System workspace and how to reach them.</caption>
+        <thead>
+          <tr><th scope="col">Administrator</th><th scope="col">Role</th><th scope="col">Contact</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-label="Administrator" class="td-primary">Priya Raman</td>
+            <td data-label="Role">Workspace owner · Talent acquisition lead</td>
+            <td data-label="Contact"><span class="mono" style="font-size:var(--text-xs)">priya.raman@northwindhealth.example</span></td>
+          </tr>
+          <tr>
+            <td data-label="Administrator" class="td-primary">Jonas Brandt</td>
+            <td data-label="Role">Tenant admin · Clinical recruitment</td>
+            <td data-label="Contact"><span class="mono" style="font-size:var(--text-xs)">jonas.brandt@northwindhealth.example</span></td>
+          </tr>
+          <tr>
+            <td data-label="Administrator" class="td-primary">Northwind IT service desk</td>
+            <td data-label="Role">Manages Okta single sign-on groups</td>
+            <td data-label="Contact"><span class="mono" style="font-size:var(--text-xs)">servicedesk@northwindhealth.example</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="banner">
+    <i data-lucide="info" class="ic"></i>
+    <div>This page is about workspace membership. If you were blocked from a specific record you already have access to, that is a different error — see the <a href="error-403.html">permission error page</a>.</div>
+  </div>
+
+  <hr style="margin:22px 0">
+  <p class="hint">
+    <a href="login.html" style="font-weight:600">Sign out and use another account</a> ·
+    <a href="candidate-dashboard.html">Candidate app</a> ·
+    <a href="index.html">About Prepeet</a>
+  </p>
+</main>
+
+<!-- ─────────── Request access dialog ─────────── -->
+<dialog class="dialog" id="request-dialog" aria-labelledby="req-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div>
+        <h2 id="req-h">Request access to Northwind Health System</h2>
+        <p class="hint" style="margin-top:4px">Sent to the two workspace administrators. They decide — Prepeet does not.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form id="request-form">
+      <div class="dialog-body stack">
+        <dl class="kv">
+          <dt>Requesting as</dt><dd id="req-identity">Daniel Okonkwo · daniel.okonkwo@example.com</dd>
+          <dt>Workspace</dt><dd>Northwind Health System <span class="mono" style="font-size:var(--text-xs);color:var(--fg-3)">tn_northwind</span></dd>
+        </dl>
+
+        <div class="field">
+          <label class="label" for="req-role">Access you need</label>
+          <select class="select" id="req-role" name="role" required aria-describedby="req-role-hint req-role-err">
+            <option value="">Choose…</option>
+            <option value="recruiter">Recruiter — review candidates assigned to me</option>
+            <option value="tenant_admin">Tenant admin — configure rubrics, members and integrations</option>
+            <option value="observer">Observer — read evaluations, no decisions</option>
+          </select>
+          <p class="hint" id="req-role-hint">Administrators can grant something narrower than you ask for.</p>
+          <p class="error-text" id="req-role-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Choose the level of access you need.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="req-team">Team or requisition</label>
+          <input class="input" id="req-team" name="team" type="text" required
+                 placeholder="ICU nursing intake — September cohort" aria-describedby="req-team-err">
+          <p class="error-text" id="req-team-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Say which team or hiring round this is for.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="req-why">Why you need it</label>
+          <textarea class="textarea" id="req-why" name="why" required minlength="20"
+                    placeholder="I am covering Jonas Brandt's ICU shortlist while he is on leave from 24 August and need to read the submitted screenings."
+                    aria-describedby="req-why-hint req-why-err"></textarea>
+          <p class="hint" id="req-why-hint">A sentence is enough. This is stored on the audit log with your request.</p>
+          <p class="error-text" id="req-why-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Give at least a short sentence — administrators reject blank requests.</p>
+        </div>
+
+        <div class="field">
+          <label class="check">
+            <input type="checkbox" id="req-ack" name="ack" required aria-describedby="req-ack-err">
+            <span>I understand that screening evaluations contain candidates' personal data and that my access will be logged.</span>
+          </label>
+          <p class="error-text" id="req-ack-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Please confirm you understand the logging.</p>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Send request</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<footer class="auth-foot" style="justify-content:center">
+  <span>© 2026 Prepeet</span>
+  <a href="index.html">About Prepeet</a>
+  <a href="login.html">Sign in</a>
+  <a href="screens.html">Prototype index</a>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    Prepeet.favicon();
+    document.getElementById('brandmark').innerHTML = Prepeet.logoSvg;
+
+    var u = Prepeet.data.candidateUser;
+    var t = Prepeet.data.tenant;
+    document.getElementById('who-avatar').textContent = u.initials;
+    document.getElementById('who-name').textContent = u.name;
+    document.getElementById('who-email').textContent = u.email;
+    document.getElementById('ws-name').textContent = t.name;
+    document.getElementById('req-identity').textContent = u.name + ' · ' + u.email;
+
+    var form = document.getElementById('request-form');
+    form.setAttribute('novalidate', '');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!Prepeet.validate(form)) return;
+
+      Prepeet.closeDialog('request-dialog');
+      var banner = document.getElementById('request-sent');
+      banner.hidden = false;
+
+      var btn = document.getElementById('request-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="clock" class="ic ic-sm"></i>Request pending';
+
+      Prepeet.toast({
+        title: 'Access request sent',
+        desc: 'Priya Raman and Jonas Brandt were notified. Reference req_5Cn8Yt.',
+        kind: 'success'
+      });
+      Prepeet.announce('Access request sent to the Northwind Health System administrators.');
+      Prepeet.init();
+      banner.scrollIntoView({ block: 'nearest' });
+    });
+  });
+})();
+</script>
+</body>
+</html>

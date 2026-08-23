@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en" data-theme-default="light" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluation quality · Prepeet</title>
+<meta name="description" content="Cross-tenant evaluation analytics: confidence and coverage, reviewer agreement, failure reasons, rubric version impact and the human QA sample.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* ---- page-scoped: evaluation quality analytics ---- */
+.pf-bar { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); box-shadow:var(--shadow-xs); }
+.pf-bar .pf-field { display:flex; align-items:center; gap:6px; min-width:0; }
+.pf-bar .pf-field > label { font-size:var(--text-2xs); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--fg-3); white-space:nowrap; }
+.pf-bar .select { min-width:0; }
+.pf-updated { display:flex; align-items:center; gap:8px; font-size:var(--text-xs); color:var(--fg-3); margin-left:auto; }
+@media (max-width:700px){ .pf-updated { margin-left:0; width:100%; } .pf-bar .pf-field { flex:1 1 auto; } }
+.chart-svg { width:100%; height:auto; display:block; }
+.chart-min-sm { min-width:420px; }
+.ax { fill:var(--fg-3); font-size:10px; font-family:var(--font-sans); }
+.axl { stroke:var(--border); stroke-width:1; }
+.axl-base { stroke:var(--border-strong); stroke-width:1; }
+.c1{fill:var(--chart-1)} .c2{fill:var(--chart-2)} .c3{fill:var(--chart-3)} .c4{fill:var(--chart-4)} .c5{fill:var(--chart-5)} .c6{fill:var(--chart-6)} .c7{fill:var(--chart-7)}
+.bar-val { fill:var(--fg-2); font-size:10px; font-weight:600; font-family:var(--font-sans); }
+.bar-lbl { fill:var(--fg); font-size:11px; font-weight:600; font-family:var(--font-sans); }
+.seg-val { fill:#fff; font-size:9.5px; font-weight:700; font-family:var(--font-sans);
+  /* outline keeps the in-bar number legible on light and dark segment fills alike */
+  paint-order:stroke fill; stroke:rgba(0,0,0,.55); stroke-width:2.4px; stroke-linejoin:round; }
+.dim { color:var(--fg-3); }
+.vs-grid { display:grid; grid-template-columns:minmax(120px,1.2fr) repeat(2, minmax(0,1fr)); gap:8px 12px; align-items:center; font-size:var(--text-xs); }
+.vs-grid .vs-h { font-weight:700; font-size:var(--text-2xs); text-transform:uppercase; letter-spacing:.06em; color:var(--fg-3); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="pf-evaluations" data-title="Evaluation quality"
+      data-crumbs="Platform>admin-dashboard.html|Analytics>admin-platform-analytics.html" data-search="off">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content dense" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Platform · cross-tenant</p>
+        <h1>Evaluation quality</h1>
+        <p class="page-desc">How reliably the evaluation pipeline turns a transcript into evidence a reviewer can use — and how often reviewers disagree with it.</p>
+        <div class="cluster" style="margin-top:8px">
+          <span class="badge badge-outline mono">/admin/platform/analytics/evaluations</span>
+          <span class="badge badge-privileged"><i data-lucide="shield" class="ic-sm ic"></i>Platform admin</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-sm btn-secondary" href="admin-platform-analytics-sessions.html"><i data-lucide="activity" class="ic ic-sm"></i>Session analytics</a>
+        <a class="btn btn-sm btn-secondary" href="admin-platform-system-llm-usage.html"><i data-lucide="cpu" class="ic ic-sm"></i>AI usage &amp; cost</a>
+      </div>
+    </div>
+
+    <div class="cluster" style="margin-bottom:var(--sp-4)">
+      <span class="hint">Preview state</span>
+      <div class="segmented" role="group" aria-label="Preview screen state">
+        <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+        <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+        <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ FILTER BAR ═══════════════ -->
+    <section class="pf-bar" aria-label="Analytics filters" style="margin-bottom:var(--sp-4)">
+      <div class="pf-field">
+        <label for="f-range">Range</label>
+        <select class="select input-sm" id="f-range">
+          <option value="24h">Last 24 hours</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d" selected>Last 30 days</option>
+          <option value="90d">Last 90 days</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div class="pf-field" id="f-custom-wrap" hidden>
+        <label for="f-from">From</label>
+        <input class="input input-sm" id="f-from" type="date" value="2026-06-01" style="width:auto">
+        <label for="f-to">To</label>
+        <input class="input input-sm" id="f-to" type="date" value="2026-08-23" style="width:auto">
+      </div>
+      <div class="pf-field">
+        <label for="f-tenant">Tenant</label>
+        <select class="select input-sm" id="f-tenant"><option value="all">All tenants</option></select>
+      </div>
+      <div class="pf-field">
+        <label class="switch" for="f-compare"><input type="checkbox" id="f-compare"><span>Compare with previous period</span></label>
+      </div>
+      <p class="pf-updated" role="status">
+        <span class="status-dot ok" aria-hidden="true"></span>
+        <span>Updated <time id="f-updated" datetime="2026-08-23T18:42">23 Aug 2026, 18:42 UTC</time></span>
+        <button class="btn btn-sm btn-ghost" type="button" id="f-refresh"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Refresh</button>
+      </p>
+    </section>
+
+    <!-- ═══════════════ LOADING ═══════════════ -->
+    <div data-state="loading" hidden aria-busy="true">
+      <div class="metrics-row" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+      </div>
+      <div class="grid grid-2" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-block" style="height:190px;margin-top:12px"></div></div></div>
+        <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-block" style="height:190px;margin-top:12px"></div></div></div>
+      </div>
+      <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-25"></div><div class="skeleton skeleton-block" style="height:200px;margin-top:12px"></div></div></div>
+      <p class="hint" style="text-align:center;margin-top:12px">Aggregating evaluation records for the selected range…</p>
+    </div>
+
+    <!-- ═══════════════ ERROR ═══════════════ -->
+    <div data-state="error" hidden>
+      <div class="banner banner-warning" style="margin-bottom:var(--sp-4)" role="status">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>
+          <strong>Partial data.</strong> Failure counts and the retry queue come from the evaluation service and are current. Everything derived from the evaluation warehouse — confidence, coverage, agreement, band distribution and rubric comparison — is unavailable.
+        </div>
+      </div>
+      <div class="card"><div class="state danger">
+        <div class="state-icon"><i data-lucide="database-backup" class="ic"></i></div>
+        <h2 style="font-size:var(--text-md)">Evaluation warehouse unavailable</h2>
+        <p>The nightly rollup job <span class="mono">eval_quality_daily</span> has not completed since 03:10 UTC and the serving tables are locked mid-rebuild. Distribution charts would show a partially rebuilt table, so they are withheld rather than shown wrong.</p>
+        <p class="hint mono">trace_id 8c31d7f2-4a60-41be-9e08-2ad4c7b91355 · last good rollup 22 Aug 03:10 UTC</p>
+        <div class="actions">
+          <button class="btn btn-primary btn-sm" type="button" data-loading-sim="1600" data-loading-done="Rebuild still in progress — 62% complete" data-loading-kind="warning"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Check rebuild progress</button>
+          <a class="btn btn-secondary btn-sm" href="admin-platform-system.html">System health</a>
+          <a class="btn btn-ghost btn-sm" href="admin-platform-analytics.html">Platform analytics</a>
+        </div>
+      </div></div>
+      <section class="card" style="margin-top:var(--sp-4)" aria-labelledby="err-fail-h">
+        <div class="card-header"><h2 id="err-fail-h">Evaluation failures (live from the evaluation service)</h2></div>
+        <div class="card-body">
+          <div class="metrics-row">
+            <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Failed (30d)</span><span class="metric-value tnum">149</span><span class="metric-foot">1.9% of 7,991 attempts</span></div></div>
+            <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Awaiting retry</span><span class="metric-value tnum">23</span><span class="metric-foot">Next sweep 18:55 UTC</span></div></div>
+            <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Needs manual re-run</span><span class="metric-value tnum">24</span><span class="metric-foot">Retry budget exhausted or blocked</span></div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════════════ DEFAULT ═══════════════ -->
+    <div data-state="default">
+
+      <h2 class="sr-only">Evaluation headline metrics</h2>
+      <div class="metrics-row" style="margin-bottom:var(--sp-5)">
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Evaluations produced</span><span class="metric-value tnum">7,842</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+11.8%</span>
+          <span class="metric-foot" data-compare hidden>Previous period 7,014</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Success rate</span><span class="metric-value tnum">98.1%</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+0.3 pts · 149 failed</span>
+          <span class="metric-foot" data-compare hidden>Previous period 97.8%</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Median latency</span><span class="metric-value tnum">71s</span>
+          <span class="metric-delta up"><i data-lucide="arrow-down-right" class="ic-sm ic"></i>−6s</span>
+          <span class="metric-foot" data-compare hidden>Previous period 77s</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">p95 latency</span><span class="metric-value tnum">184s</span>
+          <span class="metric-delta down"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+22s · SLO 240s</span>
+          <span class="metric-foot" data-compare hidden>Previous period 162s</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Low-confidence rate</span><span class="metric-value tnum">6.3%</span>
+          <span class="metric-delta up"><i data-lucide="arrow-down-right" class="ic-sm ic"></i>−0.5 pts · 494 evaluations</span>
+          <span class="metric-foot" data-compare hidden>Previous period 6.8%</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Insufficient evidence</span><span class="metric-value tnum">4.1%</span>
+          <span class="metric-delta up"><i data-lucide="arrow-down-right" class="ic-sm ic"></i>−1.1 pts · 321 evaluations</span>
+          <span class="metric-foot" data-compare hidden>Previous period 5.2%</span></div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Reviewer-override rate</span><span class="metric-value tnum">11.7%</span>
+          <span class="metric-delta flat"><i data-lucide="minus" class="ic-sm ic"></i>348 of 2,984 reviewed</span>
+          <span class="metric-foot" data-compare hidden>Previous period 11.4%</span></div></div>
+      </div>
+
+      <!-- Confidence + coverage -->
+      <div class="grid grid-2" style="margin-bottom:var(--sp-5)">
+        <section class="card" aria-labelledby="cd-h">
+          <div class="card-header">
+            <div>
+              <h2 id="cd-h">Confidence distribution</h2>
+              <p class="hint" style="margin-top:3px">How much independent evidence each evaluation rests on.</p>
+            </div>
+            <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="cd-table" aria-expanded="false" aria-controls="cd-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+          </div>
+          <div class="card-body">
+            <div id="cd-chart"></div>
+            <p class="chart-summary" id="cd-summary">Text summary: loading.</p>
+            <p class="hint" style="margin-top:8px">Low confidence is not a failure. It is the pipeline saying the transcript did not contain enough to support a firm view, and it is surfaced to the reviewer on the evaluation itself.</p>
+            <div id="cd-table" hidden style="margin-top:var(--sp-3)">
+              <div class="table-wrap"><table class="table table-dense table-responsive">
+                <caption class="sr-only">Evaluations by confidence level</caption>
+                <thead><tr><th scope="col">Confidence</th><th scope="col" class="num">Evaluations</th><th scope="col" class="num">Share</th></tr></thead>
+                <tbody id="cd-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="cv-h">
+          <div class="card-header">
+            <div>
+              <h2 id="cv-h">Coverage distribution</h2>
+              <p class="hint" style="margin-top:3px">Share of the tenant's rubric competencies that got at least one evidence span.</p>
+            </div>
+            <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="cv-table" aria-expanded="false" aria-controls="cv-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+          </div>
+          <div class="card-body">
+            <div class="scroll-x"><div class="chart-min-sm" id="cv-chart"></div></div>
+            <p class="chart-summary" id="cv-summary">Text summary: loading.</p>
+            <div id="cv-table" hidden style="margin-top:var(--sp-3)">
+              <div class="table-wrap"><table class="table table-dense table-responsive">
+                <caption class="sr-only">Evaluations by rubric coverage band</caption>
+                <thead><tr><th scope="col">Coverage</th><th scope="col" class="num">Evaluations</th><th scope="col" class="num">Share</th></tr></thead>
+                <tbody id="cv-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Reviewer agreement -->
+      <section class="card" aria-labelledby="ra-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="ra-h">Reviewer agreement by tenant</h2>
+            <p class="hint" style="margin-top:3px">How often the reviewer's recorded decision matched the suggested band, last 30 days.</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="ra-table" aria-expanded="false" aria-controls="ra-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+        </div>
+        <div class="card-body">
+          <div class="banner banner-info" style="margin-bottom:var(--sp-4)">
+            <i data-lucide="scale" class="ic"></i>
+            <div><strong>Overrides are expected and healthy — they are not errors.</strong> Prepeet produces evidence and a suggested band; the hiring decision belongs to the reviewer, who also sees a CV, a portfolio, a registration number or a reference the transcript never contained. A tenant at 100% agreement would worry us more than one at 85%: it would suggest reviewers were rubber-stamping. What we watch is a sudden change in a tenant's rate, or overrides clustered in one competency.</div>
+          </div>
+          <div class="chart-legend" style="margin-bottom:10px">
+            <span><i style="background:var(--chart-1)"></i>Matched the suggested band</span>
+            <span><i style="background:var(--chart-3)"></i>Reviewer chose a different band</span>
+          </div>
+          <div id="ra-chart"></div>
+          <p class="chart-summary" id="ra-summary">Text summary: loading.</p>
+          <div id="ra-table" hidden style="margin-top:var(--sp-4)">
+            <p class="hint" style="margin-bottom:10px">This table scrolls sideways on small screens rather than stacking — the comparison between tenants is the reason it exists.</p>
+            <div class="scroll-x table-wrap"><table class="table table-dense">
+              <caption class="sr-only">Reviewer agreement and overrides by tenant</caption>
+              <thead><tr><th scope="col">Tenant</th><th scope="col" class="num">Reviewed</th><th scope="col" class="num">Matched</th><th scope="col" class="num">Overrides</th><th scope="col" class="num">Override rate</th><th scope="col">Most overridden competency</th></tr></thead>
+              <tbody id="ra-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Band distribution -->
+      <section class="card" aria-labelledby="bd-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="bd-h">Band distribution by role family</h2>
+            <p class="hint" style="margin-top:3px">Share of evaluations in each suggested band, by the role family the rubric belongs to.</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="bd-table" aria-expanded="false" aria-controls="bd-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+        </div>
+        <div class="card-body">
+          <div class="banner banner-warning" style="margin-bottom:var(--sp-4)">
+            <i data-lucide="alert-triangle" class="ic"></i>
+            <div><strong>Read this chart with care.</strong> Differences between role families reflect two things only: how each rubric is written, and who applied to those roles in the last 30 days. Nursing and teaching rubrics use tighter, more scripted competency definitions than software; sales roles attract a broader applicant pool. <strong>None of this is a statement about groups of people.</strong> Do not use this panel to compare the ability of nurses with the ability of engineers, and do not export it into a report that implies you can. If a band distribution shifts sharply, investigate the rubric change that caused it — start with <a href="admin-rubrics.html">Rubrics</a>.</div>
+          </div>
+          <div class="chart-legend" style="margin-bottom:10px">
+            <span><i style="background:var(--score-strong)"></i>Strong</span>
+            <span><i style="background:var(--score-solid)"></i>Solid</span>
+            <span><i style="background:var(--score-developing)"></i>Developing</span>
+            <span><i style="background:var(--score-concern)"></i>Needs work</span>
+            <span><i style="background:var(--score-insufficient)"></i>Insufficient evidence</span>
+          </div>
+          <div id="bd-chart"></div>
+          <p class="chart-summary" id="bd-summary">Text summary: loading.</p>
+          <div id="bd-table" hidden style="margin-top:var(--sp-4)">
+            <div class="scroll-x table-wrap"><table class="table table-dense">
+              <caption class="sr-only">Percentage of evaluations in each suggested band, by role family</caption>
+              <thead><tr><th scope="col">Role family</th><th scope="col" class="num">Evaluations</th><th scope="col" class="num">Strong</th><th scope="col" class="num">Solid</th><th scope="col" class="num">Developing</th><th scope="col" class="num">Needs work</th><th scope="col" class="num">Insufficient</th></tr></thead>
+              <tbody id="bd-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Failures -->
+      <section class="card" aria-labelledby="fa-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="fa-h">Evaluation failures</h2>
+            <p class="hint" style="margin-top:3px">149 failures out of 7,991 attempts in the last 30 days (1.9%).</p>
+          </div>
+          <button class="btn btn-sm btn-danger-soft" type="button" data-dialog-open="rerun-dialog"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Re-run failed evaluations</button>
+        </div>
+        <div class="card-body">
+          <div class="grid grid-2">
+            <div>
+              <h3 style="font-size:var(--text-sm);margin-bottom:8px">Reason breakdown</h3>
+              <div id="fa-chart"></div>
+              <p class="chart-summary" id="fa-summary">Text summary: loading.</p>
+            </div>
+            <div>
+              <h3 style="font-size:var(--text-sm);margin-bottom:8px">Retry queue</h3>
+              <div class="metrics-row">
+                <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Awaiting retry</span><span class="metric-value tnum">23</span><span class="metric-foot">Next sweep 18:55 UTC</span></div></div>
+                <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Recovered on retry</span><span class="metric-value tnum">102</span><span class="metric-foot">68.5% of failures self-heal</span></div></div>
+                <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Needs manual re-run</span><span class="metric-value tnum">24</span><span class="metric-foot">Budget exhausted or blocked</span></div></div>
+              </div>
+              <p class="hint" style="margin-top:10px">Tenants see a “still processing” state, never a raw error. A failure that exhausts its retry budget raises a support ticket against the tenant automatically.</p>
+            </div>
+          </div>
+
+          <h3 style="font-size:var(--text-sm);margin:var(--sp-5) 0 8px">Most recent failures</h3>
+          <p class="hint" style="margin-bottom:10px">Seven columns scroll sideways rather than stacking: an on-call engineer reads down the Reason and Retry columns to spot a pattern, and stacking would hide it.</p>
+          <div class="scroll-x table-wrap"><table class="table table-dense">
+            <caption class="sr-only">Most recent evaluation failures with retry status</caption>
+            <thead><tr><th scope="col">Evaluation</th><th scope="col">Session</th><th scope="col">Tenant</th><th scope="col">Reason</th><th scope="col">Failed at</th><th scope="col" class="num">Retries</th><th scope="col">Retry status</th></tr></thead>
+            <tbody id="fa-tbody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- Rubric version impact -->
+      <section class="card" aria-labelledby="rv-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="rv-h">Rubric version impact</h2>
+            <p class="hint" style="margin-top:3px">Rubric v4.2 against v4.3 on the two measures the rollout was meant to move.</p>
+          </div>
+          <a class="btn btn-sm btn-secondary" href="admin-rubrics.html"><i data-lucide="list-checks" class="ic ic-sm"></i>Rubric library</a>
+        </div>
+        <div class="card-body">
+          <div class="grid grid-2">
+            <div>
+              <div id="rv-chart"></div>
+              <p class="chart-summary" id="rv-summary">Text summary: loading.</p>
+            </div>
+            <div class="stack">
+              <div class="vs-grid">
+                <span class="vs-h">Measure</span><span class="vs-h">v4.2</span><span class="vs-h">v4.3</span>
+                <strong>Evaluations</strong><span class="tnum">1,842</span><span class="tnum">1,142</span>
+                <strong>Reviewer agreement</strong><span class="tnum">86.4%</span><span class="tnum">89.7%</span>
+                <strong>Insufficient evidence</strong><span class="tnum">5.2%</span><span class="tnum">3.4%</span>
+                <strong>Median latency</strong><span class="tnum">74s</span><span class="tnum">69s</span>
+                <strong>Tenants on version</strong><span>4</span><span>2</span>
+              </div>
+              <div class="banner banner-warning">
+                <i data-lucide="flask-conical" class="ic"></i>
+                <div><strong>This comparison is observational, not an experiment.</strong> v4.3 was rolled out to Northwind Health and Orbital Labs first — two tenants with longer sessions, more experienced reviewers and different role mixes from the four still on v4.2. Nobody was randomised. The 3.3-point agreement gap is consistent with the rubric being better, and equally consistent with those two tenants simply being easier to agree on. Treat it as a reason to run a proper split rollout, not as proof.</div>
+              </div>
+              <a class="btn btn-sm btn-secondary" href="admin-recruiter-calibration.html"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Open calibration</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- QA sample -->
+      <section class="card" aria-labelledby="qa-h">
+        <div class="card-header">
+          <div>
+            <h2 id="qa-h">Quality review sample</h2>
+            <p class="hint" style="margin-top:3px">Five evaluations drawn at random each week and read end-to-end by a human auditor.</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" type="button" data-toast="New sample drawn — 5 evaluations queued for audit" data-toast-kind="success" data-toast-desc="Week commencing 24 August 2026"><i data-lucide="shuffle" class="ic ic-sm"></i>Draw next sample</button>
+        </div>
+        <div class="card-body">
+          <p class="hint" style="margin-bottom:10px">Six columns scroll sideways rather than stacking so the audit finding stays on the same line as the evaluation it belongs to.</p>
+          <div class="scroll-x table-wrap"><table class="table table-dense">
+            <caption class="sr-only">Weekly human quality-assurance sample of five evaluations</caption>
+            <thead><tr><th scope="col">Evaluation</th><th scope="col">Candidate</th><th scope="col">Role</th><th scope="col">Tenant</th><th scope="col">Audit status</th><th scope="col" class="td-actions">Open</th></tr></thead>
+            <tbody id="qa-tbody"></tbody>
+          </table></div>
+          <p class="hint" style="margin-top:10px">Audits check that every claim in an evaluation is anchored to something the candidate actually said, that coverage is not overstated, and that low confidence is reported honestly. Findings feed the next rubric revision.</p>
+        </div>
+      </section>
+
+    </div><!-- /default -->
+
+  </div>
+</main>
+
+<!-- ═══════════════ RE-RUN CONFIRMATION ═══════════════ -->
+<dialog class="dialog" id="rerun-dialog" aria-labelledby="rerun-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 id="rerun-h">Re-run failed evaluations?</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Cancel"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>This re-queues <strong>47 failed evaluations</strong> across five tenants: the 23 currently awaiting retry plus the 24 whose retry budget is exhausted or blocked.</p>
+      <dl class="kv">
+        <dt>Estimated model cost</dt><dd>$41.30</dd>
+        <dt>Estimated completion</dt><dd>About 12 minutes at current queue depth</dd>
+        <dt>Tenants affected</dt><dd>Northwind Health, Orbital Labs, Meridian Schools Trust, Caldera Capital, Brightpath Commercial</dd>
+        <dt>Candidate impact</dt><dd>None visible. Tenants still see “processing”; no candidate is notified.</dd>
+      </dl>
+      <div class="banner banner-warning">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>Four of the 47 will fail again immediately: their sessions are below the minimum transcript length, so there is nothing to evaluate. Two are blocked on rubric v4.1, which was archived — restore it in <a href="admin-rubrics.html">Rubrics</a> first if you want those to succeed.</div>
+      </div>
+      <label class="check" for="rerun-ack"><input type="checkbox" id="rerun-ack"><span>I understand this consumes model budget and is recorded in the audit log against my account.</span></label>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-sm btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-sm btn-danger" type="button" id="rerun-go" disabled>Re-run 47 evaluations</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt, Q = Prepeet.query;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  /* ── seed data ──────────────────────────────────────────────────────── */
+  var CONFIDENCE = [
+    { label: 'High confidence', n: 4712, desc: 'Several independent evidence spans behind each competency' },
+    { label: 'Medium confidence', n: 2636, desc: 'Some competencies rest on a single answer' },
+    { label: 'Low confidence', n: 494, desc: 'Sparse evidence — flagged on the evaluation' }
+  ];
+  var COVERAGE = [
+    { label: '90–100%', n: 3218 }, { label: '75–89%', n: 2504 }, { label: '60–74%', n: 1298 },
+    { label: '40–59%', n: 501 }, { label: 'Under 40%', n: 321 }
+  ];
+  var AGREEMENT = [
+    { tenant: 'Northwind Health System', reviewed: 1104, overrides: 123, comp: 'Escalation & handover' },
+    { tenant: 'Orbital Labs', reviewed: 812, overrides: 85, comp: 'Systems design' },
+    { tenant: 'Meridian Schools Trust', reviewed: 498, overrides: 74, comp: 'Behaviour management' },
+    { tenant: 'Caldera Capital', reviewed: 302, overrides: 31, comp: 'Controls awareness' },
+    { tenant: 'Brightpath Commercial', reviewed: 268, overrides: 35, comp: 'Objection handling' }
+  ];
+  var BANDS = [
+    { label: 'Strong', color: 'var(--score-strong)' },
+    { label: 'Solid', color: 'var(--score-solid)' },
+    { label: 'Developing', color: 'var(--score-developing)' },
+    { label: 'Needs work', color: 'var(--score-concern)' },
+    { label: 'Insufficient', color: 'var(--score-insufficient)' }
+  ];
+  var ROLEFAM = [
+    { label: 'Nursing', n: 1842, pct: [18, 41, 27, 9, 5] },
+    { label: 'Teaching', n: 908, pct: [15, 39, 30, 11, 5] },
+    { label: 'Software', n: 2416, pct: [21, 38, 26, 11, 4] },
+    { label: 'Product', n: 1104, pct: [19, 42, 25, 10, 4] },
+    { label: 'Finance', n: 806, pct: [14, 40, 31, 12, 3] },
+    { label: 'Sales', n: 766, pct: [16, 36, 29, 13, 6] }
+  ];
+  var FAILREASON = [
+    { label: 'Transcription timeout', n: 61 },
+    { label: 'Audio too short', n: 44 },
+    { label: 'Model error', n: 31 },
+    { label: 'Rubric version missing', n: 13 }
+  ];
+  var FAILROWS = [
+    { id: 'ev_9K2T0A', ses: 'ses_0Fg7WK', tenant: 'Meridian Schools Trust', reason: 'Audio too short', at: '23 Aug 17:12', tries: '1 / 3', status: 'blocked', note: 'Will not retry — 3 turns, below the 4-turn floor' },
+    { id: 'ev_7B4Q1C', ses: 'ses_MZ01', tenant: 'Northwind Health System', reason: 'Transcription timeout', at: '23 Aug 16:40', tries: '2 / 3', status: 'queued', note: 'Retry scheduled 18:55 UTC' },
+    { id: 'ev_3H8N2D', ses: 'ses_SM01', tenant: 'Brightpath Commercial', reason: 'Model error · 502 upstream', at: '23 Aug 15:58', tries: '3 / 3', status: 'manual', note: 'Retry budget exhausted' },
+    { id: 'ev_5R1W3E', ses: 'ses_CW01', tenant: 'Caldera Capital', reason: 'Rubric version missing', at: '23 Aug 14:21', tries: '0 / 3', status: 'blocked', note: 'Rubric v4.1 archived — restore to unblock' },
+    { id: 'ev_2P6Y4F', ses: 'ses_LF01', tenant: 'Orbital Labs', reason: 'Transcription timeout', at: '23 Aug 12:07', tries: '1 / 3', status: 'queued', note: 'Retry scheduled 19:10 UTC' },
+    { id: 'ev_8D5M6G', ses: 'ses_YD01', tenant: 'Brightpath Commercial', reason: 'Model error · context length', at: '23 Aug 09:33', tries: '3 / 3', status: 'manual', note: 'Retry budget exhausted — 62-minute transcript' },
+    { id: 'ev_4T7V8H', ses: 'ses_GM01', tenant: 'Northwind Health System', reason: 'Transcription timeout', at: '22 Aug 21:14', tries: '2 / 3', status: 'recovered', note: 'Succeeded on attempt 3 at 21:26' }
+  ];
+  var QA = [
+    { id: 'ev_QA0431', cand: 'Amara Osei', cid: 'cand_R4T9MP', role: 'Registered Nurse — ICU', tenant: 'Northwind Health System', status: 'ok', label: 'Agreed — every claim anchored' },
+    { id: 'ev_QA0432', cand: 'Chloe Whitfield', cid: 'cand_B2K8WD', role: 'Financial Analyst — FP&A', tenant: 'Caldera Capital', status: 'ok', label: 'Agreed — every claim anchored' },
+    { id: 'ev_QA0433', cand: 'Priyanka Shah', cid: 'cand_N7Q2CE', role: 'Senior Product Manager', tenant: 'Orbital Labs', status: 'flag', label: 'Flagged — coverage overstated on 2 competencies' },
+    { id: 'ev_QA0434', cand: 'Mateusz Zielinski', cid: 'cand_T3W7KL', role: 'Registered Nurse — ICU', tenant: 'Northwind Health System', status: 'ok', label: 'Agreed — correctly marked insufficient evidence' },
+    { id: 'ev_QA0435', cand: 'Sofia Marchetti', cid: 'cand_C8R6JY', role: 'Enterprise Account Executive', tenant: 'Brightpath Commercial', status: 'pending', label: 'In review — auditor Jonas Brandt' }
+  ];
+
+  /* ── hand-authored inline SVG helpers ───────────────────────────────── */
+  function stack100(host, rows, series, opts) {
+    opts = opts || {};
+    var W = 620, rowH = 34, pl = opts.labelW || 108, pr = 8, pt = 6;
+    var H = pt * 2 + rows.length * rowH;
+    var iw = W - pl - pr;
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.aria || '') + '">';
+    rows.forEach(function (r, i) {
+      var yy = pt + i * rowH, x = pl;
+      s += '<text class="bar-lbl" x="0" y="' + (yy + 17) + '">' + esc(r.label) + '</text>';
+      r.pct.forEach(function (p, j) {
+        var w = (p / 100) * iw;
+        s += '<rect x="' + x.toFixed(1) + '" y="' + (yy + 5) + '" width="' + w.toFixed(1) + '" height="18" fill="' + series[j].color + '"></rect>';
+        if (w > 30) s += '<text class="seg-val" x="' + (x + w / 2).toFixed(1) + '" y="' + (yy + 18) + '" text-anchor="middle">' + p + '%</text>';
+        x += w;
+      });
+    });
+    s += '</svg>';
+    host.innerHTML = '<div class="scroll-x"><div class="chart-min-sm">' + s + '</div></div>';
+  }
+
+  function hbars(host, items, opts) {
+    opts = opts || {};
+    var W = 560, rowH = 30, pl = opts.labelW || 158, pr = 78, pt = 6;
+    var H = pt * 2 + items.length * rowH;
+    var max = Math.max.apply(null, items.map(function (d) { return d.value; }));
+    var iw = W - pl - pr;
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.aria || '') + '">';
+    items.forEach(function (d, i) {
+      var yy = pt + i * rowH, bw = Math.max(2, (d.value / max) * iw);
+      s += '<text class="bar-lbl" x="0" y="' + (yy + 15) + '">' + esc(d.label) + '</text>';
+      s += '<rect x="' + pl + '" y="' + (yy + 5) + '" width="' + iw + '" height="15" rx="3" fill="var(--surface-3)"></rect>';
+      s += '<rect class="c' + ((i % 6) + 1) + '" x="' + pl + '" y="' + (yy + 5) + '" width="' + bw.toFixed(1) + '" height="15" rx="3"></rect>';
+      s += '<text class="bar-val" x="' + (W - pr + 6) + '" y="' + (yy + 16) + '">' + esc(d.note) + '</text>';
+    });
+    s += '</svg>';
+    host.innerHTML = '<div class="scroll-x"><div class="chart-min-sm">' + s + '</div></div>';
+  }
+
+  function vbars(host, items, opts) {
+    opts = opts || {};
+    var W = 520, H = 200, pl = 40, pr = 8, pt = 12, pb = 32;
+    var iw = W - pl - pr, ih = H - pt - pb;
+    var max = opts.max || 3500;
+    var slot = iw / items.length, bw = slot * 0.6;
+    var y = function (v) { return pt + ih - (v / max) * ih; };
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.aria || '') + '">';
+    for (var t = 0; t <= max; t += max / 4) {
+      s += '<line class="' + (t === 0 ? 'axl-base' : 'axl') + '" x1="' + pl + '" y1="' + y(t) + '" x2="' + (W - pr) + '" y2="' + y(t) + '"></line>' +
+           '<text class="ax" x="' + (pl - 6) + '" y="' + (y(t) + 3.5) + '" text-anchor="end">' + F.num(t) + '</text>';
+    }
+    items.forEach(function (d, i) {
+      var x = pl + i * slot + (slot - bw) / 2;
+      s += '<rect class="c1" x="' + x.toFixed(1) + '" y="' + y(d.n).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + ((d.n / max) * ih).toFixed(1) + '" rx="2"></rect>';
+      s += '<text class="bar-val" x="' + (x + bw / 2).toFixed(1) + '" y="' + (y(d.n) - 4).toFixed(1) + '" text-anchor="middle">' + F.num(d.n) + '</text>';
+      s += '<text class="ax" x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 16) + '" text-anchor="middle">' + esc(d.label) + '</text>';
+    });
+    s += '</svg>';
+    host.innerHTML = s;
+  }
+
+  function groupedBars(host) {
+    var W = 460, H = 220, pl = 40, pr = 8, pt = 14, pb = 42;
+    var iw = W - pl - pr, ih = H - pt - pb, max = 100;
+    var groups = [
+      { label: 'Reviewer agreement', a: 86.4, b: 89.7 },
+      { label: 'Insufficient evidence', a: 5.2, b: 3.4 }
+    ];
+    var y = function (v) { return pt + ih - (v / max) * ih; };
+    var gslot = iw / groups.length, bw = gslot * 0.28;
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Grouped bar chart comparing rubric v4.2 and v4.3. Reviewer agreement 86.4 per cent on v4.2 and 89.7 per cent on v4.3. Insufficient-evidence rate 5.2 per cent on v4.2 and 3.4 per cent on v4.3.">';
+    [0, 25, 50, 75, 100].forEach(function (t) {
+      s += '<line class="' + (t === 0 ? 'axl-base' : 'axl') + '" x1="' + pl + '" y1="' + y(t) + '" x2="' + (W - pr) + '" y2="' + y(t) + '"></line>' +
+           '<text class="ax" x="' + (pl - 6) + '" y="' + (y(t) + 3.5) + '" text-anchor="end">' + t + '%</text>';
+    });
+    groups.forEach(function (g, i) {
+      var cx = pl + i * gslot + gslot / 2;
+      [['a', 'var(--chart-1)', 'v4.2', -1], ['b', 'var(--chart-4)', 'v4.3', 1]].forEach(function (p) {
+        var v = g[p[0]], x = cx + (p[3] === -1 ? -bw - 3 : 3);
+        s += '<rect x="' + x.toFixed(1) + '" y="' + y(v).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + ((v / max) * ih).toFixed(1) + '" rx="2" fill="' + p[1] + '"></rect>';
+        s += '<text class="bar-val" x="' + (x + bw / 2).toFixed(1) + '" y="' + (y(v) - 4).toFixed(1) + '" text-anchor="middle">' + v.toFixed(1) + '%</text>';
+        s += '<text class="ax" x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 26) + '" text-anchor="middle">' + p[2] + '</text>';
+      });
+      s += '<text class="bar-lbl" x="' + cx.toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + g.label + '</text>';
+    });
+    s += '</svg>';
+    host.innerHTML = '<div class="scroll-x"><div class="chart-min-sm">' + s + '</div></div>';
+    document.getElementById('rv-summary').textContent = 'Text summary: on rubric v4.2 (1,842 evaluations across four tenants) reviewer agreement was 86.4% and the insufficient-evidence rate 5.2%. On v4.3 (1,142 evaluations across two tenants) agreement was 89.7% and insufficient evidence 3.4% — 3.3 points better on agreement and 1.8 points better on insufficient evidence. Median latency also fell from 74s to 69s. The two groups are different tenants, not randomised arms.';
+  }
+
+  /* ── renderers ──────────────────────────────────────────────────────── */
+  function renderConfidence() {
+    var total = CONFIDENCE.reduce(function (a, b) { return a + b.n; }, 0);
+    var series = [{ color: 'var(--chart-1)' }, { color: 'var(--chart-4)' }, { color: 'var(--chart-3)' }];
+    stack100(document.getElementById('cd-chart'), [{
+      label: 'All evaluations',
+      pct: CONFIDENCE.map(function (c) { return Math.round(c.n / total * 1000) / 10; })
+    }], series, {
+      labelW: 96,
+      aria: 'Hundred per cent stacked bar of evaluation confidence: high 60.1 per cent, medium 33.6 per cent, low 6.3 per cent.'
+    });
+    document.getElementById('cd-chart').insertAdjacentHTML('beforeend',
+      '<div class="chart-legend" style="margin-top:8px">' + CONFIDENCE.map(function (c, i) {
+        return '<span><i style="background:' + series[i].color + '"></i>' + c.label + ' · ' + F.num(c.n) + '</span>';
+      }).join('') + '</div>');
+    document.getElementById('cd-summary').textContent = 'Text summary: of 7,842 evaluations, 4,712 (60.1%) were high confidence, 2,636 (33.6%) medium and 494 (6.3%) low. The low-confidence share fell 0.5 points against the previous period, mostly because fewer sessions ended before question four.';
+    document.getElementById('cd-tbody').innerHTML = CONFIDENCE.map(function (c) {
+      return '<tr><td data-label="Confidence" class="td-primary">' + c.label + '<span class="td-sub">' + c.desc + '</span></td>' +
+        '<td data-label="Evaluations" class="num tnum">' + F.num(c.n) + '</td><td data-label="Share" class="num tnum">' + (c.n / total * 100).toFixed(1) + '%</td></tr>';
+    }).join('');
+  }
+
+  function renderCoverage() {
+    var total = COVERAGE.reduce(function (a, b) { return a + b.n; }, 0);
+    vbars(document.getElementById('cv-chart'), COVERAGE, { max: 3500, aria: 'Histogram of rubric coverage: 90 to 100 per cent coverage 3,218 evaluations; 75 to 89 per cent 2,504; 60 to 74 per cent 1,298; 40 to 59 per cent 501; under 40 per cent 321.' });
+    document.getElementById('cv-summary').textContent = 'Text summary: 5,722 of 7,842 evaluations (73.0%) covered at least 75% of the tenant rubric. 1,298 (16.6%) landed in 60–74%, 501 (6.4%) in 40–59% and 321 (4.1%) under 40% — the last group is reported to reviewers as insufficient evidence rather than given a band.';
+    document.getElementById('cv-tbody').innerHTML = COVERAGE.map(function (c) {
+      return '<tr><td data-label="Coverage" class="td-primary">' + c.label + '</td><td data-label="Evaluations" class="num tnum">' + F.num(c.n) + '</td><td data-label="Share" class="num tnum">' + (c.n / total * 100).toFixed(1) + '%</td></tr>';
+    }).join('');
+  }
+
+  function renderAgreement() {
+    var series = [{ color: 'var(--chart-1)' }, { color: 'var(--chart-3)' }];
+    var rows = AGREEMENT.map(function (a) {
+      var rate = a.overrides / a.reviewed * 100;
+      return { label: a.tenant.replace(' System', '').replace(' Trust', '').replace(' Commercial', ''), pct: [100 - rate, rate].map(function (v) { return Math.round(v * 10) / 10; }) };
+    });
+    stack100(document.getElementById('ra-chart'), rows, series, {
+      labelW: 132,
+      aria: 'Hundred per cent stacked bars of reviewer agreement by tenant. Matched share: Caldera Capital 89.7 per cent, Orbital Labs 89.5 per cent, Northwind Health 88.9 per cent, Brightpath 86.9 per cent, Meridian Schools 85.1 per cent.'
+    });
+    var totalR = AGREEMENT.reduce(function (a, b) { return a + b.reviewed; }, 0);
+    var totalO = AGREEMENT.reduce(function (a, b) { return a + b.overrides; }, 0);
+    document.getElementById('ra-summary').textContent = 'Text summary: 2,984 evaluations were reviewed by a human across five tenants and 348 (11.7%) ended with the reviewer choosing a different band from the suggested one. By tenant: Caldera Capital 10.3% override (31 of 302), Orbital Labs 10.5% (85 of 812), Northwind Health System 11.1% (123 of 1,104), Brightpath Commercial 13.1% (35 of 268) and Meridian Schools Trust 14.9% (74 of 498). The self-serve practice tenant is excluded — practice sessions have no reviewer. The spread between the highest and lowest tenant is 4.6 points, well inside normal variation for five reviewer teams.';
+    document.getElementById('ra-tbody').innerHTML = AGREEMENT.map(function (a) {
+      var rate = a.overrides / a.reviewed * 100;
+      return '<tr><th scope="row">' + esc(a.tenant) + '</th><td class="num tnum">' + F.num(a.reviewed) + '</td>' +
+        '<td class="num tnum">' + F.num(a.reviewed - a.overrides) + ' <span class="dim">(' + (100 - rate).toFixed(1) + '%)</span></td>' +
+        '<td class="num tnum">' + a.overrides + '</td><td class="num tnum">' + rate.toFixed(1) + '%</td>' +
+        '<td>' + esc(a.comp) + '</td></tr>';
+    }).join('') +
+      '<tr><th scope="row">All reviewing tenants</th><td class="num tnum">' + F.num(totalR) + '</td>' +
+      '<td class="num tnum">' + F.num(totalR - totalO) + ' <span class="dim">(88.3%)</span></td>' +
+      '<td class="num tnum">' + totalO + '</td><td class="num tnum">11.7%</td><td class="dim">—</td></tr>';
+  }
+
+  function renderBands() {
+    stack100(document.getElementById('bd-chart'), ROLEFAM, BANDS, {
+      labelW: 90,
+      aria: 'Hundred per cent stacked bars of suggested band distribution by role family across nursing, teaching, software, product, finance and sales. Strong band share ranges from 14 per cent in finance to 21 per cent in software.'
+    });
+    document.getElementById('bd-summary').textContent = 'Text summary, percentages of evaluations in each suggested band. Nursing (1,842 evaluations): strong 18, solid 41, developing 27, needs work 9, insufficient 5. Teaching (908): 15, 39, 30, 11, 5. Software (2,416): 21, 38, 26, 11, 4. Product (1,104): 19, 42, 25, 10, 4. Finance (806): 14, 40, 31, 12, 3. Sales (766): 16, 36, 29, 13, 6. The widest gap between any two families in the strong band is 7 points. These are properties of six different rubrics and six different applicant pools, and cannot be compared as if they measured the same thing.';
+    document.getElementById('bd-tbody').innerHTML = ROLEFAM.map(function (r) {
+      return '<tr><th scope="row">' + r.label + '</th><td class="num tnum">' + F.num(r.n) + '</td>' +
+        r.pct.map(function (p) { return '<td class="num tnum">' + p + '%</td>'; }).join('') + '</tr>';
+    }).join('');
+  }
+
+  function renderFailures() {
+    var total = FAILREASON.reduce(function (a, b) { return a + b.n; }, 0);
+    hbars(document.getElementById('fa-chart'), FAILREASON.map(function (d) {
+      return { label: d.label, value: d.n, note: d.n + ' · ' + (d.n / total * 100).toFixed(1) + '%' };
+    }), { aria: 'Horizontal bar chart of evaluation failure reasons: transcription timeout 61; audio too short 44; model error 31; rubric version missing 13.' });
+    document.getElementById('fa-summary').textContent = 'Text summary: 149 failures. Transcription timeout 61 (40.9%), audio too short 44 (29.5%), model error 31 (20.8%) and rubric version missing 13 (8.7%). Audio-too-short failures are not really failures of the pipeline — the session ended before there was enough speech to evaluate.';
+    var ST = {
+      queued: '<span class="badge badge-info"><i data-lucide="clock" class="ic-sm ic"></i>Awaiting retry</span>',
+      manual: '<span class="badge badge-danger"><i data-lucide="alert-octagon" class="ic-sm ic"></i>Needs manual re-run</span>',
+      blocked: '<span class="badge badge-warning"><i data-lucide="ban" class="ic-sm ic"></i>Blocked</span>',
+      recovered: '<span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Recovered</span>'
+    };
+    document.getElementById('fa-tbody').innerHTML = FAILROWS.map(function (r) {
+      return '<tr><td><span class="mono" style="font-weight:600">' + r.id + '</span></td>' +
+        '<td><span class="mono">' + r.ses + '</span></td><td>' + esc(r.tenant) + '</td>' +
+        '<td>' + esc(r.reason) + '</td><td class="tnum">' + r.at + '</td><td class="num tnum">' + r.tries + '</td>' +
+        '<td>' + ST[r.status] + '<span class="td-sub">' + esc(r.note) + '</span></td></tr>';
+    }).join('');
+  }
+
+  function renderQA() {
+    var ST = {
+      ok: '<span class="badge badge-success"><i data-lucide="check-circle-2" class="ic-sm ic"></i>Agreed</span>',
+      flag: '<span class="badge badge-warning"><i data-lucide="flag" class="ic-sm ic"></i>Flagged</span>',
+      pending: '<span class="badge badge-neutral"><i data-lucide="clock" class="ic-sm ic"></i>In review</span>'
+    };
+    document.getElementById('qa-tbody').innerHTML = QA.map(function (q) {
+      return '<tr><td><span class="mono" style="font-weight:600">' + q.id + '</span></td>' +
+        '<td><a class="row-link" href="admin-recruiter-detail.html?id=' + q.cid + '">' + esc(q.cand) + '</a></td>' +
+        '<td>' + esc(q.role) + '</td><td>' + esc(q.tenant) + '</td>' +
+        '<td>' + ST[q.status] + '<span class="td-sub">' + esc(q.label) + '</span></td>' +
+        '<td class="td-actions"><a class="btn btn-sm btn-ghost" href="admin-recruiter-detail.html?id=' + q.cid + '">Open evaluation<span class="sr-only"> for ' + esc(q.cand) + '</span><i data-lucide="arrow-right" class="ic ic-sm"></i></a></td></tr>';
+    }).join('');
+  }
+
+  /* ── filters, states, guard ─────────────────────────────────────────── */
+  var currentState = 'default';
+  function applyState(s, silent) {
+    currentState = s;
+    document.querySelectorAll('[data-state]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-state').split(' ').indexOf(s) === -1;
+    });
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+    });
+    if (!silent) Q.set({ state: s === 'default' ? null : s }, true);
+    Prepeet.init();
+  }
+  function applyCompare() {
+    var on = document.getElementById('f-compare').checked;
+    document.querySelectorAll('[data-compare]').forEach(function (el) { el.hidden = !on; });
+  }
+  function stamp() {
+    var d = new Date(), hh = String(d.getUTCHours()).padStart(2, '0'), mm = String(d.getUTCMinutes()).padStart(2, '0');
+    var el = document.getElementById('f-updated');
+    el.textContent = '23 Aug 2026, ' + hh + ':' + mm + ' UTC';
+    el.setAttribute('datetime', '2026-08-23T' + hh + ':' + mm);
+  }
+  function simulateReload(msg) {
+    var back = currentState === 'loading' ? 'default' : currentState;
+    applyState('loading', true); Prepeet.announce('Loading evaluation analytics…');
+    setTimeout(function () { stamp(); applyState(back, true); Prepeet.toast({ title: msg, kind: 'success', duration: 2600 }); }, 950);
+  }
+  function initFilters() {
+    var range = document.getElementById('f-range'), tenant = document.getElementById('f-tenant'),
+        cmp = document.getElementById('f-compare'), custom = document.getElementById('f-custom-wrap');
+    D.tenants.forEach(function (t) { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; tenant.appendChild(o); });
+    range.value = Q.get('range', '30d');
+    var tq = Q.get('tenant', 'all');
+    tenant.value = D.tenants.some(function (t) { return t.id === tq; }) ? tq : 'all';
+    cmp.checked = Q.get('compare') === '1';
+    custom.hidden = range.value !== 'custom';
+    applyCompare();
+    range.addEventListener('change', function () {
+      custom.hidden = range.value !== 'custom';
+      Q.set({ range: range.value === '30d' ? null : range.value }, true);
+      simulateReload('Range set to ' + range.options[range.selectedIndex].text);
+    });
+    tenant.addEventListener('change', function () {
+      Q.set({ tenant: tenant.value === 'all' ? null : tenant.value }, true);
+      simulateReload('Filtered to ' + tenant.options[tenant.selectedIndex].text);
+    });
+    cmp.addEventListener('change', function () {
+      Q.set({ compare: cmp.checked ? '1' : null }, true); applyCompare();
+      Prepeet.announce(cmp.checked ? 'Comparison with the previous period is on.' : 'Comparison off.');
+    });
+    document.getElementById('f-refresh').addEventListener('click', function () { simulateReload('Evaluation analytics refreshed'); });
+  }
+  function guard() {
+    if (Prepeet.can('platform_admin')) return false;
+    var role = Prepeet.roles[Prepeet.getRole()];
+    document.getElementById('main-content').innerHTML =
+      '<div class="state state-page danger">' +
+        '<div class="state-icon"><i data-lucide="shield-x" class="ic"></i></div>' +
+        '<h1>Platform analytics requires platform administrator access</h1>' +
+        '<p>You are signed in as <strong>' + esc(role.label) + '</strong> — ' + esc(role.desc.toLowerCase()) + '. Evaluation quality analytics aggregate candidate outcomes from every tenant, so they are restricted to the platform operations team.</p>' +
+        '<p class="code">/admin/platform/analytics/evaluations · required role platform_admin · your role ' + esc(Prepeet.getRole()) + '</p>' +
+        '<div class="actions">' +
+          '<a class="btn btn-primary btn-sm" href="admin-dashboard.html"><i data-lucide="layout-dashboard" class="ic ic-sm"></i>Back to your overview</a>' +
+          '<a class="btn btn-secondary btn-sm" href="error-403.html">About this restriction</a>' +
+          '<a class="btn btn-ghost btn-sm" href="admin-platform-analytics-evaluations.html?role=platform_admin">Preview as platform admin</a>' +
+        '</div></div>';
+    document.title = 'Access denied · Prepeet';
+    Prepeet.init();
+    return true;
+  }
+
+  function initRerun() {
+    var ack = document.getElementById('rerun-ack'), go = document.getElementById('rerun-go');
+    ack.addEventListener('change', function () { go.disabled = !ack.checked; });
+    go.addEventListener('click', function () {
+      Prepeet.closeDialog('rerun-dialog');
+      ack.checked = false; go.disabled = true;
+      Prepeet.toast({ title: '47 evaluations re-queued', desc: 'Recorded in the audit log. Estimated completion 12 minutes.', kind: 'success' });
+      Prepeet.announce('47 failed evaluations re-queued.');
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-state-btn]'); if (b) applyState(b.getAttribute('data-state-btn'));
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (guard()) return;
+    initFilters(); initRerun();
+    renderConfidence(); renderCoverage(); renderAgreement(); renderBands();
+    renderFailures(); renderQA();
+    groupedBars(document.getElementById('rv-chart'));
+    applyState(Q.get('state', 'default'), true);
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

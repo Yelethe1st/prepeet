@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sessions · Prepeet</title>
+<meta name="description" content="Every interview you have recorded on Prepeet, with the right next step for each one.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="sessions" data-title="Sessions" data-crumbs="Candidate>candidate-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Your practice</p>
+        <h1>Sessions</h1>
+        <p class="page-desc">Everything you have recorded, newest first. Each row opens the right place for where that session got to — a full review, a submission receipt, or the setup you left half-finished.</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="candidate-skills.html"><i data-lucide="target" class="ic ic-sm"></i>Skill breakdown</a>
+        <a class="btn btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start an interview</a>
+      </div>
+    </div>
+
+    <!-- Screen-mode notice -->
+    <div class="banner banner-info" id="screen-note" hidden style="margin-bottom:var(--sp-5)">
+      <i data-lucide="shield" class="ic"></i>
+      <div><strong>You are viewing a screening account.</strong> Your screening interview with Northwind Health System appears below, but it is not scored for you — the hiring team reviews it. Practice sessions are separate and stay private.</div>
+    </div>
+
+    <div class="cluster" style="margin-bottom:var(--sp-4)">
+      <span class="badge badge-outline mono">/candidate/sessions</span>
+      <span class="hint">Filters are kept in the URL, so any view here is a link you can share with yourself.</span>
+      <div class="cluster" style="margin-left:auto">
+        <span class="hint">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+          <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+          <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+          <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ DEFAULT ══════════════════════ -->
+    <div data-state="default">
+
+      <section class="card" aria-labelledby="filters-h" style="margin-bottom:var(--sp-4)">
+        <div class="card-body" style="padding-top:var(--sp-4);padding-bottom:var(--sp-4)">
+          <h2 id="filters-h" class="sr-only">Filter sessions</h2>
+          <form class="filterbar" id="filters" role="search" aria-label="Filter your sessions">
+            <div class="input-wrap">
+              <i data-lucide="search" class="ic ic-sm"></i>
+              <label class="sr-only" for="f-q">Search sessions by title, role, format or interviewer</label>
+              <input class="input" id="f-q" type="search" name="q" placeholder="Search title, role, format or interviewer…" autocomplete="off">
+            </div>
+
+            <div>
+              <label class="sr-only" for="f-kind">Interview type</label>
+              <select class="select" id="f-kind" name="kind">
+                <option value="all">All types</option>
+                <option value="practice">Practice only</option>
+                <option value="screen">Screening only</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="sr-only" for="f-status">Status</label>
+              <select class="select" id="f-status" name="status">
+                <option value="all">Any status</option>
+                <option value="complete">Reviewed</option>
+                <option value="submitted">Submitted</option>
+                <option value="processing">Processing</option>
+                <option value="abandoned">Ended early</option>
+                <option value="saved">Saved progress</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="sr-only" for="f-role">Role</label>
+              <select class="select" id="f-role" name="role"><option value="all">Any role</option></select>
+            </div>
+
+            <button class="btn btn-sm btn-ghost" type="button" id="f-clear"><i data-lucide="x" class="ic ic-sm"></i>Clear</button>
+          </form>
+        </div>
+      </section>
+
+      <div class="between" style="margin-bottom:var(--sp-3)">
+        <p class="hint" id="results-count" role="status" aria-live="polite">Showing 12 sessions</p>
+        <div class="cluster" id="active-chips"></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table table-responsive">
+          <caption class="sr-only">Your interview sessions, with type, role, date, length, status and score. Screening sessions never show a score.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Session</th>
+              <th scope="col">Type</th>
+              <th scope="col">Role</th>
+              <th scope="col" class="sortable" data-sort-col="date" aria-sort="descending">
+                <button type="button" data-sort="date">Date<i data-lucide="chevron-down" class="ic"></i><span class="sr-only" data-sort-note>, sorted newest first, activate to reverse</span></button>
+              </th>
+              <th scope="col">Length</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="sortable num" data-sort-col="score" aria-sort="none">
+                <button type="button" data-sort="score">Score<i data-lucide="chevrons-up-down" class="ic"></i><span class="sr-only" data-sort-note>, activate to sort by score</span></button>
+              </th>
+              <th scope="col"><span class="sr-only">Open</span></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+
+        <div id="no-results" hidden>
+          <div class="state state-compact">
+            <div class="state-icon"><i data-lucide="search-x" class="ic"></i></div>
+            <h3>No sessions match those filters</h3>
+            <p>Nothing here matches what you asked for. Widen the search, or clear the filters to see all 12 sessions again.</p>
+            <div class="actions"><button class="btn btn-secondary btn-sm" type="button" id="f-clear-2">Clear filters</button></div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="pagination" style="margin-top:var(--sp-4)" aria-label="Session list pages">
+        <span id="pg-info">Page 1</span>
+        <div class="pages" id="pg-pages"></div>
+        <span class="hint">6 per page</span>
+      </nav>
+
+      <section class="card card-subtle" style="margin-top:var(--sp-6)" aria-labelledby="legend-h">
+        <div class="card-body">
+          <h2 id="legend-h" style="font-size:var(--text-sm)">Where each status takes you</h2>
+          <dl class="kv" style="margin-top:10px">
+            <dt><span class="badge badge-primary"><i data-lucide="file-check" class="ic-sm ic"></i>Reviewed</span></dt>
+            <dd>Scored and annotated. Opens the full review with your transcript and per-answer coaching.</dd>
+            <dt><span class="badge badge-primary"><i data-lucide="send" class="ic-sm ic"></i>Submitted</span></dt>
+            <dd>A screening interview delivered to an employer. Opens the submission receipt — no score, by design.</dd>
+            <dt><span class="badge badge-info"><i data-lucide="loader" class="ic-sm ic"></i>Processing</span></dt>
+            <dd>Recorded, evaluation still running. Opens the progress screen; usually ready within ten minutes.</dd>
+            <dt><span class="badge badge-neutral"><i data-lucide="circle-slash" class="ic-sm ic"></i>Ended early</span></dt>
+            <dd>Too few answers to score. Asks whether you want to resume the setup or discard it.</dd>
+            <dt><span class="badge badge-outline"><i data-lucide="bookmark" class="ic-sm ic"></i>Saved progress</span></dt>
+            <dd>Configured but never started. Opens the prepare screen where you left off.</dd>
+          </dl>
+        </div>
+      </section>
+    </div>
+
+    <!-- ══════════════════════ LOADING ══════════════════════ -->
+    <div data-state="loading" hidden>
+      <section class="card" aria-label="Loading your sessions" aria-busy="true">
+        <div class="card-body">
+          <div class="filterbar" aria-hidden="true">
+            <div class="skeleton" style="height:40px;flex:1 1 220px;border-radius:var(--r-md)"></div>
+            <div class="skeleton" style="height:40px;width:140px;border-radius:var(--r-md)"></div>
+            <div class="skeleton" style="height:40px;width:140px;border-radius:var(--r-md)"></div>
+          </div>
+        </div>
+      </section>
+      <div class="table-wrap" style="margin-top:var(--sp-4)">
+        <table class="table">
+          <caption class="sr-only">Loading your sessions</caption>
+          <thead><tr><th scope="col">Session</th><th scope="col">Type</th><th scope="col">Role</th><th scope="col">Date</th><th scope="col">Length</th><th scope="col">Status</th><th scope="col">Score</th></tr></thead>
+          <tbody id="skeleton-rows"></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:12px" role="status">Loading your session history…</p>
+    </div>
+
+    <!-- ══════════════════════ EMPTY ══════════════════════ -->
+    <div data-state="empty" hidden>
+      <div class="card">
+        <div class="state primary">
+          <div class="state-icon"><i data-lucide="mic" class="ic"></i></div>
+          <h2 style="font-size:var(--text-md)">No sessions yet</h2>
+          <p>Once you have talked through an interview, it lands here with a transcript, a competency signal and everything you said quoted back to you. The first one takes about 25 minutes.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start your first interview</a>
+            <a class="btn btn-secondary" href="candidate-goals.html">Set a practice goal first</a>
+          </div>
+          <p class="hint" style="margin-top:14px;max-width:32em">Not sure what to pick? A behavioural session with Ama is the gentlest start, and it covers the competencies most roles ask about.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ ERROR ══════════════════════ -->
+    <div data-state="error" hidden>
+      <div class="card">
+        <div class="state danger">
+          <div class="state-icon"><i data-lucide="server-crash" class="ic"></i></div>
+          <h2 style="font-size:var(--text-md)">We could not load your sessions</h2>
+          <p>Your recordings and reviews are safe — this is a problem reading the list, not the sessions themselves. Try again in a moment.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="candidate-sessions.html"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Try again</a>
+            <a class="btn btn-secondary" href="candidate-dashboard.html">Back to dashboard</a>
+          </div>
+          <p class="hint" style="margin-top:14px">Reference <span class="mono">req_c41b7e</span> · 23 August 2026, 19:04</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Resume-or-discard dialog for sessions that ended early -->
+<dialog class="dialog" id="dlg-abandoned" aria-labelledby="dlg-abandoned-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dlg-abandoned-h">Resume or discard?</h2>
+        <p class="hint" style="margin-top:4px" id="dlg-abandoned-sub">This session ended early.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body">
+      <p>You answered <strong id="dlg-q">2</strong> of the planned questions before this session ended, which is not enough evidence to score anything. Nothing has been evaluated and nothing has been shared.</p>
+      <div class="banner" style="margin-top:14px">
+        <i data-lucide="info" class="ic"></i>
+        <div>Resuming reopens the setup with the same role, format and interviewer — you will answer from the first question again.</div>
+      </div>
+      <dl class="kv" style="margin-top:14px">
+        <dt>Session</dt><dd id="dlg-title">—</dd>
+        <dt>Reference</dt><dd class="mono" id="dlg-id">—</dd>
+        <dt>Ended</dt><dd id="dlg-date">—</dd>
+      </dl>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Keep it as it is</button>
+      <button class="btn btn-danger-soft" type="button" id="dlg-discard">Discard session</button>
+      <a class="btn btn-primary" id="dlg-resume" href="candidate-session-prepare.html">Resume setup</a>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt, Q = Prepeet.query;
+  var PAGE_SIZE = 6;
+  var st = { q: '', kind: 'all', status: 'all', role: 'all', sort: 'date', dir: 'desc', page: 1 };
+
+  /* ---------------------------------------------------------- destinations */
+  function destFor(s) {
+    if (s.status === 'submitted' || s.mode === 'screen') return 'candidate-session-complete.html?id=' + s.id + '&mode=screen';
+    if (s.status === 'complete') return 'candidate-session-review.html?id=' + s.id;
+    if (s.status === 'processing') return 'candidate-session-complete.html?id=' + s.id;
+    if (s.status === 'saved') return 'candidate-session-prepare.html?id=' + s.id;
+    return null; /* abandoned → dialog */
+  }
+  function destLabel(s) {
+    if (s.status === 'submitted' || s.mode === 'screen') return 'Open receipt';
+    if (s.status === 'complete') return 'Open review';
+    if (s.status === 'processing') return 'See progress';
+    if (s.status === 'saved') return 'Resume setup';
+    return 'Resume or discard';
+  }
+
+  /* ------------------------------------------------------------- score cell */
+  function scoreCell(s) {
+    if (s.mode === 'screen') {
+      return '<span class="cluster" style="gap:5px;justify-content:flex-end">' +
+        '<span class="hint">Not shown — screening</span>' +
+        '<span class="info-tip" tabindex="0" aria-label="Why no score is shown for screening interviews" ' +
+        'data-tooltip="Screening evaluations are written for the hiring team, who weigh the evidence themselves. Showing you a number would misrepresent a decision Prepeet does not make.">' +
+        '<i data-lucide="info" class="ic"></i></span></span>';
+    }
+    if (s.score == null) {
+      var why = s.status === 'processing' ? 'Scoring in progress'
+        : s.status === 'saved' ? 'Not started yet'
+        : 'Too few answers to score';
+      return '<span class="hint">' + why + '</span>';
+    }
+    var band = Prepeet.band(s.score);
+    return '<span class="cluster" style="gap:8px;justify-content:flex-end">' +
+      '<strong class="tnum">' + s.score + '</strong>' +
+      '<span class="band band-' + band + '">' + Prepeet.bandLabel(band) + '</span></span>';
+  }
+
+  /* ---------------------------------------------------------------- filters */
+  function filtered() {
+    var q = st.q.trim().toLowerCase();
+    var out = D.sessions.filter(function (s) {
+      if (st.kind !== 'all' && s.mode !== st.kind) return false;
+      if (st.status !== 'all' && s.status !== st.status) return false;
+      if (st.role !== 'all' && s.role !== st.role) return false;
+      if (q) {
+        var hay = (s.title + ' ' + s.role + ' ' + s.shape + ' ' + s.persona + ' ' + s.id).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    out.sort(function (a, b) {
+      var cmp;
+      if (st.sort === 'score') {
+        /* unscored sessions sort below everything, in both directions */
+        var av = a.score == null ? -1 : a.score, bv = b.score == null ? -1 : b.score;
+        cmp = av - bv;
+      } else {
+        var x = a.date + 'T' + a.time, y = b.date + 'T' + b.time;
+        cmp = x < y ? -1 : (x > y ? 1 : 0);
+      }
+      return st.dir === 'asc' ? cmp : -cmp;
+    });
+    return out;
+  }
+
+  /* ----------------------------------------------------------------- render */
+  function render() {
+    var all = filtered();
+    var pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+    if (st.page > pages) st.page = pages;
+    var start = (st.page - 1) * PAGE_SIZE;
+    var rows = all.slice(start, start + PAGE_SIZE);
+
+    var tbody = document.getElementById('rows');
+    tbody.innerHTML = rows.map(function (s) {
+      var meta = D.statusMeta[s.status];
+      var href = destFor(s);
+      var titleCell = href
+        ? '<a class="row-link" href="' + href + '">' + s.title + '</a>'
+        : '<button class="row-link" type="button" data-abandoned="' + s.id + '" style="font:inherit;text-align:left">' + s.title + '</button>';
+      var action = href
+        ? '<a class="btn btn-sm btn-ghost" href="' + href + '">' + destLabel(s) + '<i data-lucide="chevron-right" class="ic ic-sm"></i></a>'
+        : '<button class="btn btn-sm btn-ghost" type="button" data-abandoned="' + s.id + '">' + destLabel(s) + '<i data-lucide="chevron-right" class="ic ic-sm"></i></button>';
+      return '<tr>' +
+        '<td class="td-primary" data-label="Session">' + titleCell +
+          '<span class="td-sub">' + s.shape + ' · ' + s.persona + ' · ' + s.questions + ' question' + (s.questions === 1 ? '' : 's') + ' · <span class="mono">' + s.id + '</span></span></td>' +
+        '<td data-label="Type"><span class="badge badge-mode ' + s.mode + '">' + (s.mode === 'screen' ? 'Screening' : 'Practice') + '</span></td>' +
+        '<td data-label="Role">' + s.role + '</td>' +
+        '<td data-label="Date"><span class="tnum">' + F.date(s.date) + '</span><span class="td-sub">' + s.time + '</span></td>' +
+        '<td data-label="Length" class="tnum">' + (s.minutes ? s.minutes + ' min' : '—') + '</td>' +
+        '<td data-label="Status"><span class="badge ' + meta.badge + '"><i data-lucide="' + meta.icon + '" class="ic-sm ic"></i>' + meta.label + '</span></td>' +
+        '<td data-label="Score" class="num">' + scoreCell(s) + '</td>' +
+        '<td data-label="Open" class="td-actions">' + action + '</td>' +
+        '</tr>';
+    }).join('');
+
+    document.getElementById('no-results').hidden = all.length !== 0;
+    document.querySelector('#rows').closest('table').hidden = all.length === 0;
+
+    var shown = all.length === 0 ? 'No sessions match' :
+      'Showing ' + (start + 1) + '–' + Math.min(start + PAGE_SIZE, all.length) + ' of ' + all.length + ' session' + (all.length === 1 ? '' : 's');
+    document.getElementById('results-count').textContent = shown +
+      (all.length !== D.sessions.length ? ' (filtered from ' + D.sessions.length + ')' : '');
+
+    /* active filter chips */
+    var chips = [];
+    if (st.q) chips.push(['q', 'Search: “' + st.q + '”']);
+    if (st.kind !== 'all') chips.push(['kind', st.kind === 'screen' ? 'Screening only' : 'Practice only']);
+    if (st.status !== 'all') chips.push(['status', D.statusMeta[st.status].label]);
+    if (st.role !== 'all') chips.push(['role', st.role]);
+    document.getElementById('active-chips').innerHTML = chips.map(function (c) {
+      return '<button class="chip" type="button" data-drop="' + c[0] + '" aria-pressed="true">' + c[1] +
+        '<i data-lucide="x" class="ic-sm ic x"></i><span class="sr-only">, remove this filter</span></button>';
+    }).join('');
+
+    /* pagination */
+    var pg = document.getElementById('pg-pages');
+    var html = '<button class="page" type="button" data-page="' + (st.page - 1) + '"' + (st.page === 1 ? ' disabled' : '') + ' aria-label="Previous page"><i data-lucide="chevron-left" class="ic ic-sm"></i></button>';
+    for (var i = 1; i <= pages; i++) {
+      html += '<button class="page" type="button" data-page="' + i + '"' + (i === st.page ? ' aria-current="page"' : '') + ' aria-label="Page ' + i + '">' + i + '</button>';
+    }
+    html += '<button class="page" type="button" data-page="' + (st.page + 1) + '"' + (st.page === pages ? ' disabled' : '') + ' aria-label="Next page"><i data-lucide="chevron-right" class="ic ic-sm"></i></button>';
+    pg.innerHTML = html;
+    document.getElementById('pg-info').textContent = 'Page ' + st.page + ' of ' + pages;
+
+    /* sort indicators — the icon element is rebuilt because Lucide replaces <i> with <svg> */
+    document.querySelectorAll('[data-sort-col]').forEach(function (th) {
+      var on = th.getAttribute('data-sort-col') === st.sort;
+      th.setAttribute('aria-sort', on ? (st.dir === 'asc' ? 'ascending' : 'descending') : 'none');
+      var btn = th.querySelector('button');
+      var old = btn.querySelector('svg, [data-lucide]');
+      var ic = document.createElement('i');
+      ic.className = 'ic';
+      ic.setAttribute('data-lucide', on ? (st.dir === 'asc' ? 'chevron-up' : 'chevron-down') : 'chevrons-up-down');
+      if (old) btn.replaceChild(ic, old); else btn.insertBefore(ic, btn.lastChild);
+      var note = btn.querySelector('[data-sort-note]');
+      if (note) {
+        note.textContent = on
+          ? ', sorted ' + (st.dir === 'asc' ? 'lowest first' : 'highest first') + ', activate to reverse'
+          : ', activate to sort by this column';
+      }
+    });
+
+    Q.set({
+      q: st.q || null,
+      kind: st.kind === 'all' ? null : st.kind,
+      status: st.status === 'all' ? null : st.status,
+      role: st.role === 'all' ? null : st.role,
+      sort: st.sort === 'date' ? null : st.sort,
+      dir: st.dir === 'desc' ? null : st.dir,
+      page: st.page === 1 ? null : st.page
+    }, true);
+
+    Prepeet.init();
+  }
+
+  /* --------------------------------------------------------------- controls */
+  function readUrl() {
+    st.q = Q.get('q', '') || '';
+    st.kind = ['all', 'practice', 'screen'].indexOf(Q.get('kind', 'all')) === -1 ? 'all' : Q.get('kind', 'all');
+    st.status = D.statusMeta[Q.get('status', 'all')] ? Q.get('status', 'all') : 'all';
+    st.role = Q.get('role', 'all');
+    st.sort = Q.get('sort', 'date') === 'score' ? 'score' : 'date';
+    st.dir = Q.get('dir', 'desc') === 'asc' ? 'asc' : 'desc';
+    st.page = Math.max(1, parseInt(Q.get('page', '1'), 10) || 1);
+    document.getElementById('f-q').value = st.q;
+    document.getElementById('f-kind').value = st.kind;
+    document.getElementById('f-status').value = st.status;
+  }
+
+  function buildRoleOptions() {
+    var sel = document.getElementById('f-role');
+    var roles = [];
+    D.sessions.forEach(function (s) { if (roles.indexOf(s.role) === -1) roles.push(s.role); });
+    roles.forEach(function (r) {
+      var o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o);
+    });
+    sel.value = roles.indexOf(st.role) === -1 ? 'all' : st.role;
+    if (sel.value === 'all') st.role = 'all';
+  }
+
+  function clearFilters() {
+    st.q = ''; st.kind = 'all'; st.status = 'all'; st.role = 'all'; st.page = 1;
+    document.getElementById('f-q').value = '';
+    document.getElementById('f-kind').value = 'all';
+    document.getElementById('f-status').value = 'all';
+    document.getElementById('f-role').value = 'all';
+    Prepeet.announce('Filters cleared. Showing all 12 sessions.');
+    render();
+  }
+
+  function skeletonRows() {
+    var host = document.getElementById('skeleton-rows');
+    var cells = [
+      '<div class="skeleton skeleton-text w-75" style="height:14px"></div><div class="skeleton skeleton-text w-50"></div>',
+      '<div class="skeleton skeleton-text" style="width:64px"></div>',
+      '<div class="skeleton skeleton-text" style="width:120px"></div>',
+      '<div class="skeleton skeleton-text" style="width:72px"></div>',
+      '<div class="skeleton skeleton-text" style="width:48px"></div>',
+      '<div class="skeleton skeleton-text" style="width:88px"></div>',
+      '<div class="skeleton skeleton-text" style="width:56px"></div>'
+    ];
+    var row = '<tr>' + cells.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
+    host.innerHTML = new Array(7).join(row);
+  }
+
+  /* ------------------------------------------------------------ state switch */
+  function initStates() {
+    var cur = Q.get('state', 'default');
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Q.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(cur);
+  }
+
+  /* -------------------------------------------------------------------- init */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (Prepeet.getMode() === 'screen') document.getElementById('screen-note').hidden = false;
+
+    readUrl();
+    buildRoleOptions();
+    skeletonRows();
+    render();
+    initStates();
+
+    var qInput = document.getElementById('f-q');
+    qInput.addEventListener('input', function () { st.q = qInput.value; st.page = 1; render(); });
+    ['f-kind', 'f-status', 'f-role'].forEach(function (id) {
+      document.getElementById(id).addEventListener('change', function (e) {
+        st[id.slice(2)] = e.target.value; st.page = 1; render();
+      });
+    });
+    document.getElementById('filters').addEventListener('submit', function (e) { e.preventDefault(); render(); });
+    document.getElementById('f-clear').addEventListener('click', clearFilters);
+    document.getElementById('f-clear-2').addEventListener('click', clearFilters);
+
+    document.addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-sort]'))) {
+        var col = t.getAttribute('data-sort');
+        if (st.sort === col) st.dir = st.dir === 'asc' ? 'desc' : 'asc'; else { st.sort = col; st.dir = 'desc'; }
+        render();
+        Prepeet.announce('Sorted by ' + col + ', ' + (st.dir === 'asc' ? 'lowest first' : 'highest first') + '.');
+        return;
+      }
+      if ((t = e.target.closest('[data-page]'))) {
+        var p = Number(t.getAttribute('data-page'));
+        if (p >= 1) { st.page = p; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        return;
+      }
+      if ((t = e.target.closest('[data-drop]'))) {
+        var k = t.getAttribute('data-drop');
+        if (k === 'q') { st.q = ''; document.getElementById('f-q').value = ''; }
+        else { st[k] = 'all'; document.getElementById('f-' + k).value = 'all'; }
+        st.page = 1; render();
+        return;
+      }
+      if ((t = e.target.closest('[data-abandoned]'))) {
+        var id = t.getAttribute('data-abandoned');
+        var s = D.sessions.filter(function (x) { return x.id === id; })[0];
+        if (!s) return;
+        document.getElementById('dlg-abandoned-sub').textContent = s.title + ' ended after ' + s.minutes + ' minutes.';
+        document.getElementById('dlg-q').textContent = s.questions;
+        document.getElementById('dlg-title').textContent = s.title + ' · ' + s.shape + ' with ' + s.persona;
+        document.getElementById('dlg-id').textContent = s.id;
+        document.getElementById('dlg-date').textContent = F.date(s.date) + ', ' + s.time;
+        document.getElementById('dlg-resume').setAttribute('href', 'candidate-session-prepare.html?id=' + s.id);
+        Prepeet.openDialog('dlg-abandoned');
+      }
+    });
+
+    document.getElementById('dlg-discard').addEventListener('click', function () {
+      Prepeet.closeDialog('dlg-abandoned');
+      Prepeet.toast({ title: 'Session discarded', desc: 'Nothing was evaluated or shared. You can start a fresh one any time.', kind: 'default' });
+    });
+
+    window.addEventListener('popstate', function () { readUrl(); render(); });
+  });
+})();
+</script>
+</body>
+</html>

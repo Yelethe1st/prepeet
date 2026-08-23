@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Progression · Prepeet</title>
+<meta name="description" content="How your interview readiness has changed over nine practice sessions, per competency, and whether you are on track for the roles you are targeting.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-unique: hand-authored SVG chart chrome */
+  .linechart { width: 100%; height: auto; display: block; }
+  .linechart .grid-line { stroke: var(--border); stroke-width: 1; }
+  .linechart .axis-text { fill: var(--fg-3); font-size: 11px; font-family: var(--font-sans); }
+  .linechart .target-line { stroke: var(--score-strong); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .linechart .target-text { fill: var(--success-fg); font-size: 11px; font-weight: 600; font-family: var(--font-sans); }
+  .linechart .series { fill: none; stroke: var(--chart-1); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .linechart .bridge { fill: none; stroke: var(--chart-1); stroke-width: 1.5; stroke-dasharray: 3 4; opacity: .55; }
+  .linechart .dot { fill: var(--surface); stroke: var(--chart-1); stroke-width: 2.5; }
+  .linechart .dot-last { fill: var(--chart-1); }
+  .linechart .gap-line { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 2 3; }
+  .linechart .value-text { fill: var(--fg); font-size: 11px; font-weight: 700; font-family: var(--font-sans); }
+  .spark { width: 100%; height: 40px; display: block; overflow: visible; }
+  .spark .sline { fill: none; stroke: var(--chart-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .spark .sdot { fill: var(--chart-1); }
+  .spark.down .sline, .spark.down .sdot { stroke: var(--chart-3); fill: var(--chart-3); }
+  .spark.down .sline { fill: none; }
+  .spark .sflat { stroke: var(--border-strong); stroke-width: 2; stroke-dasharray: 3 4; }
+  .trend-card { display: flex; flex-direction: column; gap: 6px; }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="progression" data-title="Progression" data-crumbs="Candidate>candidate-dashboard.html" data-search="off">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <!-- ══════════════════════════ PRACTICE MODE ══════════════════════════ -->
+    <div data-mode-view="practice">
+
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">Your practice</p>
+          <h1>Progression</h1>
+          <p class="page-desc"><a href="candidate-skills.html">Skills</a> tells you where you are now and what evidence sits behind it. <strong>Progression tells you how that has changed and whether you are on track.</strong> Same numbers, different question.</p>
+        </div>
+        <div class="page-actions">
+          <span class="badge badge-mode practice" style="align-self:center">Practice only</span>
+          <span class="badge badge-outline mono" style="align-self:center">/candidate/progression</span>
+          <a class="btn btn-secondary" href="candidate-skills.html"><i data-lucide="target" class="ic ic-sm"></i>Skills breakdown</a>
+        </div>
+      </div>
+
+      <div class="banner" style="margin-bottom:var(--sp-5)">
+        <i data-lucide="info" class="ic"></i>
+        <div>Everything on this page comes from <strong>practice sessions only</strong>. Screening interviews you complete for an employer are never scored back to you and never appear in this trend — that evaluation belongs to the hiring team. <a href="candidate-dashboard.html">Back to your dashboard</a>.</div>
+      </div>
+
+      <!-- state preview + time range -->
+      <div class="filterbar" style="margin-bottom:var(--sp-5)">
+        <div class="cluster">
+          <span class="hint" id="range-lbl">Time range</span>
+          <div class="segmented" role="group" aria-labelledby="range-lbl" data-segmented data-segmented-param="range" id="range-seg">
+            <button type="button" data-value="30" aria-pressed="false">Last 30 days</button>
+            <button type="button" data-value="90" aria-pressed="false">Last 90 days</button>
+            <button type="button" data-value="all" aria-pressed="true">All time</button>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="cluster">
+          <span class="hint">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview screen state">
+            <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+            <button type="button" data-state-btn="thin" aria-pressed="false">Too few sessions</button>
+            <button type="button" data-state-btn="empty" aria-pressed="false">Brand new</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────── EMPTY STATE ─────────── -->
+      <div data-state="empty" hidden>
+        <section class="card" aria-labelledby="empty-h">
+          <div class="card-body">
+            <div class="state primary">
+              <div class="state-icon"><i data-lucide="trending-up" class="ic"></i></div>
+              <h2 id="empty-h" style="font-size:var(--text-md)">Nothing to plot yet</h2>
+              <p>Progression is a picture of change over time, so it needs at least one finished session before it can show you anything. Your first session sets the baseline everything else is measured against.</p>
+              <div class="actions">
+                <a class="btn btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start your first interview</a>
+                <a class="btn btn-secondary" href="candidate-profile.html">Add your CV first</a>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="card card-subtle" style="margin-top:var(--sp-4)" aria-labelledby="empty-what-h">
+          <div class="card-body">
+            <h3 id="empty-what-h" style="font-size:var(--text-sm)">What you will see here once you have practised</h3>
+            <ul class="stack-sm" style="margin-top:8px;font-size:var(--text-sm);color:var(--fg-2)">
+              <li>· A readiness line for each role you are targeting, with a target band drawn on it.</li>
+              <li>· A small trend chart per competency, so you can see which ones are actually moving.</li>
+              <li>· A plain log of what each evaluation changed, and why.</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <!-- ─────────── NOT ENOUGH SESSIONS ─────────── -->
+      <div data-state="thin" hidden>
+        <section class="card" aria-labelledby="thin-h">
+          <div class="card-header">
+            <div>
+              <h2 id="thin-h">Not enough sessions to show a trend</h2>
+              <p class="hint" style="margin-top:3px">You have 2 scored sessions. A trend needs 3.</p>
+            </div>
+            <span class="badge badge-warning">2 of 3</span>
+          </div>
+          <div class="card-body stack">
+            <div class="progress warning" role="img" aria-label="2 of 3 sessions towards a trend"><span style="width:66%"></span></div>
+            <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">Two points make a straight line whatever the numbers are, so drawing one now would tell you something that is not true. With three we can show direction; with six the direction is usually reliable.</p>
+            <hr>
+            <h3 style="font-size:var(--text-sm)">What you do have</h3>
+            <ul class="stack-sm" style="font-size:var(--text-sm)">
+              <li class="row"><span class="ring ring-sm" data-score="61" data-label="Session on 11 July"></span><span><strong>61</strong> · Systems design — event pipelines · 11 July</span></li>
+              <li class="row"><span class="ring ring-sm" data-score="60" data-label="Session on 19 July"></span><span><strong>60</strong> · Behavioural — stakeholder pushback · 19 July</span></li>
+            </ul>
+            <p class="chart-summary">Text summary: two scored sessions, 61 on 11 July and 60 on 19 July. The one-point difference is well inside the range we would expect from two different question sets, so it does not yet mean anything.</p>
+            <div class="cluster">
+              <a class="btn btn-primary btn-sm" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Run a third session</a>
+              <a class="btn btn-ghost btn-sm" href="candidate-skills.html">See where you are now instead<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ─────────── DEFAULT ─────────── -->
+      <div data-state="default" class="stack-lg">
+
+        <!-- Readiness over time -->
+        <section class="card" aria-labelledby="trend-h">
+          <div class="card-header">
+            <div>
+              <h2 id="trend-h">Readiness over time</h2>
+              <p class="hint" style="margin-top:3px" id="trend-sub">Senior Backend Engineer · 9 practice sessions between 11 July and 21 August 2026</p>
+            </div>
+            <div class="cluster">
+              <div class="metric metric-dense" style="padding:0;text-align:right">
+                <span class="metric-label" style="justify-content:flex-end">Now</span>
+                <span class="metric-value" id="trend-now">72</span>
+                <span class="metric-delta up" id="trend-delta"><i data-lucide="trending-up" class="ic-sm ic"></i>+11 since 11 July</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+
+            <div id="chart-host"></div>
+
+            <div class="chart-legend" style="margin-top:12px">
+              <span><i style="background:var(--chart-1)"></i>Overall readiness</span>
+              <span><i style="background:var(--score-strong)"></i>Target for Senior Backend Engineer (80)</span>
+              <span><i style="background:var(--fg-muted)"></i>Session ended early — no score</span>
+            </div>
+
+            <p class="chart-summary" id="chart-summary">Text summary: overall readiness rose from 61 on 11 July to 72 on 21 August, a gain of 11 points across eight scored sessions. It dipped once, from 67 on 9 August to 66 on 12 August, after an Engineering Manager session pulled in competencies with little evidence behind them. The session on 4 August ended after two questions and could not be scored, which is the break in the line. The target band for Senior Backend Engineer is 80; you are 8 points below it.</p>
+
+            <div class="cluster" style="margin-top:var(--sp-4)">
+              <button class="btn btn-sm btn-secondary" type="button" data-toggle-target="trend-table" data-toggle-class="sr-only" aria-expanded="false" aria-controls="trend-table">
+                <i data-lucide="table" class="ic ic-sm"></i>View as table
+              </button>
+              <span class="hint">The table is always available to screen readers, whether or not it is shown.</span>
+            </div>
+
+            <div id="trend-table" class="sr-only" style="margin-top:var(--sp-4)">
+              <div class="table-wrap">
+                <table class="table table-dense table-responsive">
+                  <caption class="sr-only">Overall readiness after each practice session, 11 July to 21 August 2026</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Date</th>
+                      <th scope="col">Session</th>
+                      <th scope="col" class="num">Session score</th>
+                      <th scope="col" class="num">Overall readiness</th>
+                      <th scope="col" class="num">Change</th>
+                    </tr>
+                  </thead>
+                  <tbody id="trend-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Plateau / regression callout -->
+        <section class="card card-accent" aria-labelledby="dip-h" style="border-left-color:var(--warning)">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:10px">
+              <i data-lucide="activity" class="ic" style="color:var(--warning)"></i>
+              <h2 id="dip-h" style="font-size:var(--text-base)">Collaboration &amp; influence went down, from 74 to 72</h2>
+              <span class="band band-solid">Solid</span>
+            </div>
+            <p class="text-2" style="font-size:var(--text-sm);line-height:1.65;max-width:70ch">
+              Two points, and it is worth knowing why before you read anything into it. Your last three sessions were a systems-design deep-dive, an incident-response case and an Engineering Manager first pass. Between them they asked <strong>one</strong> collaboration question. The score moved because the evidence base shrank, not because you got worse at working with people — the underlying answers on record are the same ones that scored 74 in July.
+            </p>
+            <div class="grid grid-3" style="margin-top:var(--sp-4)">
+              <div class="card card-subtle"><div class="card-body">
+                <p class="metric-label">Collaboration questions asked</p>
+                <p class="metric-value" style="font-size:var(--text-xl)">1</p>
+                <p class="hint">in your last 3 sessions, against 6 in the 3 before that</p>
+              </div></div>
+              <div class="card card-subtle"><div class="card-body">
+                <p class="metric-label">Evidence spans on record</p>
+                <p class="metric-value" style="font-size:var(--text-xl)">7</p>
+                <p class="hint">unchanged since 18 August</p>
+              </div></div>
+              <div class="card card-subtle"><div class="card-body">
+                <p class="metric-label">Confidence range</p>
+                <p class="metric-value" style="font-size:var(--text-xl)">64–79</p>
+                <p class="hint">wide enough that 72 and 74 are not meaningfully different</p>
+              </div></div>
+            </div>
+            <div class="cluster" style="margin-top:var(--sp-4)">
+              <a class="btn btn-sm btn-secondary" href="candidate-start-interview.html?shape=shape_behavioural&amp;focus=collaboration">Run a behavioural session to refresh it</a>
+              <a class="btn btn-sm btn-ghost" href="candidate-skills.html#collaboration">See the evidence behind 72<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Per-competency trend -->
+        <section class="card" aria-labelledby="comp-h">
+          <div class="card-header">
+            <div>
+              <h2 id="comp-h">Per-competency trend</h2>
+              <p class="hint" style="margin-top:3px">Each spark line runs across the same nine sessions. The number is where you are now; the change is against your previous evaluation.</p>
+            </div>
+            <a class="btn btn-sm btn-ghost" href="candidate-skills.html">Full breakdown<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+          </div>
+          <div class="card-body">
+            <div class="grid grid-3" id="sparks"></div>
+            <p class="chart-summary" id="sparks-summary"></p>
+          </div>
+        </section>
+
+        <!-- Readiness by role -->
+        <section class="card" aria-labelledby="role-h">
+          <div class="card-header">
+            <div>
+              <h2 id="role-h">Readiness by role</h2>
+              <p class="hint" style="margin-top:3px">You are practising for two role shapes. They score differently because they ask for different evidence.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="grid grid-2">
+
+              <div class="card card-subtle">
+                <div class="card-body">
+                  <div class="row" style="align-items:flex-start;gap:var(--sp-4)">
+                    <div class="ring ring-lg" data-score="72" data-sub="On track" data-label="Senior Backend Engineer readiness"></div>
+                    <div style="flex:1;min-width:0">
+                      <h3 style="font-size:var(--text-base)">Senior Backend Engineer</h3>
+                      <p class="hint" style="margin-top:3px">Primary target · 7 sessions · target 80</p>
+                      <div class="cluster" style="margin-top:10px">
+                        <span class="badge badge-success"><i data-lucide="trending-up" class="ic-sm ic"></i>+11</span>
+                        <span class="badge badge-outline">8 points to target</span>
+                      </div>
+                    </div>
+                  </div>
+                  <hr style="margin:var(--sp-4) 0">
+                  <h4 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);font-weight:700">What is holding it back</h4>
+                  <ul class="stack-sm" style="margin-top:8px;font-size:var(--text-sm);color:var(--fg-2)">
+                    <li>· <strong>Ownership &amp; follow-through, 58.</strong> Three examples on record; scores stabilise around six. This is the single biggest lever.</li>
+                    <li>· <strong>Prioritisation under pressure, not yet scored.</strong> One answer on record. A case-format session usually surfaces three or four.</li>
+                    <li>· <strong>Debugging, 66.</strong> You describe the fix more readily than the diagnosis.</li>
+                  </ul>
+                  <a class="btn btn-sm btn-primary" style="margin-top:var(--sp-4)" href="candidate-start-interview.html?shape=shape_behavioural&amp;focus=ownership">Practise ownership</a>
+                </div>
+              </div>
+
+              <div class="card card-subtle">
+                <div class="card-body">
+                  <div class="row" style="align-items:flex-start;gap:var(--sp-4)">
+                    <div class="ring ring-lg" data-score="58" data-sub="Early" data-label="Engineering Manager readiness"></div>
+                    <div style="flex:1;min-width:0">
+                      <h3 style="font-size:var(--text-base)">Engineering Manager</h3>
+                      <p class="hint" style="margin-top:3px">Exploring · 2 sessions · target 78</p>
+                      <div class="cluster" style="margin-top:10px">
+                        <span class="badge badge-neutral"><i data-lucide="minus" class="ic-sm ic"></i>No trend yet</span>
+                        <span class="badge badge-outline">20 points to target</span>
+                      </div>
+                    </div>
+                  </div>
+                  <hr style="margin:var(--sp-4) 0">
+                  <h4 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);font-weight:700">What is missing</h4>
+                  <ul class="stack-sm" style="margin-top:8px;font-size:var(--text-sm);color:var(--fg-2)">
+                    <li>· <strong>Two sessions is not a trend.</strong> This 58 is a first read, not a verdict — treat it as a starting position.</li>
+                    <li>· <strong>People development: one half-written example.</strong> Your grad on-call story in the <a href="candidate-profile.html#evidence-bank">evidence bank</a> stops at the action.</li>
+                    <li>· <strong>No evidence at all</strong> for delivery management or conflict handling. The rubric expects both.</li>
+                    <li>· Your technical answers score well here, which is not what this rubric is weighting.</li>
+                  </ul>
+                  <a class="btn btn-sm btn-secondary" style="margin-top:var(--sp-4)" href="candidate-start-interview.html?role=rl_em&amp;shape=shape_behavioural">Practise for Engineering Manager</a>
+                </div>
+              </div>
+
+            </div>
+            <p class="chart-summary">Text summary: Senior Backend Engineer readiness is 72 out of 100 against a target of 80, up 11 points over seven sessions. Engineering Manager readiness is 58 out of 100 against a target of 78, based on only two sessions, which is not enough for a trend.</p>
+          </div>
+        </section>
+
+        <div class="grid grid-main-aside">
+          <div class="stack-lg">
+
+            <!-- What changed log -->
+            <section class="card" aria-labelledby="log-h">
+              <div class="card-header">
+                <div>
+                  <h2 id="log-h">What changed</h2>
+                  <p class="hint" style="margin-top:3px">Your last five evaluations and what each one moved.</p>
+                </div>
+                <a class="btn btn-sm btn-ghost" href="candidate-sessions.html">All sessions<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table class="table table-responsive">
+                    <caption class="sr-only">The five most recent evaluations and the change each one produced</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Session</th>
+                        <th scope="col" class="num">Overall</th>
+                        <th scope="col">Biggest moves</th>
+                        <th scope="col"><span class="sr-only">Review</span></th>
+                      </tr>
+                    </thead>
+                    <tbody id="changelog"></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <aside class="stack sticky-aside" aria-label="Milestones and next step">
+
+            <!-- Milestones -->
+            <section class="card" aria-labelledby="ms-h">
+              <div class="card-header"><h2 id="ms-h" style="font-size:var(--text-sm)">Milestones</h2></div>
+              <div class="card-body">
+                <ol class="timeline">
+                  <li class="tl-item done">
+                    <div class="tl-title">First session</div>
+                    <div class="tl-meta">11 July 2026 · readiness 61</div>
+                    <div class="tl-body">Systems design — event pipelines, with Ravi. 33 minutes, six questions. This set your baseline.</div>
+                  </li>
+                  <li class="tl-item done">
+                    <div class="tl-title">First <span class="band band-solid">Solid</span> band</div>
+                    <div class="tl-meta">30 July 2026 · technical communication 76</div>
+                    <div class="tl-body">Your recruiter-screen practice was the first session where a competency cleared 65 with enough evidence behind it to be called.</div>
+                  </li>
+                  <li class="tl-item warning">
+                    <div class="tl-title">Plateau noted</div>
+                    <div class="tl-meta">30 July – 12 August 2026</div>
+                    <div class="tl-body">Three sessions inside 66–67. All three were technical formats, so they kept re-scoring the same two competencies. Widening the format is what broke it.</div>
+                  </li>
+                  <li class="tl-item done">
+                    <div class="tl-title">Breakthrough on technical communication</div>
+                    <div class="tl-meta">18 August 2026 · 79 → <span class="band band-strong">Strong</span> at 84 on 21 August</div>
+                    <div class="tl-body">You started opening answers with the constraint rather than the solution. Three consecutive evaluations picked it up independently.</div>
+                  </li>
+                  <li class="tl-item active">
+                    <div class="tl-title">Best session so far</div>
+                    <div class="tl-meta">21 August 2026 · session score 74</div>
+                    <div class="tl-body">Systems design deep-dive. Also the first session where you corrected yourself unprompted — reviewers read that as a strength, not a wobble.</div>
+                  </li>
+                </ol>
+              </div>
+            </section>
+
+            <div class="card card-subtle">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:8px"><i data-lucide="compass" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">If you do one thing</strong></div>
+                <p class="hint" style="line-height:1.55">Run a behavioural session focused on ownership. It is your lowest scored competency, your thinnest evidence base, and the one most likely to be probed at senior level.</p>
+                <a class="btn btn-sm btn-primary btn-block" style="margin-top:12px" href="candidate-start-interview.html?shape=shape_behavioural&amp;focus=ownership"><i data-lucide="circle-play" class="ic ic-sm"></i>Set that up</a>
+                <a class="link" style="font-size:var(--text-xs);margin-top:10px;display:inline-block" href="candidate-goals.html">Or turn it into a goal</a>
+              </div>
+            </div>
+
+            <div class="card card-subtle">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:8px"><i data-lucide="scale" class="ic" style="color:var(--fg-3)"></i><strong style="font-size:var(--text-sm)">How to read these numbers</strong></div>
+                <p class="hint" style="line-height:1.55">Readiness is a summary of the evidence in your practice transcripts against a role rubric. It is not a prediction of whether you will be hired, and no employer sees it. A three-point move between two sessions is usually noise; a fifteen-point move across six is not.</p>
+                <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-skills.html">What each competency means</a>
+              </div>
+            </div>
+
+          </aside>
+        </div>
+
+      </div><!-- /default -->
+    </div><!-- /practice -->
+
+    <!-- ══════════════════════════ SCREEN MODE ══════════════════════════ -->
+    <div data-mode-view="screen" hidden>
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">Your practice</p>
+          <h1>Progression</h1>
+          <p class="page-desc">Progression is built from practice sessions. You are currently viewing Prepeet as a screening candidate, and screening interviews are not scored back to you.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-main-aside">
+        <section class="card" aria-labelledby="sc-h">
+          <div class="card-body">
+            <div class="state">
+              <div class="state-icon"><i data-lucide="trending-up" class="ic"></i></div>
+              <h2 id="sc-h" style="font-size:var(--text-md)">There is no progression to show for a screening interview</h2>
+              <p>Your screening interview for Northwind Health System was submitted on 16 August. Its evaluation was written for the hiring team, so it produces no score, band or trend on your side — and it is deliberately kept out of your practice history so the two never mix.</p>
+              <div class="actions">
+                <a class="btn btn-primary" href="candidate-start-interview.html?mode=practice"><i data-lucide="circle-play" class="ic ic-sm"></i>Start a practice interview</a>
+                <a class="btn btn-secondary" href="candidate-dashboard.html">Back to your dashboard</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="stack sticky-aside" aria-label="Why this is empty">
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="lock" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Why you cannot see a score</strong></div>
+              <p class="hint" style="line-height:1.55">Screening evaluations are written for the hiring team and include evidence they must weigh themselves. Showing candidates a number would misrepresent a decision Prepeet does not make. Practice mode is where the numbers are yours.</p>
+              <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-settings.html#privacy">Request your data</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+
+  /* ═══════════ data ═══════════
+     Nine practice sessions between 11 July and 21 August 2026.
+     `score` is that session's own score; `readiness` is overall readiness
+     recalculated after the evaluation landed. 4 August ended early: no score. */
+  var POINTS = [
+    { date: '2026-07-11', label: '11 Jul', id: 'ses_0Fg7WK', title: 'Systems design — event pipelines', score: 57, readiness: 61 },
+    { date: '2026-07-19', label: '19 Jul', id: 'ses_1Ab5VJ', title: 'Behavioural — stakeholder pushback', score: 58, readiness: 60 },
+    { date: '2026-07-24', label: '24 Jul', id: 'ses_6Ly0NH', title: 'Systems design deep-dive', score: 63, readiness: 63 },
+    { date: '2026-07-30', label: '30 Jul', id: 'ses_8Jc3TG', title: 'Recruiter screen practice', score: 71, readiness: 66 },
+    { date: '2026-08-04', label: '4 Aug', id: 'ses_5Wp1YF', title: 'Systems design — caching & consistency', score: null, readiness: null },
+    { date: '2026-08-09', label: '9 Aug', id: 'ses_2Hd6RE', title: 'Incident response scenario', score: 66, readiness: 67 },
+    { date: '2026-08-12', label: '12 Aug', id: 'ses_9Vt4LC', title: 'Engineering Manager — first pass', score: 61, readiness: 66 },
+    { date: '2026-08-18', label: '18 Aug', id: 'ses_3Mn8PB', title: 'Behavioural — conflict & ownership', score: 69, readiness: 69 },
+    { date: '2026-08-21', label: '21 Aug', id: 'ses_7Kq2XA', title: 'Systems design deep-dive', score: 74, readiness: 72 }
+  ];
+
+  var TRENDS = [
+    { id: 'systems-design', name: 'Systems design', now: 78, prev: 71, band: 'solid', series: [55, 57, 60, 63, null, 66, 68, 71, 78] },
+    { id: 'technical-communication', name: 'Technical communication', now: 84, prev: 79, band: 'strong', series: [70, 72, 74, 76, null, 77, 78, 79, 84] },
+    { id: 'debugging', name: 'Debugging & incident response', now: 66, prev: 62, band: 'solid', series: [48, 52, 55, 58, null, 60, 61, 62, 66] },
+    { id: 'collaboration', name: 'Collaboration & influence', now: 72, prev: 74, band: 'solid', series: [62, 65, 68, 71, null, 73, 74, 74, 72] },
+    { id: 'ownership', name: 'Ownership & follow-through', now: 58, prev: 51, band: 'developing', series: [40, 42, 45, 47, null, 49, 50, 51, 58] },
+    { id: 'prioritisation', name: 'Prioritisation under pressure', now: null, prev: null, band: 'insufficient', series: null }
+  ];
+
+  var CHANGELOG = [
+    { id: 'ses_7Kq2XA', date: '21 August', title: 'Systems design deep-dive', from: 69, to: 72,
+      moves: 'Systems design +7 · Debugging &amp; incident response +4 · Technical communication +5' },
+    { id: 'ses_3Mn8PB', date: '18 August', title: 'Behavioural — conflict &amp; ownership', from: 66, to: 69,
+      moves: 'Ownership &amp; follow-through +7 · Collaboration &amp; influence −2' },
+    { id: 'ses_9Vt4LC', date: '12 August', title: 'Engineering Manager — first pass', from: 67, to: 66,
+      moves: 'People development: first evidence recorded · No backend competency moved' },
+    { id: 'ses_2Hd6RE', date: '9 August', title: 'Incident response scenario', from: 66, to: 67,
+      moves: 'Debugging &amp; incident response +2 · Prioritisation: still insufficient evidence' },
+    { id: 'ses_8Jc3TG', date: '30 July', title: 'Recruiter screen practice', from: 63, to: 66,
+      moves: 'Technical communication +3, first Solid band · Collaboration &amp; influence +3' }
+  ];
+
+  var TODAY = new Date('2026-08-23T00:00:00Z');
+
+  function inRange(p, range) {
+    if (range === 'all') return true;
+    var days = Number(range);
+    var d = new Date(p.date + 'T00:00:00Z');
+    return (TODAY - d) / 86400000 <= days;
+  }
+
+  /* ═══════════ line chart (hand-authored SVG) ═══════════ */
+  var W = 720, H = 280, L = 52, R = 16, T = 20, B = 46;
+  var PX0 = L, PX1 = W - R, PY0 = T, PY1 = H - B;
+
+  function yOf(v) { return PY1 - ((v - 40) / 60) * (PY1 - PY0); }
+
+  function renderChart(pts) {
+    var n = pts.length;
+    var xOf = function (i) { return n === 1 ? (PX0 + PX1) / 2 : PX0 + (i / (n - 1)) * (PX1 - PX0); };
+    var s = '';
+
+    /* horizontal grid + y labels */
+    [40, 50, 60, 70, 80, 90, 100].forEach(function (v) {
+      var y = yOf(v);
+      if (v !== 80) s += '<line class="grid-line" x1="' + PX0 + '" y1="' + y + '" x2="' + PX1 + '" y2="' + y + '"/>';
+      s += '<text class="axis-text" x="' + (PX0 - 10) + '" y="' + (y + 4) + '" text-anchor="end">' + v + '</text>';
+    });
+
+    /* target line at 80 */
+    var ty = yOf(80);
+    s += '<line class="target-line" x1="' + PX0 + '" y1="' + ty + '" x2="' + PX1 + '" y2="' + ty + '"/>';
+    s += '<text class="target-text" x="' + PX1 + '" y="' + (ty - 7) + '" text-anchor="end">Target 80</text>';
+
+    /* x labels */
+    pts.forEach(function (p, i) {
+      s += '<text class="axis-text" x="' + xOf(i) + '" y="' + (PY1 + 20) + '" text-anchor="middle">' + p.label + '</text>';
+    });
+    s += '<text class="axis-text" x="' + ((PX0 + PX1) / 2) + '" y="' + (H - 6) + '" text-anchor="middle">Session date, 2026</text>';
+    s += '<text class="axis-text" x="' + (PX0 - 10) + '" y="' + (PY0 - 6) + '" text-anchor="end">Score</text>';
+
+    /* series split on nulls */
+    var run = [], runs = [];
+    pts.forEach(function (p, i) {
+      if (p.readiness == null) { if (run.length) { runs.push(run); run = []; } }
+      else run.push([xOf(i), yOf(p.readiness)]);
+    });
+    if (run.length) runs.push(run);
+
+    /* dashed bridge across a gap */
+    for (var k = 1; k < runs.length; k++) {
+      var a = runs[k - 1][runs[k - 1].length - 1], b = runs[k][0];
+      s += '<line class="bridge" x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '"/>';
+    }
+    runs.forEach(function (r) {
+      if (r.length < 2) return;
+      s += '<polyline class="series" points="' + r.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '"/>';
+    });
+
+    /* gap markers */
+    pts.forEach(function (p, i) {
+      if (p.readiness != null) return;
+      s += '<line class="gap-line" x1="' + xOf(i) + '" y1="' + PY0 + '" x2="' + xOf(i) + '" y2="' + PY1 + '"/>';
+    });
+
+    /* dots + end value */
+    pts.forEach(function (p, i) {
+      if (p.readiness == null) return;
+      var last = i === pts.length - 1;
+      s += '<circle class="dot' + (last ? ' dot-last' : '') + '" cx="' + xOf(i) + '" cy="' + yOf(p.readiness) + '" r="' + (last ? 5.5 : 4) + '"/>';
+      if (last || i === 0) {
+        s += '<text class="value-text" x="' + xOf(i) + '" y="' + (yOf(p.readiness) - 12) + '" text-anchor="middle">' + p.readiness + '</text>';
+      }
+    });
+
+    var scored = pts.filter(function (p) { return p.readiness != null; });
+    var first = scored[0], lastp = scored[scored.length - 1];
+    var aria = 'Line chart of overall readiness across ' + pts.length + ' practice sessions from ' +
+      pts[0].label + ' to ' + pts[pts.length - 1].label + ' 2026. It moves from ' + (first ? first.readiness : 0) +
+      ' to ' + (lastp ? lastp.readiness : 0) + ' out of 100, against a target line at 80. ' +
+      (pts.length - scored.length ? 'One session ended early and has no score, shown as a break in the line. ' : '') +
+      'A full data table follows.';
+
+    return '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + aria + '">' + s + '</svg>';
+  }
+
+  /* ═══════════ sparklines ═══════════ */
+  function renderSpark(series, down) {
+    var vals = series.filter(function (v) { return v != null; });
+    if (!vals.length) return '';
+    var min = Math.min.apply(null, vals) - 4, max = Math.max.apply(null, vals) + 4;
+    var w = 200, h = 40, n = series.length;
+    var pts = [];
+    series.forEach(function (v, i) {
+      if (v == null) return;
+      var x = (i / (n - 1)) * (w - 6) + 3;
+      var y = h - 4 - ((v - min) / (max - min)) * (h - 8);
+      pts.push([x, y]);
+    });
+    var last = pts[pts.length - 1];
+    return '<svg class="spark' + (down ? ' down' : '') + '" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<polyline class="sline" points="' + pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '" vector-effect="non-scaling-stroke"/>' +
+      '<circle class="sdot" cx="' + last[0] + '" cy="' + last[1] + '" r="2.6"/></svg>';
+  }
+
+  function renderSparks(range) {
+    var host = document.getElementById('sparks');
+    var idx = POINTS.map(function (p, i) { return inRange(p, range) ? i : -1; }).filter(function (i) { return i >= 0; });
+    var words = [];
+    host.innerHTML = TRENDS.map(function (t) {
+      var band = t.band, bandWord = Prepeet.bandLabel(band);
+      if (t.series == null) {
+        words.push(t.name + ': insufficient evidence, not scored');
+        return '<div class="card card-subtle"><div class="card-body trend-card">' +
+          '<p style="font-weight:650;font-size:var(--text-sm)">' + t.name + '</p>' +
+          '<div class="row" style="justify-content:space-between"><span class="metric-value" style="font-size:var(--text-xl)">—</span>' +
+          '<span class="band band-insufficient">Insufficient evidence</span></div>' +
+          '<svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true"><line class="sflat" x1="3" y1="20" x2="197" y2="20" vector-effect="non-scaling-stroke"/></svg>' +
+          '<p class="hint">1 answer on record. A case-format session would surface three or four.</p>' +
+          '</div></div>';
+      }
+      var series = idx.map(function (i) { return t.series[i]; });
+      var scored = series.filter(function (v) { return v != null; });
+      var startVal = scored[0], nowVal = scored[scored.length - 1];
+      var delta = t.now - t.prev;
+      var over = nowVal - startVal;
+      var dir = delta > 0 ? 'up' : (delta < 0 ? 'down' : 'flat');
+      var icon = delta > 0 ? 'trending-up' : (delta < 0 ? 'trending-down' : 'minus');
+      words.push(t.name + ' ' + t.now + ' (' + bandWord.toLowerCase() + '), ' + (delta >= 0 ? 'up ' : 'down ') + Math.abs(delta) + ' on the previous evaluation');
+      return '<div class="card card-subtle"><div class="card-body trend-card">' +
+        '<p style="font-weight:650;font-size:var(--text-sm)">' + t.name + '</p>' +
+        '<div class="row" style="justify-content:space-between">' +
+          '<span class="metric-value" style="font-size:var(--text-xl)">' + t.now + '</span>' +
+          '<span class="band band-' + band + '">' + bandWord + '</span>' +
+        '</div>' +
+        renderSpark(series, delta < 0) +
+        '<div class="row" style="justify-content:space-between;gap:8px">' +
+          '<span class="metric-delta ' + dir + '"><i data-lucide="' + icon + '" class="ic-sm ic"></i>' + (delta >= 0 ? '+' : '−') + Math.abs(delta) + ' on last</span>' +
+          '<span class="hint tnum">' + (over >= 0 ? '+' : '−') + Math.abs(over) + ' over the range</span>' +
+        '</div></div></div>';
+    }).join('');
+    document.getElementById('sparks-summary').textContent = 'Text summary: ' + words.join('. ') + '.';
+  }
+
+  /* ═══════════ table + header ═══════════ */
+  function renderTable(pts) {
+    var prev = null;
+    document.getElementById('trend-tbody').innerHTML = pts.map(function (p) {
+      var change = '—';
+      if (p.readiness != null && prev != null) {
+        var d = p.readiness - prev;
+        change = (d > 0 ? '+' : (d < 0 ? '−' : '')) + Math.abs(d);
+        if (d === 0) change = 'no change';
+      }
+      if (p.readiness != null) prev = p.readiness;
+      return '<tr>' +
+        '<td data-label="Date" class="td-primary">' + Prepeet.fmt.date(p.date) + '</td>' +
+        '<td data-label="Session">' + p.title + '</td>' +
+        '<td data-label="Session score" class="num">' + (p.score == null ? 'Ended early' : p.score) + '</td>' +
+        '<td data-label="Overall readiness" class="num">' + (p.readiness == null ? 'Not recalculated' : p.readiness) + '</td>' +
+        '<td data-label="Change" class="num">' + change + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function renderChangelog() {
+    document.getElementById('changelog').innerHTML = CHANGELOG.map(function (c) {
+      var d = c.to - c.from;
+      var cls = d > 0 ? 'up' : (d < 0 ? 'down' : 'flat');
+      var icon = d > 0 ? 'trending-up' : (d < 0 ? 'trending-down' : 'minus');
+      return '<tr>' +
+        '<td data-label="Session" class="td-primary">' + c.title + '<span class="td-sub">' + c.date + ' 2026 · <span class="mono">' + c.id + '</span></span></td>' +
+        '<td data-label="Overall" class="num"><span class="tnum">' + c.from + ' → ' + c.to + '</span><span class="td-sub metric-delta ' + cls + '" style="justify-content:flex-end"><i data-lucide="' + icon + '" class="ic-sm ic"></i>' + (d > 0 ? '+' : (d < 0 ? '−' : '')) + Math.abs(d) + '</span></td>' +
+        '<td data-label="Biggest moves"><span class="hint">' + c.moves + '</span></td>' +
+        '<td class="td-actions"><a class="btn btn-sm btn-ghost" href="candidate-session-review.html?id=' + c.id + '">Open review<i data-lucide="arrow-right" class="ic ic-sm"></i></a></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function apply(range) {
+    var pts = POINTS.filter(function (p) { return inRange(p, range); });
+    if (pts.length < 2) pts = POINTS.slice(-2);
+    var scored = pts.filter(function (p) { return p.readiness != null; });
+    var first = scored[0], last = scored[scored.length - 1];
+    var delta = last.readiness - first.readiness;
+
+    document.getElementById('chart-host').innerHTML = renderChart(pts);
+    renderTable(pts);
+    renderSparks(range);
+
+    document.getElementById('trend-now').textContent = last.readiness;
+    var dEl = document.getElementById('trend-delta');
+    dEl.className = 'metric-delta ' + (delta > 0 ? 'up' : (delta < 0 ? 'down' : 'flat'));
+    dEl.innerHTML = '<i data-lucide="' + (delta > 0 ? 'trending-up' : (delta < 0 ? 'trending-down' : 'minus')) + '" class="ic-sm ic"></i>' +
+      (delta >= 0 ? '+' : '−') + Math.abs(delta) + ' since ' + first.label;
+
+    var rangeWord = range === 'all' ? '9 practice sessions between 11 July and 21 August 2026'
+      : pts.length + ' practice session' + (pts.length === 1 ? '' : 's') + ' in the last ' + range + ' days';
+    document.getElementById('trend-sub').textContent = 'Senior Backend Engineer · ' + rangeWord;
+
+    var gaps = pts.length - scored.length;
+    document.getElementById('chart-summary').textContent =
+      'Text summary: overall readiness ' + (delta >= 0 ? 'rose' : 'fell') + ' from ' + first.readiness + ' on ' + first.label +
+      ' to ' + last.readiness + ' on ' + last.label + ', a ' + (delta >= 0 ? 'gain' : 'drop') + ' of ' + Math.abs(delta) +
+      ' points across ' + scored.length + ' scored session' + (scored.length === 1 ? '' : 's') + '. ' +
+      (range === 'all' ? 'It dipped once, from 67 on 9 August to 66 on 12 August, after an Engineering Manager session pulled in competencies with little evidence behind them. ' : '') +
+      (gaps ? 'The session on 4 August ended after two questions and could not be scored, which is the break in the line. ' : '') +
+      'The target for Senior Backend Engineer is 80, so you are ' + (80 - last.readiness) + ' points below it.';
+
+    Prepeet.init();
+  }
+
+  /* ═══════════ states ═══════════ */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    function set(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) set(b.getAttribute('data-state-btn'));
+    });
+    set(cur);
+  }
+
+  function applyMode() {
+    var mode = Prepeet.getMode();
+    document.querySelectorAll('[data-mode-view]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-mode-view') !== mode;
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    applyMode();
+
+    var range = Prepeet.query.get('range', 'all');
+    if (['30', '90', 'all'].indexOf(range) === -1) range = 'all';
+    var seg = document.getElementById('range-seg');
+    seg.querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-value') === range));
+    });
+    seg.addEventListener('change', function (e) {
+      var v = e.detail && e.detail.value;
+      if (!v) return;
+      apply(v);
+      Prepeet.announce('Showing ' + (v === 'all' ? 'all sessions' : 'the last ' + v + ' days') + '.');
+    });
+
+    /* "View as table" button label + state */
+    var tblBtn = document.querySelector('[data-toggle-target="trend-table"]');
+    tblBtn.addEventListener('click', function () {
+      /* this listener runs before ui.js's delegated toggle, so invert */
+      var willShow = tblBtn.getAttribute('aria-expanded') !== 'true';
+      tblBtn.innerHTML = '<i data-lucide="' + (willShow ? 'eye-off' : 'table') + '" class="ic ic-sm"></i>' + (willShow ? 'Hide table' : 'View as table');
+      Prepeet.init();
+    });
+
+    renderChangelog();
+    apply(range);
+    initStates();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

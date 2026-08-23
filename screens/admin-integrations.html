@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integrations · Prepeet</title>
+<meta name="description" content="Connected systems, webhook endpoints, delivery log and API keys for Northwind Health System.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+.int-grid { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.int-logo { width: 40px; height: 40px; border-radius: var(--r-md); display: grid; place-items: center; font-weight: 800; font-size: var(--text-sm); letter-spacing: -0.02em; flex: 0 0 auto; color: #fff; }
+.int-gh { background: #24A47F; } .int-wd { background: #0B5CAB; } .int-ok { background: #00297A; }
+.int-sl { background: #4A154B; } .int-ms { background: #4B53BC; }
+.evt-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.key-value { font-family: var(--font-mono); font-size: var(--text-xs); word-break: break-all; }
+.log-detail td { background: var(--surface-2); }
+.menu-fixed { position: fixed; right: auto; }
+.table .td-actions { position: relative; }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="integrations" data-search="off"
+      data-title="Integrations" data-crumbs="Tenant configuration">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Tenant configuration · Northwind Health System</p>
+        <h1>Integrations</h1>
+        <p class="page-desc">Connected systems, the webhooks that push evaluation events into them, and the API keys that let your own services read from Prepeet.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono">/admin/integrations</span>
+          <span class="badge badge-neutral" id="conn-chip">4 connected</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary ext" href="https://docs.prepeet.example/webhooks" target="_blank" rel="noopener noreferrer"><i data-lucide="book-open" class="ic ic-sm"></i>Webhook docs</a>
+        <button class="btn btn-primary" type="button" data-admin-control data-dialog-open="dlg-webhook"><i data-lucide="plus" class="ic ic-sm"></i>Add webhook</button>
+      </div>
+    </div>
+
+    <div class="banner banner-warning" id="readonly-banner" hidden role="status" style="margin-bottom:var(--sp-5)">
+      <i data-lucide="eye" class="ic"></i>
+      <div>
+        <strong>You can view this configuration but not change it.</strong>
+        Connecting systems, editing webhooks and rotating API keys needs the Tenant admin role. You are signed in as a Recruiter.
+      </div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-secondary" href="error-403.html">What this role can do</a>
+      </div>
+    </div>
+
+    <div class="between" style="margin-bottom:var(--sp-4)">
+      <p class="hint" style="max-width:520px">Signing secrets and API keys are shown once, at the moment they are created. Prepeet cannot show them to you again.</p>
+      <div class="cluster" style="margin-left:auto">
+        <span class="hint">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+          <button type="button" data-state-btn="degraded" aria-pressed="false">Degraded</button>
+          <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ EMPTY ══════════ -->
+    <div data-state="empty" hidden>
+      <div class="card">
+        <div class="state primary">
+          <div class="state-icon"><i data-lucide="webhook" class="ic"></i></div>
+          <h2 style="font-size:var(--text-md)">Nothing is connected yet</h2>
+          <p>Prepeet works perfectly well on its own — recruiters can send invitations and read evaluations here. Connecting your applicant tracking system just saves them the copying.</p>
+          <div class="actions">
+            <button class="btn btn-primary" type="button" data-admin-control data-toast="Greenhouse connection started" data-toast-desc="You would be sent to Greenhouse to authorise the connection." data-toast-kind="info"><i data-lucide="plug" class="ic ic-sm"></i>Connect Greenhouse</button>
+            <button class="btn btn-secondary" type="button" data-admin-control data-dialog-open="dlg-webhook">Add a webhook instead</button>
+            <a class="btn btn-ghost ext" href="https://docs.prepeet.example/webhooks" target="_blank" rel="noopener noreferrer">Read the docs</a>
+          </div>
+        </div>
+      </div>
+      <div class="card card-subtle" style="margin-top:var(--sp-4)">
+        <div class="card-body">
+          <h3 style="font-size:var(--text-sm)">What an integration actually does</h3>
+          <p class="hint" style="margin-top:8px;line-height:1.6">An applicant tracking connection keeps candidate stages in step: when somebody completes a screening here, their stage moves there. A webhook is the raw version of the same thing — Prepeet posts a signed JSON event to a URL you own, and your systems decide what to do with it. Neither sends anything to a third party that your own staff could not already see in this console.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ DEFAULT + DEGRADED ══════════ -->
+    <div data-state="default degraded">
+
+      <div class="banner banner-danger" data-state="degraded" hidden style="margin-bottom:var(--sp-5)">
+        <i data-lucide="alert-octagon" class="ic"></i>
+        <div>
+          <strong>Greenhouse sync has been failing since 22 August, 23:10.</strong>
+          Fourteen completed screenings have not moved stage in Greenhouse. Nothing is lost — every event is queued and will be delivered once the connection is repaired.
+        </div>
+        <div class="banner-actions">
+          <a class="btn btn-sm btn-secondary" href="#gh-remediation">Remediation steps</a>
+        </div>
+      </div>
+
+      <!-- ══ Connected integrations ══ -->
+      <section aria-labelledby="conn-h" style="margin-bottom:var(--sp-8)">
+        <div class="section-head">
+          <div>
+            <h2 id="conn-h" class="section-title" style="margin:0">Connected systems</h2>
+            <p class="hint">Two of these — Okta and Greenhouse — can change who has access and where candidates end up, so treat their credentials like production credentials.</p>
+          </div>
+        </div>
+
+        <div class="int-grid">
+
+          <!-- Greenhouse: healthy -->
+          <article class="card" data-state="default">
+            <div class="card-body">
+              <div class="row" style="align-items:flex-start">
+                <span class="int-logo int-gh" aria-hidden="true">GH</span>
+                <div style="flex:1;min-width:0">
+                  <div class="between"><h3 style="font-size:var(--text-base)">Greenhouse</h3><span class="badge badge-success"><span class="status-dot ok pulse"></span>Syncing</span></div>
+                  <p class="hint" style="margin-top:4px">Applicant tracking. Candidate stages move automatically when a screening completes.</p>
+                </div>
+              </div>
+              <dl class="kv" style="margin-top:14px">
+                <dt>Last sync</dt><dd>23 Aug 2026, 09:12 — 6 candidates updated</dd>
+                <dt>Mapped roles</dt><dd>7 of 7 open roles</dd>
+                <dt>Connected by</dt><dd>Priya Raman, 14 Jan 2025</dd>
+              </dl>
+              <div class="cluster" style="margin-top:14px">
+                <button class="btn btn-sm btn-secondary" type="button" data-admin-control data-drawer-open="drw-greenhouse">Manage</button>
+                <button class="btn btn-sm btn-ghost" type="button" data-admin-control data-toast="Sync started" data-toast-desc="Greenhouse will be reconciled within a minute." data-toast-kind="success">Sync now</button>
+                <button class="btn btn-sm btn-danger-soft" type="button" data-admin-control data-dialog-open="dlg-disconnect">Disconnect</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Greenhouse: degraded -->
+          <article class="card card-accent" data-state="degraded" hidden style="border-left-color:var(--danger)">
+            <div class="card-body">
+              <div class="row" style="align-items:flex-start">
+                <span class="int-logo int-gh" aria-hidden="true">GH</span>
+                <div style="flex:1;min-width:0">
+                  <div class="between"><h3 style="font-size:var(--text-base)">Greenhouse</h3><span class="badge badge-danger"><span class="status-dot bad"></span>Sync failing</span></div>
+                  <p class="hint" style="margin-top:4px">Applicant tracking. Stage updates are queued and not reaching Greenhouse.</p>
+                </div>
+              </div>
+              <dl class="kv" style="margin-top:14px">
+                <dt>Last success</dt><dd>22 Aug 2026, 23:04</dd>
+                <dt>Failing since</dt><dd>22 Aug 2026, 23:10 — 41 attempts</dd>
+                <dt>Queued events</dt><dd>14 stage updates, oldest 10 hours</dd>
+              </dl>
+
+              <div class="banner banner-danger" style="margin-top:14px">
+                <i data-lucide="alert-circle" class="ic"></i>
+                <div>
+                  <strong>The error Greenhouse returns</strong>
+                  <pre class="codeblock" style="margin-top:8px">HTTP 401 Unauthorized
+{
+  "message": "Invalid Harvest API key",
+  "errors": [{ "field": "credentials",
+               "message": "This key was revoked on 2026-08-22" }]
+}</pre>
+                </div>
+              </div>
+
+              <h4 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);margin-top:16px">What this means for your team</h4>
+              <ul class="stack-sm" style="font-size:var(--text-sm);margin-top:8px">
+                <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>Screenings, evaluations and reviews in Prepeet are unaffected. Nothing is lost.</span></li>
+                <li class="row" style="align-items:flex-start"><i data-lucide="alert-triangle" class="ic ic-sm" style="color:var(--warning);margin-top:3px"></i><span>Fourteen candidates show an out-of-date stage in Greenhouse, so a recruiter working there may re-chase someone who has already finished.</span></li>
+                <li class="row" style="align-items:flex-start"><i data-lucide="clock" class="ic ic-sm" style="color:var(--info);margin-top:3px"></i><span>Queued events expire after 7 days. The oldest expires on 29 August.</span></li>
+              </ul>
+
+              <h4 id="gh-remediation" style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);margin-top:16px">How to fix it</h4>
+              <ol class="stack-sm" style="font-size:var(--text-sm);margin-top:8px;list-style:decimal;padding-left:20px">
+                <li>In Greenhouse, go to Configure &rsaquo; Dev Center &rsaquo; API Credential Management and check whether the Prepeet Harvest key was revoked on 22 August.</li>
+                <li>Create a replacement key with the <span class="mono">applications: read, write</span> and <span class="mono">candidates: read</span> scopes.</li>
+                <li>Paste it below. Prepeet validates it before saving, then replays the 14 queued events oldest-first.</li>
+              </ol>
+              <div class="field" style="margin-top:12px">
+                <label class="label" for="gh-key">New Greenhouse Harvest API key</label>
+                <input class="input mono" id="gh-key" type="password" placeholder="Paste the key here" data-admin-control>
+              </div>
+              <div class="cluster" style="margin-top:12px">
+                <button class="btn btn-sm btn-primary" type="button" data-admin-control data-loading-sim="1600" data-loading-done="Greenhouse reconnected — replaying 14 queued events" data-loading-kind="success">Validate and reconnect</button>
+                <a class="btn btn-sm btn-ghost ext" href="https://support.greenhouse.io/hc/en-us/articles/harvest-api" target="_blank" rel="noopener noreferrer">Greenhouse help</a>
+              </div>
+            </div>
+          </article>
+
+          <!-- Okta -->
+          <article class="card">
+            <div class="card-body">
+              <div class="row" style="align-items:flex-start">
+                <span class="int-logo int-ok" aria-hidden="true">OK</span>
+                <div style="flex:1;min-width:0">
+                  <div class="between"><h3 style="font-size:var(--text-base)">Okta</h3><span class="badge badge-success"><span class="status-dot ok"></span>Connected</span></div>
+                  <p class="hint" style="margin-top:4px">Single sign-on (SAML 2.0) and user provisioning (SCIM 2.0).</p>
+                </div>
+              </div>
+              <dl class="kv" style="margin-top:14px">
+                <dt>Last sync</dt><dd>23 Aug 2026, 08:41 — 9 users, 0 errors</dd>
+                <dt>Group</dt><dd class="mono">Prepeet-Talent</dd>
+                <dt>Deprovisioning</dt><dd>On — removal in Okta ends access within 15 minutes</dd>
+              </dl>
+              <div class="cluster" style="margin-top:14px">
+                <a class="btn btn-sm btn-secondary" href="admin-members.html">Manage members</a>
+                <button class="btn btn-sm btn-ghost" type="button" data-admin-control data-toast="SCIM sync started" data-toast-desc="Okta will be reconciled within a minute." data-toast-kind="success">Sync now</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Slack -->
+          <article class="card">
+            <div class="card-body">
+              <div class="row" style="align-items:flex-start">
+                <span class="int-logo int-sl" aria-hidden="true">SL</span>
+                <div style="flex:1;min-width:0">
+                  <div class="between"><h3 style="font-size:var(--text-base)">Slack</h3><span class="badge badge-success"><span class="status-dot ok"></span>Connected</span></div>
+                  <p class="hint" style="margin-top:4px">Notifications posted to <span class="mono">#talent-northwind</span>.</p>
+                </div>
+              </div>
+              <dl class="kv" style="margin-top:14px">
+                <dt>Workspace</dt><dd>northwindhealth.slack.com</dd>
+                <dt>Last message</dt><dd>23 Aug 2026, 09:12 — “Amara Osei completed an ICU screening”</dd>
+                <dt>Posts</dt><dd>Submissions, low-confidence evaluations, quota warnings</dd>
+              </dl>
+              <div class="banner banner-info" style="margin-top:12px">
+                <i data-lucide="eye-off" class="ic"></i>
+                <div>Slack messages carry the candidate's name and the role only — never a score, band or quote. Anyone in the channel can see who applied.</div>
+              </div>
+              <div class="cluster" style="margin-top:14px">
+                <a class="btn btn-sm btn-secondary" href="admin-tenant-settings.html#notifications">Choose events</a>
+                <button class="btn btn-sm btn-danger-soft" type="button" data-admin-control data-dialog-open="dlg-disconnect">Disconnect</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Workday -->
+          <article class="card card-subtle">
+            <div class="card-body">
+              <div class="row" style="align-items:flex-start">
+                <span class="int-logo int-wd" aria-hidden="true">WD</span>
+                <div style="flex:1;min-width:0">
+                  <div class="between"><h3 style="font-size:var(--text-base)">Workday</h3><span class="badge badge-outline">Available</span></div>
+                  <p class="hint" style="margin-top:4px">Push hire decisions and candidate records into Workday Recruiting.</p>
+                </div>
+              </div>
+              <p class="hint" style="margin-top:12px;line-height:1.55">Requires a Workday integration system user with the Recruiting web services enabled. Your Workday administrator has to create it — Prepeet cannot request it for you. Expect about half a day of work between the two teams.</p>
+              <button class="btn btn-sm btn-secondary" style="margin-top:14px" type="button" data-admin-control data-toast="Workday setup guide sent" data-toast-desc="A setup checklist was emailed to priya.raman@northwindhealth.example." data-toast-kind="success">Start setup</button>
+            </div>
+          </article>
+
+          <!-- Teams -->
+          <article class="card card-subtle">
+            <div class="card-body">
+              <div class="row" style="align-items:flex-start">
+                <span class="int-logo int-ms" aria-hidden="true">MS</span>
+                <div style="flex:1;min-width:0">
+                  <div class="between"><h3 style="font-size:var(--text-base)">Microsoft Teams</h3><span class="badge badge-outline">Available</span></div>
+                  <p class="hint" style="margin-top:4px">The same notifications as Slack, posted to a Teams channel.</p>
+                </div>
+              </div>
+              <p class="hint" style="margin-top:12px;line-height:1.55">Connecting Teams does not disconnect Slack. Running both means every notification is posted twice, which most teams find worse than choosing one.</p>
+              <button class="btn btn-sm btn-secondary" style="margin-top:14px" type="button" data-admin-control data-toast="Teams connection started" data-toast-desc="You would be sent to Microsoft to authorise the app for your tenant." data-toast-kind="info">Connect</button>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ══ Webhooks ══ -->
+      <section class="card" aria-labelledby="hooks-h" style="margin-bottom:var(--sp-8)">
+        <div class="card-header">
+          <div>
+            <h2 id="hooks-h">Webhook endpoints</h2>
+            <p class="hint" style="margin-top:3px">Prepeet posts a signed JSON event to each endpoint. Verify the <span class="mono">Prepeet-Signature</span> header before you trust a payload.</p>
+          </div>
+          <button class="btn btn-sm btn-primary" type="button" data-admin-control data-dialog-open="dlg-webhook"><i data-lucide="plus" class="ic ic-sm"></i>Add webhook</button>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table class="table table-responsive">
+              <caption class="sr-only">Webhook endpoints with subscribed events, status, last delivery and success rate</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Endpoint</th>
+                  <th scope="col">Events</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Last delivery</th>
+                  <th scope="col" class="num">Success rate</th>
+                  <th scope="col"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="hook-rows"></tbody>
+            </table>
+          </div>
+          <p class="hint" style="margin-top:10px">Success rate is measured over the last 30 days. A delivery is a success if your endpoint answers 2xx within 10 seconds. Failures are retried five times with backoff over 24 hours.</p>
+        </div>
+      </section>
+
+      <!-- ══ Delivery log ══ -->
+      <section class="card" aria-labelledby="log-h" style="margin-bottom:var(--sp-8)">
+        <div class="card-header">
+          <div>
+            <h2 id="log-h">Delivery log</h2>
+            <p class="hint" style="margin-top:3px">The last eight deliveries. Expand a row to see exactly what was sent and what came back.</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" type="button" data-toast="Delivery log refreshed" data-toast-kind="default"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Refresh</button>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table class="table table-responsive">
+              <caption class="sr-only">Recent webhook deliveries with event, endpoint, response code, time and attempts</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Event</th>
+                  <th scope="col">Endpoint</th>
+                  <th scope="col">Response</th>
+                  <th scope="col">Sent</th>
+                  <th scope="col" class="num">Attempts</th>
+                  <th scope="col"><span class="sr-only">Details</span></th>
+                </tr>
+              </thead>
+              <tbody id="log-rows"></tbody>
+            </table>
+          </div>
+          <p class="chart-summary">Text summary: six of the last eight deliveries succeeded. One returned HTTP 500 from the analytics endpoint after three attempts, and one timed out against the ATS endpoint and succeeded on its second attempt.</p>
+        </div>
+      </section>
+
+      <!-- ══ API keys ══ -->
+      <section class="card" aria-labelledby="keys-h">
+        <div class="card-header">
+          <div>
+            <h2 id="keys-h">API keys</h2>
+            <p class="hint" style="margin-top:3px">Keys are scoped and tenant-bound. A Northwind key can never read another tenant's data.</p>
+          </div>
+          <button class="btn btn-sm btn-secondary" type="button" data-admin-control data-dialog-open="dlg-newkey"><i data-lucide="plus" class="ic ic-sm"></i>Create key</button>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table class="table table-responsive">
+              <caption class="sr-only">API keys with masked value, scopes, creation date and last use</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Key</th>
+                  <th scope="col">Scopes</th>
+                  <th scope="col">Created</th>
+                  <th scope="col">Last used</th>
+                  <th scope="col"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td data-label="Key" class="td-primary">Production read/write<span class="td-sub key-value">pk_live_nw_9f2c••••••••••••4b71</span></td>
+                  <td data-label="Scopes"><span class="evt-list"><span class="badge badge-outline mono">invitations:write</span><span class="badge badge-outline mono">evaluations:read</span><span class="badge badge-outline mono">webhooks:read</span></span></td>
+                  <td data-label="Created">14 Jan 2025 by Priya Raman</td>
+                  <td data-label="Last used">2 minutes ago · 10.42.7.19</td>
+                  <td class="td-actions" data-label="Actions">
+                    <button class="btn btn-sm btn-ghost" type="button" data-admin-control data-rotate="Production read/write">Rotate</button>
+                    <button class="btn btn-sm btn-danger-soft" type="button" data-admin-control data-revoke="Production read/write">Revoke</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td data-label="Key" class="td-primary">Reporting (read-only)<span class="td-sub key-value">pk_live_nw_3a77••••••••••••e102</span></td>
+                  <td data-label="Scopes"><span class="evt-list"><span class="badge badge-outline mono">evaluations:read</span><span class="badge badge-outline mono">sessions:read</span></span></td>
+                  <td data-label="Created">3 Mar 2026 by Jonas Brandt</td>
+                  <td data-label="Last used">6 days ago · 10.42.7.83</td>
+                  <td class="td-actions" data-label="Actions">
+                    <button class="btn btn-sm btn-ghost" type="button" data-admin-control data-rotate="Reporting (read-only)">Rotate</button>
+                    <button class="btn btn-sm btn-danger-soft" type="button" data-admin-control data-revoke="Reporting (read-only)">Revoke</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="banner banner-info" style="margin-top:14px">
+            <i data-lucide="shield" class="ic"></i>
+            <div>Rotating issues a new secret and keeps the old one working for 24 hours so you can deploy without downtime. Revoking stops the key immediately and breaks anything still using it.</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<!-- ══ Greenhouse manage drawer ══ -->
+<dialog class="drawer" id="drw-greenhouse" aria-labelledby="drw-gh-h">
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <div><h2 id="drw-gh-h">Greenhouse</h2><p class="hint">Applicant tracking · connected 14 January 2025</p></div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close Greenhouse settings"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body stack">
+      <dl class="kv">
+        <dt>Account</dt><dd>northwindhealth.greenhouse.io</dd>
+        <dt>Key scopes</dt><dd class="mono">applications: read, write · candidates: read</dd>
+        <dt>Sync direction</dt><dd>Prepeet writes stage changes; Greenhouse is the source of truth for candidates</dd>
+        <dt>Frequency</dt><dd>Event-driven, within 60 seconds of a screening completing</dd>
+      </dl>
+      <hr>
+      <h3 style="font-size:var(--text-sm)">Stage mapping</h3>
+      <dl class="kv">
+        <dt>Screening completed</dt><dd>Prepeet Screen → Review</dd>
+        <dt>Advanced by reviewer</dt><dd>Review → Hiring Manager Interview</dd>
+        <dt>Not progressing</dt><dd>Review → Rejected (reason: “Screening outcome”)</dd>
+        <dt>Insufficient evidence</dt><dd>No stage change — left for a human</dd>
+      </dl>
+      <div class="banner banner-warning">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>Prepeet only moves a stage after a person records a decision here. It never rejects a candidate on its own, whatever the evaluation says.</div>
+      </div>
+      <label class="switch"><input type="checkbox" checked data-admin-control><span>Write the evaluation summary into the Greenhouse candidate activity feed</span></label>
+      <label class="switch"><input type="checkbox" data-admin-control><span>Attach the full transcript as a Greenhouse document</span></label>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" type="button" data-drawer-close>Close</button>
+      <button class="btn btn-primary" type="button" data-drawer-close data-toast="Greenhouse settings saved" data-toast-kind="success">Save</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Add webhook dialog ══ -->
+<dialog class="dialog" id="dlg-webhook" aria-labelledby="dlg-webhook-h">
+  <div class="dialog-panel wide">
+    <div class="dialog-header">
+      <div><h2 id="dlg-webhook-h">Add a webhook endpoint</h2><p class="hint">Prepeet will POST a signed JSON body to this URL.</p></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close add webhook dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack" id="webhook-step-1">
+      <div class="field">
+        <label class="label" for="hook-url">Endpoint URL</label>
+        <input class="input mono" id="hook-url" type="url" placeholder="https://hooks.northwindhealth.example/prepeet/…" aria-describedby="hook-url-err hook-url-hint">
+        <p class="hint" id="hook-url-hint">Must be HTTPS and publicly reachable. Prepeet sends a test event as soon as you save.</p>
+        <p class="error-text" id="hook-url-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i><span id="hook-url-err-text">Enter an HTTPS URL.</span></p>
+      </div>
+      <fieldset style="border:0;padding:0;margin:0">
+        <legend class="label" style="margin-bottom:8px">Events to send</legend>
+        <div class="stack-sm">
+          <label class="check"><input type="checkbox" value="interview.completed" checked><span><span class="mono">interview.completed</span><span class="hint">The candidate finished answering. No evaluation exists yet.</span></span></label>
+          <label class="check"><input type="checkbox" value="evaluation.ready" checked><span><span class="mono">evaluation.ready</span><span class="hint">Scores, bands, confidence and evidence spans are available.</span></span></label>
+          <label class="check"><input type="checkbox" value="evaluation.failed"><span><span class="mono">evaluation.failed</span><span class="hint">Evaluation could not be produced — bad audio, too short, or an internal failure. Worth alerting on.</span></span></label>
+          <label class="check"><input type="checkbox" value="invitation.accepted"><span><span class="mono">invitation.accepted</span><span class="hint">The candidate opened the invitation and consented.</span></span></label>
+          <label class="check"><input type="checkbox" value="decision.recorded"><span><span class="mono">decision.recorded</span><span class="hint">A reviewer advanced, held or declined the candidate.</span></span></label>
+        </div>
+        <p class="error-text" id="hook-evt-err" hidden style="margin-top:8px"><i data-lucide="alert-circle" class="ic-sm ic"></i>Choose at least one event.</p>
+      </fieldset>
+      <div class="banner banner-info">
+        <i data-lucide="lock" class="ic"></i>
+        <div>Payloads contain candidate names, role, scores and evidence quotes. Send them only to an endpoint your organisation controls.</div>
+      </div>
+    </div>
+
+    <div class="dialog-body stack" id="webhook-step-2" hidden>
+      <div class="banner banner-success">
+        <i data-lucide="check-circle-2" class="ic"></i>
+        <div><strong>Endpoint created.</strong> A test event has been sent and your endpoint answered <span class="mono">200 OK</span> in 184 ms.</div>
+      </div>
+      <div class="field">
+        <span class="label" id="secret-label">Signing secret — shown once</span>
+        <div class="input-group" role="group" aria-labelledby="secret-label">
+          <input class="input mono" id="hook-secret" type="text" readonly value="whsec_nw_7Qx2Pk4dLm9RtY6vB3sZa1Hf8Cj0Nu5E" aria-label="Signing secret">
+          <button class="btn btn-secondary" type="button" data-copy="whsec_nw_7Qx2Pk4dLm9RtY6vB3sZa1Hf8Cj0Nu5E"><i data-lucide="copy" class="ic ic-sm"></i>Copy</button>
+        </div>
+        <p class="hint">Store this in your secret manager now. Prepeet keeps only a hash of it and cannot show it again — if you lose it, rotate the endpoint and update your service.</p>
+      </div>
+      <div>
+        <p class="label" style="margin-bottom:6px">Verifying a delivery</p>
+        <pre class="codeblock">Prepeet-Signature: t=1756975924,v1=6b1f9c8e2a...
+
+signed_payload = "{t}.{raw_request_body}"
+expected       = HMAC_SHA256(signing_secret, signed_payload)
+
+Reject the request if `expected` does not match `v1`,
+or if `t` is more than five minutes old.</pre>
+      </div>
+    </div>
+
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close id="hook-cancel">Cancel</button>
+      <button class="btn btn-primary" type="button" id="hook-create">Create endpoint</button>
+      <button class="btn btn-primary" type="button" id="hook-done" hidden data-dialog-close>I have saved the secret</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ New API key dialog ══ -->
+<dialog class="dialog" id="dlg-newkey" aria-labelledby="dlg-newkey-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-newkey-h">Create an API key</h2></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close create key dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="field">
+        <label class="label" for="key-name">Key name</label>
+        <input class="input" id="key-name" type="text" placeholder="e.g. Reporting warehouse loader">
+        <p class="hint">Name it after the service that will use it, not the person creating it.</p>
+      </div>
+      <fieldset style="border:0;padding:0;margin:0">
+        <legend class="label" style="margin-bottom:8px">Scopes</legend>
+        <div class="stack-sm">
+          <label class="check"><input type="checkbox" checked><span><span class="mono">evaluations:read</span><span class="hint">Read evaluations, competency scores and evidence spans.</span></span></label>
+          <label class="check"><input type="checkbox"><span><span class="mono">sessions:read</span><span class="hint">Read session metadata and transcripts.</span></span></label>
+          <label class="check"><input type="checkbox"><span><span class="mono">invitations:write</span><span class="hint">Create and revoke interview invitations. Grant carefully — this can email candidates.</span></span></label>
+          <label class="check"><input type="checkbox"><span><span class="mono">webhooks:read</span><span class="hint">List endpoints and read delivery history.</span></span></label>
+        </div>
+      </fieldset>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-dialog-close data-toast="API key created" data-toast-desc="The full key is shown once. Copy it from the banner before you leave this page." data-toast-kind="success">Create key</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Rotate key dialog ══ -->
+<dialog class="dialog" id="dlg-rotate" aria-labelledby="dlg-rotate-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-rotate-h">Rotate this key</h2><p class="hint" id="rotate-sub">Production read/write</p></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close rotate dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>A new secret is issued now. The current key keeps working until <strong>24 August 2026, 09:20</strong> so you can deploy without downtime, then stops.</p>
+      <div class="field">
+        <span class="label" id="rot-label">New key — shown once</span>
+        <div class="input-group" role="group" aria-labelledby="rot-label">
+          <input class="input mono" type="text" readonly value="pk_live_nw_5Td8••••••••••••Wq34" id="rot-value" aria-label="New API key">
+          <button class="btn btn-secondary" type="button" data-copy="pk_live_nw_5Td8Hy61Nb92Kc70Wq34"><i data-lucide="copy" class="ic ic-sm"></i>Copy</button>
+        </div>
+        <p class="hint">The masked value above is what this list will show from now on. The copy button copies the full key.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-dialog-close data-toast="Key rotated" data-toast-desc="The previous key stops working at 09:20 tomorrow." data-toast-kind="success">Done</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Revoke key confirm ══ -->
+<dialog class="dialog" id="dlg-revoke" aria-labelledby="dlg-revoke-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-revoke-h">Revoke this key?</h2></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close revoke dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p><strong id="revoke-name">Production read/write</strong> stops working the moment you confirm. There is no grace period and the key cannot be restored.</p>
+      <div class="banner banner-danger">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>This key was used 2 minutes ago. Something is actively depending on it — most likely your Greenhouse bridge. Rotate instead unless you believe the key has leaked.</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-danger" type="button" data-dialog-close data-toast="API key revoked" data-toast-desc="Any service using it will now receive 401 Unauthorized." data-toast-kind="danger">Revoke key</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Disconnect confirm ══ -->
+<dialog class="dialog" id="dlg-disconnect" aria-labelledby="dlg-disc-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-disc-h">Disconnect this integration?</h2></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close disconnect dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>Disconnecting stops all data flowing between Prepeet and this system. Nothing already in Prepeet is deleted.</p>
+      <ul class="stack-sm" style="font-size:var(--text-sm)">
+        <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>Candidates, evaluations and decisions stay exactly as they are here.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="alert-triangle" class="ic ic-sm" style="color:var(--warning);margin-top:3px"></i><span>Stage changes stop reaching the other system, so your recruiters will have to update it by hand.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="info" class="ic ic-sm" style="color:var(--info);margin-top:3px"></i><span>Reconnecting later needs a fresh authorisation and re-mapping of stages.</span></li>
+      </ul>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-danger" type="button" data-dialog-close data-toast="Integration disconnected" data-toast-desc="No further events will be sent. Prepeet data is unchanged." data-toast-kind="warning">Disconnect</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var HOOKS = [
+    { id: 'wh_ats', url: 'https://hooks.northwindhealth.example/prepeet/ats',
+      events: ['interview.completed', 'evaluation.ready', 'evaluation.failed'],
+      status: 'active', last: '23 Aug 2026, 09:12 · 200 OK', rate: 99.6 },
+    { id: 'wh_bridge', url: 'https://greenhouse-bridge.northwindhealth.example/v2/prepeet',
+      events: ['invitation.accepted', 'decision.recorded'],
+      status: 'active', last: '23 Aug 2026, 08:55 · 202 Accepted', rate: 100 },
+    { id: 'wh_analytics', url: 'https://analytics.northwindhealth.example/ingest/prepeet',
+      events: ['evaluation.ready'],
+      status: 'paused', last: '21 Aug 2026, 17:40 · 500 Internal Server Error', rate: 87.2 }
+  ];
+
+  var PAYLOAD_READY =
+'POST /prepeet/ats HTTP/1.1\n' +
+'Host: hooks.northwindhealth.example\n' +
+'Content-Type: application/json\n' +
+'Prepeet-Event: evaluation.ready\n' +
+'Prepeet-Delivery: dlv_8Kd23Qa\n' +
+'Prepeet-Signature: t=1756975924,v1=6b1f9c8e2a4d70f3\n' +
+'\n' +
+'{\n' +
+'  "id": "evt_8Kd23Qa",\n' +
+'  "type": "evaluation.ready",\n' +
+'  "created": "2026-08-23T09:12:04Z",\n' +
+'  "tenant": "tn_northwind",\n' +
+'  "data": {\n' +
+'    "session_id": "ses_4Bz9QD",\n' +
+'    "candidate_id": "cand_R4T9MP",\n' +
+'    "candidate_name": "Amara Osei",\n' +
+'    "role": "Registered Nurse - ICU",\n' +
+'    "rubric": { "id": "rb_icu", "version": "4.2" },\n' +
+'    "overall": { "score": 82, "band": "strong",\n' +
+'                 "confidence": "high", "coverage": 92 },\n' +
+'    "competencies": [\n' +
+'      { "id": "clinical-reasoning", "score": 85, "band": "strong", "spans": 7 },\n' +
+'      { "id": "patient-safety", "score": 84, "band": "strong", "spans": 6 },\n' +
+'      { "id": "escalation-handover", "score": 79, "band": "solid", "spans": 5 },\n' +
+'      { "id": "compassionate-communication", "score": 78, "band": "solid", "spans": 6 }\n' +
+'    ],\n' +
+'    "decision": null,\n' +
+'    "review_url": "https://northwind-health.prepeet.example/admin/recruiter/cand_R4T9MP"\n' +
+'  }\n' +
+'}';
+
+  var LOG = [
+    { id: 'dlv_8Kd23Qa', event: 'evaluation.ready', hook: 'ats', code: 200, ok: true, sent: '23 Aug, 09:12:04', ms: 184, attempts: 1,
+      req: PAYLOAD_READY,
+      res: 'HTTP/1.1 200 OK\nContent-Type: application/json\n\n{ "received": true, "greenhouse_application_id": 41200773 }' },
+    { id: 'dlv_7Jc19Pz', event: 'interview.completed', hook: 'ats', code: 200, ok: true, sent: '23 Aug, 09:11:38', ms: 121, attempts: 1,
+      req: 'POST /prepeet/ats HTTP/1.1\nPrepeet-Event: interview.completed\n\n{\n  "id": "evt_7Jc19Pz",\n  "type": "interview.completed",\n  "created": "2026-08-23T09:11:38Z",\n  "data": {\n    "session_id": "ses_4Bz9QD",\n    "candidate_id": "cand_R4T9MP",\n    "duration_seconds": 2461,\n    "questions_answered": 8,\n    "evaluation_expected_by": "2026-08-23T09:22:00Z"\n  }\n}',
+      res: 'HTTP/1.1 200 OK\n\n{ "received": true }' },
+    { id: 'dlv_6Hb47Ny', event: 'decision.recorded', hook: 'bridge', code: 202, ok: true, sent: '23 Aug, 08:55:12', ms: 310, attempts: 1,
+      req: 'POST /v2/prepeet HTTP/1.1\nPrepeet-Event: decision.recorded\n\n{\n  "id": "evt_6Hb47Ny",\n  "type": "decision.recorded",\n  "created": "2026-08-23T08:55:12Z",\n  "data": {\n    "candidate_id": "cand_M9P3ZR",\n    "decision": "advance",\n    "reviewer": "priya.raman@northwindhealth.example",\n    "note": "Strong product sense evidence; moving to hiring manager round.",\n    "rubric_version": "2.0"\n  }\n}',
+      res: 'HTTP/1.1 202 Accepted\n\n{ "queued": true, "job": "gh-stage-move-41200712" }' },
+    { id: 'dlv_5Ga82Mx', event: 'evaluation.ready', hook: 'analytics', code: 500, ok: false, sent: '23 Aug, 08:40:55', ms: 9840, attempts: 3,
+      req: 'POST /ingest/prepeet HTTP/1.1\nHost: analytics.northwindhealth.example\nPrepeet-Event: evaluation.ready\nPrepeet-Delivery: dlv_5Ga82Mx\n\n{\n  "id": "evt_5Ga82Mx",\n  "type": "evaluation.ready",\n  "data": {\n    "session_id": "ses_TH01",\n    "candidate_id": "cand_L7X2QN",\n    "overall": { "score": 74, "band": "solid", "confidence": "medium" }\n  }\n}',
+      res: 'HTTP/1.1 500 Internal Server Error\nContent-Type: text/html\n\n<!-- upstream ingest worker returned:\n     psycopg2.errors.UniqueViolation: duplicate key value\n     violates unique constraint "ingest_event_id_key" -->\n\nYour endpoint has already stored this event id. Prepeet retries\nuntil it sees a 2xx, so an idempotent handler should answer 200.' },
+    { id: 'dlv_4Fz91Lw', event: 'invitation.accepted', hook: 'bridge', code: 202, ok: true, sent: '23 Aug, 07:22:41', ms: 267, attempts: 1,
+      req: 'POST /v2/prepeet HTTP/1.1\nPrepeet-Event: invitation.accepted\n\n{\n  "id": "evt_4Fz91Lw",\n  "type": "invitation.accepted",\n  "data": {\n    "invitation_id": "inv_QX72HL",\n    "candidate_id": "cand_K4Z9GX",\n    "accepted_at": "2026-08-23T07:22:39Z",\n    "consent": { "recording": true, "transcript": true, "audio_retention_days": 180 }\n  }\n}',
+      res: 'HTTP/1.1 202 Accepted\n\n{ "queued": true }' },
+    { id: 'dlv_3Ey60Kv', event: 'evaluation.failed', hook: 'ats', code: 0, ok: false, sent: '22 Aug, 22:14:03', ms: 10000, attempts: 2,
+      req: 'POST /prepeet/ats HTTP/1.1\nPrepeet-Event: evaluation.failed\nPrepeet-Delivery: dlv_3Ey60Kv\n\n{\n  "id": "evt_3Ey60Kv",\n  "type": "evaluation.failed",\n  "created": "2026-08-22T22:13:52Z",\n  "data": {\n    "session_id": "ses_MZ01",\n    "candidate_id": "cand_T3W7KL",\n    "reason": "insufficient_audio",\n    "detail": "Session ended after 11 minutes; 2 of 8 questions answered.",\n    "recruiter_action": "Re-invite the candidate or arrange a live conversation."\n  }\n}',
+      res: 'No response — connection timed out after 10,000 ms.\n\nAttempt 1: 22 Aug 22:14:03 — timeout\nAttempt 2: 22 Aug 22:16:11 — 200 OK (delivered)\n\nThe endpoint was unreachable during a deploy. The retry succeeded\ntwo minutes later, so no event was lost.' },
+    { id: 'dlv_2Dx58Ju', event: 'evaluation.ready', hook: 'ats', code: 200, ok: true, sent: '22 Aug, 18:02:19', ms: 155, attempts: 1,
+      req: 'POST /prepeet/ats HTTP/1.1\nPrepeet-Event: evaluation.ready\n\n{\n  "id": "evt_2Dx58Ju",\n  "type": "evaluation.ready",\n  "data": {\n    "session_id": "ses_CW01",\n    "candidate_id": "cand_B2K8WD",\n    "overall": { "score": 69, "band": "solid", "confidence": "medium", "coverage": 71 }\n  }\n}',
+      res: 'HTTP/1.1 200 OK\n\n{ "received": true, "greenhouse_application_id": 41198004 }' },
+    { id: 'dlv_1Cw47Ht', event: 'decision.recorded', hook: 'bridge', code: 202, ok: true, sent: '22 Aug, 16:48:07', ms: 288, attempts: 1,
+      req: 'POST /v2/prepeet HTTP/1.1\nPrepeet-Event: decision.recorded\n\n{\n  "id": "evt_1Cw47Ht",\n  "type": "decision.recorded",\n  "data": {\n    "candidate_id": "cand_H1S5BV",\n    "decision": "decline",\n    "reviewer": "jonas.brandt@northwindhealth.example",\n    "note": "Modelling evidence strong, partnering evidence thin. Declining for this role; encouraged to apply for the analyst opening in October."\n  }\n}',
+      res: 'HTTP/1.1 202 Accepted\n\n{ "queued": true, "job": "gh-stage-move-41197551" }' }
+  ];
+
+  var HOOK_NAME = { ats: 'hooks.northwindhealth.example', bridge: 'greenhouse-bridge…', analytics: 'analytics.northwindhealth.example' };
+
+  var readOnly = false;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function renderHooks() {
+    document.getElementById('hook-rows').innerHTML = HOOKS.map(function (h) {
+      return '<tr>' +
+        '<td data-label="Endpoint" class="td-primary"><span class="mono" style="word-break:break-all">' + esc(h.url) + '</span><span class="td-sub mono">' + esc(h.id) + '</span></td>' +
+        '<td data-label="Events"><span class="evt-list">' + h.events.map(function (e) { return '<span class="badge badge-outline mono">' + esc(e) + '</span>'; }).join('') + '</span></td>' +
+        '<td data-label="Status">' + (h.status === 'active'
+          ? '<span class="badge badge-success"><span class="status-dot ok"></span>Active</span>'
+          : '<span class="badge badge-warning"><i data-lucide="pause" class="ic-sm ic"></i>Paused</span>') + '</td>' +
+        '<td data-label="Last delivery"><span class="hint">' + esc(h.last) + '</span></td>' +
+        '<td data-label="Success rate" class="num tnum">' + h.rate.toFixed(1) + '%</td>' +
+        '<td class="td-actions" data-label="Actions">' +
+          '<button class="icon-btn icon-btn-sm" type="button" data-menu="hm-' + h.id + '" aria-haspopup="true" aria-expanded="false" aria-label="Actions for ' + esc(h.url) + '"><i data-lucide="more-horizontal" class="ic ic-sm"></i></button>' +
+          '<div class="menu" id="hm-' + h.id + '" hidden role="menu" style="right:24px">' +
+            '<button class="menu-item" role="menuitem" type="button" data-admin-control data-toast="Test event sent" data-toast-desc="A ping event was posted to ' + esc(h.url) + '." data-toast-kind="success"><i data-lucide="send" class="ic ic-sm"></i>Send a test event</button>' +
+            '<button class="menu-item" role="menuitem" type="button" data-admin-control data-toggle-hook="' + h.id + '"><i data-lucide="' + (h.status === 'active' ? 'pause' : 'play') + '" class="ic ic-sm"></i>' + (h.status === 'active' ? 'Pause deliveries' : 'Resume deliveries') + '</button>' +
+            '<button class="menu-item" role="menuitem" type="button" data-admin-control data-toast="Signing secret rotated" data-toast-desc="The previous secret stops being accepted in 24 hours." data-toast-kind="warning"><i data-lucide="key-round" class="ic ic-sm"></i>Rotate signing secret</button>' +
+            '<div class="menu-sep"></div>' +
+            '<button class="menu-item danger" role="menuitem" type="button" data-admin-control data-delete-hook="' + h.id + '"><i data-lucide="trash-2" class="ic ic-sm"></i>Delete endpoint</button>' +
+          '</div>' +
+        '</td></tr>';
+    }).join('');
+    applyReadOnly();
+    Prepeet.init(document.getElementById('hook-rows'));
+  }
+
+  function renderLog() {
+    document.getElementById('log-rows').innerHTML = LOG.map(function (d) {
+      var codeBadge = d.ok
+        ? '<span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>' + d.code + '</span>'
+        : (d.code === 0
+          ? '<span class="badge badge-danger"><i data-lucide="timer-off" class="ic-sm ic"></i>Timed out</span>'
+          : '<span class="badge badge-danger"><i data-lucide="x-octagon" class="ic-sm ic"></i>' + d.code + '</span>');
+      return '<tr>' +
+        '<td data-label="Event" class="td-primary"><span class="mono">' + esc(d.event) + '</span><span class="td-sub mono">' + esc(d.id) + '</span></td>' +
+        '<td data-label="Endpoint"><span class="hint mono">' + esc(HOOK_NAME[d.hook]) + '</span></td>' +
+        '<td data-label="Response">' + codeBadge + ' <span class="hint tnum">' + d.ms.toLocaleString('en-US') + ' ms</span></td>' +
+        '<td data-label="Sent">' + esc(d.sent) + '</td>' +
+        '<td data-label="Attempts" class="num tnum">' + d.attempts + '</td>' +
+        '<td class="td-actions" data-label="Details">' +
+          '<button class="btn btn-sm btn-ghost" type="button" data-log-toggle="' + d.id + '" aria-expanded="false" aria-controls="log-' + d.id + '">' +
+          '<i data-lucide="chevron-down" class="ic ic-sm"></i>Details<span class="sr-only"> of delivery ' + esc(d.id) + '</span></button>' +
+        '</td></tr>' +
+        '<tr class="log-detail" id="log-' + d.id + '" hidden><td class="td-primary" colspan="6">' +
+          '<div class="grid grid-2" style="gap:var(--sp-4)">' +
+            '<div><p class="eyebrow eyebrow--muted">Request</p><pre class="codeblock" style="margin-top:6px">' + esc(d.req) + '</pre></div>' +
+            '<div><p class="eyebrow eyebrow--muted">Response</p><pre class="codeblock" style="margin-top:6px">' + esc(d.res) + '</pre></div>' +
+          '</div>' +
+          '<div class="cluster" style="margin-top:12px">' +
+            (d.ok
+              ? '<span class="hint">Delivered on attempt ' + d.attempts + '.</span>'
+              : '<button class="btn btn-sm btn-secondary" type="button" data-admin-control data-loading-sim="1400" data-loading-done="Delivery ' + esc(d.id) + ' retried — 200 OK" data-loading-kind="success"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Retry delivery</button>') +
+            '<button class="btn btn-sm btn-ghost" type="button" data-copy="' + esc(d.id) + '"><i data-lucide="copy" class="ic ic-sm"></i>Copy delivery id</button>' +
+          '</div>' +
+        '</td></tr>';
+    }).join('');
+    applyReadOnly();
+    Prepeet.init(document.getElementById('log-rows'));
+  }
+
+  function applyReadOnly() {
+    readOnly = !Prepeet.can('tenant_admin');
+    document.getElementById('readonly-banner').hidden = !readOnly;
+    if (!readOnly) return;
+    document.querySelectorAll('[data-admin-control]').forEach(function (el) {
+      if ('disabled' in el && el.tagName !== 'A') el.disabled = true;
+      el.setAttribute('aria-disabled', 'true');
+    });
+  }
+
+  /* ----------------------------------------------------------------- states */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    if (['default', 'degraded', 'empty'].indexOf(cur) === -1) cur = 'default';
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) {
+        el.hidden = el.getAttribute('data-state').split(' ').indexOf(s) === -1;
+      });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+      });
+      document.getElementById('conn-chip').textContent = s === 'empty' ? 'Nothing connected' : (s === 'degraded' ? '4 connected · 1 failing' : '4 connected');
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(cur);
+  }
+
+  /* ----------------------------------------------------------------- wiring */
+  document.addEventListener('DOMContentLoaded', function () {
+    renderHooks(); renderLog(); initStates();
+
+    document.addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-log-toggle]'))) {
+        var row = document.getElementById('log-' + t.getAttribute('data-log-toggle'));
+        var open = t.getAttribute('aria-expanded') === 'true';
+        t.setAttribute('aria-expanded', open ? 'false' : 'true');
+        row.hidden = open;
+        return;
+      }
+      if ((t = e.target.closest('[data-toggle-hook]'))) {
+        if (readOnly) return;
+        var h = HOOKS.filter(function (x) { return x.id === t.getAttribute('data-toggle-hook'); })[0];
+        h.status = h.status === 'active' ? 'paused' : 'active';
+        renderHooks();
+        Prepeet.toast({ title: h.status === 'active' ? 'Deliveries resumed' : 'Deliveries paused',
+          desc: h.status === 'active' ? 'Queued events for this endpoint will be sent now.' : 'Events are queued for 7 days while paused, then dropped.',
+          kind: h.status === 'active' ? 'success' : 'warning' });
+        return;
+      }
+      if ((t = e.target.closest('[data-delete-hook]'))) {
+        if (readOnly) return;
+        var idx = HOOKS.map(function (x) { return x.id; }).indexOf(t.getAttribute('data-delete-hook'));
+        var gone = HOOKS.splice(idx, 1)[0];
+        renderHooks();
+        Prepeet.toast({ title: 'Endpoint deleted', desc: gone.url + ' will receive nothing further. Its delivery history is kept for 30 days.', kind: 'warning' });
+        return;
+      }
+      if ((t = e.target.closest('[data-rotate]'))) {
+        if (readOnly) return;
+        document.getElementById('rotate-sub').textContent = t.getAttribute('data-rotate');
+        Prepeet.openDialog('dlg-rotate');
+        return;
+      }
+      if ((t = e.target.closest('[data-revoke]'))) {
+        if (readOnly) return;
+        document.getElementById('revoke-name').textContent = t.getAttribute('data-revoke');
+        Prepeet.openDialog('dlg-revoke');
+      }
+    });
+
+    /* Add webhook: two-step with the secret shown once */
+    document.getElementById('hook-create').addEventListener('click', function () {
+      var url = document.getElementById('hook-url');
+      var err = document.getElementById('hook-url-err');
+      var errText = document.getElementById('hook-url-err-text');
+      var val = url.value.trim();
+      if (!/^https:\/\/[^\s]+\.[^\s]+/.test(val)) {
+        errText.textContent = val && val.indexOf('http://') === 0
+          ? 'Webhook endpoints must use HTTPS. Payloads contain candidate evidence and cannot be sent over plain HTTP.'
+          : 'Enter a full HTTPS URL, for example https://hooks.northwindhealth.example/prepeet/ats';
+        err.hidden = false; url.setAttribute('aria-invalid', 'true'); url.focus(); return;
+      }
+      var picked = Array.prototype.slice.call(document.querySelectorAll('#webhook-step-1 input[type=checkbox]:checked')).map(function (c) { return c.value; });
+      if (!picked.length) { document.getElementById('hook-evt-err').hidden = false; return; }
+      document.getElementById('hook-evt-err').hidden = true;
+      err.hidden = true; url.setAttribute('aria-invalid', 'false');
+
+      HOOKS.push({ id: 'wh_new', url: val, events: picked, status: 'active', last: '23 Aug 2026, 09:20 · 200 OK (test)', rate: 100 });
+      renderHooks();
+      document.getElementById('webhook-step-1').hidden = true;
+      document.getElementById('webhook-step-2').hidden = false;
+      document.getElementById('hook-create').hidden = true;
+      document.getElementById('hook-cancel').hidden = true;
+      document.getElementById('hook-done').hidden = false;
+      document.getElementById('dlg-webhook-h').textContent = 'Save your signing secret';
+      Prepeet.init(document.getElementById('webhook-step-2'));
+      Prepeet.announce('Endpoint created. Signing secret is shown once.');
+    });
+
+    document.getElementById('hook-done').addEventListener('click', function () {
+      Prepeet.toast({ title: 'Webhook endpoint added', desc: 'Events start flowing immediately.', kind: 'success' });
+      document.getElementById('webhook-step-1').hidden = false;
+      document.getElementById('webhook-step-2').hidden = true;
+      document.getElementById('hook-create').hidden = false;
+      document.getElementById('hook-cancel').hidden = false;
+      document.getElementById('hook-done').hidden = true;
+      document.getElementById('dlg-webhook-h').textContent = 'Add a webhook endpoint';
+      document.getElementById('hook-url').value = '';
+    });
+  });
+
+  /* Row action menus live inside .table-wrap, which scrolls horizontally and would
+     clip an absolutely-positioned dropdown. Reposition them as fixed on open.
+     ui.js registers its own click handler first, so the menu is already unhidden here. */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-menu]');
+    if (!b) return;
+    var m = document.getElementById(b.getAttribute('data-menu'));
+    if (!m || m.hidden || !m.closest('.table-wrap')) return;
+    m.classList.add('menu-fixed');
+    var r = b.getBoundingClientRect();
+    var w = m.offsetWidth || 200, h = m.offsetHeight || 160;
+    m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
+    m.style.top = (r.bottom + 6 + h > window.innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
+  });
+})();
+</script>
+</body>
+</html>

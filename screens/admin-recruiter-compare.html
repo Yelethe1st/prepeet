@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare candidates · Prepeet</title>
+<meta name="description" content="Side-by-side competency evidence for candidates screened against the same rubric, with confidence ranges and the differences that are actually readable.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: matrix table with a pinned competency column, cell range bars */
+  .matrix { min-width: 640px; }
+  .matrix th[scope="row"] { position: sticky; left: 0; z-index: 1; background: var(--surface);
+                            min-width: 176px; text-transform: none; letter-spacing: 0;
+                            font-size: var(--text-sm); font-weight: 650; color: var(--fg); vertical-align: top; }
+  .matrix td { vertical-align: top; min-width: 190px; }
+  .cell { display: flex; flex-direction: column; gap: 5px; }
+  .cell .comp-bar { height: 8px; }
+  .cell.na { opacity: .95; }
+  .cmp-col { display: flex; flex-direction: column; }
+  .add-slot { border: 1px dashed var(--border-strong); border-radius: var(--r-lg); display: grid;
+              place-items: center; padding: var(--sp-5); text-align: center; gap: 8px; min-height: 150px; }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="compare" data-title="Compare" data-crumbs="Northwind Health System>admin-dashboard.html|Candidates>admin-recruiter.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Registered Nurse — Intensive Care</p>
+        <h1>Compare candidates</h1>
+        <p class="page-desc">Evidence recorded in each candidate's screening conversation, laid out against the same five competencies. Read the ranges, not the numbers.</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-ghost" href="admin-recruiter.html"><i data-lucide="arrow-left" class="ic ic-sm"></i>Back to roster</a>
+        <button class="btn btn-secondary" type="button" id="btn-add" data-dialog-open="dlg-add"><i data-lucide="plus" class="ic ic-sm"></i>Add candidate</button>
+        <a class="btn btn-secondary" data-requires="tenant_admin" href="admin-recruiter-calibration.html"><i data-lucide="sliders-horizontal" class="ic ic-sm"></i>Calibration</a>
+      </div>
+    </div>
+
+    <!-- ══════════ Methodology note — always visible, cannot be dismissed ══════════ -->
+    <section class="card card-accent" aria-labelledby="method-h" style="margin-bottom:var(--sp-5)">
+      <div class="card-body">
+        <div class="cluster" style="margin-bottom:8px">
+          <i data-lucide="scale" class="ic" style="color:var(--primary)"></i>
+          <h2 id="method-h" style="font-size:var(--text-base)">How to read this comparison</h2>
+        </div>
+        <ul class="stack-sm" style="font-size:var(--text-sm);line-height:1.6;color:var(--fg-2)">
+          <li class="row" style="align-items:flex-start;gap:8px"><i data-lucide="quote" class="ic ic-sm" style="margin-top:4px;color:var(--fg-3)"></i><span>Each score is a summary of <strong>what a candidate said in one conversation</strong>, matched against the Northwind Health System rubric for this role. It is not a measure of the person, and it does not predict how they will perform in the unit.</span></li>
+          <li class="row" style="align-items:flex-start;gap:8px"><i data-lucide="move-horizontal" class="ic ic-sm" style="margin-top:4px;color:var(--fg-3)"></i><span><strong>Differences inside overlapping confidence ranges are not meaningful.</strong> If two ranges touch, the evidence cannot tell you which candidate is stronger — treat them as level and read the quotes instead.</span></li>
+          <li class="row" style="align-items:flex-start;gap:8px"><i data-lucide="help-circle" class="ic ic-sm" style="margin-top:4px;color:var(--fg-3)"></i><span><strong>“Insufficient evidence” is not a low score.</strong> It means the conversation never reached that competency. Nothing can be concluded from it in either direction.</span></li>
+          <li class="row" style="align-items:flex-start;gap:8px"><i data-lucide="user-check" class="ic ic-sm" style="margin-top:4px;color:var(--fg-3)"></i><span><strong>Prepeet does not rank candidates and does not recommend a hire.</strong> There is no ordering on this page. The decision, and the reason for it, belongs to a named reviewer.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ══════════ EMPTY (fewer than two candidates) ══════════ -->
+    <div id="cmp-empty" hidden>
+      <div class="card"><div class="state primary">
+        <div class="state-icon"><i data-lucide="columns-3" class="ic"></i></div>
+        <h2 style="font-size:var(--text-md)">Pick at least two candidates to compare</h2>
+        <p id="empty-msg">A side-by-side view needs two to four candidates who answered the same rubric. Choose them from the roster, or add one here.</p>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" data-dialog-open="dlg-add"><i data-lucide="plus" class="ic ic-sm"></i>Add a candidate</button>
+          <a class="btn btn-secondary" href="admin-recruiter.html?role=rn-icu">Pick from the roster</a>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ══════════ COMPARISON ══════════ -->
+    <div id="cmp-main">
+
+      <!-- candidate columns -->
+      <section aria-labelledby="cols-h" style="margin-bottom:var(--sp-5)">
+        <div class="section-head">
+          <h2 id="cols-h" class="section-title" style="margin:0">Candidates in this comparison <span class="count" id="col-count"></span></h2>
+          <p class="hint" id="ids-chip"></p>
+        </div>
+        <div class="compare-scroll">
+          <div class="compare-grid" id="cmp-head"></div>
+        </div>
+        <p class="hint" style="margin-top:var(--sp-3)"><i data-lucide="move-horizontal" class="ic ic-sm" style="vertical-align:-3px"></i> Columns scroll sideways on narrow screens instead of stacking, so two candidates stay on screen together. Stacked columns would turn a comparison into two separate readings.</p>
+      </section>
+
+      <!-- coverage comparison -->
+      <section class="card" aria-labelledby="cov-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="cov-h">Coverage — how much of the rubric each conversation actually reached</h2>
+            <p class="hint" style="margin-top:3px">Before comparing scores, check whether you are comparing the same amount of evidence.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="comp-list" id="cov-chart"></div>
+          <p class="chart-summary" id="cov-summary"></p>
+        </div>
+      </section>
+
+      <!-- competency matrix -->
+      <section class="card" aria-labelledby="mtx-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="mtx-h">Competency matrix</h2>
+            <p class="hint" style="margin-top:3px">Score, band word and the confidence range the evidence supports. The pale bracket on each bar is the range.</p>
+          </div>
+        </div>
+        <div class="compare-scroll">
+          <table class="table matrix">
+            <caption class="sr-only">Competency scores for each candidate, with the band word and the confidence range the evidence supports. Cells reading “insufficient evidence” were not scored.</caption>
+            <thead><tr id="mtx-head"></tr></thead>
+            <tbody id="mtx-body"></tbody>
+          </table>
+        </div>
+        <div class="card-body" style="padding-top:var(--sp-4)">
+          <p class="hint"><i data-lucide="move-horizontal" class="ic ic-sm" style="vertical-align:-3px"></i> This matrix scrolls sideways on narrow screens rather than stacking. Stacked columns would put candidates on separate screens, which is exactly the comparison the table exists to make.</p>
+          <p class="chart-summary" id="mtx-summary"></p>
+        </div>
+      </section>
+
+      <!-- differences worth reading -->
+      <section class="card" aria-labelledby="diff-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="diff-h">Differences worth reading</h2>
+            <p class="hint" style="margin-top:3px">Only comparisons where the confidence ranges do not overlap are listed as real. Everything else is named as too close to call.</p>
+          </div>
+        </div>
+        <div class="card-body stack">
+          <div>
+            <h3 class="section-title" style="font-size:var(--text-sm)"><i data-lucide="check-circle-2" class="ic ic-sm" style="color:var(--success)"></i>Separated by the evidence</h3>
+            <ul class="stack-sm" id="diff-real"></ul>
+          </div>
+          <hr>
+          <div>
+            <h3 class="section-title" style="font-size:var(--text-sm)"><i data-lucide="equal" class="ic ic-sm" style="color:var(--fg-3)"></i>Too close to call</h3>
+            <ul class="stack-sm" id="diff-close"></ul>
+          </div>
+          <div id="diff-na-wrap">
+            <hr style="margin-bottom:var(--sp-4)">
+            <h3 class="section-title" style="font-size:var(--text-sm)"><i data-lucide="help-circle" class="ic ic-sm" style="color:var(--fg-3)"></i>Cannot be compared</h3>
+            <ul class="stack-sm" id="diff-na"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- evidence side by side -->
+      <section class="card" aria-labelledby="ev-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="ev-h">Evidence, side by side</h2>
+            <p class="hint" style="margin-top:3px">Pick a competency to read the strongest supporting answer and any contradiction Prepeet found in the same transcript.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="segmented" data-segmented id="ev-seg" role="group" aria-label="Choose a competency to read evidence for" style="flex-wrap:wrap;margin-bottom:var(--sp-4)"></div>
+          <div class="ev-legend" style="margin-bottom:var(--sp-4)">
+            <span><i class="i-supporting"></i>Supporting answer</span>
+            <span><i class="i-contradiction"></i>Contradicted elsewhere in the same conversation</span>
+            <span><i class="i-gap"></i>Evidence gap — never asked or never answered</span>
+          </div>
+          <div class="compare-scroll">
+            <div class="compare-grid" id="ev-grid"></div>
+          </div>
+          <p class="hint" style="margin-top:var(--sp-3)">Timestamps are positions in the recording. Open a full review to hear the answer in context.</p>
+        </div>
+      </section>
+
+      <!-- per-candidate actions -->
+      <section aria-labelledby="act-h">
+        <h2 id="act-h" class="section-title">Decide, one candidate at a time</h2>
+        <div class="compare-scroll">
+          <div class="compare-grid" id="cmp-foot"></div>
+        </div>
+        <p class="hint" style="margin-top:var(--sp-3);max-width:720px">Each decision is recorded against your name, with the rationale you write. Where a decision departs from the evaluation, the rationale is required and appears on the tenant overview so it can be reviewed later.</p>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════════ Dialog: add a candidate ══════════════════ -->
+<dialog class="dialog" id="dlg-add" aria-labelledby="add-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div>
+        <h2 id="add-h">Add a candidate to the comparison</h2>
+        <p class="hint" style="margin-top:4px" id="add-sub">—</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body">
+      <div class="banner banner-info" style="margin-bottom:var(--sp-4)">
+        <i data-lucide="info" class="ic"></i>
+        <div>Candidates can only be compared against others screened on the same rubric. Registered Nurse — ICU has its own five competencies; a finance or product screening answers different questions entirely.</div>
+      </div>
+      <h3 class="section-title" style="font-size:var(--text-sm)">Registered Nurse — ICU</h3>
+      <div class="stack-sm" id="add-same"></div>
+      <h3 class="section-title" style="font-size:var(--text-sm);margin-top:var(--sp-5)">Other roles — not comparable</h3>
+      <div class="stack-sm" id="add-other"></div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Close</button>
+      <a class="btn btn-secondary" href="admin-recruiter.html?role=rn-icu">Open the roster</a>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══════════════════ Dialog: record a decision ══════════════════ -->
+<dialog class="dialog" id="dlg-decide" aria-labelledby="dec-h">
+  <form method="dialog" class="dialog-panel" id="decide-form">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dec-h">Record a decision</h2>
+        <p class="hint" style="margin-top:4px" id="dec-sub">—</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <dl class="kv" id="dec-kv"></dl>
+      <div class="field">
+        <label class="label" for="dec-what">Decision</label>
+        <select class="select" id="dec-what">
+          <option value="advance">Advance to the next stage</option>
+          <option value="hold">Put on hold</option>
+          <option value="decline">Do not progress</option>
+          <option value="rereview">Request a re-review</option>
+        </select>
+      </div>
+      <div class="banner banner-warning" id="dec-warn" hidden>
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div id="dec-warn-text"></div>
+      </div>
+      <div class="field">
+        <label class="label" for="dec-reason">Rationale <span class="optional" id="dec-opt">(optional)</span></label>
+        <textarea class="textarea" id="dec-reason" aria-describedby="dec-hint dec-err" placeholder="Quote what the candidate actually said, or name the evidence from outside the screening that changed your mind."></textarea>
+        <p class="hint" id="dec-hint">Stored with your name and the timestamp. Candidates may request it as part of their data.</p>
+        <p class="error-text" id="dec-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>A rationale of at least 15 characters is required for this decision.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Record decision</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data;
+  var MAX = 4;
+  var ROLE = 'Registered Nurse — ICU';
+  var DEFAULT_IDS = ['cand_R4T9MP', 'cand_L7X2QN', 'cand_T3W7KL'];
+
+  var COMPS = [
+    { id: 'clinical', name: 'Clinical reasoning' },
+    { id: 'safety', name: 'Patient safety' },
+    { id: 'escalation', name: 'Escalation &amp; handover' },
+    { id: 'communication', name: 'Compassionate communication' },
+    { id: 'teamwork', name: 'Teamwork under pressure' }
+  ];
+
+  /* Per-candidate evaluation detail for the ICU rubric (page-local seed) */
+  var EVAL = {
+    cand_R4T9MP: {
+      session: 'ses_4Bz9QD', minutes: 41, answered: 8, asked: 8, spans: 23,
+      c: {
+        clinical:      { s: 84, ci: [79, 88], ev: 5 },
+        safety:        { s: 88, ci: [84, 92], ev: 6 },
+        escalation:    { s: 79, ci: [73, 85], ev: 4 },
+        communication: { s: 80, ci: [74, 85], ev: 5 },
+        teamwork:      { s: 77, ci: [70, 84], ev: 3 }
+      },
+      e: {
+        clinical: { t: '12:04', q: 'Her saturations were 88 on six litres and she was using accessory muscles. Before I escalated I moved her to a non-rebreather, took a fresh gas, and had the result in my hand when I phoned the registrar — so the conversation was about the number, not about my worry.' },
+        safety: { t: '18:22', q: 'I stopped the infusion but kept the cannula, and I documented the batch number before anyone touched the pump. If it turns out to be a reaction, the bag and the pump are the evidence and you only get one chance to keep them.' },
+        escalation: { t: '24:40', q: 'I use SBAR, but I always finish with what I want them to do. “I need you at the bedside within ten minutes” — otherwise you get advice when what you needed was a person.' },
+        communication: { t: '33:50', q: 'I sat down, which sounds small, but his daughter had been standing in a corridor for two hours. I told her what we knew, what we did not know, and exactly when I would come back to her.' },
+        teamwork: { t: '37:12', q: 'In the arrest I took airway because that is where I am strongest, and I said out loud that I was handing the notes to Sam so nobody assumed I was still writing them.',
+                    gap: 'Only one team example was given, and the interviewer did not probe for a second. Three evidence spans is at the thin end for this competency.' }
+      }
+    },
+    cand_L7X2QN: {
+      session: 'ses_TH01', minutes: 34, answered: 7, asked: 8, spans: 13,
+      c: {
+        clinical:      { s: 76, ci: [67, 84], ev: 3 },
+        safety:        { s: 72, ci: [62, 81], ev: 2 },
+        escalation:    { s: 81, ci: [74, 87], ev: 4 },
+        communication: { s: 70, ci: [59, 80], ev: 2 },
+        teamwork:      { s: 69, ci: [58, 79], ev: 2 }
+      },
+      e: {
+        clinical: { t: '09:31', q: 'The lactate was climbing but the blood pressure still looked fine, so I treated the lactate. A normal pressure in a 24-year-old buys you nothing — they compensate right up until they do not.',
+                    ct: '21:05', c: 'Asked the same question later in the panel, he said he would wait for a repeat gas before starting treatment — the opposite order to the one he described here.' },
+        safety: { t: '15:47', q: 'We do a two-nurse check on every infusion, no exceptions.',
+                  gap: 'This was the only patient-safety answer, and it describes a policy rather than something the candidate did. Two evidence spans, both general.' },
+        escalation: { t: '19:12', q: 'I called outreach at 03:10 and wrote the time in the notes. When nobody had come by 03:25 I called again, then escalated to the site manager and documented that too. The times matter as much as the call.' },
+        communication: { t: '27:40', q: 'I told him honestly that I did not know whether his wife would wake up, and that I was not going to pretend otherwise. Then I asked what he wanted to know first.' },
+        teamwork: { t: '30:02', q: 'On nights we split the bay so one of us is always free to answer a buzzer. It only works if you actually say when you are going on your break.' }
+      }
+    },
+    cand_T3W7KL: {
+      session: 'ses_MZ01', minutes: 11, answered: 3, asked: 8, spans: 4,
+      c: {
+        clinical:      { s: null, ev: 1 },
+        safety:        { s: null, ev: 0 },
+        escalation:    { s: 58, ci: [41, 74], ev: 2 },
+        communication: { s: null, ev: 1 },
+        teamwork:      { s: null, ev: 0 }
+      },
+      e: {
+        clinical: { gap: 'One partial answer at 04:02 — the candidate began describing a deteriorating patient and the session ended before the follow-up question. Not enough to score.' },
+        safety: { gap: 'Never reached. The patient-safety block starts at question five and the session ended during question three.' },
+        escalation: { t: '06:18', q: 'If a patient triggers I bleep the registrar and start the sepsis six while I wait for them, so nothing is standing still.',
+                      gap: 'Two spans only, both brief, and no follow-up on what he does when the bleep is not answered. The 41–74 range is wide for exactly that reason.' },
+        communication: { gap: 'One passing remark about speaking to families at 08:40, with no example attached.' },
+        teamwork: { gap: 'Never reached.' }
+      }
+    }
+  };
+
+  var current = [];
+  var activeComp = 'clinical';
+
+  /* ------------------------------------------------------------------ utils */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function cand(id) { return D.roster.filter(function (c) { return c.id === id; })[0]; }
+  function initials(n) { return n.split(' ').map(function (p) { return p[0]; }).join('').slice(0, 2); }
+  function compName(id) { return COMPS.filter(function (c) { return c.id === id; })[0].name; }
+  function firstName(n) { return n.split(' ')[0]; }
+  function cellOf(id, comp) { var e = EVAL[id]; return e ? e.c[comp] : null; }
+  function overlap(a, b) { return a[0] <= b[1] && b[0] <= a[1]; }
+
+  /* ----------------------------------------------------------------- routing */
+  function readIds() {
+    var raw = Prepeet.query.get('ids');
+    var ids = raw ? raw.split(',').map(function (s) { return s.trim(); }) : DEFAULT_IDS.slice();
+    ids = ids.filter(function (id) { return !!cand(id) && !!EVAL[id]; });
+    if (!ids.length && !raw) ids = DEFAULT_IDS.slice();
+    return ids.slice(0, MAX);
+  }
+  function writeIds() { Prepeet.query.set({ ids: current.join(',') }, true); }
+
+  /* --------------------------------------------------------- candidate cards */
+  function renderHead() {
+    var host = document.getElementById('cmp-head');
+    host.style.setProperty('--cols', Math.max(current.length + (current.length < MAX ? 1 : 0), 1));
+    var html = current.map(function (id) {
+      var c = cand(id), meta = D.statusMeta[c.status], e = EVAL[id];
+      return '<div class="card cmp-col">' +
+        '<div class="card-body" style="flex:1">' +
+          '<div class="between" style="align-items:flex-start">' +
+            '<div class="row" style="gap:10px">' +
+              '<span class="avatar">' + esc(initials(c.name)) + '</span>' +
+              '<div style="min-width:0"><div style="font-weight:650">' + esc(c.name) + '</div>' +
+              '<div class="hint">' + esc(c.role) + '</div></div>' +
+            '</div>' +
+            '<button class="icon-btn icon-btn-sm" type="button" data-remove="' + id + '" aria-label="Remove ' + esc(c.name) + ' from the comparison"><i data-lucide="x" class="ic ic-sm"></i></button>' +
+          '</div>' +
+          '<div class="cluster" style="margin-top:12px">' +
+            '<span class="badge ' + meta.badge + '"><i data-lucide="' + meta.icon + '" class="ic-sm ic"></i>' + esc(meta.label) + '</span>' +
+            '<span class="badge ' + ({ high: 'badge-success', medium: 'badge-neutral', low: 'badge-warning' }[c.confidence]) + '">' +
+              esc(Prepeet.confidenceMeta[c.confidence].label) + '</span>' +
+          '</div>' +
+          '<dl class="kv kv-row" style="margin-top:12px">' +
+            '<dt>Overall</dt><dd>' + (c.score == null
+                ? '<span class="band band-insufficient">Insufficient evidence</span>'
+                : '<span class="band band-' + c.band + '">' + esc(Prepeet.bandLabel(c.band)) + ' · ' + c.score + '</span>') + '</dd>' +
+            '<dt>Questions answered</dt><dd>' + e.answered + ' of ' + e.asked + ' · ' + e.minutes + ' min</dd>' +
+            '<dt>Evidence spans</dt><dd>' + e.spans + '</dd>' +
+            '<dt>Submitted</dt><dd>' + esc(c.submitted) + '</dd>' +
+            '<dt>Session</dt><dd><span class="badge badge-outline mono">' + esc(e.session) + '</span></dd>' +
+          '</dl>' +
+        '</div></div>';
+    }).join('');
+    if (current.length < MAX) {
+      html += '<div class="add-slot">' +
+        '<i data-lucide="user-plus" class="ic ic-lg" style="color:var(--fg-muted)"></i>' +
+        '<p class="hint">Up to ' + MAX + ' candidates can be read side by side.</p>' +
+        '<button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-add">Add candidate</button></div>';
+    }
+    host.innerHTML = html;
+    document.getElementById('col-count').textContent = current.length + ' of ' + MAX;
+    document.getElementById('ids-chip').innerHTML = 'Route <span class="badge badge-outline mono">/admin/recruiter/compare?ids=' + esc(current.join(',')) + '</span>';
+  }
+
+  /* ------------------------------------------------------------- coverage */
+  function renderCoverage() {
+    var host = document.getElementById('cov-chart');
+    host.innerHTML = current.map(function (id) {
+      var c = cand(id), e = EVAL[id];
+      var band = c.coverage >= 85 ? 'strong' : c.coverage >= 70 ? 'solid' : c.coverage >= 50 ? 'developing' : 'concern';
+      return '<div class="comp-row">' +
+        '<div class="comp-name">' + esc(c.name) + '<small>' + e.answered + ' of ' + e.asked + ' questions · ' + e.spans + ' evidence spans</small></div>' +
+        '<div class="comp-bar band-' + band + '" role="img" aria-label="' + esc(c.name) + ' coverage ' + c.coverage + ' percent"><span style="width:' + c.coverage + '%"></span></div>' +
+        '<div class="comp-val">' + c.coverage + '%</div>' +
+      '</div>';
+    }).join('');
+    var parts = current.map(function (id) {
+      var c = cand(id), e = EVAL[id];
+      return c.name + ' ' + c.coverage + '% (' + e.answered + ' of ' + e.asked + ' questions, ' + e.spans + ' evidence spans)';
+    });
+    var low = current.map(cand).sort(function (a, b) { return a.coverage - b.coverage; })[0];
+    document.getElementById('cov-summary').textContent =
+      'Text summary: ' + parts.join('; ') + '. ' + firstName(low.name) + ' answered the fewest relevant questions, so parts of this comparison rest on less evidence rather than on weaker answers.';
+  }
+
+  /* ----------------------------------------------------------------- matrix */
+  function cellHtml(id, comp) {
+    var v = cellOf(id, comp);
+    if (!v || v.s == null) {
+      return '<div class="cell na">' +
+        '<span class="badge badge-outline"><i data-lucide="help-circle" class="ic-sm ic"></i>Insufficient evidence</span>' +
+        '<span class="hint">' + (v ? v.ev : 0) + ' evidence span' + (v && v.ev === 1 ? '' : 's') + ' — not scored</span>' +
+      '</div>';
+    }
+    var band = Prepeet.band(v.s);
+    return '<div class="cell">' +
+      '<span class="band band-' + band + '">' + esc(Prepeet.bandLabel(band)) + ' · <span class="tnum">' + v.s + '</span></span>' +
+      '<div class="comp-bar band-' + band + '" role="img" aria-label="' + v.s + ' out of 100, ' + esc(Prepeet.bandLabel(band)) + ', confidence range ' + v.ci[0] + ' to ' + v.ci[1] + '">' +
+        '<span style="width:' + v.s + '%"></span>' +
+        '<span class="ci" style="left:' + v.ci[0] + '%;width:' + (v.ci[1] - v.ci[0]) + '%"></span></div>' +
+      '<span class="hint tnum">range ' + v.ci[0] + '–' + v.ci[1] + ' · ' + v.ev + ' spans</span>' +
+    '</div>';
+  }
+  function renderMatrix() {
+    document.getElementById('mtx-head').innerHTML =
+      '<th scope="col">Competency</th>' + current.map(function (id) {
+        return '<th scope="col">' + esc(cand(id).name) + '</th>';
+      }).join('');
+    document.getElementById('mtx-body').innerHTML = COMPS.map(function (k) {
+      return '<tr><th scope="row">' + k.name + '</th>' +
+        current.map(function (id) { return '<td>' + cellHtml(id, k.id) + '</td>'; }).join('') + '</tr>';
+    }).join('');
+
+    var lines = COMPS.map(function (k) {
+      return k.name.replace('&amp;', 'and') + ' — ' + current.map(function (id) {
+        var v = cellOf(id, k.id);
+        return firstName(cand(id).name) + ' ' + (v && v.s != null ? v.s + ' (' + v.ci[0] + '–' + v.ci[1] + ')' : 'insufficient evidence');
+      }).join(', ');
+    });
+    document.getElementById('mtx-summary').textContent = 'Text summary: ' + lines.join('. ') + '.';
+  }
+
+  /* -------------------------------------------------- differences worth reading */
+  function renderDifferences() {
+    var real = [], close = [], na = [];
+    COMPS.forEach(function (k) {
+      for (var i = 0; i < current.length; i++) {
+        for (var j = i + 1; j < current.length; j++) {
+          var a = current[i], b = current[j];
+          var va = cellOf(a, k.id), vb = cellOf(b, k.id);
+          var na1 = !va || va.s == null, nb1 = !vb || vb.s == null;
+          if (na1 || nb1) {
+            na.push({ comp: k.name, text: (na1 && nb1)
+              ? 'Neither ' + firstName(cand(a).name) + ' nor ' + firstName(cand(b).name) + ' produced enough evidence here. Nothing can be read either way.'
+              : firstName(cand(na1 ? a : b).name) + ' was not scored on this competency, so there is nothing to compare with ' + firstName(cand(na1 ? b : a).name) + '. A missing answer is not a weak answer.' });
+            continue;
+          }
+          var higher = va.s >= vb.s ? a : b, lower = va.s >= vb.s ? b : a;
+          var vh = va.s >= vb.s ? va : vb, vl = va.s >= vb.s ? vb : va;
+          if (!overlap(va.ci, vb.ci)) {
+            real.push({ comp: k.name, text: '<strong>' + esc(cand(higher).name) + '</strong> scores above <strong>' + esc(cand(lower).name) + '</strong> — ' +
+              vh.s + ' (range ' + vh.ci[0] + '–' + vh.ci[1] + ') against ' + vl.s + ' (range ' + vl.ci[0] + '–' + vl.ci[1] + '). The ranges do not overlap, so the evidence separates them.' });
+          } else {
+            close.push({ comp: k.name, text: esc(cand(a).name) + ' ' + va.s + ' (' + va.ci[0] + '–' + va.ci[1] + ') and ' + esc(cand(b).name) + ' ' + vb.s + ' (' + vb.ci[0] + '–' + vb.ci[1] + ') — ranges overlap. Treat as level; the ' + Math.abs(va.s - vb.s) + '-point gap is not readable.' });
+          }
+        }
+      }
+    });
+
+    function list(items, emptyMsg) {
+      if (!items.length) return '<li class="hint">' + emptyMsg + '</li>';
+      return items.map(function (it) {
+        return '<li class="row" style="align-items:flex-start;gap:10px">' +
+          '<span class="badge badge-outline" style="flex:0 0 auto">' + it.comp + '</span>' +
+          '<span style="font-size:var(--text-sm);line-height:1.55;color:var(--fg-2)">' + it.text + '</span></li>';
+      }).join('');
+    }
+    document.getElementById('diff-real').innerHTML = list(real,
+      'No competency separates these candidates. Every confidence range overlaps, which means one conversation is not enough to tell them apart — read the evidence and use a live follow-up.');
+    document.getElementById('diff-close').innerHTML = list(close, 'Nothing in this comparison is too close to call.');
+    document.getElementById('diff-na').innerHTML = list(na, 'Every competency has evidence on both sides.');
+    document.getElementById('diff-na-wrap').hidden = na.length === 0;
+  }
+
+  /* --------------------------------------------------------------- evidence */
+  function renderEvSeg() {
+    document.getElementById('ev-seg').innerHTML = COMPS.map(function (k) {
+      return '<button type="button" data-value="' + k.id + '" aria-pressed="' + (k.id === activeComp) + '">' + k.name + '</button>';
+    }).join('');
+  }
+  function renderEvidence() {
+    var host = document.getElementById('ev-grid');
+    host.style.setProperty('--cols', Math.max(current.length, 1));
+    host.innerHTML = current.map(function (id) {
+      var c = cand(id), e = EVAL[id].e[activeComp] || {}, v = cellOf(id, activeComp);
+      var blocks = '';
+      if (e.q) {
+        blocks += '<div class="ev-card supporting">' +
+          '<div class="ev-meta"><span>Supporting</span><span>' + esc(e.t) + '</span></div>' +
+          '<blockquote>“' + esc(e.q) + '”</blockquote></div>';
+      }
+      if (e.c) {
+        blocks += '<div class="ev-card contradiction" style="margin-top:10px">' +
+          '<div class="ev-meta"><span>Contradiction</span><span>' + esc(e.ct) + '</span></div>' +
+          '<p style="margin-top:6px;color:var(--fg-2)">' + esc(e.c) + '</p></div>';
+      }
+      if (e.gap) {
+        blocks += '<div class="ev-card gap" style="margin-top:10px">' +
+          '<div class="ev-meta"><span>Evidence gap</span></div>' +
+          '<p style="margin-top:6px;color:var(--fg-2)">' + esc(e.gap) + '</p></div>';
+      }
+      if (!blocks) blocks = '<p class="hint">No evidence was recorded for this competency.</p>';
+      return '<div class="card cmp-col"><div class="card-body" style="flex:1">' +
+        '<div class="between" style="margin-bottom:10px">' +
+          '<strong style="font-size:var(--text-sm)">' + esc(c.name) + '</strong>' +
+          (v && v.s != null
+            ? '<span class="band band-' + Prepeet.band(v.s) + '">' + esc(Prepeet.bandLabel(Prepeet.band(v.s))) + ' · ' + v.s + '</span>'
+            : '<span class="band band-insufficient">Insufficient evidence</span>') +
+        '</div>' + blocks +
+        '<a class="btn btn-sm btn-ghost" style="margin-top:12px" href="admin-recruiter-detail.html?id=' + id + '&amp;tab=evidence#panel-evidence">Full transcript &amp; evidence<i data-lucide="arrow-right" class="ic ic-sm"></i></a>' +
+      '</div></div>';
+    }).join('');
+  }
+
+  /* ------------------------------------------------------------ footer actions */
+  function renderFoot() {
+    var host = document.getElementById('cmp-foot');
+    host.style.setProperty('--cols', Math.max(current.length, 1));
+    host.innerHTML = current.map(function (id) {
+      var c = cand(id);
+      return '<div class="card cmp-col"><div class="card-body stack-sm" style="flex:1">' +
+        '<strong style="font-size:var(--text-sm)">' + esc(c.name) + '</strong>' +
+        '<p class="hint">' + esc(D.statusMeta[c.status].label) + (c.reviewer ? ' · ' + esc(c.reviewer) : ' · unassigned') + '</p>' +
+        '<a class="btn btn-sm btn-secondary btn-block" href="admin-recruiter-detail.html?id=' + id + '">Open full review</a>' +
+        '<button class="btn btn-sm btn-primary btn-block" type="button" data-decide="' + id + '">Record a decision</button>' +
+      '</div></div>';
+    }).join('');
+  }
+
+  /* ------------------------------------------------------------- add dialog */
+  function renderAddDialog() {
+    var same = D.roster.filter(function (c) { return c.role === ROLE && current.indexOf(c.id) === -1; });
+    var other = D.roster.filter(function (c) { return c.role !== ROLE; });
+    var full = current.length >= MAX;
+    document.getElementById('add-sub').textContent = current.length + ' of ' + MAX + ' slots used' +
+      (full ? ' — remove one before adding another.' : '.');
+    document.getElementById('add-same').innerHTML = same.length
+      ? same.map(function (c) {
+          return '<div class="between card card-subtle" style="padding:10px 14px">' +
+            '<div><div style="font-size:var(--text-sm);font-weight:600">' + esc(c.name) + '</div>' +
+            '<div class="hint">' + (c.score == null ? 'Insufficient evidence' : Prepeet.bandLabel(c.band) + ' · ' + c.score) + ' · ' + c.coverage + '% coverage</div></div>' +
+            '<button class="btn btn-sm btn-primary" type="button" data-add="' + c.id + '"' + (full ? ' disabled' : '') + '>Add</button></div>';
+        }).join('')
+      : '<p class="hint">All ' + D.roster.filter(function (c) { return c.role === ROLE; }).length +
+        ' candidates who completed the Registered Nurse — ICU screening are already in this comparison. Remove one to swap it out.</p>';
+    document.getElementById('add-other').innerHTML = other.slice(0, 5).map(function (c) {
+      return '<div class="between card card-subtle" style="padding:10px 14px;opacity:.7">' +
+        '<div><div style="font-size:var(--text-sm);font-weight:600">' + esc(c.name) + '</div>' +
+        '<div class="hint">' + esc(c.role) + '</div></div>' +
+        '<span class="badge badge-outline">Different rubric</span></div>';
+    }).join('') + '<p class="hint" style="margin-top:8px">' + other.length + ' candidates were screened against other rubrics. ' +
+      '<a href="admin-recruiter.html">Open the roster</a> to compare within one of those roles instead.</p>';
+  }
+
+  /* ------------------------------------------------------------ decide dialog */
+  var DEC = {
+    advance:  { verb: 'Advance', disagree: ['developing', 'concern', 'insufficient'] },
+    hold:     { verb: 'Hold', disagree: [] },
+    decline:  { verb: 'Decline', disagree: ['strong', 'solid'] },
+    rereview: { verb: 'Re-review', disagree: ['strong', 'solid', 'developing', 'concern', 'insufficient'] }
+  };
+  var decideId = null;
+  function refreshDecWarn() {
+    var c = cand(decideId); if (!c) return;
+    var what = document.getElementById('dec-what').value;
+    var need = DEC[what].disagree.indexOf(c.band) > -1;
+    document.getElementById('dec-warn').hidden = !need;
+    document.getElementById('dec-warn-text').innerHTML = what === 'rereview'
+      ? '<strong>A re-review always needs a reason.</strong> Say what you think the evaluation missed.'
+      : '<strong>This departs from the evaluation.</strong> The evidence summary reads ' +
+        esc(c.score == null ? 'insufficient evidence' : Prepeet.bandLabel(c.band).toLowerCase()) +
+        ', so a written rationale is required and will be visible to tenant administrators.';
+    document.getElementById('dec-opt').textContent = need ? '(required)' : '(optional)';
+    return need;
+  }
+  function openDecide(id) {
+    decideId = id;
+    var c = cand(id), e = EVAL[id];
+    document.getElementById('dec-sub').textContent = c.name + ' · ' + c.role;
+    document.getElementById('dec-kv').innerHTML =
+      '<dt>Evaluation</dt><dd>' + (c.score == null ? 'Insufficient evidence — no score' : Prepeet.bandLabel(c.band) + ' · ' + c.score + ' out of 100') + '</dd>' +
+      '<dt>Confidence</dt><dd>' + esc(Prepeet.confidenceMeta[c.confidence].label) + '</dd>' +
+      '<dt>Coverage</dt><dd>' + c.coverage + '% · ' + e.answered + ' of ' + e.asked + ' questions answered</dd>' +
+      '<dt>Decision by</dt><dd>Priya Raman, 23 August 2026</dd>';
+    document.getElementById('dec-what').value = 'advance';
+    var ta = document.getElementById('dec-reason');
+    ta.value = ''; ta.setAttribute('aria-invalid', 'false');
+    document.getElementById('dec-err').hidden = true;
+    refreshDecWarn();
+    Prepeet.openDialog('dlg-decide');
+    Prepeet.init();
+  }
+
+  /* ------------------------------------------------------------------ render */
+  function renderAll() {
+    var enough = current.length >= 2;
+    document.getElementById('cmp-main').hidden = !enough;
+    document.getElementById('cmp-empty').hidden = enough;
+    if (enough) {
+      renderHead(); renderCoverage(); renderMatrix(); renderDifferences(); renderEvSeg(); renderEvidence(); renderFoot();
+    } else {
+      document.getElementById('empty-msg').textContent = current.length === 1
+        ? 'Only ' + cand(current[0]).name + ' is selected. A side-by-side view needs two to four candidates who answered the same rubric.'
+        : 'A side-by-side view needs two to four candidates who answered the same rubric. Choose them from the roster, or add one here.';
+    }
+    renderAddDialog();
+    document.getElementById('btn-add').disabled = current.length >= MAX;
+    applyPerms();
+    Prepeet.init();
+  }
+
+  function applyPerms() {
+    document.querySelectorAll('[data-requires]').forEach(function (el) {
+      if (!Prepeet.can(el.getAttribute('data-requires'))) el.hidden = true;
+    });
+  }
+
+  /* ------------------------------------------------------------------ events */
+  function initEvents() {
+    document.addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-remove]'))) {
+        var id = t.getAttribute('data-remove');
+        current = current.filter(function (x) { return x !== id; });
+        writeIds(); renderAll();
+        Prepeet.announce(cand(id).name + ' removed. ' + current.length + ' candidates in the comparison.');
+        return;
+      }
+      if ((t = e.target.closest('[data-add]'))) {
+        var aid = t.getAttribute('data-add');
+        if (current.length >= MAX || current.indexOf(aid) > -1) return;
+        current.push(aid);
+        writeIds(); renderAll();
+        Prepeet.closeDialog('dlg-add');
+        Prepeet.toast({ title: cand(aid).name + ' added to the comparison', kind: 'success' });
+        Prepeet.announce(cand(aid).name + ' added. ' + current.length + ' candidates in the comparison.');
+        return;
+      }
+      if ((t = e.target.closest('[data-decide]'))) { openDecide(t.getAttribute('data-decide')); return; }
+    });
+
+    document.getElementById('ev-seg').addEventListener('change', function (e) {
+      if (e.detail && e.detail.value) {
+        activeComp = e.detail.value;
+        renderEvidence();
+        Prepeet.init();
+        Prepeet.announce('Showing evidence for ' + compName(activeComp).replace('&amp;', 'and') + '.');
+      }
+    });
+
+    document.getElementById('dec-what').addEventListener('change', refreshDecWarn);
+
+    document.getElementById('decide-form').addEventListener('submit', function (e) {
+      var what = document.getElementById('dec-what').value;
+      var need = refreshDecWarn();
+      var ta = document.getElementById('dec-reason');
+      if (need && ta.value.trim().length < 15) {
+        e.preventDefault();
+        ta.setAttribute('aria-invalid', 'true');
+        document.getElementById('dec-err').hidden = false;
+        ta.focus();
+        Prepeet.announce('A rationale of at least 15 characters is required.');
+        return;
+      }
+      var c = cand(decideId);
+      Prepeet.toast({
+        title: DEC[what].verb + ' recorded for ' + c.name,
+        desc: need ? 'Rationale saved with your name — the override is visible on the tenant overview.' : 'Recorded against Priya Raman, 23 August 2026.',
+        kind: what === 'decline' ? 'warning' : 'success'
+      });
+      Prepeet.announce('Decision recorded for ' + c.name + '.');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    current = readIds();
+    writeIds();
+    initEvents();
+    renderAll();
+  });
+})();
+</script>
+</body>
+</html>

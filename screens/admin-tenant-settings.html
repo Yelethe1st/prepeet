@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tenant settings · Prepeet</title>
+<meta name="description" content="Organisation details, interview defaults, candidate experience, data retention, notifications and billing for Northwind Health System.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+.savebar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; display: flex; gap: 12px; align-items: center; padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  background: var(--surface); border-top: 1px solid var(--border); box-shadow: var(--shadow-lg); }
+.savebar .msg { margin-right: auto; font-size: var(--text-sm); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+body.has-savebar .app-content { padding-bottom: 110px; }
+@media (max-width: 480px) { .savebar { flex-wrap: wrap; } .savebar .msg { width: 100%; } .savebar .btn { flex: 1; } }
+.dropzone { border: 2px dashed var(--border-strong); border-radius: var(--r-lg); padding: var(--sp-6); text-align: center; background: var(--surface-2); }
+.dropzone:hover { border-color: var(--primary); background: var(--primary-soft); }
+.email-preview { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); }
+.email-chrome { padding: 10px 16px; background: var(--surface-3); font-size: var(--text-xs); color: var(--fg-2); display: grid; gap: 2px; }
+.email-body { padding: 24px 22px; font-size: var(--text-sm); line-height: 1.65; color: var(--fg-2); }
+.email-body h4 { font-size: var(--text-md); color: var(--fg); margin-bottom: 10px; }
+.email-body .cta { display: inline-block; margin: 16px 0; padding: 12px 20px; background: var(--primary); color: var(--primary-fg); border-radius: var(--r-md); font-weight: 600; font-size: var(--text-sm); }
+.email-body .fine { font-size: var(--text-xs); color: var(--fg-3); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 16px; }
+.notif-matrix td { text-align: center; }
+.notif-matrix th[scope="col"] { text-align: center; }
+.notif-matrix th.rowhead { text-align: left; text-transform: none; letter-spacing: 0; font-size: var(--text-sm); font-weight: 600; color: var(--fg); background: var(--surface); min-width: 250px; white-space: normal; }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="tenant-settings" data-search="off"
+      data-title="Tenant settings" data-crumbs="Tenant configuration">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Tenant configuration</p>
+        <h1>Tenant settings</h1>
+        <p class="page-desc">Everything that applies across Northwind Health System: how interviews are set up by default, what candidates are told, how long their data is kept, and who gets told when something happens.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono">/admin/settings</span>
+          <span class="badge badge-outline mono">tn_northwind</span>
+          <span class="badge badge-neutral"><i data-lucide="globe" class="ic-sm ic"></i>EU (Frankfurt)</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-members.html"><i data-lucide="user-cog" class="ic ic-sm"></i>Members &amp; roles</a>
+        <a class="btn btn-secondary" href="admin-integrations.html"><i data-lucide="webhook" class="ic ic-sm"></i>Integrations</a>
+      </div>
+    </div>
+
+    <div class="banner banner-warning" id="readonly-banner" hidden role="status" style="margin-bottom:var(--sp-5)">
+      <i data-lucide="eye" class="ic"></i>
+      <div>
+        <strong>You can view this configuration but not change it.</strong>
+        Tenant settings, retention and billing are changed by a Tenant admin. You are signed in as a Recruiter.
+      </div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-secondary" href="error-403.html">What this role can do</a>
+      </div>
+    </div>
+
+    <div data-tabs data-tabs-param="tab">
+      <div class="tabs" role="tablist" aria-label="Tenant settings sections">
+        <button class="tab" role="tab" id="tab-org" data-tab="organisation" aria-controls="organisation" aria-selected="true"><i data-lucide="building-2" class="ic ic-sm"></i>Organisation</button>
+        <button class="tab" role="tab" id="tab-interview" data-tab="interview" aria-controls="interview" aria-selected="false"><i data-lucide="mic" class="ic ic-sm"></i>Interview defaults</button>
+        <button class="tab" role="tab" id="tab-candidate" data-tab="candidate" aria-controls="candidate" aria-selected="false"><i data-lucide="user-round" class="ic ic-sm"></i>Candidate experience</button>
+        <button class="tab" role="tab" id="tab-data" data-tab="data" aria-controls="data" aria-selected="false"><i data-lucide="database" class="ic ic-sm"></i>Data &amp; retention</button>
+        <button class="tab" role="tab" id="tab-notifications" data-tab="notifications" aria-controls="notifications" aria-selected="false"><i data-lucide="bell" class="ic ic-sm"></i>Notifications</button>
+        <button class="tab" role="tab" id="tab-billing" data-tab="billing" aria-controls="billing" aria-selected="false"><i data-lucide="credit-card" class="ic ic-sm"></i>Billing &amp; plan</button>
+      </div>
+
+      <!-- ══════════ ORGANISATION ══════════ -->
+      <div class="tab-panel" role="tabpanel" id="organisation" aria-labelledby="tab-org" tabindex="0" style="padding-top:var(--sp-5)">
+        <div class="grid grid-main-aside">
+          <div class="stack-lg">
+            <section class="card" aria-labelledby="org-h">
+              <div class="card-header"><h2 id="org-h">Organisation</h2></div>
+              <div class="card-body stack">
+                <div class="grid grid-2">
+                  <div class="field">
+                    <label class="label" for="org-name">Legal name</label>
+                    <input class="input" id="org-name" type="text" value="Northwind Health System NHS Foundation Trust" data-admin-control>
+                    <p class="hint">Used on invoices and in the data processing agreement.</p>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="org-display">Display name</label>
+                    <input class="input" id="org-display" type="text" value="Northwind Health System" data-admin-control>
+                    <p class="hint">What candidates see in invitations and on the interview screen.</p>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="label" for="org-slug">Workspace address</label>
+                  <div class="input-group">
+                    <input class="input mono" id="org-slug" type="text" value="northwind-health" data-admin-control>
+                    <span class="btn btn-secondary" aria-hidden="true">.prepeet.example</span>
+                  </div>
+                  <p class="hint">Changing this breaks any invitation link already sent. <span class="mono">tn_northwind</span> stays the same either way.</p>
+                </div>
+                <div class="field">
+                  <span class="label" id="logo-label">Logo</span>
+                  <div class="dropzone" role="group" aria-labelledby="logo-label">
+                    <div class="logo-mark logo-mark-lg" style="margin:0 auto 12px" id="org-logo"></div>
+                    <p style="font-size:var(--text-sm);font-weight:600">Drop a PNG or SVG here</p>
+                    <p class="hint" style="margin-top:4px">At least 256×256, transparent background, under 500 KB. Shown to candidates on the invitation and the interview screen.</p>
+                    <div class="cluster" style="justify-content:center;margin-top:12px">
+                      <button class="btn btn-sm btn-secondary" type="button" data-admin-control data-toast="Choose a file" data-toast-desc="A file picker would open here. In this prototype the current logo stays in place." data-toast-kind="info"><i data-lucide="upload" class="ic ic-sm"></i>Choose a file</button>
+                      <button class="btn btn-sm btn-ghost" type="button" data-admin-control data-toast="Logo removed from the draft" data-toast-kind="default">Remove</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="grid grid-2">
+                  <div class="field">
+                    <label class="label" for="org-contact">Primary contact</label>
+                    <select class="select" id="org-contact" data-admin-control>
+                      <option>Priya Raman — priya.raman@northwindhealth.example</option>
+                      <option>Dr Helen Achebe — helen.achebe@northwindhealth.example</option>
+                      <option>Tobias Lindgren — tobias.lindgren@northwindhealth.example</option>
+                    </select>
+                    <p class="hint">Receives service notices, incident reports and renewal correspondence.</p>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="org-dpo">Data protection contact</label>
+                    <input class="input" id="org-dpo" type="email" value="tobias.lindgren@northwindhealth.example" data-admin-control>
+                    <p class="hint">Where candidate data requests are routed if they arrive through Prepeet.</p>
+                  </div>
+                </div>
+                <div class="grid grid-2">
+                  <div class="field">
+                    <label class="label" for="org-industry">Industry</label>
+                    <select class="select" id="org-industry" data-admin-control>
+                      <option selected>Healthcare provider</option>
+                      <option>Healthcare technology</option>
+                      <option>Education</option>
+                      <option>Financial services</option>
+                      <option>Software</option>
+                    </select>
+                    <p class="hint">Used to pick sensible rubric templates. It does not affect scoring.</p>
+                  </div>
+                  <div class="field">
+                    <span class="label" id="regions-label">Hiring regions</span>
+                    <div class="cluster" role="group" aria-labelledby="regions-label">
+                      <button class="chip" type="button" aria-pressed="true" data-pressable data-admin-control>United Kingdom</button>
+                      <button class="chip" type="button" aria-pressed="true" data-pressable data-admin-control>Ireland</button>
+                      <button class="chip" type="button" aria-pressed="true" data-pressable data-admin-control>Germany</button>
+                      <button class="chip" type="button" aria-pressed="false" data-pressable data-admin-control>Netherlands</button>
+                      <button class="chip" type="button" aria-pressed="false" data-pressable data-admin-control>Spain</button>
+                    </div>
+                    <p class="hint">Regions decide which working-time rules apply to interview deadlines and reminders.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+          <aside class="stack sticky-aside" aria-label="Workspace summary">
+            <div class="card">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">Workspace</h2></div>
+              <div class="card-body">
+                <dl class="kv kv-row">
+                  <dt>Tenant id</dt><dd class="mono">tn_northwind</dd>
+                  <dt>Created</dt><dd>14 January 2025</dd>
+                  <dt>Plan</dt><dd>Enterprise</dd>
+                  <dt>Data residency</dt><dd>EU (Frankfurt)</dd>
+                  <dt>Members</dt><dd>9 active, 2 invited</dd>
+                  <dt>Open roles</dt><dd>7</dd>
+                </dl>
+              </div>
+            </div>
+            <div class="card card-subtle">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:8px"><i data-lucide="file-text" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Agreements</strong></div>
+                <p class="hint" style="line-height:1.55">Your data processing agreement was countersigned on 14 January 2025 and covers EU processing only. Moving residency requires a new schedule.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ══════════ INTERVIEW DEFAULTS ══════════ -->
+      <div class="tab-panel" role="tabpanel" id="interview" aria-labelledby="tab-interview" tabindex="0" hidden style="padding-top:var(--sp-5)">
+        <div class="stack-lg">
+          <div class="banner banner-info">
+            <i data-lucide="info" class="ic"></i>
+            <div>These are defaults, not locks. A recruiter can change any of them for an individual invitation unless you turn the override off.</div>
+          </div>
+
+          <section class="card" aria-labelledby="personas-h">
+            <div class="card-header">
+              <div><h2 id="personas-h">Interviewer personas allowed</h2>
+              <p class="hint" style="margin-top:3px">Personas differ in pace and how hard they push. Restricting the list keeps screenings comparable across candidates for the same role.</p></div>
+            </div>
+            <div class="card-body">
+              <fieldset style="border:0;padding:0;margin:0">
+                <legend class="sr-only">Personas allowed for screening interviews</legend>
+                <div class="grid grid-2" id="persona-list"></div>
+              </fieldset>
+            </div>
+          </section>
+
+          <div class="grid grid-2">
+            <section class="card" aria-labelledby="shapes-h">
+              <div class="card-header"><h2 id="shapes-h">Default interview shapes</h2></div>
+              <div class="card-body">
+                <fieldset style="border:0;padding:0;margin:0">
+                  <legend class="sr-only">Interview shapes available for screenings</legend>
+                  <div class="stack-sm" id="shape-list"></div>
+                </fieldset>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="durations-h">
+              <div class="card-header"><h2 id="durations-h">Default durations</h2></div>
+              <div class="card-body stack">
+                <div class="field">
+                  <label class="label" for="dur-default">Default length for a new screening</label>
+                  <select class="select" id="dur-default" data-admin-control>
+                    <option>15 minutes</option>
+                    <option selected>25 minutes</option>
+                    <option>40 minutes</option>
+                    <option>60 minutes</option>
+                  </select>
+                  <p class="hint">Sessions under 15 minutes rarely produce enough evidence to clear the coverage rule.</p>
+                </div>
+                <div class="field">
+                  <label class="label" for="dur-max">Maximum a recruiter may set</label>
+                  <select class="select" id="dur-max" data-admin-control>
+                    <option>40 minutes</option>
+                    <option selected>60 minutes</option>
+                    <option>90 minutes</option>
+                  </select>
+                </div>
+                <label class="switch"><input type="checkbox" checked data-admin-control><span>Allow recruiters to override the default per invitation</span></label>
+              </div>
+            </section>
+          </div>
+
+          <section class="card" aria-labelledby="conduct-h">
+            <div class="card-header"><h2 id="conduct-h">How screenings run</h2></div>
+            <div class="card-body stack">
+              <label class="switch"><input type="checkbox" data-admin-control><span><strong>Let candidates retry a screening</strong><span class="hint">Off. A retry replaces the first attempt entirely and both attempts are shown to reviewers, labelled. Most teams leave this off for screenings and rely on practice mode instead.</span></span></label>
+              <hr>
+              <label class="switch"><input type="checkbox" checked data-admin-control><span><strong>Captions on by default</strong><span class="hint">On. Live captions appear under the interviewer. Candidates can turn them off themselves; they cannot be forced off by the employer.</span></span></label>
+              <hr>
+              <label class="switch"><input type="checkbox" checked data-admin-control><span><strong>Allow a 60-second warm-up question that is not scored</strong><span class="hint">On. Reduces the number of sessions where the first answer is unusable because of nerves or a microphone problem.</span></span></label>
+              <hr>
+              <div class="field">
+                <span class="label" id="lang-label">Interview languages</span>
+                <div class="cluster" role="group" aria-labelledby="lang-label">
+                  <button class="chip" type="button" aria-pressed="true" data-pressable data-admin-control>English (UK)</button>
+                  <button class="chip" type="button" aria-pressed="true" data-pressable data-admin-control>Irish English</button>
+                  <button class="chip" type="button" aria-pressed="true" data-pressable data-admin-control>German</button>
+                  <button class="chip" type="button" aria-pressed="false" data-pressable data-admin-control>Polish</button>
+                  <button class="chip" type="button" aria-pressed="false" data-pressable data-admin-control>Tagalog</button>
+                  <button class="chip" type="button" aria-pressed="false" data-pressable data-admin-control>Spanish</button>
+                </div>
+                <p class="hint">Candidates choose from this list before they start. Transcripts and evaluations are produced in the interview language, with an English translation attached for reviewers.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ══════════ CANDIDATE EXPERIENCE ══════════ -->
+      <div class="tab-panel" role="tabpanel" id="candidate" aria-labelledby="tab-candidate" tabindex="0" hidden style="padding-top:var(--sp-5)">
+        <div class="grid grid-main-aside">
+          <div class="stack-lg">
+
+            <section class="card" aria-labelledby="email-h">
+              <div class="card-header">
+                <div><h2 id="email-h">Invitation email</h2><p class="hint" style="margin-top:3px">This is exactly what a candidate receives. Edit the two editable blocks; the rest is fixed so that every candidate gets the same factual information.</p></div>
+              </div>
+              <div class="card-body stack">
+                <div class="field">
+                  <label class="label" for="email-subject">Subject line</label>
+                  <input class="input" id="email-subject" type="text" value="Your interview for Registered Nurse — ICU at Northwind Health System" data-admin-control data-preview="subject">
+                </div>
+                <div class="field">
+                  <label class="label" for="email-intro">Opening paragraph</label>
+                  <textarea class="textarea" id="email-intro" rows="3" data-admin-control data-preview="intro">Thank you for applying to our intensive care team. The next step is a 25-minute recorded interview you can take whenever suits you, on a phone or a laptop.</textarea>
+                </div>
+                <div class="email-preview">
+                  <div class="email-chrome">
+                    <span><strong>From</strong> Northwind Health System &lt;no-reply@prepeet.example&gt;</span>
+                    <span><strong>To</strong> amara.osei@example.com</span>
+                    <span><strong>Subject</strong> <span id="pv-subject">Your interview for Registered Nurse — ICU at Northwind Health System</span></span>
+                  </div>
+                  <div class="email-body">
+                    <div class="row" style="margin-bottom:16px"><span class="logo-mark" id="pv-logo"></span><strong style="color:var(--fg)">Northwind Health System</strong></div>
+                    <h4>Hello Amara,</h4>
+                    <p id="pv-intro">Thank you for applying to our intensive care team. The next step is a 25-minute recorded interview you can take whenever suits you, on a phone or a laptop.</p>
+                    <p style="margin-top:12px">You will speak with an AI interviewer called Lena, who will ask eight questions about your clinical practice. There is no camera — audio only.</p>
+                    <a class="cta" href="invitation-accept.html">Start your interview</a>
+                    <p><strong style="color:var(--fg)">Please complete it by Sunday 6 September 2026.</strong></p>
+                    <div class="fine">
+                      <p id="pv-employer-text">Northwind Health System receives a written evaluation of your answers, the full transcript, and the audio recording. The evaluation quotes what you said as evidence. A person at Northwind Health System reads it and makes the decision — Prepeet does not decide anything about your application.</p>
+                      <p style="margin-top:8px" id="pv-access-text">If you need an adjustment — extra time, a screen reader, captions, a different format, or a live conversation instead — reply to this email or contact accessibility@northwindhealth.example. Asking for an adjustment is not recorded on your application and is never shared with the panel as part of your evaluation.</p>
+                      <p style="margin-top:8px">You can withdraw at any point and ask for your recording to be deleted.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="what-h">
+              <div class="card-header">
+                <div><h2 id="what-h">What candidates are told the employer receives</h2>
+                <p class="hint" style="margin-top:3px">Shown in the invitation email, on the consent screen before the interview starts, and again on the confirmation screen afterwards. Keep it accurate — this is the basis on which the candidate consents.</p></div>
+              </div>
+              <div class="card-body stack">
+                <div class="field">
+                  <label class="label" for="employer-text">Text shown to candidates</label>
+                  <textarea class="textarea" id="employer-text" rows="4" data-admin-control data-preview="employer">Northwind Health System receives a written evaluation of your answers, the full transcript, and the audio recording. The evaluation quotes what you said as evidence. A person at Northwind Health System reads it and makes the decision — Prepeet does not decide anything about your application.</textarea>
+                  <p class="hint">It must state what is shared and who decides. Prepeet blocks publishing text that claims the system measures personality, emotion or honesty.</p>
+                </div>
+                <div class="banner banner-success">
+                  <i data-lucide="check-circle-2" class="ic"></i>
+                  <div>This text matches what is actually shared. Reviewers at Northwind Health System see the evaluation, transcript, evidence spans and audio. They do not see practice sessions, and candidates are never shown a screening score.</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="access-h">
+              <div class="card-header"><h2 id="access-h">Accessibility and adjustments</h2></div>
+              <div class="card-body stack">
+                <div class="field">
+                  <label class="label" for="access-text">Accommodations statement candidates see</label>
+                  <textarea class="textarea" id="access-text" rows="4" data-admin-control data-preview="access">If you need an adjustment — extra time, a screen reader, captions, a different format, or a live conversation instead — reply to this email or contact accessibility@northwindhealth.example. Asking for an adjustment is not recorded on your application and is never shared with the panel as part of your evaluation.</textarea>
+                </div>
+                <label class="switch"><input type="checkbox" checked data-admin-control><span><strong>Offer a live human interview as an alternative</strong><span class="hint">On. A candidate can decline the recorded format entirely and be offered a conversation instead, without giving a reason.</span></span></label>
+                <label class="switch"><input type="checkbox" checked data-admin-control><span><strong>Extra thinking time on request</strong><span class="hint">On. Adds 50% to every answer window and removes the visible countdown.</span></span></label>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="deadline-h">
+              <div class="card-header"><h2 id="deadline-h">Deadlines and reminders</h2></div>
+              <div class="card-body stack">
+                <div class="grid grid-2">
+                  <div class="field">
+                    <label class="label" for="deadline-days">Default deadline</label>
+                    <select class="select" id="deadline-days" data-admin-control>
+                      <option>7 days after the invitation</option>
+                      <option selected>14 days after the invitation</option>
+                      <option>21 days after the invitation</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="reminder-cadence">Reminder cadence</label>
+                    <select class="select" id="reminder-cadence" data-admin-control>
+                      <option>None</option>
+                      <option selected>Two reminders — 5 days and 1 day before the deadline</option>
+                      <option>Three reminders — 7, 3 and 1 days before</option>
+                      <option>Daily from 3 days before</option>
+                    </select>
+                    <p class="hint">Reminders are never sent between 20:00 and 08:00 in the candidate's own timezone.</p>
+                  </div>
+                </div>
+                <label class="switch"><input type="checkbox" checked data-admin-control><span><strong>Let candidates request an extension</strong><span class="hint">On. One self-service extension of 7 days, with no reason required. The recruiter is told it happened.</span></span></label>
+              </div>
+            </section>
+          </div>
+
+          <aside class="stack sticky-aside" aria-label="Candidate experience notes">
+            <div class="card card-subtle">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:8px"><i data-lucide="heart-handshake" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Why this matters</strong></div>
+                <p class="hint" style="line-height:1.55">A recorded interview is an unusual thing to ask of someone. The more precisely you describe what happens to the recording and who decides, the fewer people drop out — and the fewer complaints you handle later.</p>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">Completion, last 90 days</h2></div>
+              <div class="card-body">
+                <dl class="kv">
+                  <dt>Invitations sent</dt><dd>318</dd>
+                  <dt>Started</dt><dd>281 (88%)</dd>
+                  <dt>Completed</dt><dd>264 (83%)</dd>
+                  <dt>Adjustments requested</dt><dd>19</dd>
+                  <dt>Live alternative taken</dt><dd>6</dd>
+                </dl>
+                <p class="chart-summary">Text summary: 318 invitations produced 264 completed screenings. 19 candidates asked for an adjustment and 6 chose a live conversation instead of the recorded format.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ══════════ DATA & RETENTION ══════════ -->
+      <div class="tab-panel" role="tabpanel" id="data" aria-labelledby="tab-data" tabindex="0" hidden style="padding-top:var(--sp-5)">
+        <div class="stack-lg">
+          <section class="card" aria-labelledby="retention-h">
+            <div class="card-header">
+              <div><h2 id="retention-h">Retention periods</h2><p class="hint" style="margin-top:3px">Counted from the day the interview was submitted. Deletion is permanent and runs nightly.</p></div>
+            </div>
+            <div class="card-body stack">
+              <div class="grid grid-3">
+                <div class="field">
+                  <label class="label" for="ret-audio">Audio recordings</label>
+                  <select class="select" id="ret-audio" data-admin-control>
+                    <option>30 days</option>
+                    <option selected>6 months</option>
+                    <option>12 months</option>
+                    <option>18 months</option>
+                  </select>
+                  <p class="hint">Shortest period of the three. Audio is the most sensitive artefact you hold.</p>
+                </div>
+                <div class="field">
+                  <label class="label" for="ret-transcript">Transcripts</label>
+                  <select class="select" id="ret-transcript" data-admin-control>
+                    <option>6 months</option>
+                    <option>12 months</option>
+                    <option selected>18 months</option>
+                    <option>24 months</option>
+                  </select>
+                  <p class="hint">Needed to defend a hiring decision if it is challenged.</p>
+                </div>
+                <div class="field">
+                  <label class="label" for="ret-eval">Evaluations and decisions</label>
+                  <select class="select" id="ret-eval" data-admin-control>
+                    <option>12 months</option>
+                    <option selected>18 months</option>
+                    <option>24 months</option>
+                    <option>36 months</option>
+                  </select>
+                  <p class="hint">Must be at least as long as your transcript period, or an evaluation can outlive its evidence.</p>
+                </div>
+              </div>
+              <div class="banner banner-info">
+                <i data-lucide="info" class="ic"></i>
+                <div>With today's settings, a screening submitted on 23 August 2026 loses its audio on <strong>23 February 2027</strong> and everything else on <strong>23 February 2028</strong>. Shortening a period deletes anything already past the new limit at the next nightly run.</div>
+              </div>
+            </div>
+          </section>
+
+          <div class="grid grid-2">
+            <section class="card" aria-labelledby="residency-h">
+              <div class="card-header"><h2 id="residency-h">Data residency</h2></div>
+              <div class="card-body stack">
+                <dl class="kv">
+                  <dt>Region</dt><dd>EU (Frankfurt) — <span class="mono">eu-central-1</span></dd>
+                  <dt>Audio &amp; transcripts</dt><dd>Stored and processed in region</dd>
+                  <dt>Model inference</dt><dd>EU-hosted endpoints only</dd>
+                  <dt>Backups</dt><dd>EU (Dublin), encrypted, 35-day rolling</dd>
+                  <dt>Support access</dt><dd>EU-based staff only, on request and time-boxed</dd>
+                </dl>
+                <div class="banner banner-warning">
+                  <i data-lucide="alert-triangle" class="ic"></i>
+                  <div>Changing region is a migration, not a setting. It takes about a week, needs a new schedule to your data processing agreement, and existing recordings are moved rather than copied.</div>
+                </div>
+                <button class="btn btn-sm btn-secondary" type="button" data-admin-control data-toast="Residency change request raised" data-toast-desc="Your account team will contact tobias.lindgren@northwindhealth.example within one working day." data-toast-kind="success">Request a region change</button>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="hold-h">
+              <div class="card-header"><h2 id="hold-h">Legal hold</h2></div>
+              <div class="card-body stack">
+                <label class="switch"><input type="checkbox" id="legal-hold" data-admin-control><span><strong>Suspend all automatic deletion</strong><span class="hint">Off. While a legal hold is on, nothing is deleted by retention rules and candidate deletion requests are queued rather than actioned — you must tell those candidates why.</span></span></label>
+                <div class="banner banner-danger" id="hold-active" hidden>
+                  <i data-lucide="shield-alert" class="ic"></i>
+                  <div><strong>Legal hold is on.</strong> Retention is suspended tenant-wide from 23 August 2026. Two pending deletion requests are now blocked and the candidates have not been told. Turning this on is recorded in the audit log against your name.</div>
+                </div>
+                <p class="hint">Use this only when instructed by your legal team, and turn it off as soon as the matter closes. A hold left on indefinitely is the most common way organisations end up holding data they promised to delete.</p>
+              </div>
+            </section>
+          </div>
+
+          <section class="card" aria-labelledby="deletion-h">
+            <div class="card-header">
+              <div><h2 id="deletion-h">Deletion requests</h2><p class="hint" style="margin-top:3px">Candidates can ask for their data to be deleted at any time. You have 30 days to complete each request.</p></div>
+              <span class="badge badge-warning">2 pending</span>
+            </div>
+            <div class="card-body">
+              <div class="table-wrap">
+                <table class="table table-responsive">
+                  <caption class="sr-only">Pending candidate data deletion requests</caption>
+                  <thead>
+                    <tr><th scope="col">Candidate</th><th scope="col">Requested</th><th scope="col">Due</th><th scope="col">Covers</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td data-label="Candidate" class="td-primary">Mateusz Zielinski<span class="td-sub mono">cand_T3W7KL · ses_MZ01</span></td>
+                      <td data-label="Requested">18 August 2026</td>
+                      <td data-label="Due">17 September 2026</td>
+                      <td data-label="Covers">Audio, transcript, evaluation</td>
+                      <td data-label="Status"><span class="badge badge-warning"><i data-lucide="clock" class="ic-sm ic"></i>Awaiting action</span></td>
+                      <td class="td-actions" data-label="Actions">
+                        <a class="btn btn-sm btn-ghost" href="admin-recruiter-detail.html?id=cand_T3W7KL">Review</a>
+                        <button class="btn btn-sm btn-danger-soft" type="button" data-admin-control data-toast="Deletion scheduled" data-toast-desc="Audio, transcript and evaluation for cand_T3W7KL will be removed tonight. This cannot be undone." data-toast-kind="warning">Delete now</button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td data-label="Candidate" class="td-primary">Sofia Marchetti<span class="td-sub mono">cand_C8R6JY · ses_SM01</span></td>
+                      <td data-label="Requested">21 August 2026</td>
+                      <td data-label="Due">20 September 2026</td>
+                      <td data-label="Covers">Audio only — transcript retained by candidate consent</td>
+                      <td data-label="Status"><span class="badge badge-info"><i data-lucide="loader" class="ic-sm ic"></i>In review by Tobias Lindgren</span></td>
+                      <td class="td-actions" data-label="Actions">
+                        <a class="btn btn-sm btn-ghost" href="admin-recruiter-detail.html?id=cand_C8R6JY">Review</a>
+                        <button class="btn btn-sm btn-danger-soft" type="button" data-admin-control data-toast="Deletion scheduled" data-toast-desc="The audio for cand_C8R6JY will be removed tonight. The transcript is kept as the candidate agreed." data-toast-kind="warning">Delete audio</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="hint" style="margin-top:10px">Completed requests are kept as a record of the deletion — the record contains the candidate id and the date, never the deleted content.</p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ══════════ NOTIFICATIONS ══════════ -->
+      <div class="tab-panel" role="tabpanel" id="notifications" aria-labelledby="tab-notifications" tabindex="0" hidden style="padding-top:var(--sp-5)">
+        <div class="stack-lg">
+          <section class="card" aria-labelledby="whogets-h">
+            <div class="card-header">
+              <div><h2 id="whogets-h">Who gets notified</h2><p class="hint" style="margin-top:3px">Notifications respect scope: a recruiter is never told about a candidate for a role they cannot see.</p></div>
+            </div>
+            <div class="card-body stack">
+              <div class="grid grid-2">
+                <div class="field">
+                  <label class="label" for="notif-submission">A candidate submits a screening</label>
+                  <select class="select" id="notif-submission" data-admin-control>
+                    <option selected>Everyone scoped to that role</option>
+                    <option>The recruiter who sent the invitation only</option>
+                    <option>Tenant admins only</option>
+                    <option>Nobody</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="label" for="notif-lowconf">An evaluation comes back low-confidence</label>
+                  <select class="select" id="notif-lowconf" data-admin-control>
+                    <option>Everyone scoped to that role</option>
+                    <option selected>The recruiter who sent the invitation, plus the hiring manager</option>
+                    <option>Tenant admins only</option>
+                  </select>
+                  <p class="hint">Low confidence means the evidence was sparse. Somebody should read the transcript rather than the summary.</p>
+                </div>
+                <div class="field">
+                  <label class="label" for="notif-appeal">A candidate raises a re-review</label>
+                  <select class="select" id="notif-appeal" data-admin-control>
+                    <option>Everyone scoped to that role</option>
+                    <option selected>Hiring managers and tenant admins</option>
+                    <option>Tenant admins only</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="label" for="notif-quota">Interview allowance passes a threshold</label>
+                  <select class="select" id="notif-quota" data-admin-control>
+                    <option selected>Tenant admins and the primary contact</option>
+                    <option>Tenant admins only</option>
+                    <option>The primary contact only</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="channels-h">
+            <div class="card-header">
+              <div><h2 id="channels-h">Channels</h2><p class="hint" style="margin-top:3px">Which route each event takes. Turning everything on is the fastest way to make people ignore all of it.</p></div>
+            </div>
+            <div class="card-body">
+              <p class="hint" style="margin-bottom:10px">This grid scrolls sideways on a narrow screen rather than stacking, so the channels stay comparable.</p>
+              <div class="scroll-x">
+                <table class="table table-dense notif-matrix" style="min-width:620px">
+                  <caption class="sr-only">Notification channels for each event: email, Slack and webhook</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col" class="rowhead">Event</th>
+                      <th scope="col">Email</th>
+                      <th scope="col">Slack<span class="td-sub mono">#talent-northwind</span></th>
+                      <th scope="col">Webhook</th>
+                    </tr>
+                  </thead>
+                  <tbody id="notif-rows"></tbody>
+                </table>
+              </div>
+              <p class="chart-summary">Text summary: submissions and low-confidence evaluations go to email and Slack; re-reviews go to email only; quota warnings go to email and Slack; evaluation failures go to all three channels including the webhook.</p>
+              <div class="banner banner-info" style="margin-top:14px">
+                <i data-lucide="webhook" class="ic"></i>
+                <div>Webhook delivery uses the endpoints configured in <a href="admin-integrations.html">Integrations</a>. If no endpoint subscribes to an event, switching the webhook column on here has no effect.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="digest-h">
+            <div class="card-header"><h2 id="digest-h">Digest</h2></div>
+            <div class="card-body stack">
+              <label class="switch"><input type="checkbox" checked data-admin-control><span><strong>Daily summary instead of individual submission emails</strong><span class="hint">On for recruiters with more than 10 candidates in review. One email at 08:00 in their own timezone, listing what arrived.</span></span></label>
+              <label class="switch"><input type="checkbox" data-admin-control><span><strong>Weekly access review reminder to tenant admins</strong><span class="hint">Off. A Monday reminder listing anyone who has not signed in for 60 days.</span></span></label>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ══════════ BILLING ══════════ -->
+      <div class="tab-panel" role="tabpanel" id="billing" aria-labelledby="tab-billing" tabindex="0" hidden style="padding-top:var(--sp-5)">
+        <div class="grid grid-main-aside">
+          <div class="stack-lg">
+            <section class="card" aria-labelledby="plan-h">
+              <div class="card-header">
+                <div><h2 id="plan-h">Plan</h2></div>
+                <span class="badge badge-primary badge-lg">Enterprise</span>
+              </div>
+              <div class="card-body stack">
+                <div class="metrics-row">
+                  <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Seats</span><span class="metric-value tnum">41<small>of 48</small></span><span class="metric-foot">7 available</span></div></div>
+                  <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Interviews this month</span><span class="metric-value tnum">1,284<small>of 1,800</small></span><span class="metric-foot">Resets 1 September</span></div></div>
+                  <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Current spend</span><span class="metric-value tnum">$2,140.55</span><span class="metric-foot">Billed monthly in arrears</span></div></div>
+                  <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Renews</span><span class="metric-value" style="font-size:var(--text-md)">14 Jan 2027</span><span class="metric-foot">Annual term</span></div></div>
+                </div>
+
+                <div>
+                  <div class="between" style="margin-bottom:6px">
+                    <span style="font-size:var(--text-sm);font-weight:600">Monthly interview allowance</span>
+                    <span class="hint tnum">1,284 of 1,800 · 72%</span>
+                  </div>
+                  <div class="progress lg" role="img" aria-label="Interview allowance used: 1,284 of 1,800, 72 per cent"><span style="width:72%"></span></div>
+                  <p class="chart-summary">Text summary: 1,284 of the 1,800 interviews included this month have been used, which is 72%. At the current rate of roughly 56 a day, the allowance is reached around 30 August. Interviews beyond the allowance are billed at $1.40 each.</p>
+                </div>
+
+                <div class="banner banner-warning">
+                  <i data-lucide="gauge" class="ic"></i>
+                  <div><strong>You are on track to pass the allowance before the month ends.</strong> Nothing stops working — overage is billed at $1.40 per interview and appears on next month's invoice.</div>
+                  <div class="banner-actions"><button class="btn btn-sm btn-secondary" type="button" data-admin-control data-toast="Allowance increase requested" data-toast-desc="Your account team will confirm a revised allowance within one working day." data-toast-kind="success">Request more</button></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="card" aria-labelledby="invoices-h">
+              <div class="card-header"><h2 id="invoices-h">Invoices</h2></div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table class="table table-responsive">
+                    <caption class="sr-only">Recent invoices with period, interviews billed, amount and status</caption>
+                    <thead>
+                      <tr><th scope="col">Invoice</th><th scope="col">Period</th><th scope="col" class="num">Interviews</th><th scope="col" class="num">Amount</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td data-label="Invoice" class="td-primary mono">INV-2026-0817</td>
+                        <td data-label="Period">July 2026</td>
+                        <td data-label="Interviews" class="num tnum">1,412</td>
+                        <td data-label="Amount" class="num tnum">$2,318.40</td>
+                        <td data-label="Status"><span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Paid</span></td>
+                        <td class="td-actions" data-label="Actions"><button class="btn btn-sm btn-ghost" type="button" data-toast="Invoice INV-2026-0817 downloaded" data-toast-kind="success"><i data-lucide="download" class="ic ic-sm"></i>PDF</button></td>
+                      </tr>
+                      <tr>
+                        <td data-label="Invoice" class="td-primary mono">INV-2026-0716</td>
+                        <td data-label="Period">June 2026</td>
+                        <td data-label="Interviews" class="num tnum">1,188</td>
+                        <td data-label="Amount" class="num tnum">$2,090.00</td>
+                        <td data-label="Status"><span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Paid</span></td>
+                        <td class="td-actions" data-label="Actions"><button class="btn btn-sm btn-ghost" type="button" data-toast="Invoice INV-2026-0716 downloaded" data-toast-kind="success"><i data-lucide="download" class="ic ic-sm"></i>PDF</button></td>
+                      </tr>
+                      <tr>
+                        <td data-label="Invoice" class="td-primary mono">INV-2026-0615</td>
+                        <td data-label="Period">May 2026</td>
+                        <td data-label="Interviews" class="num tnum">1,004</td>
+                        <td data-label="Amount" class="num tnum">$2,090.00</td>
+                        <td data-label="Status"><span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Paid</span></td>
+                        <td class="td-actions" data-label="Actions"><button class="btn btn-sm btn-ghost" type="button" data-toast="Invoice INV-2026-0615 downloaded" data-toast-kind="success"><i data-lucide="download" class="ic ic-sm"></i>PDF</button></td>
+                      </tr>
+                      <tr>
+                        <td data-label="Invoice" class="td-primary mono">INV-2026-0514</td>
+                        <td data-label="Period">April 2026</td>
+                        <td data-label="Interviews" class="num tnum">967</td>
+                        <td data-label="Amount" class="num tnum">$2,090.00</td>
+                        <td data-label="Status"><span class="badge badge-neutral"><i data-lucide="file-check" class="ic-sm ic"></i>Credited</span></td>
+                        <td class="td-actions" data-label="Actions"><button class="btn btn-sm btn-ghost" type="button" data-toast="Invoice INV-2026-0514 downloaded" data-toast-kind="success"><i data-lucide="download" class="ic ic-sm"></i>PDF</button></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="stack sticky-aside" aria-label="Billing details">
+            <div class="card">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">Billing contact</h2></div>
+              <div class="card-body">
+                <dl class="kv kv-row">
+                  <dt>Contact</dt><dd>Priya Raman</dd>
+                  <dt>Email</dt><dd>finance-ap@northwindhealth.example</dd>
+                  <dt>Purchase order</dt><dd class="mono">PO-NW-2026-114</dd>
+                  <dt>Payment terms</dt><dd>30 days, invoice</dd>
+                </dl>
+                <button class="btn btn-sm btn-secondary btn-block" style="margin-top:12px" type="button" data-admin-control data-toast="Billing contact update requested" data-toast-kind="success">Change billing contact</button>
+              </div>
+            </div>
+
+            <div class="card" id="platform-only" hidden>
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">Platform tools</h2><span class="badge badge-privileged">Platform admin</span></div>
+              <div class="card-body">
+                <p class="hint" style="line-height:1.55">You can see this because you are viewing the console as a platform administrator. Tenant admins at Northwind Health System never see this card.</p>
+                <a class="btn btn-sm btn-secondary btn-block" style="margin-top:12px" href="admin-platform-quotas.html"><i data-lucide="gauge" class="ic ic-sm"></i>Quotas &amp; rate limits</a>
+              </div>
+            </div>
+
+            <div class="card card-subtle">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:8px"><i data-lucide="receipt" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">What counts as an interview</strong></div>
+                <p class="hint" style="line-height:1.55">A screening counts once the candidate answers the first question. Abandoned sessions under two minutes, and sessions we failed to evaluate, are not billed. Practice sessions taken by candidates are never billed to you.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Sticky unsaved-changes bar -->
+<div class="savebar" id="savebar" hidden role="status">
+  <span class="msg"><i data-lucide="alert-circle" class="ic ic-sm" style="color:var(--warning)"></i><span id="savebar-text">You have unsaved changes</span></span>
+  <button class="btn btn-ghost" type="button" id="savebar-discard">Discard</button>
+  <button class="btn btn-primary" type="button" id="savebar-save">Save changes</button>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var NOTIF = [
+    { id: 'submitted', label: 'A candidate submits a screening', email: true, slack: true, hook: true },
+    { id: 'lowconf', label: 'An evaluation comes back low-confidence', email: true, slack: true, hook: false },
+    { id: 'failed', label: 'An evaluation fails to complete', email: true, slack: true, hook: true },
+    { id: 'appeal', label: 'A candidate raises a re-review', email: true, slack: false, hook: false },
+    { id: 'quota', label: 'Interview allowance passes 80% or 100%', email: true, slack: true, hook: false },
+    { id: 'deletion', label: 'A candidate requests deletion of their data', email: true, slack: false, hook: true }
+  ];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  var dirty = 0, readOnly = false;
+
+  function renderPersonas() {
+    document.getElementById('persona-list').innerHTML = Prepeet.data.personas.map(function (p, i) {
+      return '<label class="option-card"><input type="checkbox"' + (i < 3 ? ' checked' : '') + ' data-admin-control>' +
+        '<span class="option-check"><i data-lucide="check" class="ic"></i></span>' +
+        '<span class="option-title"><span class="avatar avatar-persona avatar-sm">' + esc(p.initials) + '</span>' + esc(p.name) + ' — ' + esc(p.style) + '</span>' +
+        '<span class="option-desc">' + esc(p.desc) + ' Best for: ' + esc(p.best.toLowerCase()) + '.</span></label>';
+    }).join('');
+  }
+
+  function renderShapes() {
+    document.getElementById('shape-list').innerHTML = Prepeet.data.shapes.map(function (s, i) {
+      return '<label class="check"><input type="checkbox"' + (i !== 1 ? ' checked' : '') + ' data-admin-control>' +
+        '<span><strong>' + esc(s.name) + '</strong><span class="hint">' + esc(s.desc) + ' Available at ' + s.minutes.join(', ') + ' minutes.</span></span></label>';
+    }).join('');
+  }
+
+  function renderNotif() {
+    document.getElementById('notif-rows').innerHTML = NOTIF.map(function (n) {
+      function cell(ch, on) {
+        return '<td data-label="' + ch + '"><label class="switch" style="justify-content:center">' +
+          '<input type="checkbox"' + (on ? ' checked' : '') + ' data-admin-control aria-label="' + ch + ' for: ' + esc(n.label) + '">' +
+          '<span class="sr-only">' + ch + '</span></label></td>';
+      }
+      return '<tr><th scope="row" class="rowhead">' + esc(n.label) + '</th>' +
+        cell('Email', n.email) + cell('Slack', n.slack) + cell('Webhook', n.hook) + '</tr>';
+    }).join('');
+  }
+
+  /* --------------------------------------------------------- unsaved changes */
+  function markDirty() {
+    if (readOnly) return;
+    dirty++;
+    var bar = document.getElementById('savebar');
+    bar.hidden = false;
+    document.body.classList.add('has-savebar');
+    document.getElementById('savebar-text').textContent =
+      dirty === 1 ? 'You have 1 unsaved change' : 'You have ' + dirty + ' unsaved changes';
+    Prepeet.init(bar);
+  }
+  function clearDirty() {
+    dirty = 0;
+    document.getElementById('savebar').hidden = true;
+    document.body.classList.remove('has-savebar');
+  }
+
+  function applyReadOnly() {
+    readOnly = !Prepeet.can('tenant_admin');
+    document.getElementById('readonly-banner').hidden = !readOnly;
+    if (!readOnly) return;
+    document.querySelectorAll('[data-admin-control]').forEach(function (el) {
+      if ('disabled' in el && el.tagName !== 'A') el.disabled = true;
+      el.setAttribute('aria-disabled', 'true');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('org-logo').innerHTML = Prepeet.logoSvg;
+    document.getElementById('pv-logo').innerHTML = Prepeet.logoSvg;
+    renderPersonas(); renderShapes(); renderNotif();
+
+    document.getElementById('platform-only').hidden = !Prepeet.can('platform_admin');
+
+    /* Live email preview */
+    var previews = { subject: 'pv-subject', intro: 'pv-intro', employer: 'pv-employer-text', access: 'pv-access-text' };
+    document.addEventListener('input', function (e) {
+      var k = e.target.getAttribute && e.target.getAttribute('data-preview');
+      if (k && previews[k]) document.getElementById(previews[k]).textContent = e.target.value;
+    });
+
+    /* Legal hold banner */
+    document.getElementById('legal-hold').addEventListener('change', function () {
+      document.getElementById('hold-active').hidden = !this.checked;
+      Prepeet.init(document.getElementById('hold-active'));
+      if (this.checked) Prepeet.announce('Legal hold enabled. Automatic deletion is suspended.');
+    });
+
+    /* Dirty tracking on any control inside the settings area */
+    ['input', 'change'].forEach(function (evt) {
+      document.getElementById('main-content').addEventListener(evt, function (e) {
+        if (e.target.closest('.tab-panel') || e.target.closest('.dropzone')) markDirty();
+      });
+    });
+    document.getElementById('main-content').addEventListener('click', function (e) {
+      if (e.target.closest('[data-pressable]')) markDirty();
+    });
+
+    document.getElementById('savebar-save').addEventListener('click', function () {
+      var n = dirty;
+      clearDirty();
+      Prepeet.toast({ title: 'Settings saved', desc: n + ' change' + (n === 1 ? '' : 's') + ' applied to Northwind Health System. Interviews already in progress keep the settings they started with.', kind: 'success' });
+      Prepeet.announce('Settings saved.');
+    });
+    document.getElementById('savebar-discard').addEventListener('click', function () {
+      clearDirty();
+      Prepeet.toast({ title: 'Changes discarded', desc: 'Reload the page to see the saved values.', kind: 'default' });
+    });
+
+    applyReadOnly();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

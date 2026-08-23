@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coaching review · Prepeet</title>
+<meta name="description" content="Per-answer coaching for your Systems design deep-dive: what worked, what to change, a model rewrite of every answer, and drills that feed your goals.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: evidence spans rendered as inline buttons must wrap like text */
+  .ev-btn { display: inline; font: inherit; color: inherit; text-align: left; }
+  .sub-nav-wrap { margin-bottom: var(--sp-5); }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="sessions"
+      data-title="Coaching review" data-crumbs="Candidate>candidate-dashboard.html|Sessions>candidate-sessions.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SCREEN-MODE GUARD — a screening session never shows coaching
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="screen-guard" hidden>
+      <div class="page-header">
+        <div>
+          <p class="eyebrow eyebrow--muted">Session <span class="mono" id="guard-id">ses_4Bz9QD</span></p>
+          <h1 id="guard-h1">Screening interview — no coaching review</h1>
+          <p class="page-desc">This session was a screening interview for an employer. Prepeet does not show candidates scores, coaching or competency detail for screening interviews.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-main-aside">
+        <section class="card card-accent" aria-labelledby="guard-panel-h">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:12px">
+              <span class="badge badge-mode screen">Screening</span>
+              <span class="badge badge-primary"><i data-lucide="send" class="ic-sm ic"></i>Submitted</span>
+              <span class="badge badge-outline mono" id="guard-route">/candidate/session/ses_4Bz9QD/review</span>
+            </div>
+            <h2 id="guard-panel-h" style="font-size:var(--text-lg)">Why this page is empty for you</h2>
+            <div class="prose" style="margin-top:10px;font-size:var(--text-sm)">
+              <p>The evaluation for a screening interview is written for the hiring team. It contains evidence they have to weigh against their own rubric and their own shortlist, and it is deliberately not a verdict — Prepeet does not decide who is hired.</p>
+              <p>Showing you a number, a band or a per-answer critique would misrepresent a decision that belongs to the employer, so we do not build that view at all. This is a product boundary, not a permissions delay: there is nothing here that will unlock later.</p>
+              <p>You can still see what was captured and delivered, and you can ask for a copy of your own data at any time.</p>
+            </div>
+            <div class="cluster" style="margin-top:var(--sp-5)">
+              <a class="btn btn-primary" id="guard-complete-link" href="candidate-session-complete.html?id=ses_4Bz9QD&amp;mode=screen"><i data-lucide="file-check" class="ic ic-sm"></i>See what was submitted</a>
+              <a class="btn btn-secondary" href="candidate-settings.html#privacy"><i data-lucide="download" class="ic ic-sm"></i>Request your data</a>
+            </div>
+          </div>
+        </section>
+
+        <aside class="stack" aria-label="Practice mode">
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px">
+                <i data-lucide="circle-play" class="ic" style="color:var(--primary)"></i>
+                <strong style="font-size:var(--text-sm)">Practice mode is different</strong>
+              </div>
+              <p class="hint" style="line-height:1.55">Practice sessions you start yourself are scored for you, with per-answer coaching, model rewrites and retries. Employers never see any of it.</p>
+              <a class="btn btn-sm btn-soft" style="margin-top:12px" href="candidate-start-interview.html?mode=practice">Start a practice interview</a>
+            </div>
+          </div>
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px">
+                <i data-lucide="history" class="ic" style="color:var(--fg-3)"></i>
+                <strong style="font-size:var(--text-sm)">Your other sessions</strong>
+              </div>
+              <p class="hint" style="line-height:1.55">Nine scored practice sessions are waiting with full reviews.</p>
+              <a class="btn btn-sm btn-secondary" style="margin-top:12px" href="candidate-sessions.html">All sessions</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         PRACTICE VIEW
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="practice-root">
+
+      <div class="page-header">
+        <div>
+          <p class="eyebrow eyebrow--muted">Friday 21 August 2026 · 18:40 · 38 minutes · 6 questions</p>
+          <h1>Coaching review — Systems design deep-dive</h1>
+          <div class="cluster" style="margin-top:10px">
+            <span class="badge badge-mode practice">Practice</span>
+            <span class="badge badge-neutral"><i data-lucide="briefcase" class="ic-sm ic"></i>Senior Backend Engineer</span>
+            <span class="badge badge-outline"><span class="avatar avatar-persona avatar-sm" style="width:16px;height:16px;font-size:9px">RA</span>Ravi · direct and technical</span>
+            <span class="badge badge-outline mono" id="route-chip">/candidate/session/ses_7Kq2XA/review</span>
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" type="button" data-dialog-open="share-dialog"><i data-lucide="share-2" class="ic ic-sm"></i>Share</button>
+          <button class="btn btn-secondary" type="button" data-loading-sim="1400" data-loading-done="Review exported as PDF" data-loading-kind="success"><i data-lucide="file-down" class="ic ic-sm"></i>Export as PDF</button>
+          <a class="btn btn-primary" href="candidate-start-interview.html?shape=shape_technical&amp;focus=failure-modes&amp;persona=per_ravi"><i data-lucide="rotate-ccw" class="ic ic-sm"></i>Practise again</a>
+        </div>
+      </div>
+
+      <!-- Shared sub-navigation: results ↔ review -->
+      <div class="sub-nav-wrap">
+        <nav class="tabs" aria-label="Session views">
+          <a class="tab" href="candidate-session-results.html?id=ses_7Kq2XA" data-sibling="results"><i data-lucide="clipboard-check" class="ic ic-sm"></i>Outcome &amp; evidence</a>
+          <a class="tab" href="candidate-session-review.html?id=ses_7Kq2XA" aria-current="page"><i data-lucide="messages-square" class="ic ic-sm"></i>Coaching review</a>
+          <a class="tab" href="candidate-session-articulation.html?id=ses_7Kq2XA"><i data-lucide="audio-lines" class="ic ic-sm"></i>Delivery</a>
+        </nav>
+        <p class="hint" style="margin-top:10px;max-width:760px">
+          Two screens, one session. <strong>Outcome &amp; evidence</strong> is the record — your score, the evidence behind it, the transcript and the audio. <strong>Coaching review</strong> is the work — what to change, a model rewrite of each answer, and drills. Nothing here changes your score.
+        </p>
+      </div>
+
+      <!-- Preview state control -->
+      <div class="between" style="margin-bottom:var(--sp-5)">
+        <p class="hint" style="margin:0">Reviewed 21 August, 19:24 · evaluated against the Senior Backend Engineer rubric v4.</p>
+        <div class="cluster" style="margin-left:auto">
+          <span class="hint">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview screen state">
+            <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+            <button type="button" data-state-btn="processing" aria-pressed="false">Processing</button>
+            <button type="button" data-state-btn="partial" aria-pressed="false">Partial</button>
+            <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ────────────────────────────────── STATE: default ───────────────── -->
+      <div data-state="default">
+        <div class="grid grid-main-aside">
+
+          <div class="stack-lg">
+
+            <!-- Coach summary -->
+            <section class="card card-accent" aria-labelledby="coach-h">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:10px">
+                  <i data-lucide="sparkles" class="ic" style="color:var(--primary)"></i>
+                  <h2 id="coach-h" style="font-size:var(--text-base)">Coach summary</h2>
+                </div>
+                <p class="prose" style="font-size:var(--text-base);line-height:1.65">
+                  You are strong where most candidates are weak: you opened on access patterns instead of a component list, you named the right concurrency primitive without being led to it, and you backed your best claim with a number you actually measured. What costs you points is the <strong>second half</strong> of each answer — when Ravi pushed past your first design you reached for a shape (&ldquo;probably a queue&rdquo;, &ldquo;shard by clinic&rdquo;) without the mechanism underneath it, and two of those loose statements turned into a contradiction he caught five minutes later. <strong>The single highest-value change: when you name a mechanism, spend one more sentence on it before you stop — what enforces it, what happens when it is full, and what the user sees while it works.</strong>
+                </p>
+                <div class="cluster" style="margin-top:var(--sp-4)">
+                  <span class="badge badge-success"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+11 on this session type since 24 July</span>
+                  <span class="badge badge-warning"><i data-lucide="target" class="ic-sm ic"></i>2 of 6 answers stopped at the shape</span>
+                  <a class="link" style="font-size:var(--text-xs)" href="candidate-session-results.html?id=ses_7Kq2XA">See the evidence behind this<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                </div>
+              </div>
+            </section>
+
+            <!-- Per-turn evaluation -->
+            <section aria-labelledby="turns-h">
+              <div class="section-head">
+                <div>
+                  <h2 id="turns-h" class="section-title" style="margin:0">Answer by answer</h2>
+                  <p class="hint" style="margin-top:2px">Six questions. Contributions are per-competency weightings, not a running total — they do not add up to 74.</p>
+                </div>
+                <p class="hint" role="status" id="understood-count" style="margin:0;font-weight:600">0 of 6 marked as understood</p>
+              </div>
+              <div class="stack-lg" id="turns"></div>
+            </section>
+
+            <!-- Drills -->
+            <section class="card" aria-labelledby="drills-h">
+              <div class="card-header">
+                <div>
+                  <h2 id="drills-h">Drills from this session</h2>
+                  <p class="hint" style="margin-top:3px">Short, repeatable exercises built from the answers that lost points. Adding one creates a goal you can track.</p>
+                </div>
+                <a class="btn btn-sm btn-ghost" href="candidate-goals.html">All goals<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+              <div class="card-body">
+                <ul class="stack" id="drills-list"></ul>
+                <p class="hint" id="drills-status" role="status" style="margin-top:var(--sp-4)">3 drills · about 30 minutes in total.</p>
+              </div>
+              <div class="card-footer">
+                <a class="btn btn-sm btn-soft" href="candidate-goals.html?add=review-ses_7Kq2XA"><i data-lucide="flag" class="ic ic-sm"></i>Add all three to goals</a>
+              </div>
+            </section>
+
+            <!-- Patterns across sessions -->
+            <section class="card" aria-labelledby="patterns-h">
+              <div class="card-header">
+                <div>
+                  <h2 id="patterns-h">Patterns across sessions</h2>
+                  <p class="hint" style="margin-top:3px">Habits that show up in more than one session. Counted across your 9 scored practice sessions since 11 July.</p>
+                </div>
+                <a class="btn btn-sm btn-ghost" href="candidate-progression.html">Progression<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+              <div class="card-body stack">
+
+                <article class="card card-subtle">
+                  <div class="card-body">
+                    <div class="between" style="margin-bottom:6px">
+                      <h3 style="font-size:var(--text-sm)">You stop at the shape, not the mechanism</h3>
+                      <span class="badge badge-warning">5 of 9 sessions</span>
+                    </div>
+                    <p class="hint" style="line-height:1.55">First answers are precise. On the second or third follow-up you reach for a noun — &ldquo;a queue&rdquo;, &ldquo;a cache&rdquo;, &ldquo;a retry&rdquo; — and stop before saying what enforces it. It cost you the hotspot question today and the same question shape on 24 July and 11 July.</p>
+                    <div class="cluster" style="margin-top:10px">
+                      <a class="link" style="font-size:var(--text-xs)" href="candidate-progression.html#pattern-mechanism">See the five sessions<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="card card-subtle">
+                  <div class="card-body">
+                    <div class="between" style="margin-bottom:6px">
+                      <h3 style="font-size:var(--text-sm)">Fix before diagnosis</h3>
+                      <span class="badge badge-warning">4 of 9 sessions</span>
+                    </div>
+                    <p class="hint" style="line-height:1.55">In incident and failure questions you lead with what you would do and rarely with how you would know. Today&rsquo;s EHR timeout answer was a good decision with no detection story in front of it — the same shape as the incident response scenario on 9 August.</p>
+                    <div class="cluster" style="margin-top:10px">
+                      <a class="link" style="font-size:var(--text-xs)" href="candidate-progression.html#pattern-diagnosis">See the four sessions<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                      <a class="link" style="font-size:var(--text-xs)" href="candidate-skills.html#debugging">Debugging &amp; incident response</a>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="card card-subtle">
+                  <div class="card-body">
+                    <div class="between" style="margin-bottom:6px">
+                      <h3 style="font-size:var(--text-sm)">Ownership language goes passive under pressure</h3>
+                      <span class="badge badge-neutral">3 of 9 sessions</span>
+                    </div>
+                    <p class="hint" style="line-height:1.55">When the question gets harder you switch from &ldquo;I decided&rdquo; to &ldquo;we did&rdquo; and &ldquo;it was decided&rdquo;. Today it appeared once, in the double-booking answer — the strongest thing you said all session was attributed to a team.</p>
+                    <div class="cluster" style="margin-top:10px">
+                      <a class="link" style="font-size:var(--text-xs)" href="candidate-progression.html#pattern-ownership">See the three sessions<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+                      <a class="link" style="font-size:var(--text-xs)" href="candidate-skills.html#ownership">Ownership &amp; follow-through</a>
+                    </div>
+                  </div>
+                </article>
+
+              </div>
+            </section>
+
+            <!-- Cross-link back to results -->
+            <div class="banner banner-info">
+              <i data-lucide="clipboard-check" class="ic"></i>
+              <div><strong>Looking for the score itself?</strong> The competency breakdown, the confidence ranges, the quoted evidence and the audio replay live on the outcome screen. Nothing on this page changes those numbers.</div>
+              <div class="banner-actions">
+                <a class="btn btn-sm btn-secondary" href="candidate-session-results.html?id=ses_7Kq2XA">Open outcome &amp; evidence</a>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ── ASIDE ── -->
+          <aside class="stack sticky-aside" aria-label="This session at a glance">
+
+            <div class="card">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">This session</h2></div>
+              <div class="card-body">
+                <div style="display:flex;gap:var(--sp-4);align-items:center;flex-wrap:wrap">
+                  <div class="ring ring-lg" data-score="74" data-sub="Solid" data-label="Session score"></div>
+                  <div style="flex:1;min-width:150px">
+                    <p class="hint" style="line-height:1.55">Up 11 points on the same session shape from 24 July. Medium confidence — three competencies rest on a single answer.</p>
+                  </div>
+                </div>
+                <hr style="margin:var(--sp-4) 0">
+                <h3 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);margin-bottom:10px">Contributed by this session only</h3>
+                <div class="comp-list" id="aside-comps"></div>
+                <p class="chart-summary" id="aside-comp-summary"></p>
+                <a class="btn btn-sm btn-secondary btn-block" style="margin-top:var(--sp-4)" href="candidate-session-results.html?id=ses_7Kq2XA">Full results &amp; evidence<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+            </div>
+
+            <div class="card card-accent">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">Next best session</h2></div>
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:10px">
+                  <span class="badge badge-warning">Targets today&rsquo;s gap</span>
+                  <span class="badge badge-outline">25 min</span>
+                </div>
+                <h3 style="font-size:var(--text-base)">Systems design — caching &amp; consistency</h3>
+                <p class="hint" style="margin-top:6px;line-height:1.55">Ravi again, but weighted towards failure modes and admission control — the half of the answer you stopped short on twice today. You started this shape on 4 August and ended it after 12 minutes.</p>
+                <div class="cluster" style="margin-top:14px">
+                  <span class="avatar avatar-persona avatar-sm">RA</span>
+                  <span class="hint">Ravi · brisk, precise</span>
+                </div>
+                <a class="btn btn-primary btn-sm btn-block" style="margin-top:14px" href="candidate-start-interview.html?shape=shape_technical&amp;focus=failure-modes&amp;persona=per_ravi&amp;minutes=25"><i data-lucide="circle-play" class="ic ic-sm"></i>Set this up</a>
+                <a class="btn btn-ghost btn-sm btn-block" style="margin-top:6px" href="candidate-start-interview.html">Configure your own</a>
+              </div>
+            </div>
+
+            <div class="card card-subtle">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:8px">
+                  <i data-lucide="lock" class="ic" style="color:var(--primary)"></i>
+                  <strong style="font-size:var(--text-sm)">Private by default</strong>
+                </div>
+                <p class="hint" style="line-height:1.55">This review, the transcript and the recording are visible only to you. No employer, recruiter or Prepeet reviewer can open them unless you generate a share link yourself.</p>
+                <button class="btn btn-sm btn-ghost" type="button" style="margin-top:10px;padding-left:0" data-dialog-open="share-dialog">How sharing works</button>
+              </div>
+            </div>
+
+          </aside>
+        </div>
+      </div>
+
+      <!-- ────────────────────────────────── STATE: processing ────────────── -->
+      <div data-state="processing" hidden>
+        <div class="banner banner-info" style="margin-bottom:var(--sp-5)" role="status">
+          <i data-lucide="loader" class="ic"></i>
+          <div><strong>Still writing your coaching review.</strong> The score and transcript are already available — coaching takes a few minutes longer because every answer is rewritten individually. Started 3 minutes ago; typical time is 4 to 8 minutes.</div>
+          <div class="banner-actions">
+            <a class="btn btn-sm btn-secondary" href="candidate-session-complete.html?id=ses_7Kq2XA">Watch progress</a>
+          </div>
+        </div>
+
+        <div class="grid grid-main-aside">
+          <div class="stack-lg">
+            <section class="card" aria-labelledby="proc-h">
+              <div class="card-header"><h2 id="proc-h">Coach summary</h2></div>
+              <div class="card-body">
+                <div class="skeleton skeleton-text" style="width:96%"></div>
+                <div class="skeleton skeleton-text" style="width:88%"></div>
+                <div class="skeleton skeleton-text" style="width:64%"></div>
+              </div>
+            </section>
+
+            <section aria-labelledby="proc-turns-h">
+              <h2 id="proc-turns-h" class="section-title">Answer by answer <span class="count">2 of 6 written</span></h2>
+              <div class="stack-lg">
+                <div class="turn-eval">
+                  <div class="turn-eval-head"><div class="skeleton skeleton-text" style="width:220px;height:14px"></div><span class="badge badge-info"><i data-lucide="loader" class="ic-sm ic"></i>Writing</span></div>
+                  <div class="turn-eval-body">
+                    <div class="skeleton skeleton-text" style="width:100%"></div>
+                    <div class="skeleton skeleton-text" style="width:92%"></div>
+                    <div class="skeleton skeleton-block" style="height:72px"></div>
+                  </div>
+                </div>
+                <div class="turn-eval">
+                  <div class="turn-eval-head"><div class="skeleton skeleton-text" style="width:180px;height:14px"></div><span class="badge badge-neutral">Queued</span></div>
+                  <div class="turn-eval-body">
+                    <div class="skeleton skeleton-text" style="width:100%"></div>
+                    <div class="skeleton skeleton-text" style="width:70%"></div>
+                    <div class="skeleton skeleton-block" style="height:72px"></div>
+                  </div>
+                </div>
+                <div class="turn-eval">
+                  <div class="turn-eval-head"><div class="skeleton skeleton-text" style="width:240px;height:14px"></div><span class="badge badge-neutral">Queued</span></div>
+                  <div class="turn-eval-body">
+                    <div class="skeleton skeleton-text" style="width:100%"></div>
+                    <div class="skeleton skeleton-text" style="width:80%"></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div class="banner">
+              <i data-lucide="clipboard-check" class="ic"></i>
+              <div>Your score and the full transcript are ready now — coaching is the only thing still running.</div>
+              <div class="banner-actions"><a class="btn btn-sm btn-secondary" href="candidate-session-results.html?id=ses_7Kq2XA">Open outcome &amp; evidence</a></div>
+            </div>
+          </div>
+
+          <aside class="stack sticky-aside" aria-label="Processing status">
+            <div class="card">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">Progress</h2></div>
+              <div class="card-body">
+                <ul class="stages">
+                  <li class="stage done"><span class="stage-icon"><i data-lucide="check" class="ic"></i></span><span><span class="stage-name">Audio transcribed</span><span class="stage-sub">14 turns, 38 minutes</span></span><span class="stage-time">19:03</span></li>
+                  <li class="stage done"><span class="stage-icon"><i data-lucide="check" class="ic"></i></span><span><span class="stage-name">Evidence extracted</span><span class="stage-sub">11 spans across 5 competencies</span></span><span class="stage-time">19:09</span></li>
+                  <li class="stage done"><span class="stage-icon"><i data-lucide="check" class="ic"></i></span><span><span class="stage-name">Scored</span><span class="stage-sub">74 · solid · medium confidence</span></span><span class="stage-time">19:15</span></li>
+                  <li class="stage active"><span class="stage-icon"><i data-lucide="pen-line" class="ic"></i></span><span><span class="stage-name">Writing coaching</span><span class="stage-sub">Answer 2 of 6</span></span><span class="stage-time">now</span></li>
+                  <li class="stage"><span class="stage-icon"><i data-lucide="flag" class="ic"></i></span><span><span class="stage-name">Drills and goals</span><span class="stage-sub">Waiting on coaching</span></span><span class="stage-time">—</span></li>
+                </ul>
+                <div class="progress" style="margin-top:var(--sp-4)"><span style="width:62%"></span></div>
+                <p class="hint" style="margin-top:8px">You do not need to stay on this page — we will notify you.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ────────────────────────────────── STATE: partial ───────────────── -->
+      <div data-state="partial" hidden>
+        <div class="banner banner-warning" style="margin-bottom:var(--sp-5)">
+          <i data-lucide="circle-slash" class="ic"></i>
+          <div>
+            <strong>This session ended after question 2 of 6.</strong> You left at 09:12 of a planned 38 minutes. We have coached the two answers we have and left the rest blank rather than guessing — four questions were never asked, so there is nothing to review for them.
+          </div>
+          <div class="banner-actions">
+            <a class="btn btn-sm btn-primary" href="candidate-start-interview.html?shape=shape_technical&amp;persona=per_ravi&amp;resume=ses_7Kq2XA">Finish the session</a>
+          </div>
+        </div>
+
+        <div class="grid grid-main-aside">
+          <div class="stack-lg">
+
+            <section class="card card-accent" aria-labelledby="partial-coach-h">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:10px">
+                  <i data-lucide="sparkles" class="ic" style="color:var(--primary)"></i>
+                  <h2 id="partial-coach-h" style="font-size:var(--text-base)">Coach summary — limited</h2>
+                </div>
+                <p class="prose" style="font-size:var(--text-base);line-height:1.65">
+                  Both answers you did give were good ones: you opened on access patterns rather than components, and you named the right concurrency primitive with a measured outcome behind it. That is genuinely the strong half of a systems design round. <strong>What I cannot tell you is anything about the half that follows</strong> — failure modes, hotspots and the user-facing side never came up, and those are where your last three sessions lost points, so treat this as two good data points rather than a read on the session.
+                </p>
+                <div class="cluster" style="margin-top:var(--sp-4)">
+                  <span class="badge badge-outline"><i data-lucide="info" class="ic-sm ic"></i>Based on 2 answers · 4 evidence spans</span>
+                </div>
+              </div>
+            </section>
+
+            <section aria-labelledby="partial-turns-h">
+              <div class="section-head">
+                <h2 id="partial-turns-h" class="section-title" style="margin:0">Answer by answer <span class="count">2 evaluated</span></h2>
+              </div>
+              <div class="stack-lg" id="turns-partial"></div>
+            </section>
+
+            <section class="card" aria-labelledby="notasked-h">
+              <div class="card-header">
+                <h2 id="notasked-h">Not asked — not evaluated</h2>
+              </div>
+              <div class="card-body">
+                <p class="hint" style="margin-bottom:var(--sp-4);line-height:1.55">These four questions were scheduled for the rest of the session. They carry no score, no coaching and no evidence, and they are not counted against you anywhere.</p>
+                <ul class="stack-sm">
+                  <li class="row" style="align-items:flex-start"><i data-lucide="minus-circle" class="ic ic-sm" style="color:var(--fg-muted);margin-top:3px"></i><span style="font-size:var(--text-sm)">Sharding and constraint locality when the primary store is the bottleneck <span class="badge badge-outline" style="margin-left:6px">Systems design</span></span></li>
+                  <li class="row" style="align-items:flex-start"><i data-lucide="minus-circle" class="ic ic-sm" style="color:var(--fg-muted);margin-top:3px"></i><span style="font-size:var(--text-sm)">Hotspots, admission control and what the patient sees while waiting <span class="badge badge-outline" style="margin-left:6px">Systems design</span></span></li>
+                  <li class="row" style="align-items:flex-start"><i data-lucide="minus-circle" class="ic ic-sm" style="color:var(--fg-muted);margin-top:3px"></i><span style="font-size:var(--text-sm)">Downstream write failure and the fail-open / fail-closed decision <span class="badge badge-outline" style="margin-left:6px">Debugging &amp; incident response</span></span></li>
+                  <li class="row" style="align-items:flex-start"><i data-lucide="minus-circle" class="ic ic-sm" style="color:var(--fg-muted);margin-top:3px"></i><span style="font-size:var(--text-sm)">Defending a design decision under direct challenge <span class="badge badge-outline" style="margin-left:6px">Collaboration &amp; influence</span></span></li>
+                </ul>
+                <div class="cluster" style="margin-top:var(--sp-5)">
+                  <a class="btn btn-sm btn-primary" href="candidate-start-interview.html?shape=shape_technical&amp;persona=per_ravi&amp;focus=failure-modes&amp;minutes=25">Run these four now</a>
+                  <a class="btn btn-sm btn-ghost" href="candidate-session-results.html?id=ses_7Kq2XA&amp;state=insufficient">What was captured</a>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <aside class="stack sticky-aside" aria-label="Partial session summary">
+            <div class="card">
+              <div class="card-header"><h2 style="font-size:var(--text-sm)">This session</h2></div>
+              <div class="card-body">
+                <div style="display:flex;gap:var(--sp-4);align-items:center;flex-wrap:wrap">
+                  <div class="ring ring-lg" data-score="" data-sub="Not scored" data-label="Session score"></div>
+                  <div style="flex:1;min-width:150px">
+                    <p class="hint" style="line-height:1.55">Two answers is not enough to put a number on. We would need at least four across three competencies.</p>
+                  </div>
+                </div>
+                <hr style="margin:var(--sp-4) 0">
+                <dl class="kv kv-row">
+                  <dt>Questions answered</dt><dd>2 of 6</dd>
+                  <dt>Time in session</dt><dd>9 minutes of 38</dd>
+                  <dt>Evidence captured</dt><dd>4 spans, 2 competencies</dd>
+                  <dt>Counts towards progression</dt><dd>No</dd>
+                </dl>
+              </div>
+            </div>
+            <div class="card card-subtle">
+              <div class="card-body">
+                <div class="cluster" style="margin-bottom:8px"><i data-lucide="shield-check" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Ending early is not penalised</strong></div>
+                <p class="hint" style="line-height:1.55">Abandoned sessions never lower a competency score. They simply do not add evidence — which is why the ring above shows no number rather than a low one.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ────────────────────────────────── STATE: error ─────────────────── -->
+      <div data-state="error" hidden>
+        <div class="card">
+          <div class="state danger">
+            <div class="state-icon"><i data-lucide="alert-triangle" class="ic"></i></div>
+            <h2 style="font-size:var(--text-md)">We could not load your coaching review</h2>
+            <p>The evaluation service did not respond for session <span class="mono">ses_7Kq2XA</span>. Your recording, transcript and score are safe — this page is the only thing that failed, and retrying usually fixes it.</p>
+            <p class="mono" style="font-size:var(--text-xs);color:var(--fg-3)">review_fetch_timeout · 21 Aug 2026 19:41 UTC · trace 8f31c2</p>
+            <div class="actions">
+              <button class="btn btn-primary" type="button" data-loading-sim="1200" data-loading-done="Still unavailable — try again shortly" data-loading-kind="warning"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Try again</button>
+              <a class="btn btn-secondary" href="candidate-session-results.html?id=ses_7Kq2XA">Open outcome &amp; evidence</a>
+              <a class="btn btn-ghost" href="candidate-sessions.html">All sessions</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /practice-root -->
+
+  </div>
+</main>
+
+<!-- ══════════════════════════════════════ DIALOGS ══════════════════════════ -->
+
+<dialog class="dialog" id="share-dialog" aria-labelledby="share-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 id="share-h">Sharing a practice review</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="banner banner-info">
+        <i data-lucide="lock" class="ic"></i>
+        <div><strong>Practice results are private by default.</strong> Nobody — no employer, no recruiter, no Prepeet reviewer — can see this review, the transcript or the recording unless you deliberately create a link.</div>
+      </div>
+      <p>If you do share, you choose what travels with the link:</p>
+      <div class="stack-sm">
+        <label class="check"><input type="checkbox" checked><span>Coach summary and per-answer feedback<span class="hint">The written coaching, including the model rewrites.</span></span></label>
+        <label class="check"><input type="checkbox"><span>Score and competency breakdown<span class="hint">The 74, the bands and the confidence ranges.</span></span></label>
+        <label class="check"><input type="checkbox"><span>Transcript<span class="hint">Everything you and Ravi said, with timestamps.</span></span></label>
+        <label class="check"><input type="checkbox"><span>Audio recording<span class="hint">Off by default. Most people share the transcript instead.</span></span></label>
+      </div>
+      <div class="field">
+        <label class="label" for="share-expiry">Link expires</label>
+        <select class="select" id="share-expiry">
+          <option>After 7 days</option>
+          <option selected>After 30 days</option>
+          <option>When I revoke it</option>
+        </select>
+        <p class="hint">You can revoke a link at any time from settings. Revoking takes effect immediately.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <a class="btn btn-ghost btn-sm" href="candidate-settings.html#privacy">Privacy settings</a>
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-dialog-close data-toast="Share link created" data-toast-desc="Coach summary only · expires 20 September 2026" data-toast-kind="success">Create link</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="redo-dialog" aria-labelledby="redo-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 id="redo-h">Redo this question</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>A focused five-minute redo: Ravi asks this one question again, pushes on the part you stopped short of, and stops. Nothing is scored — a redo never changes the 74 on this session.</p>
+      <div class="card card-subtle">
+        <div class="card-body">
+          <p class="hint" style="text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:var(--text-2xs)">The question</p>
+          <p style="font-size:var(--text-sm);margin-top:6px;line-height:1.55" id="redo-question">—</p>
+          <hr style="margin:var(--sp-3) 0">
+          <p class="hint" style="text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:var(--text-2xs)">What Ravi will push on</p>
+          <p style="font-size:var(--text-sm);margin-top:6px;line-height:1.55" id="redo-focus">—</p>
+        </div>
+      </div>
+      <dl class="kv">
+        <dt>Length</dt><dd>5 minutes, one question</dd>
+        <dt>Persona</dt><dd>Ravi — direct and technical</dd>
+        <dt>Affects your score</dt><dd>No. Redos are stored separately from scored sessions.</dd>
+      </dl>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Not now</button>
+      <a class="btn btn-primary" id="redo-go" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start the redo</a>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var SESSION = Prepeet.query.get('id', Prepeet.ids.session);
+
+  /* ---------------------------------------------------------------------
+     Evidence spans for ses_7Kq2XA.
+     The seed in Prepeet.data.transcript marks four turns (supporting /
+     contradiction / claim / gap). This page resolves those markers to exact
+     quotes and adds the spans the seed implies but does not enumerate, so
+     every competency in the breakdown has attributable text.
+     --------------------------------------------------------------------- */
+  var EV = [
+    { id: 'ev1',  t: '00:24', kind: 'supporting',    comp: 'Systems design',                quote: 'I would start with the read and write shapes rather than the components' },
+    { id: 'ev2',  t: '01:12', kind: 'supporting',    comp: 'Systems design',                quote: 'A conditional write on the slot row with an optimistic version, so two writers cannot both take the last slot' },
+    { id: 'ev3',  t: '01:12', kind: 'supporting',    comp: 'Technical communication',       quote: 'It cut our double-booking incidents from roughly one a week to none in six months' },
+    { id: 'ev4',  t: '02:14', kind: 'claim',         comp: 'Systems design',                quote: 'because bookings never cross clinics' },
+    { id: 'ev5',  t: '02:47', kind: 'gap',           comp: 'Systems design',                quote: 'Probably a queue in front of it. I would let requests line up and process them in order.' },
+    { id: 'ev6',  t: '03:26', kind: 'supporting',    comp: 'Collaboration & influence',     quote: 'Honestly, I have not designed that part before.' },
+    { id: 'ev7',  t: '03:26', kind: 'claim',         comp: 'Technical communication',       quote: 'I would need to check what our booking partners support before committing to that' },
+    { id: 'ev8',  t: '04:22', kind: 'supporting',    comp: 'Debugging & incident response', quote: 'I would fail closed — reject the booking rather than confirm something the clinical record does not know about' },
+    { id: 'ev9',  t: '04:22', kind: 'supporting',    comp: 'Technical communication',       quote: 'Confirming a booking the EHR never received is the worse outcome for a patient.' },
+    { id: 'ev10', t: '05:24', kind: 'contradiction', comp: 'Systems design',                quote: 'Per-shard queue, not global.' },
+    { id: 'ev11', t: '05:24', kind: 'supporting',    comp: 'Ownership & follow-through',    quote: 'I said it loosely the first time.' }
+  ];
+  var KIND_LABEL = { supporting: 'supporting evidence', contradiction: 'a contradiction', claim: 'an unchecked claim', gap: 'a gap' };
+
+  /* Competency contribution from THIS session only ---------------------- */
+  var SESSION_COMPS = [
+    { name: 'Systems design',                score: 76, band: 'solid',       ci: [68, 83], ev: 5, href: 'candidate-skills.html#systems-design' },
+    { name: 'Technical communication',       score: 82, band: 'strong',      ci: [76, 87], ev: 3, href: 'candidate-skills.html#technical-communication' },
+    { name: 'Debugging & incident response', score: 71, band: 'solid',       ci: [60, 80], ev: 1, href: 'candidate-skills.html#debugging' },
+    { name: 'Collaboration & influence',     score: 68, band: 'solid',       ci: [57, 78], ev: 1, href: 'candidate-skills.html#collaboration' },
+    { name: 'Ownership & follow-through',    score: 61, band: 'developing',  ci: [48, 72], ev: 1, href: 'candidate-skills.html#ownership' }
+  ];
+
+  /* ---------------------------------------------------------------- turns */
+  var TURNS = [
+    {
+      n: 1, qt: '00:00', at: '00:24',
+      q: 'Imagine we run appointment booking for a health network — about four million patients, spiky load on Monday mornings. Where would you start?',
+      contrib: [{ comp: 'Systems design', pts: '+3' }],
+      verdict: { label: 'Good opening', badge: 'badge-success' },
+      plus: [
+        'You opened on access patterns, not a component list. That is the ordering senior designers use and it took you 24 seconds to get there.',
+        'Separating the availability read path from the reservation write path in one sentence gave Ravi a structure to push against for the rest of the session.'
+      ],
+      minus: [
+        'The question handed you two numbers — four million patients, Monday spikes — and you used neither. Restating them as targets signals you are designing for this system rather than a generic one.',
+        'You started designing without asking anything. One clarifying question at the top is cheap and reads as senior.'
+      ],
+      rewrite: 'Before components, I would fix the shapes. Four million patients with a Monday peak — call it thirty thousand booking attempts a minute against maybe a hundred thousand availability reads a second. Those are two different systems: availability is read-mostly, cacheable and can be eventually consistent; reservation is a small number of strongly consistent writes against contended rows. So I would split them from day one. Before I go further I want two numbers from you: how stale can availability be before patients start hitting "slot already gone", and how many clinics are in the network?',
+      drill: null,
+      focus: 'access-patterns',
+      focusDesc: 'Ravi will ask for the numbers behind your split and for one clarifying question before you design.'
+    },
+    {
+      n: 2, qt: '00:58', at: '01:12',
+      q: 'Say Monday at 08:00 you get thirty thousand booking attempts a minute against overlapping slots. How do you stop double booking?',
+      contrib: [{ comp: 'Systems design', pts: '+6' }, { comp: 'Technical communication', pts: '+4' }],
+      verdict: { label: 'Strongest answer', badge: 'badge-success' },
+      plus: [
+        'You named the primitive — conditional write with an optimistic version — before describing any machinery. That is the answer, and you gave it first.',
+        'You grounded it in something you actually built, with the constraint spelled out (slot_id plus status) and a real retry path for the loser.',
+        'You quantified the outcome with a before, an after and a time window. Roughly one a week to none in six months is the most persuasive sentence in the session.'
+      ],
+      minus: [
+        'You never touched the number in the question. Thirty thousand a minute against overlapping slots means contention is per-row, and a single popular 09:00 slot has a hard write ceiling — Ravi was waiting for you to say so.',
+        'The strongest thing you said was attributed to a team: "we did this". This is a recurring habit — say what you decided.'
+      ],
+      rewrite: 'A conditional write on the slot row — an optimistic version, or a unique constraint on slot_id plus status so only one writer can move a slot to "held". The loser gets a 409, refreshes availability and retries against a different slot; it never blocks. I introduced that pattern at my last place and double-booking incidents went from about one a week to zero over six months. The thing to watch at thirty thousand a minute is that contention is per-slot, not global: a popular 09:00 slot is one row, so the practical ceiling is a few hundred writes a second against it, and a loser pays one failed write plus one refresh — around forty milliseconds. If a single slot is hotter than that, I would stop modelling it as a boolean and move to a held count against a capacity.',
+      drill: null,
+      focus: 'concurrency-limits',
+      focusDesc: 'Ravi will accept the primitive immediately and push straight to per-row throughput limits and the loser’s latency.'
+    },
+    {
+      n: 3, qt: '02:05', at: '02:14',
+      q: 'What happens when the database that holds that constraint is the thing under pressure?',
+      contrib: [{ comp: 'Systems design', pts: '+2' }],
+      verdict: { label: 'Right instinct, unchecked premise', badge: 'badge-warning' },
+      plus: [
+        'Correct move, and you named both the shard key and the reason for it in one sentence.',
+        'You understood why it works — the uniqueness constraint stays local, so no distributed transaction is needed.'
+      ],
+      minus: [
+        '"Bookings never cross clinics" is an assumption you asserted rather than checked. Referrals and multi-site clinicians are the standard counter-example, and if five percent of bookings cross clinics the shard key is wrong.',
+        'Nothing about resharding. A clinic-keyed design is only safe if you can move a hot clinic later, and that depends on choices you make now.'
+      ],
+      rewrite: 'I would shard by clinic — on the assumption that a booking never spans two clinics, which is worth checking, because referrals and multi-site clinicians are the usual counter-example and if even five percent of bookings cross clinics the shard key is wrong. Assuming it holds: each shard owns its slot rows, so the uniqueness constraint stays local and nothing needs a distributed transaction. I would size shards by peak writes rather than patient count, because one large teaching hospital can outweigh twenty GP practices. And I would plan for resharding from the start — clinic-to-shard as a lookup table rather than a hash, so I can move a hot clinic without rewriting keys.',
+      drill: { id: 'drill-assumption', name: 'Name your assumption', mins: 8, desc: 'Six design statements. For each, say out loud what it assumes and how you would check it in thirty seconds.' },
+      focus: 'sharding-assumptions',
+      focusDesc: 'Ravi will accept sharding and then ask what happens to a referral that spans two clinics.'
+    },
+    {
+      n: 4, qt: '02:41', at: '02:47', ats: ['02:47', '03:26'],
+      q: 'And if a clinic is itself the hotspot? Talk me through what the patient sees while they are in that queue.',
+      contrib: [{ comp: 'Systems design', pts: '0' }, { comp: 'Collaboration & influence', pts: '+2' }],
+      verdict: { label: 'Weakest answer', badge: 'badge-danger' },
+      plus: [
+        'When Ravi moved to the patient view you said plainly that you had not designed that part before, and then designed it anyway. Naming the edge of your experience and continuing is what credibility looks like.',
+        'The soft reservation with a visible countdown is a genuinely good product answer — you chose "the slot is yours for two minutes" over a spinner.'
+      ],
+      minus: [
+        '"Probably a queue in front of it" is a hedge plus a noun. No admission control, no depth, no overflow behaviour, no ordering guarantee. This is the single highest-value thing to fix in your whole session.',
+        'A queue with no bound is not a design — it is a way of turning a rejection into an indefinite wait. Ravi asked about the patient precisely because you had not said what happens when it fills.'
+      ],
+      rewrite: 'A single hot clinic is an admission-control problem more than a queueing one. I would put a per-shard FIFO in front of the reservation write, sized to that shard’s write throughput — say two thousand deep — and reject beyond that with a clear "try again in a moment" rather than let it grow unbounded. The patient side matters more than the queue: when someone taps a slot I take a soft reservation immediately with a two-minute TTL and show a live countdown, so they get an answer in under a second and know the slot is theirs. If they are behind others, I show position and an estimate from the current drain rate — never a bare spinner. I have not built that countdown myself, so I would check what our booking partners support before promising it; if they cannot hold state, the fallback is a thirty-second TTL and an optimistic confirm.',
+      drill: { id: 'drill-queue', name: 'Queue mechanics out loud', mins: 12, desc: 'Four hotspot scenarios. For each, say admission control, depth limit, overflow behaviour and what the user sees — in that order, in under ninety seconds.' },
+      focus: 'admission-control',
+      focusDesc: 'Ravi will not accept "a queue". He will ask how deep, what happens when it is full, and what the patient sees at second three.'
+    },
+    {
+      n: 5, qt: '04:10', at: '04:22',
+      q: 'The reservation service is healthy but the downstream EHR write is timing out. What do you do?',
+      contrib: [{ comp: 'Debugging & incident response', pts: '+5' }, { comp: 'Technical communication', pts: '+4' }],
+      verdict: { label: 'Right call, thin on detection', badge: 'badge-success' },
+      plus: [
+        'You chose fail-closed and justified it by patient consequence rather than by system purity. That is the correct answer and the correct reason.',
+        'You did not stop at the rejection — repair job plus alert shows you were thinking about the state left behind.',
+        '"Confirming a booking the EHR never received is the worse outcome for a patient" translates a systems trade-off into the user’s terms in one line. Keep that sentence.'
+      ],
+      minus: [
+        'No detection story. You went straight to what you would do without saying how you would know — this is the habit that shows in four of your nine sessions.',
+        'No numbers anywhere: no timeout budget, no retry policy, no threshold at which the repair queue becomes an incident.'
+      ],
+      rewrite: 'First, how I would know: a healthy reservation service with a failing EHR shows up as rising p99 on the EHR client while our own endpoints stay flat — so I want those split on the dashboard rather than one blended latency number, with an alert on EHR write p99 over two seconds for five minutes. Then the decision: fail closed. Reject the booking rather than confirm something the clinical record does not know about — a patient arriving for an appointment the clinic cannot see is worse than a patient rebooking. Concretely: two-second timeout, two retries with jitter, release the soft reservation, return a real error, and write the attempt to a repair queue that pages on-call if it is non-empty for ten minutes. If the EHR is down for hours that becomes a product decision about degraded booking, and I would escalate it rather than make it alone.',
+      drill: { id: 'drill-diagnosis', name: 'Diagnosis before fix', mins: 10, desc: 'Five incident prompts. The first two sentences of every answer must be how you would know, before you are allowed to say what you would do.' },
+      focus: 'detection-first',
+      focusDesc: 'Ravi will stop you the moment you propose an action and ask what told you the EHR was the problem.'
+    },
+    {
+      n: 6, qt: '05:16', at: '05:24',
+      q: 'Earlier you said you shard by clinic. A moment ago you described a global queue. Which is it?',
+      contrib: [{ comp: 'Systems design', pts: '−3' }, { comp: 'Ownership & follow-through', pts: '+2' }],
+      verdict: { label: 'Recovered well, late', badge: 'badge-warning' },
+      plus: [
+        'One sentence, correct answer, no defensiveness. Plenty of candidates argue; you corrected and moved on.',
+        '"I said it loosely the first time" is an ownership sentence. It is the cleanest evidence of ownership in the session.'
+      ],
+      minus: [
+        'The correction was five minutes late, and it was Ravi who found it rather than you. Precision at 02:47 would have cost you nothing.',
+        'You corrected the word but never restated the design. After an interviewer catches an inconsistency, the recovery is worth more if you re-lay the whole picture in three sentences.'
+      ],
+      rewrite: 'Per-shard, not global — a global queue would undo the point of sharding by putting every clinic back behind one contended path. Let me restate the whole thing cleanly: slots are sharded by clinic; each shard has its own bounded admission queue in front of its reservation writes; the uniqueness constraint is local to the shard; and nothing crosses shards except the availability read view, which is rebuilt asynchronously. Apologies — I said "a queue" earlier when I meant "a queue per shard".',
+      drill: null,
+      focus: 'precision-recovery',
+      focusDesc: 'Ravi will deliberately quote something loose back at you and ask you to restate the whole design, not just the word.'
+    }
+  ];
+
+  /* ------------------------------------------------------------- helpers */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function answerText(t) {
+    var turn = Prepeet.data.transcript.filter(function (x) { return x.t === t && x.who === 'user'; })[0];
+    return turn ? turn.text : '';
+  }
+
+  /* Render an answer with evidence spans highlighted (read-only on this page) */
+  function highlight(text, t) {
+    var marks = EV.filter(function (e) { return e.t === t; })
+      .map(function (e) { var i = text.indexOf(e.quote); return i < 0 ? null : { s: i, e: i + e.quote.length, ev: e }; })
+      .filter(Boolean).sort(function (a, b) { return a.s - b.s; });
+    var out = '', pos = 0;
+    marks.forEach(function (m) {
+      if (m.s < pos) return;
+      out += esc(text.slice(pos, m.s));
+      out += '<span class="ev ev-' + m.ev.kind + '">' + esc(text.slice(m.s, m.e)) +
+             '<span class="sr-only"> (marked as ' + KIND_LABEL[m.ev.kind] + ' for ' + esc(m.ev.comp) + ')</span></span>';
+      pos = m.e;
+    });
+    out += esc(text.slice(pos));
+    return out;
+  }
+
+  function contribHtml(list) {
+    return list.map(function (c) {
+      var cls = c.pts === '0' ? 'badge-neutral' : (c.pts.charAt(0) === '−' ? 'badge-danger' : 'badge-primary');
+      return '<span class="badge ' + cls + '">' + esc(c.comp) + ' ' + esc(c.pts) + '</span>';
+    }).join('');
+  }
+
+  function turnCard(T, prefix) {
+    prefix = prefix || 'd';
+    var ansId = prefix + '-ans-' + T.n;
+    return '<article class="turn-eval" id="' + prefix + '-turn-eval-' + T.n + '">' +
+      '<div class="turn-eval-head">' +
+        '<div style="min-width:0">' +
+          '<p class="hint mono" style="margin-bottom:4px">Question ' + T.n + ' of 6 · asked at ' + T.qt + '</p>' +
+          '<h3 class="q">' + esc(T.q) + '</h3>' +
+        '</div>' +
+        '<span class="badge ' + T.verdict.badge + '">' + esc(T.verdict.label) + '</span>' +
+      '</div>' +
+      '<div class="turn-eval-body">' +
+
+        /* contribution */
+        '<div class="cluster">' + contribHtml(T.contrib) +
+          '<span class="info-tip" data-tooltip="Contributions weight one competency each. They are not a running total and do not sum to the session score."><i data-lucide="info" class="ic"></i></span>' +
+        '</div>' +
+
+        /* collapsible answer */
+        '<div>' +
+          '<button class="btn btn-sm btn-ghost" type="button" style="padding-left:0" data-toggle-target="' + ansId + '" aria-expanded="false" aria-controls="' + ansId + '" data-label-closed="Show what you said" data-label-open="Hide what you said">' +
+            '<i data-lucide="chevron-down" class="ic ic-sm"></i><span data-toggle-label>Show what you said</span>' +
+          '</button>' +
+          '<div id="' + ansId + '" hidden style="margin-top:10px">' +
+            '<div class="transcript">' + (T.ats || [T.at]).map(function (a) {
+              return '<div class="turn user">' +
+                '<span class="avatar avatar-sm">DO</span>' +
+                '<div>' +
+                  '<div class="turn-meta"><span class="who">You</span><time>' + a + '</time></div>' +
+                  '<p class="turn-text">' + highlight(answerText(a), a) + '</p>' +
+                '</div>' +
+              '</div>';
+            }).join('') + '</div>' +
+            '<p class="hint" style="margin-top:8px">Highlighting shows evidence spans. Open <a href="candidate-session-results.html?id=' + SESSION + '#transcript">outcome &amp; evidence</a> to see why each one counted.</p>' +
+          '</div>' +
+        '</div>' +
+
+        /* plus / minus */
+        '<div class="two">' +
+          '<div><h4>What worked</h4><ul class="plus-minus">' +
+            T.plus.map(function (p) { return '<li class="plus"><i data-lucide="check" class="ic"></i><span>' + esc(p) + '</span></li>'; }).join('') +
+          '</ul></div>' +
+          '<div><h4>What to change</h4><ul class="plus-minus">' +
+            T.minus.map(function (p) { return '<li class="minus"><i data-lucide="arrow-right" class="ic"></i><span>' + esc(p) + '</span></li>'; }).join('') +
+          '</ul></div>' +
+        '</div>' +
+
+        /* rewrite */
+        '<div>' +
+          '<h4>Model rewrite of this answer</h4>' +
+          '<div class="rewrite">' + esc(T.rewrite) + '</div>' +
+          '<p class="hint" style="margin-top:6px">Written to be sayable in about ' + (T.n === 1 ? '35' : '55') + ' seconds. Do not memorise it — say your own version out loud twice.</p>' +
+        '</div>' +
+
+        /* actions */
+        '<div class="cluster" style="border-top:1px solid var(--border);padding-top:12px">' +
+          '<button class="btn btn-sm btn-secondary" type="button" data-redo="' + T.n + '"><i data-lucide="rotate-ccw" class="ic ic-sm"></i>Redo this question</button>' +
+          (T.drill
+            ? '<button class="btn btn-sm btn-ghost" type="button" data-add-drill="' + T.drill.id + '"><i data-lucide="dumbbell" class="ic ic-sm"></i>Add to drills</button>'
+            : '<button class="btn btn-sm btn-ghost" type="button" data-add-drill="drill-mechanism"><i data-lucide="dumbbell" class="ic ic-sm"></i>Add to drills</button>') +
+          '<button class="btn btn-sm btn-ghost" type="button" data-understood="' + prefix + '-' + T.n + '" data-qn="' + T.n + '" aria-pressed="false"><i data-lucide="check-circle-2" class="ic ic-sm"></i><span>Mark as understood</span></button>' +
+          '<a class="btn btn-sm btn-ghost" style="margin-left:auto" href="candidate-session-results.html?id=' + SESSION + '&amp;jump=' + T.at + '#transcript">Hear this moment<i data-lucide="arrow-right" class="ic ic-sm"></i></a>' +
+        '</div>' +
+
+      '</div></article>';
+  }
+
+  /* ------------------------------------------------------------- drills */
+  var DRILLS = [
+    { id: 'drill-queue',      name: 'Queue mechanics out loud', mins: 12, from: 'Question 4 — the hotspot answer',
+      desc: 'Four hotspot scenarios. For each, say admission control, depth limit, overflow behaviour and what the user sees — in that order, in under ninety seconds.' },
+    { id: 'drill-assumption', name: 'Name your assumption', mins: 8, from: 'Question 3 — sharding by clinic',
+      desc: 'Six design statements. For each, say out loud what it assumes and how you would check it in thirty seconds.' },
+    { id: 'drill-diagnosis',  name: 'Diagnosis before fix', mins: 10, from: 'Question 5 — the EHR timeout',
+      desc: 'Five incident prompts. The first two sentences of every answer must be how you would know, before you are allowed to say what you would do.' }
+  ];
+  var EXTRA_DRILLS = {
+    'drill-mechanism': { id: 'drill-mechanism', name: 'One more sentence', mins: 6, from: 'Coach summary — the highest-value change',
+      desc: 'Ten mechanism nouns. Say each one, then force yourself to add a single sentence: what enforces it, what happens when it is full, what the user sees.' }
+  };
+
+  function drillItem(d) {
+    return '<li class="card card-subtle" id="drill-' + esc(d.id) + '"><div class="card-body">' +
+      '<div class="between" style="margin-bottom:4px">' +
+        '<h3 style="font-size:var(--text-sm)">' + esc(d.name) + '</h3>' +
+        '<span class="badge badge-outline"><i data-lucide="clock" class="ic-sm ic"></i>' + d.mins + ' min</span>' +
+      '</div>' +
+      '<p class="hint" style="line-height:1.55">' + esc(d.desc) + '</p>' +
+      '<div class="cluster" style="margin-top:10px">' +
+        '<span class="badge badge-neutral">From ' + esc(d.from) + '</span>' +
+        '<a class="btn btn-sm btn-soft" href="candidate-goals.html?add=' + esc(d.id) + '&amp;from=ses_7Kq2XA"><i data-lucide="flag" class="ic ic-sm"></i>Add to goals</a>' +
+      '</div>' +
+    '</div></li>';
+  }
+
+  function renderDrills() {
+    var host = document.getElementById('drills-list');
+    if (!host) return;
+    host.innerHTML = DRILLS.map(drillItem).join('');
+    var total = DRILLS.reduce(function (a, d) { return a + d.mins; }, 0);
+    document.getElementById('drills-status').textContent = DRILLS.length + ' drills · about ' + total + ' minutes in total.';
+    Prepeet.init(host);
+  }
+
+  /* ------------------------------------------------------- aside comps */
+  function renderAsideComps() {
+    var host = document.getElementById('aside-comps');
+    if (!host) return;
+    host.innerHTML = SESSION_COMPS.map(function (c) {
+      var ci = '<span class="ci" style="left:' + c.ci[0] + '%;width:' + (c.ci[1] - c.ci[0]) + '%"></span>';
+      return '<div class="comp-row">' +
+        '<div class="comp-name"><a href="' + c.href + '" style="color:inherit">' + esc(c.name) + '</a>' +
+          '<small>' + c.ev + ' evidence span' + (c.ev === 1 ? '' : 's') + ' · ' + Prepeet.bandLabel(c.band) + '</small></div>' +
+        '<div class="comp-bar band-' + c.band + '"><span style="width:' + c.score + '%"></span>' + ci + '</div>' +
+        '<div class="comp-val">' + c.score + '</div>' +
+      '</div>';
+    }).join('');
+    document.getElementById('aside-comp-summary').textContent =
+      'Text summary: from this session alone — technical communication 82 (strong, 3 spans), systems design 76 (solid, 5 spans), ' +
+      'debugging and incident response 71 (solid, 1 span), collaboration and influence 68 (solid, 1 span), ownership and follow-through 61 (developing, 1 span). ' +
+      'Prioritisation under pressure was not touched by any question, so it gained nothing. Brackets show the range the true score is likely to sit in.';
+  }
+
+  /* ----------------------------------------------------------- behaviour */
+  var understood = {};
+  function countUnderstood() {
+    return Object.keys(understood).filter(function (k) { return understood[k] && k.indexOf('d-') === 0; }).length;
+  }
+  function updateUnderstood() {
+    var el = document.getElementById('understood-count');
+    if (el) el.textContent = countUnderstood() + ' of 6 marked as understood';
+  }
+
+  function wire() {
+    document.addEventListener('click', function (e) {
+      var b;
+
+      /* answer toggle label */
+      if ((b = e.target.closest('[data-toggle-target][data-label-open]'))) {
+        var lab = b.querySelector('[data-toggle-label]');
+        var open = b.getAttribute('aria-expanded') === 'true';
+        if (lab) lab.textContent = open ? b.getAttribute('data-label-open') : b.getAttribute('data-label-closed');
+        var chev = b.querySelector('.ic');
+        if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
+      }
+
+      /* redo */
+      if ((b = e.target.closest('[data-redo]'))) {
+        var T = TURNS[Number(b.getAttribute('data-redo')) - 1];
+        document.getElementById('redo-question').textContent = T.q;
+        document.getElementById('redo-focus').textContent = T.focusDesc;
+        document.getElementById('redo-go').setAttribute('href',
+          'candidate-start-interview.html?focus=' + T.focus + '&redo=' + SESSION + '&q=' + T.n + '&minutes=5&persona=per_ravi');
+        Prepeet.openDialog('redo-dialog');
+      }
+
+      /* add to drills */
+      if ((b = e.target.closest('[data-add-drill]'))) {
+        var id = b.getAttribute('data-add-drill');
+        var existing = DRILLS.filter(function (d) { return d.id === id; })[0];
+        if (existing) {
+          Prepeet.toast({ title: 'Already in your drills', desc: existing.name + ' · ' + existing.mins + ' min', kind: 'info' });
+          var node = document.getElementById('drill-' + id);
+          if (node) node.scrollIntoView({ block: 'center' });
+        } else if (EXTRA_DRILLS[id]) {
+          DRILLS.push(EXTRA_DRILLS[id]);
+          renderDrills();
+          Prepeet.toast({ title: 'Added to drills', desc: EXTRA_DRILLS[id].name + ' · ' + EXTRA_DRILLS[id].mins + ' min', kind: 'success' });
+          Prepeet.announce('Added ' + EXTRA_DRILLS[id].name + ' to your drills. ' + DRILLS.length + ' drills now.');
+        }
+      }
+
+      /* mark as understood */
+      if ((b = e.target.closest('[data-understood]'))) {
+        var k = b.getAttribute('data-understood'), qn = b.getAttribute('data-qn');
+        understood[k] = b.getAttribute('aria-pressed') !== 'true';
+        b.setAttribute('aria-pressed', String(understood[k]));
+        var span = b.querySelector('span');
+        if (span) span.textContent = understood[k] ? 'Understood' : 'Mark as understood';
+        b.classList.toggle('btn-soft', understood[k]);
+        b.classList.toggle('btn-ghost', !understood[k]);
+        updateUnderstood();
+        Prepeet.announce('Question ' + qn + (understood[k] ? ' marked as understood. ' : ' unmarked. ') +
+          countUnderstood() + ' of 6 understood.');
+      }
+    });
+  }
+
+  /* --------------------------------------------------------------- states */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) { var b = e.target.closest('[data-state-btn]'); if (b) apply(b.getAttribute('data-state-btn')); });
+    apply(['default', 'processing', 'partial', 'error'].indexOf(cur) >= 0 ? cur : 'default');
+  }
+
+  /* ---------------------------------------------------------- screen guard */
+  function screenGuard() {
+    var isScreen = SESSION === Prepeet.ids.screenSession || Prepeet.getMode() === 'screen';
+    if (!isScreen) return false;
+    var id = SESSION === Prepeet.ids.screenSession ? SESSION : Prepeet.ids.screenSession;
+    document.getElementById('practice-root').remove();          /* removed, not hidden — nothing to leak */
+    ['share-dialog', 'redo-dialog'].forEach(function (d) { var n = document.getElementById(d); if (n) n.remove(); });
+    var g = document.getElementById('screen-guard');
+    g.hidden = false;
+    document.getElementById('guard-id').textContent = id;
+    document.getElementById('guard-route').textContent = '/candidate/session/' + id + '/review';
+    document.getElementById('guard-complete-link').setAttribute('href', 'candidate-session-complete.html?id=' + id + '&mode=screen');
+    document.body.setAttribute('data-title', 'Session');
+    return true;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (screenGuard()) { Prepeet.init(); return; }
+    document.getElementById('screen-guard').remove();   /* keeps exactly one <h1> in the rendered page */
+
+    document.getElementById('route-chip').textContent = '/candidate/session/' + SESSION + '/review';
+    document.querySelectorAll('a[href*="?id=ses_7Kq2XA"]').forEach(function (a) {
+      a.setAttribute('href', a.getAttribute('href').replace('ses_7Kq2XA', SESSION));
+    });
+
+    document.getElementById('turns').innerHTML = TURNS.map(function (T) { return turnCard(T, 'd'); }).join('');
+    document.getElementById('turns-partial').innerHTML = TURNS.slice(0, 2).map(function (T) { return turnCard(T, 'p'); }).join('');
+    renderDrills();
+    renderAsideComps();
+    updateUnderstood();
+    wire();
+    initStates();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

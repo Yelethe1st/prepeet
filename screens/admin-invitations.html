@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invitations · Prepeet</title>
+<meta name="description" content="Every screening invitation Northwind Health System has sent: delivery status, deadlines, reminders and revocation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped only: keep the bulk-select column usable in the stacked mobile table,
+     and let a metric card behave as a filter button. */
+  @media (max-width: 767px) { .table-responsive td.td-check { display: flex; } }
+  .metric-btn { text-align: left; width: 100%; display: block; }
+  .metric-btn[aria-pressed="true"] { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .metric-btn:hover { border-color: var(--border-strong); }
+  .metric-btn .metric-value { transition: color var(--dur-fast); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="invitations" data-title="Invitations" data-crumbs="Hiring>admin-dashboard.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Northwind Health System</p>
+        <h1>Invitations</h1>
+        <p class="page-desc">Screening invitations sent to candidates, with delivery status and deadlines. Prepeet records what the candidate did with the invitation — it does not decide who progresses.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono">/admin/invitations</span>
+          <span class="badge badge-mode screen">Screen mode</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-recruiter.html"><i data-lucide="users-round" class="ic ic-sm"></i>Candidates</a>
+        <a class="btn btn-primary" href="admin-invitation-new.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>New invitation</a>
+      </div>
+    </div>
+
+    <div class="cluster" style="margin-bottom:var(--sp-5)">
+      <span class="hint">Preview state</span>
+      <div class="segmented" role="group" aria-label="Preview screen state">
+        <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+        <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+        <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+        <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ LOADING ═══════════════════════ -->
+    <div data-state="loading" hidden>
+      <div class="metrics-row" style="margin-bottom:var(--sp-5)" aria-hidden="true">
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60px"></div></div></div>
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60px"></div></div></div>
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60px"></div></div></div>
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60px"></div></div></div>
+        <div class="card"><div class="metric"><div class="skeleton skeleton-text w-50"></div><div class="skeleton skeleton-text" style="height:26px;width:60px"></div></div></div>
+      </div>
+      <div class="card"><div class="card-body">
+        <p class="hint" role="status">Loading invitations for Northwind Health System…</p>
+        <div style="margin-top:var(--sp-4)" aria-hidden="true">
+          <div class="skeleton skeleton-text" style="height:18px"></div>
+          <div class="skeleton skeleton-text" style="height:18px"></div>
+          <div class="skeleton skeleton-text w-75" style="height:18px"></div>
+          <div class="skeleton skeleton-text" style="height:18px"></div>
+          <div class="skeleton skeleton-text w-50" style="height:18px"></div>
+          <div class="skeleton skeleton-text" style="height:18px"></div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ═══════════════════════ EMPTY ═══════════════════════ -->
+    <div data-state="empty" hidden>
+      <div class="card"><div class="state">
+        <div class="state-icon"><i data-lucide="mail-plus" class="ic"></i></div>
+        <h2 style="font-size:var(--text-md)">No invitations yet</h2>
+        <p>Nobody has been invited to a screening interview from this workspace. Create an invitation and Prepeet will email the candidate a single-use link with a deadline you set.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="admin-invitation-new.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>Create the first invitation</a>
+          <a class="btn btn-secondary" href="admin-rubrics.html">Set up a rubric first</a>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ═══════════════════════ ERROR ═══════════════════════ -->
+    <div data-state="error" hidden>
+      <div class="card"><div class="state danger" role="alert">
+        <div class="state-icon"><i data-lucide="cloud-off" class="ic"></i></div>
+        <h2 style="font-size:var(--text-md)">We could not load your invitations</h2>
+        <p>The invitation service did not respond in time. Nothing has been sent or cancelled — this is a read failure only. Reference <span class="mono">req_8f31c0</span>.</p>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" data-loading-sim="1100" data-loading-done="Invitations reloaded" data-loading-kind="success"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Try again</button>
+          <a class="btn btn-secondary" href="admin-dashboard.html">Back to overview</a>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ═══════════════════════ DEFAULT ═══════════════════════ -->
+    <div data-state="default">
+
+      <!-- Metric strip -->
+      <section aria-labelledby="metrics-h">
+        <h2 id="metrics-h" class="sr-only">Invitation activity this month</h2>
+        <div class="metrics-row">
+          <button type="button" class="card metric-btn" data-metric="sent" aria-pressed="true">
+            <span class="metric"><span class="metric-label">Sent this month</span><span class="metric-value tnum">54</span><span class="metric-foot">1–23 August</span></span>
+          </button>
+          <button type="button" class="card metric-btn" data-metric="accepted" aria-pressed="false">
+            <span class="metric"><span class="metric-label">Accepted</span><span class="metric-value tnum">38</span><span class="metric-foot">70% of sent</span></span>
+          </button>
+          <button type="button" class="card metric-btn" data-metric="completed" aria-pressed="false">
+            <span class="metric"><span class="metric-label">Completed</span><span class="metric-value tnum">31</span><span class="metric-foot">Interview submitted</span></span>
+          </button>
+          <button type="button" class="card metric-btn" data-metric="expiring" aria-pressed="false">
+            <span class="metric"><span class="metric-label">Expiring in 48 hours</span><span class="metric-value tnum">5</span><span class="metric-foot">Reminder not yet sent</span></span>
+          </button>
+          <button type="button" class="card metric-btn" data-metric="declined" aria-pressed="false">
+            <span class="metric"><span class="metric-label">Declined</span><span class="metric-value tnum">3</span><span class="metric-foot">Candidate opted out</span></span>
+          </button>
+        </div>
+        <p class="hint" style="margin-top:8px">Totals cover all 54 invitations sent between 1 and 23 August. The table below lists the 12 most recent; selecting a metric filters that list.</p>
+      </section>
+
+      <!-- Filters -->
+      <section class="card" style="margin-top:var(--sp-5)" aria-labelledby="filters-h">
+        <div class="card-body">
+          <h2 id="filters-h" class="sr-only">Filter invitations</h2>
+          <form class="filterbar" id="filters" role="search" aria-label="Filter invitations">
+            <div class="input-wrap">
+              <i data-lucide="search" class="ic ic-sm"></i>
+              <label class="sr-only" for="f-q">Search by candidate name or email address</label>
+              <input class="input" id="f-q" name="q" type="search" placeholder="Search name or email…">
+            </div>
+            <div>
+              <label class="sr-only" for="f-role">Role</label>
+              <select class="select" id="f-role" name="role">
+                <option value="">All roles</option>
+                <option value="rn">Registered Nurse — ICU</option>
+                <option value="cne">Clinical Nurse Educator</option>
+                <option value="fin">Financial Analyst — FP&amp;A</option>
+                <option value="pm">Product Manager — Patient Apps</option>
+                <option value="swe">Software Engineer — Integrations</option>
+                <option value="sales">Enterprise Account Executive</option>
+              </select>
+            </div>
+            <div>
+              <label class="sr-only" for="f-status">Status</label>
+              <select class="select" id="f-status" name="status">
+                <option value="">All statuses</option>
+                <option value="sent">Sent</option>
+                <option value="opened">Opened</option>
+                <option value="accepted">Accepted</option>
+                <option value="accepted+">Accepted or later</option>
+                <option value="inprogress">In progress</option>
+                <option value="completed">Completed</option>
+                <option value="expired">Expired</option>
+                <option value="revoked">Revoked</option>
+                <option value="declined">Declined</option>
+                <option value="bounced">Bounced</option>
+              </select>
+            </div>
+            <div class="cluster" style="gap:6px">
+              <label class="hint" for="f-from" style="font-weight:600">Sent from</label>
+              <input class="input input-sm" id="f-from" name="from" type="date" style="width:auto" min="2026-01-01" max="2026-12-31">
+              <label class="hint" for="f-to" style="font-weight:600">to</label>
+              <input class="input input-sm" id="f-to" name="to" type="date" style="width:auto" min="2026-01-01" max="2026-12-31">
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="f-expiring" name="expiring">
+              <span>Expiring soon only</span>
+            </label>
+            <span class="spacer"></span>
+            <button class="btn btn-sm btn-ghost" type="button" id="f-clear"><i data-lucide="x" class="ic ic-sm"></i>Clear filters</button>
+          </form>
+          <div class="filter-chips" id="active-chips" style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <!-- Bulk action bar -->
+      <div class="banner banner-info" id="bulkbar" hidden style="margin-top:var(--sp-4)">
+        <i data-lucide="check-square" class="ic"></i>
+        <div><strong id="bulk-count">0 invitations selected</strong><br>
+          <span style="font-size:var(--text-xs)">Bulk actions apply to every selected invitation and are written to the audit log.</span></div>
+        <div class="banner-actions">
+          <button class="btn btn-sm btn-secondary" type="button" data-bulk="resend"><i data-lucide="send" class="ic ic-sm"></i>Resend reminder</button>
+          <button class="btn btn-sm btn-secondary" type="button" data-bulk="extend"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Extend deadline</button>
+          <button class="btn btn-sm btn-danger-soft" type="button" data-bulk="revoke"><i data-lucide="circle-slash" class="ic ic-sm"></i>Revoke</button>
+          <button class="btn btn-sm btn-ghost" type="button" id="bulk-clear">Clear selection</button>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <section aria-labelledby="results-h" style="margin-top:var(--sp-4)">
+        <div class="section-head">
+          <h2 id="results-h" class="section-title" style="margin:0">Invitation list <span class="count" id="results-count" role="status">12 invitations</span></h2>
+          <a class="link" href="admin-recruiter-calibration.html">Rubric &amp; calibration<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table table-responsive">
+            <caption class="sr-only">Screening invitations, with candidate, role, interview shape, sender, dates, status and actions.</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="td-check">
+                  <label class="check" style="display:inline-flex">
+                    <input type="checkbox" id="sel-all">
+                    <span class="sr-only">Select every invitation on this page</span>
+                  </label>
+                </th>
+                <th scope="col">Candidate</th>
+                <th scope="col">Role</th>
+                <th scope="col">Interview shape</th>
+                <th scope="col">Invited by</th>
+                <th scope="col">Sent</th>
+                <th scope="col">Deadline</th>
+                <th scope="col">Status</th>
+                <th scope="col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div id="no-results" hidden>
+            <div class="state state-compact">
+              <div class="state-icon"><i data-lucide="filter-x" class="ic"></i></div>
+              <h3>No invitations match these filters</h3>
+              <p>Try widening the date range or clearing the status filter. There are 12 invitations in this list in total.</p>
+              <div class="actions"><button class="btn btn-secondary btn-sm" type="button" id="no-results-clear">Clear all filters</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pagination" style="margin-top:var(--sp-4)">
+          <span id="page-summary">Showing 1–8 of 12 invitations</span>
+          <div class="pages">
+            <button class="page" type="button" id="prev-page" aria-label="Previous page"><i data-lucide="chevron-left" class="ic ic-sm"></i></button>
+            <button class="page" type="button" data-page="1" aria-current="page">1</button>
+            <button class="page" type="button" data-page="2">2</button>
+            <button class="page" type="button" id="next-page" aria-label="Next page"><i data-lucide="chevron-right" class="ic ic-sm"></i></button>
+          </div>
+        </div>
+      </section>
+
+      <div class="banner" style="margin-top:var(--sp-6)">
+        <i data-lucide="info" class="ic"></i>
+        <div>
+          <strong>What candidates are told.</strong> Every invitation states who is hiring, that the interview is recorded and transcribed, what the employer receives, and that the candidate will not be shown a score. Reminders repeat the deadline and the withdrawal link.
+          <a href="admin-tenant-settings.html#notifications">Edit the invitation template</a>.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════════════ DIALOGS ═══════════════════════ -->
+<dialog class="dialog" id="dlg-resend" aria-labelledby="dlg-resend-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-resend-h">Resend reminder</h2></div>
+    <div class="dialog-body stack">
+      <p data-target-summary>No invitations selected.</p>
+      <p>The candidate receives the same invitation email again, with the deadline restated. The original link stays valid — no new link is issued.</p>
+      <div class="field">
+        <label class="label" for="resend-note">Add a line to the reminder <span class="optional">optional</span></label>
+        <textarea class="textarea" id="resend-note" rows="3" placeholder="For example: we have extended the window because of the bank holiday."></textarea>
+        <p class="hint">Anything you write here appears above the standard reminder text.</p>
+      </div>
+      <div class="banner banner-warning">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>Reminders are capped at two per invitation so candidates are not chased repeatedly. Invitations that already had two reminders are skipped.</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-confirm="resend"><i data-lucide="send" class="ic ic-sm"></i>Send reminder</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-extend" aria-labelledby="dlg-extend-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-extend-h">Extend deadline</h2></div>
+    <div class="dialog-body stack">
+      <p data-target-summary>No invitations selected.</p>
+      <div class="field">
+        <label class="label" for="extend-date">New deadline</label>
+        <input class="input" id="extend-date" type="date" value="2026-09-06" min="2026-08-24" max="2026-12-31" aria-describedby="extend-hint">
+        <p class="hint" id="extend-hint">Deadlines are enforced at 23:59 in the candidate's own timezone. Extending does not reopen an interview that is already submitted.</p>
+      </div>
+      <label class="check"><input type="checkbox" id="extend-notify" checked><span>Email the candidate to tell them the deadline moved<span class="hint">Recommended. Candidates who already planned around the old date will otherwise not know.</span></span></label>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-confirm="extend"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Extend deadline</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-revoke" aria-labelledby="dlg-revoke-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-revoke-h">Revoke invitation</h2></div>
+    <div class="dialog-body stack">
+      <p data-target-summary>No invitations selected.</p>
+      <div class="banner banner-danger">
+        <i data-lucide="alert-octagon" class="ic"></i>
+        <div><strong>The candidate link stops working immediately.</strong> Anyone part-way through an interview is disconnected and their partial answers are kept but marked incomplete. Where an interview is already complete, revoking removes the candidate's access to the invitation but does not delete the evaluation — that is a separate data-deletion request.</div>
+      </div>
+      <div class="field">
+        <label class="label" for="revoke-reason">Reason</label>
+        <select class="select" id="revoke-reason" required>
+          <option value="">Choose a reason…</option>
+          <option>Role closed or filled</option>
+          <option>Candidate withdrew</option>
+          <option>Invitation sent in error</option>
+          <option>Duplicate invitation</option>
+          <option>Wrong role or rubric attached</option>
+          <option>Requested by the candidate</option>
+        </select>
+        <p class="error-text" id="revoke-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Choose a reason before revoking.</p>
+      </div>
+      <div class="field">
+        <label class="label" for="revoke-note">Note for the audit log <span class="optional">optional</span></label>
+        <textarea class="textarea" id="revoke-note" rows="3" placeholder="Context that a colleague reading the audit log in six months would need."></textarea>
+      </div>
+      <label class="check"><input type="checkbox" id="revoke-notify" checked><span>Tell the candidate the invitation was withdrawn<span class="hint">A short, neutral email. It does not give a reason unless you add one above.</span></span></label>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-danger" type="button" data-confirm="revoke"><i data-lucide="circle-slash" class="ic ic-sm"></i>Revoke</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-fix" aria-labelledby="dlg-fix-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-fix-h">Correct the address and resend</h2></div>
+    <div class="dialog-body stack">
+      <p data-target-summary>No invitation selected.</p>
+      <div class="banner banner-danger">
+        <i data-lucide="mail-x" class="ic"></i>
+        <div id="fix-bounce">The receiving mail server rejected this address permanently.</div>
+      </div>
+      <div class="field">
+        <label class="label" for="fix-email">Corrected email address</label>
+        <input class="input" id="fix-email" type="email" autocomplete="off" aria-describedby="fix-hint">
+        <p class="hint" id="fix-hint">Sending to a corrected address issues a new single-use link. The old link is discarded.</p>
+        <p class="error-text" id="fix-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Enter a valid email address that is different from the one that bounced.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-confirm="fix"><i data-lucide="send" class="ic ic-sm"></i>Correct and resend</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var F = Prepeet.fmt;
+  var TODAY = new Date(2026, 7, 23);          /* 23 August 2026 */
+  var PER_PAGE = 8;
+
+  /* ------------------------------------------------------------- data */
+  var ROWS = [
+    { id: 'inv_QW3F8N', name: 'Emeka Nwosu', email: 'emeka.nwosu@exmaple.com', roleKey: 'swe', role: 'Software Engineer — Integrations', shape: 'Technical deep-dive', mins: 40, by: 'Ade Balogun', sent: '2026-08-21', deadline: '2026-09-04', status: 'bounced', reminders: 0,
+      bounce: 'Hard bounce · mailbox does not exist (SMTP 550 5.1.1) · reported 21 Aug 14:06', suggest: 'emeka.nwosu@example.com' },
+    { id: 'inv_2WN6HF', name: 'Hana Kobayashi', email: 'hana.kobayashi@example.com', roleKey: 'fin', role: 'Financial Analyst — FP&amp;A', shape: 'Case / scenario', mins: 40, by: 'Jonas Brandt', sent: '2026-08-18', deadline: '2026-08-25', status: 'opened', reminders: 1 },
+    { id: 'inv_1ZP7TR', name: 'Ana Lúcia Ferreira', email: 'ana.ferreira@example.com', roleKey: 'sales', role: 'Enterprise Account Executive', shape: 'Recruiter screen', mins: 25, by: 'Jonas Brandt', sent: '2026-08-18', deadline: '2026-08-25', status: 'accepted', reminders: 1 },
+    { id: 'inv_5MC1ZD', name: 'Saoirse Kelleher', email: 'saoirse.kelleher@example.com', roleKey: 'sales', role: 'Enterprise Account Executive', shape: 'Recruiter screen', mins: 25, by: 'Ade Balogun', sent: '2026-08-15', deadline: '2026-08-29', status: 'declined', reminders: 0,
+      note: 'Candidate declined on 16 Aug: accepted another offer.' },
+    { id: 'inv_9RT4XB', name: 'Ifeoma Adeyemi', email: 'ifeoma.adeyemi@example.com', roleKey: 'pm', role: 'Product Manager — Patient Apps', shape: 'Behavioural', mins: 25, by: 'Priya Raman', sent: '2026-08-14', deadline: '2026-08-28', status: 'completed', reminders: 0, evaluation: 'cand_M9P3ZR' },
+    { id: 'inv_7KD2VM', name: 'Tomás Herrera', email: 'tomas.herrera@example.com', roleKey: 'rn', role: 'Registered Nurse — ICU', shape: 'Panel simulation', mins: 40, by: 'Priya Raman', sent: '2026-08-13', deadline: '2026-08-27', status: 'completed', reminders: 0, evaluation: 'cand_L7X2QN' },
+    { id: 'inv_QX72HL', name: 'Amara Osei', email: 'amara.osei@example.com', roleKey: 'rn', role: 'Registered Nurse — ICU', shape: 'Panel simulation', mins: 40, by: 'Priya Raman', sent: '2026-08-12', deadline: '2026-08-26', status: 'completed', reminders: 1, evaluation: 'cand_R4T9MP' },
+    { id: 'inv_3LP8WQ', name: 'Rosalind Achebe', email: 'rosalind.achebe@example.com', roleKey: 'rn', role: 'Registered Nurse — ICU', shape: 'Panel simulation', mins: 40, by: 'Priya Raman', sent: '2026-08-11', deadline: '2026-08-25', status: 'inprogress', reminders: 1,
+      note: 'Started 22 Aug 20:10, disconnected after question 3. Can resume from the same link.' },
+    { id: 'inv_0HK4DJ', name: 'Kwame Boateng', email: 'kwame.boateng@example.com', roleKey: 'pm', role: 'Product Manager — Patient Apps', shape: 'Behavioural', mins: 25, by: 'Priya Raman', sent: '2026-08-11', deadline: '2026-08-25', status: 'sent', reminders: 1 },
+    { id: 'inv_8YJ3KG', name: 'Declan Moore', email: 'declan.moore@example.com', roleKey: 'swe', role: 'Software Engineer — Integrations', shape: 'Technical deep-dive', mins: 40, by: 'Ade Balogun', sent: '2026-08-10', deadline: '2026-08-24', status: 'sent', reminders: 2 },
+    { id: 'inv_6BV5NL', name: 'Marta Nowak', email: 'marta.nowak@example.com', roleKey: 'cne', role: 'Clinical Nurse Educator', shape: 'Behavioural', mins: 25, by: 'Priya Raman', sent: '2026-08-05', deadline: '2026-08-19', status: 'expired', reminders: 2 },
+    { id: 'inv_4QX9CS', name: 'Owen Brightwell', email: 'owen.brightwell@example.com', roleKey: 'fin', role: 'Financial Analyst — FP&amp;A', shape: 'Case / scenario', mins: 40, by: 'Jonas Brandt', sent: '2026-08-04', deadline: '2026-08-18', status: 'revoked', reminders: 1,
+      note: 'Revoked 12 Aug by Jonas Brandt — role closed.' }
+  ];
+
+  var STATUS = {
+    sent:       { label: 'Sent',        badge: 'badge-neutral', icon: 'send' },
+    opened:     { label: 'Opened',      badge: 'badge-info',    icon: 'mail-open' },
+    accepted:   { label: 'Accepted',    badge: 'badge-primary', icon: 'check' },
+    inprogress: { label: 'In progress', badge: 'badge-info',    icon: 'activity' },
+    completed:  { label: 'Completed',   badge: 'badge-success', icon: 'check-circle-2' },
+    expired:    { label: 'Expired',     badge: 'badge-outline', icon: 'timer-off' },
+    revoked:    { label: 'Revoked',     badge: 'badge-neutral', icon: 'circle-slash' },
+    declined:   { label: 'Declined',    badge: 'badge-warning', icon: 'x-circle' },
+    bounced:    { label: 'Bounced',     badge: 'badge-danger',  icon: 'mail-x' }
+  };
+  var OPEN = ['sent', 'opened', 'accepted', 'inprogress'];
+  var ROLE_LABEL = { rn: 'Registered Nurse — ICU', cne: 'Clinical Nurse Educator', fin: 'Financial Analyst — FP&A', pm: 'Product Manager — Patient Apps', swe: 'Software Engineer — Integrations', sales: 'Enterprise Account Executive' };
+
+  var selected = {};
+  var page = 1;
+
+  /* ------------------------------------------------------------ helpers */
+  function esc(s) { return String(s == null ? '' : s).replace(/[<>"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function toDate(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+  function daysTo(iso) { return Math.round((toDate(iso) - TODAY) / 86400000); }
+  function isExpiringSoon(r) { return OPEN.indexOf(r.status) >= 0 && daysTo(r.deadline) >= 0 && daysTo(r.deadline) <= 2; }
+  function initials(n) { return n.split(' ').map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase(); }
+  function link(id) { return 'https://app.prepeet.example/i/' + id; }
+  function plain(s) { return String(s).replace(/&amp;/g, '&'); }
+
+  /* --------------------------------------------------------- filtering */
+  function readFilters() {
+    return {
+      q: (Prepeet.query.get('q', '') || '').toLowerCase(),
+      role: Prepeet.query.get('role', '') || '',
+      status: Prepeet.query.get('status', '') || '',
+      from: Prepeet.query.get('from', '') || '',
+      to: Prepeet.query.get('to', '') || '',
+      expiring: Prepeet.query.get('expiring', '') === '1'
+    };
+  }
+  function matches(r, f) {
+    if (f.q && (r.name + ' ' + r.email).toLowerCase().indexOf(f.q) < 0) return false;
+    if (f.role && r.roleKey !== f.role) return false;
+    if (f.status === 'accepted+') { if (['accepted', 'inprogress', 'completed'].indexOf(r.status) < 0) return false; }
+    else if (f.status && r.status !== f.status) return false;
+    if (f.from && r.sent < f.from) return false;
+    if (f.to && r.sent > f.to) return false;
+    if (f.expiring && !isExpiringSoon(r)) return false;
+    return true;
+  }
+
+  /* ----------------------------------------------------------- rendering */
+  function rowHtml(r) {
+    var sm = STATUS[r.status];
+    var d = daysTo(r.deadline);
+    var soon = isExpiringSoon(r);
+    var deadlineNote = soon
+      ? '<span class="badge badge-warning" style="margin-top:4px"><i data-lucide="alarm-clock" class="ic-sm ic"></i>' + (d <= 0 ? 'Expires today' : 'Expires in ' + d + ' day' + (d === 1 ? '' : 's')) + '</span>'
+      : (r.status === 'expired' ? '<span class="td-sub">Passed ' + Math.abs(d) + ' days ago</span>' : '<span class="td-sub">' + (d >= 0 ? d + ' days left' : 'Closed') + '</span>');
+
+    var sub = '';
+    if (r.status === 'bounced') sub = '<span class="td-sub" style="color:var(--danger-fg)">' + esc(r.bounce) + '</span>';
+    else if (r.note) sub = '<span class="td-sub">' + esc(r.note) + '</span>';
+
+    var canResend = ['sent', 'opened', 'accepted', 'inprogress', 'expired'].indexOf(r.status) >= 0;
+    var canExtend = OPEN.indexOf(r.status) >= 0 || r.status === 'expired';
+    var canRevoke = r.status !== 'revoked';
+
+    var menuId = 'm-' + r.id;
+    var menu = '<div class="menu" id="' + menuId + '" hidden role="menu" style="right:0;top:34px">' +
+      '<a class="menu-item" role="menuitem" href="admin-invitation-detail.html?id=' + r.id + '"><i data-lucide="file-text" class="ic ic-sm"></i>View detail</a>' +
+      '<button class="menu-item" role="menuitem" type="button" data-copy="' + link(r.id) + '"><i data-lucide="link" class="ic ic-sm"></i>Copy candidate link</button>' +
+      '<div class="menu-sep"></div>' +
+      (r.status === 'bounced'
+        ? '<button class="menu-item" role="menuitem" type="button" data-row="' + r.id + '" data-row-action="fix"><i data-lucide="mail-search" class="ic ic-sm"></i>Correct the address and resend</button>'
+        : '<button class="menu-item" role="menuitem" type="button" data-row="' + r.id + '" data-row-action="resend"' + (canResend ? '' : ' disabled') + '><i data-lucide="send" class="ic ic-sm"></i>Resend invitation</button>') +
+      '<button class="menu-item" role="menuitem" type="button" data-row="' + r.id + '" data-row-action="extend"' + (canExtend ? '' : ' disabled') + '><i data-lucide="calendar-plus" class="ic ic-sm"></i>Extend deadline</button>' +
+      '<div class="menu-sep"></div>' +
+      '<button class="menu-item danger" role="menuitem" type="button" data-row="' + r.id + '" data-row-action="revoke"' + (canRevoke ? '' : ' disabled') + '><i data-lucide="circle-slash" class="ic ic-sm"></i>Revoke invitation</button>' +
+      '</div>';
+
+    return '<tr' + (selected[r.id] ? ' class="is-selected"' : '') + '>' +
+      '<td class="td-check" data-label="Select">' +
+        '<label class="check" style="display:inline-flex"><input type="checkbox" data-select="' + r.id + '"' + (selected[r.id] ? ' checked' : '') + '>' +
+        '<span class="sr-only">Select the invitation for ' + esc(r.name) + '</span></label></td>' +
+      '<td class="td-primary" data-label="Candidate">' +
+        '<div class="row" style="gap:10px"><span class="avatar avatar-sm">' + initials(r.name) + '</span>' +
+        '<span><a class="row-link" href="admin-invitation-detail.html?id=' + r.id + '">' + esc(r.name) + '</a>' +
+        '<span class="td-sub mono">' + esc(r.email) + '</span>' +
+        '<span class="td-sub mono">' + r.id + '</span></span></div>' + sub + '</td>' +
+      '<td data-label="Role">' + r.role + '</td>' +
+      '<td data-label="Interview shape">' + esc(r.shape) + '<span class="td-sub">' + r.mins + ' min</span></td>' +
+      '<td data-label="Invited by">' + esc(r.by) + '</td>' +
+      '<td data-label="Sent">' + F.date(r.sent) + '<span class="td-sub">' + (r.reminders ? r.reminders + ' reminder' + (r.reminders === 1 ? '' : 's') + ' sent' : 'No reminders') + '</span></td>' +
+      '<td data-label="Deadline">' + F.date(r.deadline) + deadlineNote + '</td>' +
+      '<td data-label="Status"><span class="badge ' + sm.badge + '"><i data-lucide="' + sm.icon + '" class="ic-sm ic"></i>' + sm.label + '</span></td>' +
+      '<td class="td-actions" data-label="Actions">' +
+        '<span style="position:relative;display:inline-flex;gap:4px;align-items:center">' +
+          (r.status === 'bounced'
+            ? '<button class="btn btn-sm btn-danger-soft" type="button" data-row="' + r.id + '" data-row-action="fix">Correct address</button>'
+            : '<a class="btn btn-sm btn-ghost" href="admin-invitation-detail.html?id=' + r.id + '">View</a>') +
+          '<button class="icon-btn icon-btn-sm" type="button" data-menu="' + menuId + '" aria-haspopup="true" aria-expanded="false" aria-label="More actions for ' + esc(r.name) + '"><i data-lucide="more-horizontal" class="ic ic-sm"></i></button>' +
+          menu +
+        '</span></td>' +
+      '</tr>';
+  }
+
+  function render() {
+    var f = readFilters();
+    var list = ROWS.filter(function (r) { return matches(r, f); });
+    var pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+    if (page > pages) page = pages;
+    var start = (page - 1) * PER_PAGE;
+    var slice = list.slice(start, start + PER_PAGE);
+
+    document.getElementById('rows').innerHTML = slice.map(rowHtml).join('');
+    document.getElementById('no-results').hidden = list.length !== 0;
+    document.getElementById('results-count').textContent = list.length + (list.length === 1 ? ' invitation' : ' invitations') + (list.length !== ROWS.length ? ' of 12' : '');
+    document.getElementById('page-summary').textContent = list.length
+      ? 'Showing ' + (start + 1) + '–' + (start + slice.length) + ' of ' + list.length + ' invitations'
+      : 'No invitations to show';
+
+    /* pagination controls */
+    document.querySelectorAll('[data-page]').forEach(function (b) {
+      var n = Number(b.getAttribute('data-page'));
+      b.hidden = n > pages;
+      if (n === page) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    document.getElementById('prev-page').disabled = page <= 1;
+    document.getElementById('next-page').disabled = page >= pages;
+
+    /* filter chips */
+    var chips = [];
+    if (f.q) chips.push(['q', 'Search: ' + f.q]);
+    if (f.role) chips.push(['role', 'Role: ' + ROLE_LABEL[f.role]]);
+    if (f.status) chips.push(['status', 'Status: ' + (f.status === 'accepted+' ? 'Accepted or later' : STATUS[f.status].label)]);
+    if (f.from) chips.push(['from', 'Sent from ' + F.date(f.from)]);
+    if (f.to) chips.push(['to', 'Sent to ' + F.date(f.to)]);
+    if (f.expiring) chips.push(['expiring', 'Expiring within 48 hours']);
+    document.getElementById('active-chips').innerHTML = chips.map(function (c) {
+      return '<button class="chip is-active" type="button" data-remove-filter="' + c[0] + '">' + esc(c[1]) + '<i data-lucide="x" class="ic x"></i><span class="sr-only">Remove this filter</span></button>';
+    }).join('');
+
+    /* metric pressed state */
+    var active = 'sent';
+    if (f.expiring) active = 'expiring';
+    else if (f.status === 'completed') active = 'completed';
+    else if (f.status === 'accepted+') active = 'accepted';
+    else if (f.status === 'declined') active = 'declined';
+    else if (f.status || f.q || f.role || f.from || f.to) active = '';
+    document.querySelectorAll('[data-metric]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-metric') === active));
+    });
+
+    syncBulk();
+    Prepeet.init();
+  }
+
+  function syncBulk() {
+    var ids = Object.keys(selected).filter(function (k) { return selected[k]; });
+    var bar = document.getElementById('bulkbar');
+    bar.hidden = ids.length === 0;
+    document.getElementById('bulk-count').textContent = ids.length + (ids.length === 1 ? ' invitation selected' : ' invitations selected');
+    var boxes = document.querySelectorAll('[data-select]');
+    var all = boxes.length > 0 && Array.prototype.every.call(boxes, function (b) { return b.checked; });
+    var none = Array.prototype.every.call(boxes, function (b) { return !b.checked; });
+    var sa = document.getElementById('sel-all');
+    sa.checked = all; sa.indeterminate = !all && !none;
+  }
+
+  function targetIds() {
+    var ids = Object.keys(selected).filter(function (k) { return selected[k]; });
+    return ids;
+  }
+  function byId(id) { for (var i = 0; i < ROWS.length; i++) if (ROWS[i].id === id) return ROWS[i]; return null; }
+
+  /* ------------------------------------------------------------ dialogs */
+  var pending = { action: null, ids: [] };
+  function describe(ids) {
+    if (ids.length === 1) { var r = byId(ids[0]); return r.name + ' · ' + plain(r.role) + ' · ' + r.id; }
+    return ids.length + ' invitations across ' + (function () {
+      var s = {}; ids.forEach(function (i) { s[byId(i).roleKey] = 1; }); return Object.keys(s).length;
+    })() + ' role(s)';
+  }
+  function openAction(action, ids) {
+    if (!ids.length) return;
+    pending = { action: action, ids: ids };
+    var map = { resend: 'dlg-resend', extend: 'dlg-extend', revoke: 'dlg-revoke', fix: 'dlg-fix' };
+    var dlg = document.getElementById(map[action]);
+    dlg.querySelectorAll('[data-target-summary]').forEach(function (p) { p.innerHTML = '<strong>Applies to:</strong> ' + esc(describe(ids)); });
+    if (action === 'fix') {
+      var r = byId(ids[0]);
+      document.getElementById('fix-bounce').textContent = r.bounce;
+      document.getElementById('fix-email').value = r.suggest || '';
+      document.getElementById('fix-err').hidden = true;
+    }
+    if (action === 'revoke') { document.getElementById('revoke-reason').value = ''; document.getElementById('revoke-reason-err').hidden = true; }
+    Prepeet.openDialog(dlg);
+  }
+
+  document.addEventListener('click', function (e) {
+    var t;
+
+    /* metric filters */
+    if ((t = e.target.closest('[data-metric]'))) {
+      var m = t.getAttribute('data-metric');
+      var patch = { status: null, expiring: null, page: null };
+      if (m === 'accepted') patch.status = 'accepted+';
+      if (m === 'completed') patch.status = 'completed';
+      if (m === 'declined') patch.status = 'declined';
+      if (m === 'expiring') patch.expiring = '1';
+      Prepeet.query.set(patch, true);
+      page = 1; syncForm(); render();
+      Prepeet.announce('Filtered by ' + t.querySelector('.metric-label').textContent);
+      return;
+    }
+
+    /* remove a filter chip */
+    if ((t = e.target.closest('[data-remove-filter]'))) {
+      var k = t.getAttribute('data-remove-filter'); var o = {}; o[k] = null; o.page = null;
+      Prepeet.query.set(o, true); page = 1; syncForm(); render(); return;
+    }
+
+    /* selection */
+    if (e.target.closest('#bulk-clear')) { selected = {}; render(); Prepeet.announce('Selection cleared.'); return; }
+
+    /* bulk + row actions */
+    if ((t = e.target.closest('[data-bulk]'))) { openAction(t.getAttribute('data-bulk'), targetIds()); return; }
+    if ((t = e.target.closest('[data-row-action]'))) {
+      var m = t.closest('.menu'); if (m) { m.hidden = true; var mb = document.querySelector('[data-menu="' + m.id + '"]'); if (mb) mb.setAttribute('aria-expanded', 'false'); }
+      openAction(t.getAttribute('data-row-action'), [t.getAttribute('data-row')]); return;
+    }
+
+    /* pagination */
+    if ((t = e.target.closest('[data-page]'))) { page = Number(t.getAttribute('data-page')); render(); window.scrollTo(0, 0); return; }
+    if (e.target.closest('#prev-page')) { page = Math.max(1, page - 1); render(); return; }
+    if (e.target.closest('#next-page')) { page = page + 1; render(); return; }
+    if (e.target.closest('#f-clear') || e.target.closest('#no-results-clear')) {
+      Prepeet.query.set({ q: null, role: null, status: null, from: null, to: null, expiring: null, page: null }, true);
+      page = 1; syncForm(); render(); Prepeet.announce('Filters cleared.'); return;
+    }
+
+    /* confirmations */
+    if ((t = e.target.closest('[data-confirm]'))) {
+      var act = t.getAttribute('data-confirm');
+      var ids = pending.ids.slice();
+
+      if (act === 'revoke') {
+        var reason = document.getElementById('revoke-reason');
+        if (!reason.value) { document.getElementById('revoke-reason-err').hidden = false; reason.setAttribute('aria-invalid', 'true'); reason.focus(); return; }
+        reason.setAttribute('aria-invalid', 'false');
+        ids.forEach(function (i) { var r = byId(i); r.status = 'revoked'; r.note = 'Revoked 23 Aug by Priya Raman — ' + reason.value.toLowerCase() + '.'; });
+        Prepeet.toast({ title: ids.length + ' invitation' + (ids.length === 1 ? '' : 's') + ' revoked', desc: 'The candidate link no longer works. Completed evaluations are unaffected.', kind: 'danger' });
+      }
+      if (act === 'resend') {
+        ids.forEach(function (i) { var r = byId(i); r.reminders = Math.min(2, r.reminders + 1); });
+        Prepeet.toast({ title: 'Reminder sent to ' + ids.length + ' candidate' + (ids.length === 1 ? '' : 's'), desc: 'The original link stays valid.', kind: 'success' });
+      }
+      if (act === 'extend') {
+        var nd = document.getElementById('extend-date').value || '2026-09-06';
+        ids.forEach(function (i) { var r = byId(i); r.deadline = nd; if (r.status === 'expired') r.status = 'sent'; });
+        Prepeet.toast({ title: 'Deadline moved to ' + F.date(nd), desc: document.getElementById('extend-notify').checked ? 'Candidates have been emailed.' : 'Candidates were not notified.', kind: 'success' });
+      }
+      if (act === 'fix') {
+        var em = document.getElementById('fix-email');
+        var r0 = byId(ids[0]);
+        if (!em.value || em.value.indexOf('@') < 1 || em.value === r0.email) {
+          document.getElementById('fix-err').hidden = false; em.setAttribute('aria-invalid', 'true'); em.focus(); return;
+        }
+        em.setAttribute('aria-invalid', 'false');
+        r0.email = em.value; r0.status = 'sent'; r0.bounce = null; r0.reminders = 0; r0.sent = '2026-08-23'; r0.note = 'Address corrected and re-sent 23 Aug by Priya Raman.';
+        Prepeet.toast({ title: 'Invitation re-sent to ' + em.value, desc: 'A new single-use link was issued.', kind: 'success' });
+      }
+      selected = {};
+      Prepeet.closeDialog(t.closest('dialog'));
+      render();
+      Prepeet.announce('Action applied to ' + ids.length + ' invitation' + (ids.length === 1 ? '' : 's') + '.');
+      return;
+    }
+  });
+
+  /* selection is handled on change so keyboard and label clicks both work */
+  document.addEventListener('change', function (e) {
+    var t = e.target.closest('[data-select]');
+    if (t) {
+      selected[t.getAttribute('data-select')] = t.checked;
+      var tr = t.closest('tr'); if (tr) tr.classList.toggle('is-selected', t.checked);
+      syncBulk(); return;
+    }
+    if (e.target.closest('#sel-all')) {
+      var on = e.target.checked;
+      document.querySelectorAll('[data-select]').forEach(function (b) {
+        b.checked = on;
+        selected[b.getAttribute('data-select')] = on;
+        var row = b.closest('tr'); if (row) row.classList.toggle('is-selected', on);
+      });
+      syncBulk();
+    }
+  });
+
+  /* ---------------------------------------------------------- filter form */
+  function syncForm() {
+    var f = readFilters();
+    document.getElementById('f-q').value = Prepeet.query.get('q', '') || '';
+    document.getElementById('f-role').value = f.role;
+    document.getElementById('f-status').value = f.status;
+    document.getElementById('f-from').value = f.from;
+    document.getElementById('f-to').value = f.to;
+    document.getElementById('f-expiring').checked = f.expiring;
+  }
+  function pushForm() {
+    Prepeet.query.set({
+      q: document.getElementById('f-q').value || null,
+      role: document.getElementById('f-role').value || null,
+      status: document.getElementById('f-status').value || null,
+      from: document.getElementById('f-from').value || null,
+      to: document.getElementById('f-to').value || null,
+      expiring: document.getElementById('f-expiring').checked ? '1' : null,
+      page: null
+    }, true);
+    page = 1; render();
+  }
+  document.getElementById('filters').addEventListener('submit', function (e) { e.preventDefault(); pushForm(); });
+  ['input', 'change'].forEach(function (ev) {
+    document.getElementById('filters').addEventListener(ev, function (e) {
+      if (e.target.closest('#f-clear')) return;
+      pushForm();
+    });
+  });
+
+  /* ------------------------------------------------------------- states */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) { var b = e.target.closest('[data-state-btn]'); if (b) apply(b.getAttribute('data-state-btn')); });
+    apply(cur);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    syncForm(); render(); initStates(); Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

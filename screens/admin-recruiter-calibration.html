@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rubric calibration · Prepeet</title>
+<meta name="description" content="Configure band anchors, score thresholds, competency weights and evidence rules for each role at Northwind Health System.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* Page-scoped: band preview scale, anchor rows, weight rows, version diff */
+.band-preview { display: flex; height: 36px; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--border); }
+.band-preview .seg { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 0 4px; font-size: var(--text-2xs); font-weight: 700; white-space: nowrap; overflow: hidden; color: #fff; }
+.band-preview .seg-strong { background: var(--score-strong); }
+.band-preview .seg-solid { background: var(--score-solid); }
+.band-preview .seg-developing { background: var(--score-developing); color: #27241F; }
+.band-preview .seg-concern { background: var(--score-concern); }
+.scale-ticks { display: flex; justify-content: space-between; margin-top: 5px; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-3); }
+.anchor-row { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--border-subtle); }
+.anchor-row:first-child { border-top: 0; }
+.anchor-row .anchor-text { font-size: var(--text-sm); line-height: 1.55; color: var(--fg-2); }
+.anchor-row.is-edited { background: var(--warning-soft); border-radius: var(--r-sm); padding-left: 8px; padding-right: 8px; }
+@media (max-width: 700px) { .anchor-row { grid-template-columns: 1fr; } .anchor-row .anchor-act { justify-self: start; } }
+.weight-row { display: grid; grid-template-columns: minmax(130px, 1.1fr) minmax(110px, 2fr) 84px; gap: 12px; align-items: center; padding: 8px 0; }
+.weight-row input[type=range] { width: 100%; accent-color: var(--primary); }
+@media (max-width: 560px) { .weight-row { grid-template-columns: 1fr 84px; } .weight-row input[type=range] { grid-column: 1 / -1; } }
+.diff-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .diff-cols { grid-template-columns: 1fr; } }
+.diff-add { background: var(--success-soft); color: var(--success-fg); border-bottom: 2px solid var(--success); border-radius: 2px; }
+.diff-del { background: var(--danger-soft); color: var(--danger-fg); text-decoration: line-through; border-radius: 2px; }
+.quote-block { margin: 0; padding: 10px 14px; border-left: 3px solid var(--primary); background: var(--primary-soft); border-radius: 0 var(--r-md) var(--r-md) 0; font-size: var(--text-sm); line-height: 1.6; color: var(--fg); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="calibration" data-search="off"
+      data-title="Calibration" data-crumbs="Tenant configuration">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Tenant configuration · Northwind Health System</p>
+        <h1>Rubric calibration</h1>
+        <p class="page-desc">Set the band anchors, thresholds, weights and evidence rules that turn what a candidate said into a competency signal. Changes are staged as a draft until you publish them.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono" id="route-chip">/admin/recruiter/calibration</span>
+          <span class="badge badge-neutral" id="rubric-chip">Clinical panel — ICU</span>
+          <span class="badge badge-primary" id="version-chip">Live v4.2</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-secondary" href="admin-rubrics.html"><i data-lucide="list-checks" class="ic ic-sm"></i>Rubric library</a>
+        <button class="btn btn-secondary" type="button" data-admin-control data-dialog-open="dlg-compare"><i data-lucide="git-compare" class="ic ic-sm"></i>Compare versions</button>
+        <button class="btn btn-primary" type="button" data-admin-control data-dialog-open="dlg-publish"><i data-lucide="upload-cloud" class="ic ic-sm"></i>Publish to live evaluations</button>
+      </div>
+    </div>
+
+    <div class="banner banner-warning" id="readonly-banner" hidden role="status" style="margin-bottom:var(--sp-5)">
+      <i data-lucide="eye" class="ic"></i>
+      <div>
+        <strong>You can view this configuration but not change it.</strong>
+        Editing rubric anchors, thresholds and weights needs the Tenant admin role. You are signed in as a Recruiter.
+      </div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-secondary" href="error-403.html">What this role can do</a>
+        <a class="btn btn-sm btn-ghost" href="admin-members.html">Request access</a>
+      </div>
+    </div>
+
+    <!-- Role selector -->
+    <section class="card" aria-labelledby="role-h" style="margin-bottom:var(--sp-5)">
+      <div class="card-body">
+        <div class="between" style="align-items:flex-end">
+          <div class="field" style="max-width:420px;flex:1">
+            <label class="label" for="role-select" id="role-h">Role being calibrated</label>
+            <select class="select" id="role-select" aria-describedby="role-hint">
+              <option value="rn-icu">Registered Nurse — ICU</option>
+              <option value="cne">Clinical Nurse Educator</option>
+              <option value="fp-a">Financial Analyst — FP&amp;A</option>
+              <option value="pm-patient-apps">Product Manager — Patient Apps</option>
+              <option value="swe-integrations">Software Engineer — Integrations</option>
+              <option value="eae">Enterprise Account Executive</option>
+            </select>
+            <p class="hint" id="role-hint">Each role carries its own anchors, weights and thresholds. The selected role is kept in the URL so you can link a colleague straight to it.</p>
+          </div>
+          <dl class="kv" style="min-width:240px;flex:1;max-width:360px">
+            <dt>Rubric</dt><dd id="meta-rubric">Clinical panel — ICU</dd>
+            <dt>Open roles using it</dt><dd id="meta-openroles">3</dd>
+            <dt>Evaluations on v4.2</dt><dd id="meta-evals">214</dd>
+            <dt>Last published</dt><dd id="meta-published">28 July 2026 by Priya Raman</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid grid-main-aside">
+      <div class="stack-lg">
+
+        <!-- Competency weights -->
+        <section class="card" aria-labelledby="weights-h">
+          <div class="card-header">
+            <div>
+              <h2 id="weights-h">Competency weights</h2>
+              <p class="hint" style="margin-top:3px">How much each competency contributes to the overall score for this role. Weights must add up to 100%.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="weights-list"></div>
+            <hr style="margin:var(--sp-4) 0">
+            <div class="between">
+              <div class="row">
+                <span style="font-size:var(--text-sm);font-weight:650">Running total</span>
+                <span class="badge badge-lg" id="weight-total-badge">100%</span>
+              </div>
+              <button class="btn btn-sm btn-ghost" type="button" data-admin-control id="weights-reset"><i data-lucide="rotate-ccw" class="ic ic-sm"></i>Reset to published</button>
+            </div>
+            <p class="error-text" id="weights-error" role="alert" hidden style="margin-top:8px">
+              <i data-lucide="alert-circle" class="ic-sm ic"></i><span id="weights-error-text"></span>
+            </p>
+          </div>
+        </section>
+
+        <!-- Score thresholds -->
+        <section class="card" aria-labelledby="thresholds-h">
+          <div class="card-header">
+            <div>
+              <h2 id="thresholds-h">Score thresholds</h2>
+              <p class="hint" style="margin-top:3px">Where each band starts on the 0–100 scale. Bands must not overlap and must run downwards.</p>
+            </div>
+          </div>
+          <div class="card-body stack">
+            <div class="grid grid-3">
+              <div class="field">
+                <label class="label" for="th-strong">Strong at or above</label>
+                <input class="input tnum" id="th-strong" type="number" min="1" max="99" step="1" value="80" data-admin-control aria-describedby="th-error">
+              </div>
+              <div class="field">
+                <label class="label" for="th-solid">Solid at or above</label>
+                <input class="input tnum" id="th-solid" type="number" min="1" max="99" step="1" value="65" data-admin-control aria-describedby="th-error">
+              </div>
+              <div class="field">
+                <label class="label" for="th-developing">Developing at or above</label>
+                <input class="input tnum" id="th-developing" type="number" min="1" max="99" step="1" value="50" data-admin-control aria-describedby="th-error">
+              </div>
+            </div>
+            <p class="error-text" id="th-error" role="alert" hidden>
+              <i data-lucide="alert-circle" class="ic-sm ic"></i><span id="th-error-text"></span>
+            </p>
+            <div>
+              <p class="label" style="margin-bottom:6px">Live preview of the band boundaries</p>
+              <div class="band-preview" id="band-preview" role="img" aria-label="Band boundary preview"></div>
+              <div class="scale-ticks"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+              <p class="chart-summary" id="band-summary">Text summary: Needs work 0–49, Developing 50–64, Solid 65–79, Strong 80–100. Anything below the evidence rules is reported as Insufficient evidence instead of a band.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Band anchors -->
+        <section aria-labelledby="anchors-h">
+          <div class="section-head">
+            <div>
+              <h2 id="anchors-h" class="section-title" style="margin:0">Band anchors</h2>
+              <p class="hint">One description per band, per competency. Anchors describe what the answer contained — never what kind of person the candidate is.</p>
+            </div>
+          </div>
+          <div class="accordion" id="anchor-accordion"></div>
+        </section>
+
+        <!-- Evidence sufficiency -->
+        <section class="card" aria-labelledby="evidence-h">
+          <div class="card-header">
+            <div>
+              <h2 id="evidence-h">Evidence sufficiency rules</h2>
+              <p class="hint" style="margin-top:3px">The minimum amount of material an evaluation needs before it is allowed to produce a score.</p>
+            </div>
+          </div>
+          <div class="card-body stack">
+            <div class="table-wrap">
+              <table class="table table-responsive">
+                <caption class="sr-only">Minimum evidence spans required per competency before a score is produced</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Competency</th>
+                    <th scope="col">Minimum evidence spans</th>
+                    <th scope="col">Effect when not met</th>
+                  </tr>
+                </thead>
+                <tbody id="evidence-rows"></tbody>
+              </table>
+            </div>
+            <div class="field" style="max-width:320px">
+              <label class="label" for="min-coverage">Minimum coverage for an overall band</label>
+              <div class="input-group">
+                <input class="input tnum" id="min-coverage" type="number" min="10" max="100" step="1" value="70" data-admin-control aria-describedby="coverage-hint">
+                <span class="btn btn-secondary" aria-hidden="true">%</span>
+              </div>
+              <p class="hint" id="coverage-hint">Coverage is the share of the role's competencies that reached their minimum evidence.</p>
+            </div>
+            <div class="banner banner-info">
+              <i data-lucide="info" class="ic"></i>
+              <div id="evidence-plain">In plain English: a competency with fewer than its minimum number of evidence spans is reported as <strong>Insufficient evidence</strong> rather than given a number, and if fewer than 70% of competencies clear their minimum the evaluation shows no overall band at all — the recruiter sees the transcript and the partial competencies instead.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Calibration check -->
+        <section class="card" aria-labelledby="calcheck-h">
+          <div class="card-header">
+            <div>
+              <h2 id="calcheck-h">Calibration check</h2>
+              <p class="hint" style="margin-top:3px">Four past sessions that a human panel also banded independently. Re-scoring them with the draft rubric shows whether your changes move the rubric closer to the panel or further away.</p>
+            </div>
+            <button class="btn btn-sm btn-primary" type="button" id="run-check" data-admin-control><i data-lucide="play" class="ic ic-sm"></i>Run calibration check</button>
+          </div>
+          <div class="card-body stack">
+            <div class="metrics-row">
+              <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Agreement with panel</span><span class="metric-value tnum" id="agree-value">75%</span><span class="metric-foot" id="agree-foot">3 of 4 reference cases match</span></div></div>
+              <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Reference cases</span><span class="metric-value tnum">4</span><span class="metric-foot">Banded by a three-person panel</span></div></div>
+              <div class="card card-subtle"><div class="metric metric-dense"><span class="metric-label">Last check</span><span class="metric-value" style="font-size:var(--text-md)" id="last-check">28 Jul 2026</span><span class="metric-foot">Against published v4.2</span></div></div>
+            </div>
+
+            <div id="check-progress" hidden>
+              <div class="between" style="margin-bottom:6px">
+                <span style="font-size:var(--text-sm);font-weight:600" id="check-stage">Re-scoring reference case 1 of 4…</span>
+                <span class="hint tnum" id="check-pct">0%</span>
+              </div>
+              <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Calibration re-scoring progress"><span id="check-bar" style="width:0%"></span></div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="table table-responsive">
+                <caption class="sr-only">Reference cases: rubric band compared with the band a human panel assigned</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Candidate</th>
+                    <th scope="col" class="num">Score</th>
+                    <th scope="col">Rubric band</th>
+                    <th scope="col">Panel band</th>
+                    <th scope="col">Match</th>
+                    <th scope="col">Note</th>
+                  </tr>
+                </thead>
+                <tbody id="case-rows"></tbody>
+              </table>
+            </div>
+            <div id="check-result" hidden></div>
+            <p class="hint">A calibration check re-runs the stored evidence through the draft rubric. It does not re-listen to audio and it does not change any candidate's recorded outcome.</p>
+          </div>
+        </section>
+
+        <!-- Version history -->
+        <section class="card" aria-labelledby="history-h">
+          <div class="card-header">
+            <div>
+              <h2 id="history-h">Version history</h2>
+              <p class="hint" style="margin-top:3px">Every published rubric version, who changed it and why.</p>
+            </div>
+            <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-compare"><i data-lucide="git-compare" class="ic ic-sm"></i>Compare versions</button>
+          </div>
+          <div class="card-body">
+            <ol class="timeline" id="version-timeline"></ol>
+          </div>
+        </section>
+
+        <!-- Fairness note -->
+        <section class="card card-subtle" aria-labelledby="fairness-h">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:8px">
+              <i data-lucide="scale" class="ic" style="color:var(--primary)"></i>
+              <h2 id="fairness-h" style="font-size:var(--text-sm)">How to write an anchor</h2>
+            </div>
+            <p class="hint" style="line-height:1.6">
+              Anchors describe <strong>observable behaviours in the answer</strong> — what the candidate said, the specifics they gave, the sequence they described, whether they checked understanding. They must never describe personal traits, attitude, confidence, accent, background or supposed cultural fit. If an anchor cannot be evidenced by quoting the transcript, it is not an anchor: rewrite it until a reviewer could point at the sentence that satisfies it.
+            </p>
+            <p class="hint" style="line-height:1.6;margin-top:10px">
+              Prepeet produces a competency signal from evidence. It does not decide outcomes, and a published rubric does not remove a reviewer's obligation to read the transcript.
+            </p>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Aside -->
+      <aside class="stack sticky-aside" aria-label="Draft and publishing">
+        <div class="card card-accent">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Draft changes</h2><span class="badge badge-warning" id="draft-count">0</span></div>
+          <div class="card-body">
+            <p class="hint" id="draft-empty">No staged changes. Edit an anchor, weight or threshold and it will appear here before you publish.</p>
+            <ul class="stack-sm" id="draft-list" style="font-size:var(--text-sm)"></ul>
+            <div class="cluster" style="margin-top:14px">
+              <button class="btn btn-sm btn-primary" type="button" data-admin-control data-dialog-open="dlg-publish">Publish…</button>
+              <button class="btn btn-sm btn-ghost" type="button" data-admin-control id="discard-draft">Discard draft</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Where this rubric is used</h2></div>
+          <div class="card-body stack-sm">
+            <p class="hint">Publishing changes what future evaluations for these open roles are scored against.</p>
+            <ul class="stack-sm" id="usage-list" style="font-size:var(--text-sm)"></ul>
+            <a class="btn btn-sm btn-secondary btn-block" href="admin-rubrics.html">Open rubric library</a>
+          </div>
+        </div>
+
+        <div class="card card-subtle">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:8px"><i data-lucide="gavel" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Re-review queue</strong></div>
+            <p class="hint" style="line-height:1.55">Two candidates have asked for a re-review this month. Read them before changing anchors — they are the cheapest signal you have about where the rubric is unclear.</p>
+            <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="admin-appeals.html">Open the re-review queue</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+</main>
+
+<!-- ══ Anchor edit drawer ══ -->
+<dialog class="drawer" id="drw-anchor" aria-labelledby="drw-anchor-h">
+  <div class="drawer-panel wide">
+    <div class="drawer-header">
+      <div>
+        <h2 id="drw-anchor-h">Edit anchor</h2>
+        <p class="hint" id="drw-anchor-sub">Registered Nurse — ICU · Clinical reasoning</p>
+      </div>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close anchor editor"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <form class="drawer-body stack" id="anchor-form">
+      <div class="banner banner-info">
+        <i data-lucide="info" class="ic"></i>
+        <div>Describe what the answer contained. A reviewer must be able to point at a sentence in the transcript that satisfies this anchor.</div>
+      </div>
+      <div class="field">
+        <label class="label" for="anchor-band-label">Band</label>
+        <input class="input" id="anchor-band-label" type="text" value="Strong" readonly>
+      </div>
+      <div class="field">
+        <label class="label" for="anchor-textarea">Anchor description</label>
+        <textarea class="textarea" id="anchor-textarea" rows="6" required aria-describedby="anchor-textarea-hint"></textarea>
+        <p class="hint" id="anchor-textarea-hint">Aim for one or two sentences naming the specific things the answer must contain.</p>
+        <p class="error-text" id="anchor-error" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>An anchor description cannot be empty.</p>
+      </div>
+      <div class="field">
+        <label class="label" for="anchor-note">Version note <span class="optional">shown in the history</span></label>
+        <input class="input" id="anchor-note" type="text" placeholder="e.g. Panel asked for the escalation threshold to be explicit">
+      </div>
+    </form>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" type="button" data-drawer-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="anchor-save">Save to draft</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Compare versions dialog ══ -->
+<dialog class="dialog" id="dlg-compare" aria-labelledby="dlg-compare-h">
+  <div class="dialog-panel xl">
+    <div class="dialog-header">
+      <div>
+        <h2 id="dlg-compare-h">Compare rubric versions</h2>
+        <p class="hint">Pick two versions and an anchor to see exactly what the wording changed to.</p>
+      </div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close comparison"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="grid grid-3">
+        <div class="field">
+          <label class="label" for="cmp-a">Version A</label>
+          <select class="select" id="cmp-a"></select>
+        </div>
+        <div class="field">
+          <label class="label" for="cmp-b">Version B</label>
+          <select class="select" id="cmp-b"></select>
+        </div>
+        <div class="field">
+          <label class="label" for="cmp-anchor">Anchor</label>
+          <select class="select" id="cmp-anchor"></select>
+        </div>
+      </div>
+      <div class="cluster">
+        <span class="badge badge-danger"><i data-lucide="minus" class="ic-sm ic"></i>Removed (struck through)</span>
+        <span class="badge badge-success"><i data-lucide="plus" class="ic-sm ic"></i>Added (underlined)</span>
+      </div>
+      <div class="diff-cols">
+        <div class="card card-subtle"><div class="card-body">
+          <p class="eyebrow eyebrow--muted" id="cmp-a-label">Version A</p>
+          <p style="margin-top:8px;font-size:var(--text-sm);line-height:1.6" id="cmp-a-text"></p>
+        </div></div>
+        <div class="card card-subtle"><div class="card-body">
+          <p class="eyebrow eyebrow--muted" id="cmp-b-label">Version B</p>
+          <p style="margin-top:8px;font-size:var(--text-sm);line-height:1.6" id="cmp-b-text"></p>
+        </div></div>
+      </div>
+      <p class="hint" id="cmp-note"></p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Close</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ══ Publish dialog ══ -->
+<dialog class="dialog" id="dlg-publish" aria-labelledby="dlg-publish-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <div><h2 id="dlg-publish-h">Publish to live evaluations</h2></div>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close publish dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <p>You are about to publish <strong id="publish-version">v4.3</strong> of <strong id="publish-rubric">Clinical panel — ICU</strong>.</p>
+      <ul class="stack-sm" style="font-size:var(--text-sm)">
+        <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>Evaluations that start <strong>after</strong> you publish are scored against the new version.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>Interviews already in flight, and evaluations still being produced, finish on <strong>v4.2</strong>. Nothing is re-scored retrospectively.</span></li>
+        <li class="row" style="align-items:flex-start"><i data-lucide="check" class="ic ic-sm" style="color:var(--success);margin-top:3px"></i><span>Every past evaluation keeps a record of the version it was scored with, so a re-review can reproduce it.</span></li>
+      </ul>
+      <div class="field">
+        <label class="label" for="publish-note">What changed <span class="optional">appears in the version history</span></label>
+        <textarea class="textarea" id="publish-note" rows="3" placeholder="e.g. Raised the Solid boundary and rewrote the escalation anchors after the August panel review."></textarea>
+      </div>
+      <div class="banner banner-warning" id="publish-block" hidden>
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div id="publish-block-text"></div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-ghost" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="publish-confirm">Publish version</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var BANDS = ['strong', 'solid', 'developing', 'concern', 'insufficient'];
+
+  /* ------------------------------------------------------------ rubric data */
+  var RUBRICS = {
+    'rn-icu': {
+      name: 'Registered Nurse — ICU', rubric: 'Clinical panel — ICU', version: '4.2',
+      published: '28 July 2026 by Priya Raman', openRoles: 3, evals: 214,
+      thresholds: { strong: 80, solid: 65, developing: 50 }, coverage: 70,
+      usage: ['ICU night rotation — Ward 4 (11 in review)', 'ICU bank pool — autumn intake (6)', 'Critical care rotation programme (2)'],
+      comps: [
+        { id: 'clinical-reasoning', name: 'Clinical reasoning', weight: 30, minSpans: 3,
+          quote: 'Her MAP had drifted from 78 to 62 over about forty minutes and her lactate had gone from 1.9 to 3.4. I was holding sepsis and hypovolaemia open, so I gave the 500 ml bolus and reassessed at ten minutes. When the MAP only came up to 66 I called the registrar, because that told me it was not simply volume.',
+          anchors: {
+            strong: 'Names the specific observations they acted on (trend in MAP, lactate, urine output, respiratory rate), states the differential they were holding open, and says what would have changed their mind. The reasoning is ordered and time-bound.',
+            solid: 'Gives a coherent account of assessing and treating a deteriorating patient with at least two concrete observations, but the differential is implied rather than stated and the reassessment point is vague.',
+            developing: 'Recalls the actions taken — fluids, escalate, recheck — without linking them to the observations that prompted them, so the panel cannot see the reasoning.',
+            concern: 'Describes a protocol in the abstract with no patient, no observations and no sequence, or reaches a conclusion the stated observations do not support.',
+            insufficient: 'Fewer than three answers touched clinical reasoning, or answers were cut short before any patient detail was given.'
+          } },
+        { id: 'patient-safety', name: 'Patient safety', weight: 30, minSpans: 3,
+          quote: 'I found the noradrenaline running at the rate from the previous prescription. I stopped it, checked her obs, told the nurse in charge and completed the incident report within the hour. We changed the double-check so the second nurse now reads the rate off the pump, not off the chart.',
+          anchors: {
+            strong: 'Gives a specific incident, what they did in the moment, how they escalated it, and what changed afterwards — including a check they personally now do differently. Talks about the system as well as the individual.',
+            solid: 'Describes a real safety concern and the immediate action taken; the reporting step or the change that followed is thinner or second-hand.',
+            developing: 'States that safety matters and can name the correct policy, but the example is generic, hypothetical or something they watched somebody else handle.',
+            concern: 'Attributes safety incidents entirely to other people, or describes working around a control rather than raising it.',
+            insufficient: 'No safety example emerged, or the answer was interrupted before an example was given.'
+          } },
+        { id: 'escalation-handover', name: 'Escalation & handover', weight: 22, minSpans: 2,
+          quote: 'Situation: bed four, 61, day two post-laparotomy, now tachypnoeic at 32. Background: no chest history. Assessment: sats 91 on four litres, NEWS 7, up from 3 at 14:00. Recommendation: I need you to see her within fifteen minutes, and the ABG is already sent. If I have not had a call back in ten minutes I go to the on-call consultant.',
+          anchors: {
+            strong: 'Uses a structured handover with the specifics they would actually say, names who they escalate to and at what threshold, and describes what they do when the escalation is not answered.',
+            solid: 'Gives a structured handover carrying the main clinical content, but the escalation threshold or the fallback route is left vague.',
+            developing: 'Can name a handover tool but the worked example is unstructured and omits at least one item the receiving clinician would need.',
+            concern: 'Waits for the situation to become severe before escalating, or defers the judgement entirely to somebody else without stating their own read.',
+            insufficient: 'Escalation or handover came up in fewer than two answers.'
+          } },
+        { id: 'compassionate-communication', name: 'Compassionate communication', weight: 18, minSpans: 2,
+          quote: 'I sat down so we were level and said, "Your dad’s kidneys are not clearing the fluid, and that is why he is confused this morning." Then I stopped and asked her to tell me what she had understood, because I had used the word confused and I wanted to know whether she had heard permanent.',
+          anchors: {
+            strong: 'Reproduces what they said to the patient or family in their own words, checks the other person’s understanding, and adapts when they are distressed or do not speak English as a first language. Stays in the difficult part of the conversation.',
+            solid: 'Describes a clear and kind conversation with a patient or relative, though the actual words used and the check for understanding are less visible.',
+            developing: 'Talks about being caring in general terms without a conversation the panel can picture.',
+            concern: 'Describes communication that is only about task completion, or routinely hands the emotional content of a conversation to somebody else.',
+            insufficient: 'No answer contained a conversation with a patient, relative or colleague.'
+          } }
+      ],
+      cases: [
+        { name: 'Amara Osei', id: 'ses_4Bz9QD', date: '22 Aug 2026', score: 82, panel: 'strong', note: 'Panel and rubric agree; both cite the MAP and lactate answer.' },
+        { name: 'Tomás Herrera', id: 'ses_TH01', date: '22 Aug 2026', score: 74, panel: 'solid', note: 'Agree. Panel said the SBAR handover was the deciding evidence.' },
+        { name: 'Mateusz Zielinski', id: 'ses_MZ01', date: '20 Aug 2026', score: 47, panel: 'developing', note: 'Session ran 11 minutes; coverage 34%. Panel was more generous than the rubric.' },
+        { name: 'Eleni Vasilakis', id: 'ses_EV01', date: '14 Aug 2026', score: 66, panel: 'solid', note: 'Sits two points above the Solid boundary — moves band if you raise it.' }
+      ],
+      versions: [
+        { v: '4.2', date: '28 July 2026', who: 'Priya Raman', what: 'Rewrote the Escalation & handover anchors so the Strong band requires a named escalation threshold and a fallback route.' },
+        { v: '4.1', date: '12 June 2026', who: 'Jonas Brandt', what: 'Raised the Solid boundary from 62 to 65 after the panel found too many borderline advances.' },
+        { v: '4.0', date: '4 May 2026', who: 'Priya Raman', what: 'Split the old Communication competency into Compassionate communication and Escalation & handover.' },
+        { v: '3.3', date: '19 February 2026', who: 'Dr Helen Achebe', what: 'Introduced the minimum-evidence rule of three spans for Clinical reasoning.' }
+      ],
+      snapshots: {
+        '4.1': {
+          'escalation-handover.strong': 'Uses a structured handover such as SBAR and names the person they would escalate to.',
+          'clinical-reasoning.solid': 'Gives a coherent account of assessing and treating a deteriorating patient with at least one concrete observation.'
+        },
+        '4.0': {
+          'escalation-handover.strong': 'Hands over clearly and escalates when the patient is deteriorating.',
+          'clinical-reasoning.solid': 'Describes assessing and treating a deteriorating patient.'
+        },
+        '3.3': {
+          'escalation-handover.strong': 'Communicates well with the wider team about a deteriorating patient.',
+          'clinical-reasoning.solid': 'Describes assessing and treating a deteriorating patient.'
+        }
+      }
+    },
+
+    'cne': {
+      name: 'Clinical Nurse Educator', rubric: 'Clinical panel — education', version: '2.4',
+      published: '9 July 2026 by Dr Helen Achebe', openRoles: 1, evals: 38,
+      thresholds: { strong: 78, solid: 62, developing: 48 }, coverage: 70,
+      usage: ['Clinical Nurse Educator — practice development (4 in review)'],
+      comps: [
+        { id: 'teaching-assessment', name: 'Teaching & assessment', weight: 32, minSpans: 3,
+          quote: 'I taught central line dressing to six band-fives by having each of them talk me through the sterile field before they touched it, then signed off only the four who caught the breach I built into the tray on purpose.',
+          anchors: {
+            strong: 'Describes a session they designed, how they checked that learning actually transferred to practice, and what they did with the learners who did not meet the standard.',
+            solid: 'Describes teaching a real group with a clear method, but the assessment of whether it worked is described loosely.',
+            developing: 'Talks about the content they teach without saying how they know anyone learned it.',
+            concern: 'Equates attendance with competence, or signs off practice they did not observe.',
+            insufficient: 'Fewer than three answers described teaching a real learner or group.'
+          } },
+        { id: 'clinical-currency', name: 'Clinical currency', weight: 23, minSpans: 2,
+          quote: 'I still take a two-shift allocation in HDU every month, which is how I noticed our sepsis screening prompt was being silenced at handover.',
+          anchors: {
+            strong: 'Gives concrete recent clinical practice with dates or frequency and shows how it changed something they teach.',
+            solid: 'Evidences recent clinical practice but does not connect it to their teaching.',
+            developing: 'Refers to clinical experience in the past tense with no recent example.',
+            concern: 'Describes guidance that is out of date, or dismisses the need to stay current.',
+            insufficient: 'Clinical currency was not covered in enough answers to score.'
+          } },
+        { id: 'feedback-delivery', name: 'Feedback delivery', weight: 25, minSpans: 2,
+          quote: 'I said, "You drew up the flush before you cleaned the port — that is the bit I need you to change," then watched the next one rather than leaving it as a comment on a form.',
+          anchors: {
+            strong: 'Reproduces the feedback conversation, separates the behaviour from the person, and describes the follow-up that confirmed the change.',
+            solid: 'Describes giving direct feedback with a real example; the follow-up is less visible.',
+            developing: 'Describes feedback in process terms — forms, meetings, escalation — without the conversation.',
+            concern: 'Avoids the conversation, routes it to a manager by default, or describes feedback aimed at the person rather than the practice.',
+            insufficient: 'No feedback conversation appeared in the answers.'
+          } },
+        { id: 'programme-design', name: 'Programme design', weight: 20, minSpans: 2,
+          quote: 'I rebuilt the preceptorship into six checkpoints tied to the ward rota rather than four study days, because the study days were the sessions people were pulled from.',
+          anchors: {
+            strong: 'Describes a programme they built, the constraint it had to survive (rota, funding, staffing), and the measure they used to judge it.',
+            solid: 'Describes a programme they built with a clear structure, but not the constraints or the measure.',
+            developing: 'Describes running somebody else’s programme without design decisions of their own.',
+            concern: 'Proposes a programme with no regard for rota, staffing or funding reality.',
+            insufficient: 'Programme design was not covered in enough answers to score.'
+          } }
+      ],
+      cases: [
+        { name: 'Grace Mbeki', id: 'ses_GM01', date: '19 Aug 2026', score: 79, panel: 'strong', note: 'Rubric says Solid at 79 against a 78 boundary — panel said Strong.' },
+        { name: 'Ruth Adeyinka', id: 'ses_RA02', date: '11 Aug 2026', score: 71, panel: 'solid', note: 'Agree.' },
+        { name: 'Sean Callaghan', id: 'ses_SC03', date: '4 Aug 2026', score: 58, panel: 'developing', note: 'Agree. Teaching examples were second-hand.' },
+        { name: 'Marta Kowalczyk', id: 'ses_MK04', date: '30 Jul 2026', score: 84, panel: 'strong', note: 'Agree.' }
+      ],
+      versions: [
+        { v: '2.4', date: '9 July 2026', who: 'Dr Helen Achebe', what: 'Lowered the Strong boundary to 78 to match the clinical panel rubric.' },
+        { v: '2.3', date: '2 May 2026', who: 'Priya Raman', what: 'Added the Clinical currency competency at 23%.' },
+        { v: '2.2', date: '14 January 2026', who: 'Dr Helen Achebe', what: 'First version reviewed by the practice development team.' }
+      ],
+      snapshots: { '2.3': { 'feedback-delivery.strong': 'Gives direct feedback and follows it up.' } }
+    },
+
+    'fp-a': {
+      name: 'Financial Analyst — FP&A', rubric: 'Commercial — analytical', version: '3.1',
+      published: '21 June 2026 by Jonas Brandt', openRoles: 2, evals: 96,
+      thresholds: { strong: 80, solid: 65, developing: 50 }, coverage: 65,
+      usage: ['Financial Analyst — FP&A, service lines (9 in review)', 'Senior Analyst — capital planning (3)'],
+      comps: [
+        { id: 'financial-modelling', name: 'Financial modelling', weight: 30, minSpans: 3,
+          quote: 'The driver was theatre sessions per week, not headcount, so I built it off sessions and let staffing fall out of that. It meant the sensitivity we actually cared about was one line, not twelve.',
+          anchors: {
+            strong: 'Names the drivers they modelled and why, describes how the model was checked, and states a limitation of it without being asked.',
+            solid: 'Describes a model they built with its main drivers, but not the checks or the limitations.',
+            developing: 'Describes the output of a model without the structure or the assumptions behind it.',
+            concern: 'Cannot say where the numbers came from, or presents a single point estimate as certain.',
+            insufficient: 'Fewer than three answers contained a model the candidate built or maintained.'
+          } },
+        { id: 'variance-analysis', name: 'Variance analysis', weight: 28, minSpans: 2,
+          quote: 'Pay was 340k over, but 290k of it was agency backfill for the two vacant ODP posts, so the real variance to explain was 50k of overtime creep.',
+          anchors: {
+            strong: 'Decomposes a real variance into its causes with figures, separates timing from run-rate, and says what they recommended.',
+            solid: 'Explains a variance with figures but does not separate timing effects from underlying movement.',
+            developing: 'Reports that a variance occurred without explaining what drove it.',
+            concern: 'Attributes variance to a category rather than a cause, or adjusts the forecast to close the gap.',
+            insufficient: 'Variance analysis came up in fewer than two answers.'
+          } },
+        { id: 'business-partnering', name: 'Business partnering', weight: 24, minSpans: 2,
+          quote: 'The clinical director did not want a model, she wanted to know whether she could keep the Saturday list. I answered that in one sentence and put the model behind it.',
+          anchors: {
+            strong: 'Describes translating analysis for a non-finance decision-maker, what that person needed, and how the recommendation landed.',
+            solid: 'Describes working with a budget holder and giving them a clear answer; the outcome is less visible.',
+            developing: 'Describes sending reports to stakeholders rather than a conversation with one.',
+            concern: 'Frames the business as an obstacle, or describes withholding analysis to win an argument.',
+            insufficient: 'No stakeholder conversation was described.'
+          } },
+        { id: 'controls-awareness', name: 'Controls awareness', weight: 18, minSpans: 2,
+          quote: 'I found I could approve my own journal above the threshold because of how the delegation had been copied. I raised it with the financial controller the same afternoon.',
+          anchors: {
+            strong: 'Gives a real control weakness they identified or respected, what they did about it, and why it mattered.',
+            solid: 'Describes following controls correctly with a real example, but not the reasoning behind them.',
+            developing: 'Can name controls in the abstract without an example.',
+            concern: 'Describes bypassing a control for speed, or treats controls as somebody else’s job.',
+            insufficient: 'Controls did not come up in enough answers to score.'
+          } }
+      ],
+      cases: [
+        { name: 'Chloe Whitfield', id: 'ses_CW01', date: '21 Aug 2026', score: 69, panel: 'solid', note: 'Agree.' },
+        { name: 'Oliver Nakamura', id: 'ses_ON01', date: '19 Aug 2026', score: 55, panel: 'developing', note: 'Agree. Strong on modelling, thin on partnering.' },
+        { name: 'Hannah Brooke', id: 'ses_HB05', date: '12 Aug 2026', score: 81, panel: 'solid', note: 'Rubric says Strong, panel said Solid — the modelling answer used one rehearsed example.' },
+        { name: 'Rajiv Menon', id: 'ses_RM06', date: '5 Aug 2026', score: 73, panel: 'solid', note: 'Agree.' }
+      ],
+      versions: [
+        { v: '3.1', date: '21 June 2026', who: 'Jonas Brandt', what: 'Tightened the Strong anchor for modelling to require a stated limitation.' },
+        { v: '3.0', date: '3 March 2026', who: 'Priya Raman', what: 'Rebuilt from the Commercial template for the provider group structure.' }
+      ],
+      snapshots: { '3.0': { 'financial-modelling.strong': 'Names the drivers they modelled and describes how the model was checked.' } }
+    },
+
+    'pm-patient-apps': {
+      name: 'Product Manager — Patient Apps', rubric: 'Commercial — product', version: '2.0',
+      published: '2 June 2026 by Priya Raman', openRoles: 1, evals: 61,
+      thresholds: { strong: 80, solid: 66, developing: 50 }, coverage: 70,
+      usage: ['Product Manager — Patient Apps (7 in review)'],
+      comps: [
+        { id: 'product-sense', name: 'Product sense', weight: 28, minSpans: 3,
+          quote: 'Patients were not failing to book, they were failing to trust that the booking had worked, so the fix was a confirmation they could show at reception, not a faster form.',
+          anchors: {
+            strong: 'States the user problem in the user’s terms, gives the evidence it was real, and explains why the chosen solution addressed the cause rather than the symptom.',
+            solid: 'Describes a product decision with a plausible rationale, but the evidence behind the problem is asserted rather than shown.',
+            developing: 'Describes what was built without the problem it solved.',
+            concern: 'Justifies a decision only by who asked for it, or describes users in stereotypes.',
+            insufficient: 'Fewer than three answers described a product decision they owned.'
+          } },
+        { id: 'prioritisation', name: 'Prioritisation', weight: 26, minSpans: 2,
+          quote: 'We cut the accessibility audit fixes from the release and I said so on the record, with a date. It was the wrong call and we brought it forward two sprints later.',
+          anchors: {
+            strong: 'Names what they explicitly chose not to do, the cost of that, and how the trade-off was made visible to the people affected.',
+            solid: 'Describes a prioritisation decision with a rationale; the cost of the thing dropped is not discussed.',
+            developing: 'Describes a backlog process rather than a decision.',
+            concern: 'Claims everything shipped, or describes prioritisation as whoever escalated loudest.',
+            insufficient: 'Prioritisation came up in fewer than two answers.'
+          } },
+        { id: 'stakeholder-management', name: 'Stakeholder management', weight: 24, minSpans: 2,
+          quote: 'The clinical safety officer blocked the release. Rather than escalate, I asked what evidence would unblock it, and it turned out to be a hazard log entry we already had.',
+          anchors: {
+            strong: 'Describes a real disagreement, what the other side actually wanted, and how it was resolved without either capitulating or escalating by default.',
+            solid: 'Describes managing a stakeholder relationship well; the disagreement is described but the resolution is thin.',
+            developing: 'Describes informing stakeholders rather than negotiating with them.',
+            concern: 'Describes stakeholders as blockers to be routed around.',
+            insufficient: 'No stakeholder disagreement appeared in the answers.'
+          } },
+        { id: 'data-reasoning', name: 'Data reasoning', weight: 22, minSpans: 2,
+          quote: 'Completion went up nine points, but so did the drop-off before step two, so the population had changed rather than the funnel improving.',
+          anchors: {
+            strong: 'Uses specific numbers, states what would have falsified their conclusion, and distinguishes a measured effect from a story about it.',
+            solid: 'Uses real numbers to support a decision but does not test the interpretation.',
+            developing: 'Refers to data in general terms without figures.',
+            concern: 'Draws a causal conclusion from a single metric movement.',
+            insufficient: 'Data reasoning was not covered in enough answers to score.'
+          } }
+      ],
+      cases: [
+        { name: 'Ifeoma Adeyemi', id: 'ses_IA01', date: '21 Aug 2026', score: 88, panel: 'strong', note: 'Agree.' },
+        { name: 'Priyanka Shah', id: 'ses_PS01', date: '18 Aug 2026', score: 71, panel: 'solid', note: 'Agree, but confidence was low — coverage 58%.' },
+        { name: 'Ben Ortiz', id: 'ses_BO07', date: '9 Aug 2026', score: 64, panel: 'solid', note: 'Rubric says Developing at a 66 boundary; panel said Solid.' },
+        { name: 'Aisha Rahman', id: 'ses_AR08', date: '1 Aug 2026', score: 77, panel: 'solid', note: 'Agree.' }
+      ],
+      versions: [
+        { v: '2.0', date: '2 June 2026', who: 'Priya Raman', what: 'Raised the Solid boundary to 66 and rewrote the data reasoning anchors.' },
+        { v: '1.4', date: '18 March 2026', who: 'Jonas Brandt', what: 'Added Data reasoning as a separate competency.' }
+      ],
+      snapshots: { '1.4': { 'data-reasoning.strong': 'Uses numbers to support decisions.' } }
+    },
+
+    'swe-integrations': {
+      name: 'Software Engineer — Integrations', rubric: 'Technical — integrations', version: '5.0',
+      published: '14 August 2026 by Jonas Brandt', openRoles: 2, evals: 143,
+      thresholds: { strong: 80, solid: 65, developing: 50 }, coverage: 70,
+      usage: ['Software Engineer — Integrations (8 in review)', 'Senior Engineer — HL7/FHIR pipeline (4)'],
+      comps: [
+        { id: 'systems-design', name: 'Systems design', weight: 30, minSpans: 3,
+          quote: 'I would fail closed — reject the booking rather than confirm something the clinical record does not know about. Then queue a repair job and alert.',
+          anchors: {
+            strong: 'Chooses a design, names the trade-off it costs, and describes the failure mode they are most worried about along with what they would do about it.',
+            solid: 'Describes a workable design with its main components and one trade-off, but failure modes are only touched on when prompted.',
+            developing: 'Lists components without the reasoning that connects them.',
+            concern: 'Recites a reference architecture with no relation to the constraints given in the question.',
+            insufficient: 'Fewer than three answers contained a design decision.'
+          } },
+        { id: 'debugging', name: 'Debugging & incident response', weight: 26, minSpans: 2,
+          quote: 'The 3% of messages failing all had the same sending facility, so I stopped looking at our parser and looked at their segment terminator.',
+          anchors: {
+            strong: 'Describes how they narrowed the problem before fixing it, the signal that told them where to look, and what they changed so it would be caught sooner next time.',
+            solid: 'Describes finding and fixing a real problem; the diagnosis is described more briefly than the fix.',
+            developing: 'Describes the fix without how they knew what was wrong.',
+            concern: 'Describes restarting or reverting as the whole method, with no diagnosis.',
+            insufficient: 'No real incident or bug was described in enough detail to score.'
+          } },
+        { id: 'technical-communication', name: 'Technical communication', weight: 24, minSpans: 2,
+          quote: 'I told the trust’s integration lead we had lost eleven messages, which eleven, and that they were replayable — before I told them the cause.',
+          anchors: {
+            strong: 'Explains a technical situation in the terms the listener needed, leads with impact, and is explicit about what is not yet known.',
+            solid: 'Explains technical work clearly, though the framing is engineer-first rather than audience-first.',
+            developing: 'Relies on jargon and internal system names that the listener would not know.',
+            concern: 'Understates or delays bad news, or cannot explain their own work without the diagram.',
+            insufficient: 'Not enough answers involved explaining something to another person.'
+          } },
+        { id: 'collaboration', name: 'Collaboration', weight: 20, minSpans: 2,
+          quote: 'The other team owned the mapping table and disagreed with our change. We ran both versions against a week of real traffic and let the diff decide it.',
+          anchors: {
+            strong: 'Describes a real disagreement with a colleague, what the other person’s reasoning was, and how it was settled on evidence.',
+            solid: 'Describes working well with others on a shared piece of work; the disagreement is smoothed over rather than described.',
+            developing: 'Describes their own contribution with the team as background.',
+            concern: 'Assigns failure to other teams, or describes routing around a colleague rather than talking to them.',
+            insufficient: 'Collaboration came up in fewer than two answers.'
+          } }
+      ],
+      cases: [
+        { name: 'Daniel Okonkwo', id: 'ses_7Kq2XA', date: '21 Aug 2026', score: 74, panel: 'solid', note: 'Agree.' },
+        { name: 'Liam Ferguson', id: 'ses_LF01', date: '17 Aug 2026', score: 68, panel: 'solid', note: 'Agree.' },
+        { name: 'Wei Chen', id: 'ses_WC09', date: '10 Aug 2026', score: 49, panel: 'developing', note: 'One point under the Developing boundary; panel disagreed.' },
+        { name: 'Anna Lindqvist', id: 'ses_AL10', date: '3 Aug 2026', score: 85, panel: 'strong', note: 'Agree.' }
+      ],
+      versions: [
+        { v: '5.0', date: '14 August 2026', who: 'Jonas Brandt', what: 'Rewrote every anchor around observable answer content after the fairness review.' },
+        { v: '4.6', date: '27 May 2026', who: 'Priya Raman', what: 'Reduced Collaboration weight from 25% to 20%.' },
+        { v: '4.5', date: '8 April 2026', who: 'Jonas Brandt', what: 'Added the debugging minimum-evidence rule.' }
+      ],
+      snapshots: {
+        '4.6': { 'systems-design.strong': 'Chooses a sensible design and shows good judgement about trade-offs.' },
+        '4.5': { 'systems-design.strong': 'Shows strong architectural instincts and confidence in their design choices.' }
+      }
+    },
+
+    'eae': {
+      name: 'Enterprise Account Executive', rubric: 'Commercial — enterprise sales', version: '1.6',
+      published: '30 June 2026 by Jonas Brandt', openRoles: 1, evals: 52,
+      thresholds: { strong: 78, solid: 64, developing: 50 }, coverage: 65,
+      usage: ['Enterprise Account Executive — provider accounts (5 in review)'],
+      comps: [
+        { id: 'discovery', name: 'Discovery', weight: 30, minSpans: 3,
+          quote: 'I asked what happened the last time they missed the four-hour target, and the answer told me the buyer was the chief operating officer, not the IT director I had been talking to.',
+          anchors: {
+            strong: 'Reproduces the questions they asked, what the answers changed about their approach, and the thing they found out that the customer had not volunteered.',
+            solid: 'Describes a structured discovery conversation, but what they learned is described more than how they found it out.',
+            developing: 'Describes presenting the product early with discovery as a formality.',
+            concern: 'Describes qualifying purely on budget, or talking past a stated customer problem.',
+            insufficient: 'Fewer than three answers described a real customer conversation.'
+          } },
+        { id: 'commercial-qualification', name: 'Commercial qualification', weight: 25, minSpans: 2,
+          quote: 'There was no budget line until April, so I qualified it as a next-year opportunity and said so on the forecast rather than carrying it.',
+          anchors: {
+            strong: 'States how they tested budget, authority and timing with specifics, and describes a deal they disqualified and why.',
+            solid: 'Describes qualifying a deal with a clear framework; the disqualification example is missing.',
+            developing: 'Describes hope rather than evidence as the basis for progressing a deal.',
+            concern: 'Keeps unqualified deals in the pipeline to protect the number.',
+            insufficient: 'Qualification came up in fewer than two answers.'
+          } },
+        { id: 'objection-handling', name: 'Objection handling', weight: 25, minSpans: 2,
+          quote: 'Their information governance lead said no to cloud hosting. I did not argue — I asked what a yes would need, and it was a data residency clause we already offer.',
+          anchors: {
+            strong: 'Reproduces the objection in the customer’s words, describes what was actually behind it, and shows how it was resolved or accepted honestly.',
+            solid: 'Describes handling an objection competently; the underlying concern is not explored.',
+            developing: 'Answers objections with product features rather than the customer’s reasoning.',
+            concern: 'Overstates what the product does, or dismisses the objection.',
+            insufficient: 'No objection was described in enough detail to score.'
+          } },
+        { id: 'forecast-discipline', name: 'Forecast discipline', weight: 20, minSpans: 2,
+          quote: 'I moved it out of the quarter three weeks before close because the signature authority had changed, and told my manager the day I knew.',
+          anchors: {
+            strong: 'Describes how they forecast, an occasion they were wrong, and what they changed about their own method afterwards.',
+            solid: 'Describes a consistent forecasting method with real examples; no reflection on being wrong.',
+            developing: 'Describes forecasting as a report submitted rather than a judgement made.',
+            concern: 'Describes holding back bad news from a forecast until it was unavoidable.',
+            insufficient: 'Forecasting was not covered in enough answers to score.'
+          } }
+      ],
+      cases: [
+        { name: 'Yusuf Demir', id: 'ses_YD01', date: '18 Aug 2026', score: 77, panel: 'solid', note: 'Agree, one point under the Strong boundary.' },
+        { name: 'Sofia Marchetti', id: 'ses_SM01', date: '20 Aug 2026', score: 63, panel: 'developing', note: 'Agree.' },
+        { name: 'Peter Halvorsen', id: 'ses_PH11', date: '7 Aug 2026', score: 80, panel: 'solid', note: 'Rubric says Strong, panel said Solid — discovery rested on one account.' },
+        { name: 'Nadia Farouk', id: 'ses_NF12', date: '29 Jul 2026', score: 69, panel: 'solid', note: 'Agree.' }
+      ],
+      versions: [
+        { v: '1.6', date: '30 June 2026', who: 'Jonas Brandt', what: 'Added the disqualification requirement to the Strong qualification anchor.' },
+        { v: '1.5', date: '11 April 2026', who: 'Priya Raman', what: 'Lowered the Strong boundary to 78 after the first twenty screenings.' }
+      ],
+      snapshots: { '1.5': { 'commercial-qualification.strong': 'States how they tested budget, authority and timing with specifics.' } }
+    }
+  };
+
+  /* ------------------------------------------------------------------ state */
+  var slug = Prepeet.query.get('role', 'rn-icu');
+  if (!RUBRICS[slug]) slug = 'rn-icu';
+  var R, draft = [], readOnly = false;
+
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function bandClass(b) { return b === 'concern' ? 'band-concern' : 'band-' + b; }
+  function bandLabel(b) { return Prepeet.bandLabel(b); }
+
+  function bandFor(score) {
+    var t = R.thresholds;
+    if (score >= t.strong) return 'strong';
+    if (score >= t.solid) return 'solid';
+    if (score >= t.developing) return 'developing';
+    return 'concern';
+  }
+
+  /* ------------------------------------------------------------ draft ledger */
+  function stage(key, label) {
+    for (var i = 0; i < draft.length; i++) { if (draft[i].key === key) { draft[i].label = label; renderDraft(); return; } }
+    draft.push({ key: key, label: label });
+    renderDraft();
+  }
+  function renderDraft() {
+    var list = document.getElementById('draft-list');
+    var empty = document.getElementById('draft-empty');
+    document.getElementById('draft-count').textContent = String(draft.length);
+    empty.hidden = draft.length > 0;
+    list.innerHTML = draft.map(function (d) {
+      return '<li class="row" style="align-items:flex-start"><i data-lucide="dot" class="ic ic-sm" style="color:var(--warning);margin-top:2px"></i><span>' + esc(d.label) + '</span></li>';
+    }).join('');
+    document.getElementById('version-chip').textContent = draft.length ? 'Draft on v' + R.version : 'Live v' + R.version;
+    document.getElementById('version-chip').className = draft.length ? 'badge badge-warning' : 'badge badge-primary';
+    Prepeet.init(list);
+  }
+
+  /* ------------------------------------------------------------- weights UI */
+  function renderWeights() {
+    var host = document.getElementById('weights-list');
+    host.innerHTML = R.comps.map(function (c) {
+      return '<div class="weight-row">' +
+        '<div><span style="font-size:var(--text-sm);font-weight:600">' + esc(c.name) + '</span></div>' +
+        '<div><label class="sr-only" for="wr-' + c.id + '">' + esc(c.name) + ' weight slider</label>' +
+        '<input type="range" id="wr-' + c.id + '" min="0" max="60" step="1" value="' + c.weight + '" data-weight="' + c.id + '" data-admin-control></div>' +
+        '<div><label class="sr-only" for="wn-' + c.id + '">' + esc(c.name) + ' weight percent</label>' +
+        '<div class="input-group"><input class="input input-sm tnum" id="wn-' + c.id + '" type="number" min="0" max="100" step="1" value="' + c.weight + '" data-weight="' + c.id + '" data-admin-control><span class="btn btn-sm btn-secondary" aria-hidden="true">%</span></div></div>' +
+        '</div>';
+    }).join('');
+    checkWeights();
+  }
+
+  function checkWeights() {
+    var total = R.comps.reduce(function (a, c) { return a + c.weight; }, 0);
+    var badge = document.getElementById('weight-total-badge');
+    var err = document.getElementById('weights-error');
+    badge.textContent = total + '%';
+    badge.className = 'badge badge-lg ' + (total === 100 ? 'badge-success' : 'badge-danger');
+    if (total === 100) { err.hidden = true; }
+    else {
+      err.hidden = false;
+      document.getElementById('weights-error-text').textContent =
+        'Weights total ' + total + '%. They must add up to exactly 100% before this rubric can be published — ' +
+        (total > 100 ? 'remove ' + (total - 100) : 'add ' + (100 - total)) + ' percentage points.';
+    }
+    return total === 100;
+  }
+
+  /* ---------------------------------------------------------- thresholds UI */
+  function readThresholds() {
+    return {
+      strong: Number(document.getElementById('th-strong').value),
+      solid: Number(document.getElementById('th-solid').value),
+      developing: Number(document.getElementById('th-developing').value)
+    };
+  }
+
+  function checkThresholds() {
+    var t = readThresholds();
+    var err = document.getElementById('th-error');
+    var txt = document.getElementById('th-error-text');
+    var ids = ['th-strong', 'th-solid', 'th-developing'];
+    var msg = '';
+    if (!(t.strong > 0 && t.solid > 0 && t.developing > 0)) msg = 'Every boundary needs a number between 1 and 99.';
+    else if (t.solid >= t.strong) msg = 'Solid starts at ' + t.solid + ' but Strong starts at ' + t.strong + '. The Solid boundary must be lower than the Strong boundary, otherwise the two bands overlap.';
+    else if (t.developing >= t.solid) msg = 'Developing starts at ' + t.developing + ' but Solid starts at ' + t.solid + '. The Developing boundary must be lower than the Solid boundary.';
+    else if (t.strong > 99 || t.developing < 1) msg = 'Boundaries must sit between 1 and 99 so that every score falls in exactly one band.';
+    var ok = !msg;
+    err.hidden = ok;
+    if (!ok) txt.textContent = msg;
+    ids.forEach(function (id) { document.getElementById(id).setAttribute('aria-invalid', ok ? 'false' : 'true'); });
+    if (ok) { R.thresholds = t; renderPreview(); renderCases(); }
+    return ok;
+  }
+
+  function renderPreview() {
+    var t = R.thresholds;
+    var host = document.getElementById('band-preview');
+    var segs = [
+      { c: 'seg-concern', w: t.developing, label: 'Needs work 0–' + (t.developing - 1) },
+      { c: 'seg-developing', w: t.solid - t.developing, label: 'Developing ' + t.developing + '–' + (t.solid - 1) },
+      { c: 'seg-solid', w: t.strong - t.solid, label: 'Solid ' + t.solid + '–' + (t.strong - 1) },
+      { c: 'seg-strong', w: 100 - t.strong, label: 'Strong ' + t.strong + '–100' }
+    ];
+    host.innerHTML = segs.map(function (s) {
+      return '<span class="seg ' + s.c + '" style="flex:' + s.w + ' 0 0" title="' + esc(s.label) + '">' + esc(s.label) + '</span>';
+    }).join('');
+    host.setAttribute('aria-label', 'Band boundaries: ' + segs.map(function (s) { return s.label; }).join(', '));
+    document.getElementById('band-summary').textContent =
+      'Text summary: Needs work 0–' + (t.developing - 1) + ', Developing ' + t.developing + '–' + (t.solid - 1) +
+      ', Solid ' + t.solid + '–' + (t.strong - 1) + ', Strong ' + t.strong + '–100. Anything that fails the evidence rules is reported as Insufficient evidence instead of a band.';
+  }
+
+  /* -------------------------------------------------------------- anchors UI */
+  function renderAnchors() {
+    var host = document.getElementById('anchor-accordion');
+    host.innerHTML = R.comps.map(function (c, i) {
+      var rows = BANDS.map(function (b) {
+        return '<div class="anchor-row" data-anchor-row="' + c.id + '.' + b + '">' +
+          '<div><span class="band ' + bandClass(b) + '">' + bandLabel(b) + '</span></div>' +
+          '<div class="anchor-text" data-anchor-text>' + esc(c.anchors[b]) + '</div>' +
+          '<div class="anchor-act"><button class="btn btn-sm btn-ghost" type="button" data-admin-control data-edit-anchor="' + c.id + '" data-edit-band="' + b + '">' +
+          '<i data-lucide="pencil" class="ic ic-sm"></i>Edit<span class="sr-only"> the ' + bandLabel(b) + ' anchor for ' + esc(c.name) + '</span></button></div>' +
+          '</div>';
+      }).join('');
+      return '<div class="accordion-item">' +
+        '<h3><button class="accordion-trigger" type="button" aria-expanded="' + (i === 0 ? 'true' : 'false') + '" aria-controls="acc-' + c.id + '">' +
+          '<span class="row"><span>' + esc(c.name) + '</span><span class="badge badge-outline tnum">' + c.weight + '%</span></span>' +
+          '<i data-lucide="chevron-down" class="ic"></i></button></h3>' +
+        '<div class="accordion-panel" id="acc-' + c.id + '">' +
+          rows +
+          '<div style="margin-top:16px">' +
+            '<div class="between" style="margin-bottom:6px">' +
+              '<h4 style="font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3)">What a Strong answer sounds like</h4>' +
+              '<button class="btn btn-sm btn-ghost" type="button" data-admin-control data-edit-anchor="' + c.id + '" data-edit-band="quote"><i data-lucide="pencil" class="ic ic-sm"></i>Edit example<span class="sr-only"> for ' + esc(c.name) + '</span></button>' +
+            '</div>' +
+            '<blockquote class="quote-block" data-quote="' + c.id + '">' + esc(c.quote) + '</blockquote>' +
+            '<p class="hint" style="margin-top:8px">Taken from a real screening with the candidate’s consent and identifying detail removed. Examples are illustrative — a different answer that meets the anchor scores the same.</p>' +
+          '</div>' +
+        '</div></div>';
+    }).join('');
+    Prepeet.init(host);
+  }
+
+  /* ------------------------------------------------------------- evidence UI */
+  function renderEvidence() {
+    var host = document.getElementById('evidence-rows');
+    host.innerHTML = R.comps.map(function (c) {
+      return '<tr>' +
+        '<td data-label="Competency" class="td-primary">' + esc(c.name) + '</td>' +
+        '<td data-label="Minimum evidence spans"><label class="sr-only" for="ev-' + c.id + '">Minimum evidence spans for ' + esc(c.name) + '</label>' +
+          '<input class="input input-sm tnum" style="max-width:88px" id="ev-' + c.id + '" type="number" min="1" max="8" step="1" value="' + c.minSpans + '" data-minspans="' + c.id + '" data-admin-control></td>' +
+        '<td data-label="Effect when not met">Reported as <span class="band band-insufficient">Insufficient evidence</span>, and this competency is excluded from the overall score.</td>' +
+        '</tr>';
+    }).join('');
+    renderEvidencePlain();
+    Prepeet.init(host);
+  }
+
+  function renderEvidencePlain() {
+    var cov = Number(document.getElementById('min-coverage').value) || 0;
+    var need = Math.ceil(R.comps.length * cov / 100);
+    document.getElementById('evidence-plain').innerHTML =
+      'In plain English: a competency with fewer evidence spans than its minimum is reported as <strong>Insufficient evidence</strong> rather than given a number. ' +
+      'With coverage set to ' + cov + '%, at least <strong>' + need + ' of ' + R.comps.length + '</strong> competencies must clear their minimum before an overall band is produced. ' +
+      'Below that, the recruiter sees the transcript and whichever competencies did clear — never a number that looks more certain than the evidence behind it.';
+  }
+
+  /* --------------------------------------------------------- calibration UI */
+  function renderCases() {
+    var host = document.getElementById('case-rows');
+    if (!host) return;
+    var agree = 0;
+    host.innerHTML = R.cases.map(function (c) {
+      var rb = bandFor(c.score);
+      var match = rb === c.panel;
+      if (match) agree++;
+      return '<tr>' +
+        '<td data-label="Candidate" class="td-primary"><a class="row-link" href="admin-recruiter-detail.html?id=' + esc(c.id) + '">' + esc(c.name) + '</a><span class="td-sub mono">' + esc(c.id) + ' · ' + esc(c.date) + '</span></td>' +
+        '<td data-label="Score" class="num tnum">' + c.score + '</td>' +
+        '<td data-label="Rubric band"><span class="band ' + bandClass(rb) + '">' + bandLabel(rb) + '</span></td>' +
+        '<td data-label="Panel band"><span class="band ' + bandClass(c.panel) + '">' + bandLabel(c.panel) + '</span></td>' +
+        '<td data-label="Match">' + (match
+          ? '<span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Match</span>'
+          : '<span class="badge badge-danger"><i data-lucide="x" class="ic-sm ic"></i>Differs</span>') + '</td>' +
+        '<td data-label="Note"><span class="hint">' + esc(c.note) + '</span></td>' +
+        '</tr>';
+    }).join('');
+    var pct = Math.round(agree / R.cases.length * 100);
+    document.getElementById('agree-value').textContent = pct + '%';
+    document.getElementById('agree-foot').textContent = agree + ' of ' + R.cases.length + ' reference cases match';
+    Prepeet.init(host);
+    return pct;
+  }
+
+  function runCheck() {
+    var wrap = document.getElementById('check-progress');
+    var bar = document.getElementById('check-bar');
+    var pctEl = document.getElementById('check-pct');
+    var stageEl = document.getElementById('check-stage');
+    var result = document.getElementById('check-result');
+    var btn = document.getElementById('run-check');
+    result.hidden = true;
+    wrap.hidden = false;
+    btn.disabled = true;
+    var step = 0, total = R.cases.length;
+    Prepeet.announce('Calibration check started.');
+    var timer = setInterval(function () {
+      step++;
+      var pct = Math.round(step / total * 100);
+      bar.style.width = pct + '%';
+      pctEl.textContent = pct + '%';
+      wrap.querySelector('.progress').setAttribute('aria-valuenow', String(pct));
+      stageEl.textContent = step < total ? 'Re-scoring reference case ' + (step + 1) + ' of ' + total + '…' : 'Comparing with panel bands…';
+      if (step >= total) {
+        clearInterval(timer);
+        setTimeout(function () {
+          wrap.hidden = true;
+          bar.style.width = '0%';
+          btn.disabled = false;
+          var agreePct = renderCases();
+          var diffs = R.cases.filter(function (c) { return bandFor(c.score) !== c.panel; });
+          result.hidden = false;
+          result.innerHTML = '<div class="banner ' + (agreePct >= 75 ? 'banner-success' : 'banner-warning') + '">' +
+            '<i data-lucide="' + (agreePct >= 75 ? 'check-circle-2' : 'alert-triangle') + '" class="ic"></i>' +
+            '<div><strong>Calibration check complete — ' + agreePct + '% agreement.</strong> ' +
+            (diffs.length
+              ? 'The draft rubric bands ' + diffs.length + ' of ' + R.cases.length + ' reference cases differently from the panel: ' +
+                diffs.map(function (d) { return esc(d.name) + ' (rubric ' + bandLabel(bandFor(d.score)) + ', panel ' + bandLabel(d.panel) + ')'; }).join('; ') + '. ' +
+                'Four cases is a small sample — treat this as a prompt to reread those transcripts, not as proof the rubric is wrong.'
+              : 'The draft rubric matches the panel on every reference case. Four cases is a small sample, so keep adding reference cases as panels run.') +
+            '</div></div>';
+          document.getElementById('last-check').textContent = '23 Aug 2026';
+          Prepeet.init(result);
+          Prepeet.toast({ title: 'Calibration check complete', desc: agreePct + '% agreement across ' + R.cases.length + ' reference cases.', kind: agreePct >= 75 ? 'success' : 'warning' });
+          Prepeet.announce('Calibration check complete. ' + agreePct + ' percent agreement.');
+        }, 500);
+      }
+    }, 550);
+  }
+
+  /* ---------------------------------------------------------- version history */
+  function renderVersions() {
+    var host = document.getElementById('version-timeline');
+    host.innerHTML = R.versions.map(function (v, i) {
+      return '<li class="tl-item ' + (i === 0 ? 'active' : 'done') + '">' +
+        '<div class="tl-title">v' + esc(v.v) + (i === 0 ? ' <span class="badge badge-primary">Live</span>' : '') + '</div>' +
+        '<div class="tl-meta">' + esc(v.date) + ' · ' + esc(v.who) + '</div>' +
+        '<div class="tl-body">' + esc(v.what) + '</div>' +
+        '</li>';
+    }).join('');
+    Prepeet.init(host);
+  }
+
+  /* ------------------------------------------------------------- comparison */
+  function textAt(version, compId, band) {
+    var snap = R.snapshots && R.snapshots[version];
+    var key = compId + '.' + band;
+    if (snap && snap[key]) return snap[key];
+    var comp = R.comps.filter(function (c) { return c.id === compId; })[0];
+    return comp ? comp.anchors[band] : '';
+  }
+
+  function tokenSet(s) {
+    var o = {};
+    s.toLowerCase().replace(/[^a-z0-9’' ]/g, ' ').split(/\s+/).forEach(function (w) { if (w) o[w] = 1; });
+    return o;
+  }
+  function markup(text, otherSet, cls) {
+    return text.split(/(\s+)/).map(function (tok) {
+      if (!tok.trim()) return tok;
+      var bare = tok.toLowerCase().replace(/[^a-z0-9’']/g, '');
+      if (bare && !otherSet[bare]) return '<span class="' + cls + '">' + esc(tok) + '</span>';
+      return esc(tok);
+    }).join('');
+  }
+
+  function renderCompare() {
+    var a = document.getElementById('cmp-a').value;
+    var b = document.getElementById('cmp-b').value;
+    var key = document.getElementById('cmp-anchor').value.split('.');
+    var ta = textAt(a, key[0], key[1]);
+    var tb = textAt(b, key[0], key[1]);
+    document.getElementById('cmp-a-label').textContent = 'Version ' + a;
+    document.getElementById('cmp-b-label').textContent = 'Version ' + b;
+    document.getElementById('cmp-a-text').innerHTML = markup(ta, tokenSet(tb), 'diff-del');
+    document.getElementById('cmp-b-text').innerHTML = markup(tb, tokenSet(ta), 'diff-add');
+    document.getElementById('cmp-note').textContent = ta === tb
+      ? 'These two versions have identical wording for this anchor.'
+      : 'Words struck through on the left were dropped; words underlined on the right were added.';
+  }
+
+  function fillCompare() {
+    var versions = R.versions.map(function (v) { return v.v; });
+    var opts = versions.map(function (v) { return '<option value="' + v + '">v' + v + '</option>'; }).join('');
+    var a = document.getElementById('cmp-a'), b = document.getElementById('cmp-b');
+    a.innerHTML = opts; b.innerHTML = opts;
+    a.value = versions[Math.min(1, versions.length - 1)];
+    b.value = versions[0];
+    var anchorOpts = [];
+    R.comps.forEach(function (c) {
+      BANDS.forEach(function (bd) { anchorOpts.push('<option value="' + c.id + '.' + bd + '">' + esc(c.name) + ' · ' + bandLabel(bd) + '</option>'); });
+    });
+    document.getElementById('cmp-anchor').innerHTML = anchorOpts.join('');
+    renderCompare();
+  }
+
+  /* ------------------------------------------------------------------ usage */
+  function renderUsage() {
+    document.getElementById('usage-list').innerHTML = R.usage.map(function (u) {
+      return '<li class="row" style="align-items:flex-start"><i data-lucide="briefcase" class="ic ic-sm" style="color:var(--fg-3);margin-top:3px"></i><a href="admin-recruiter.html">' + esc(u) + '</a></li>';
+    }).join('');
+    Prepeet.init(document.getElementById('usage-list'));
+  }
+
+  /* ------------------------------------------------------------ anchor drawer */
+  var editing = { comp: null, band: null };
+  function openAnchorEditor(compId, band) {
+    var comp = R.comps.filter(function (c) { return c.id === compId; })[0];
+    editing = { comp: compId, band: band };
+    document.getElementById('drw-anchor-h').textContent = band === 'quote' ? 'Edit the Strong example' : 'Edit the ' + bandLabel(band) + ' anchor';
+    document.getElementById('drw-anchor-sub').textContent = R.name + ' · ' + comp.name;
+    document.getElementById('anchor-band-label').value = band === 'quote' ? 'Strong — example answer' : bandLabel(band);
+    document.getElementById('anchor-textarea').value = band === 'quote' ? comp.quote : comp.anchors[band];
+    document.getElementById('anchor-note').value = '';
+    document.getElementById('anchor-error').hidden = true;
+    Prepeet.openDialog('drw-anchor');
+  }
+
+  function saveAnchor() {
+    var ta = document.getElementById('anchor-textarea');
+    var val = ta.value.trim();
+    if (!val) { document.getElementById('anchor-error').hidden = false; ta.setAttribute('aria-invalid', 'true'); ta.focus(); return; }
+    ta.setAttribute('aria-invalid', 'false');
+    var comp = R.comps.filter(function (c) { return c.id === editing.comp; })[0];
+    var note = document.getElementById('anchor-note').value.trim();
+    if (editing.band === 'quote') {
+      comp.quote = val;
+      var q = document.querySelector('[data-quote="' + editing.comp + '"]');
+      if (q) q.textContent = val;
+      stage(editing.comp + '.quote', comp.name + ' — Strong example rewritten' + (note ? ' (' + note + ')' : ''));
+    } else {
+      comp.anchors[editing.band] = val;
+      var row = document.querySelector('[data-anchor-row="' + editing.comp + '.' + editing.band + '"]');
+      if (row) { row.querySelector('[data-anchor-text]').textContent = val; row.classList.add('is-edited'); }
+      stage(editing.comp + '.' + editing.band, comp.name + ' — ' + bandLabel(editing.band) + ' anchor rewritten' + (note ? ' (' + note + ')' : ''));
+    }
+    Prepeet.closeDialog('drw-anchor');
+    Prepeet.toast({ title: 'Anchor saved to draft', desc: 'Nothing changes for live evaluations until you publish.', kind: 'success' });
+  }
+
+  /* ----------------------------------------------------------------- publish */
+  function preflight() {
+    var problems = [];
+    if (!checkWeights()) problems.push('competency weights do not total 100%');
+    if (!checkThresholds()) problems.push('score thresholds overlap or run the wrong way');
+    if (!draft.length) problems.push('there are no staged changes to publish');
+    return problems;
+  }
+
+  function nextVersion() {
+    var parts = R.version.split('.');
+    return parts[0] + '.' + (Number(parts[1]) + 1);
+  }
+
+  function wirePublish() {
+    document.getElementById('dlg-publish').addEventListener('close', function () {});
+    document.addEventListener('prepeet:dialog-open', function (e) {
+      if (e.detail.id !== 'dlg-publish') return;
+      var problems = preflight();
+      var block = document.getElementById('publish-block');
+      document.getElementById('publish-version').textContent = 'v' + nextVersion();
+      document.getElementById('publish-rubric').textContent = R.rubric;
+      if (problems.length) {
+        block.hidden = false;
+        document.getElementById('publish-block-text').innerHTML = '<strong>Cannot publish yet.</strong> ' +
+          problems.join('; ').replace(/^./, function (m) { return m.toUpperCase(); }) + '.';
+        document.getElementById('publish-confirm').disabled = true;
+      } else {
+        block.hidden = true;
+        document.getElementById('publish-confirm').disabled = false;
+      }
+      Prepeet.init(block);
+    });
+
+    document.getElementById('publish-confirm').addEventListener('click', function () {
+      var note = document.getElementById('publish-note').value.trim() ||
+        draft.map(function (d) { return d.label; }).join('; ');
+      var v = nextVersion();
+      R.versions.unshift({ v: v, date: '23 August 2026', who: Prepeet.data.adminUser.name, what: note });
+      R.version = v;
+      draft = [];
+      renderDraft(); renderVersions(); fillCompare();
+      document.getElementById('meta-published').textContent = '23 August 2026 by ' + Prepeet.data.adminUser.name;
+      document.getElementById('meta-evals').textContent = '0';
+      document.querySelectorAll('.anchor-row.is-edited').forEach(function (r) { r.classList.remove('is-edited'); });
+      Prepeet.closeDialog('dlg-publish');
+      Prepeet.toast({ title: 'Published v' + v, desc: 'New evaluations for ' + R.name + ' now use v' + v + '. In-flight evaluations finish on the previous version.', kind: 'success' });
+      Prepeet.announce('Rubric version ' + v + ' published.');
+    });
+  }
+
+  /* -------------------------------------------------------------- read-only */
+  function applyReadOnly() {
+    readOnly = !Prepeet.can('tenant_admin');
+    document.getElementById('readonly-banner').hidden = !readOnly;
+    if (!readOnly) return;
+    document.querySelectorAll('[data-admin-control]').forEach(function (el) {
+      if ('disabled' in el && el.tagName !== 'A') el.disabled = true;
+      el.setAttribute('aria-disabled', 'true');
+    });
+  }
+
+  /* ---------------------------------------------------------------- load role */
+  function load(next) {
+    slug = next;
+    R = clone(RUBRICS[slug]);
+    draft = [];
+    document.getElementById('role-select').value = slug;
+    document.getElementById('route-chip').textContent = '/admin/recruiter/calibration?role=' + slug;
+    document.getElementById('rubric-chip').textContent = R.rubric;
+    document.getElementById('meta-rubric').textContent = R.rubric;
+    document.getElementById('meta-openroles').textContent = String(R.openRoles);
+    document.getElementById('meta-evals').textContent = String(R.evals);
+    document.getElementById('meta-published').textContent = R.published;
+    document.getElementById('th-strong').value = R.thresholds.strong;
+    document.getElementById('th-solid').value = R.thresholds.solid;
+    document.getElementById('th-developing').value = R.thresholds.developing;
+    document.getElementById('min-coverage').value = R.coverage;
+    document.getElementById('check-result').hidden = true;
+    document.getElementById('last-check').textContent = R.published.split(' by ')[0].replace(/(\d+) (\w{3})\w* (\d{4})/, '$1 $2 $3');
+    renderWeights(); renderPreview(); renderAnchors(); renderEvidence(); renderCases(); renderVersions(); renderUsage(); renderDraft(); fillCompare();
+    applyReadOnly();
+    Prepeet.init();
+  }
+
+  /* ------------------------------------------------------------------- wiring */
+  document.addEventListener('DOMContentLoaded', function () {
+    load(slug);
+    wirePublish();
+
+    document.getElementById('role-select').addEventListener('change', function () {
+      Prepeet.query.set({ role: this.value }, true);
+      load(this.value);
+      Prepeet.announce('Now calibrating ' + RUBRICS[this.value].name + '.');
+    });
+
+    document.addEventListener('input', function (e) {
+      var t = e.target;
+      if (t.hasAttribute && t.hasAttribute('data-weight')) {
+        var id = t.getAttribute('data-weight');
+        var val = Math.max(0, Math.min(100, Number(t.value) || 0));
+        var comp = R.comps.filter(function (c) { return c.id === id; })[0];
+        comp.weight = val;
+        var range = document.getElementById('wr-' + id), num = document.getElementById('wn-' + id);
+        if (range !== t) range.value = val;
+        if (num !== t) num.value = val;
+        var chip = document.querySelector('#acc-' + id);
+        var trig = document.querySelector('[aria-controls="acc-' + id + '"] .badge');
+        if (trig) trig.textContent = val + '%';
+        checkWeights();
+        stage('weight.' + id, comp.name + ' weight set to ' + val + '%');
+      }
+      if (t.id === 'th-strong' || t.id === 'th-solid' || t.id === 'th-developing') {
+        if (checkThresholds()) stage('thresholds', 'Thresholds set to Strong ' + R.thresholds.strong + ', Solid ' + R.thresholds.solid + ', Developing ' + R.thresholds.developing);
+      }
+      if (t.id === 'min-coverage') { renderEvidencePlain(); stage('coverage', 'Minimum coverage set to ' + t.value + '%'); }
+      if (t.hasAttribute && t.hasAttribute('data-minspans')) {
+        var cid = t.getAttribute('data-minspans');
+        var c2 = R.comps.filter(function (c) { return c.id === cid; })[0];
+        c2.minSpans = Number(t.value) || 1;
+        renderEvidencePlain();
+        stage('minspans.' + cid, c2.name + ' needs ' + c2.minSpans + ' evidence spans before it is scored');
+      }
+    });
+
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-edit-anchor]');
+      if (b && !readOnly) { openAnchorEditor(b.getAttribute('data-edit-anchor'), b.getAttribute('data-edit-band')); return; }
+      if (e.target.closest('#anchor-save')) { saveAnchor(); return; }
+      if (e.target.closest('#run-check')) { runCheck(); return; }
+      if (e.target.closest('#weights-reset')) {
+        R.comps.forEach(function (c, i) { c.weight = RUBRICS[slug].comps[i].weight; });
+        renderWeights(); renderAnchors();
+        draft = draft.filter(function (d) { return d.key.indexOf('weight.') !== 0; });
+        renderDraft();
+        Prepeet.toast({ title: 'Weights reset to the published version', kind: 'default' });
+        return;
+      }
+      if (e.target.closest('#discard-draft')) {
+        load(slug);
+        Prepeet.toast({ title: 'Draft discarded', desc: 'The live rubric was never changed.', kind: 'default' });
+      }
+    });
+
+    ['cmp-a', 'cmp-b', 'cmp-anchor'].forEach(function (id) {
+      document.getElementById(id).addEventListener('change', renderCompare);
+    });
+  });
+})();
+</script>
+</body>
+</html>

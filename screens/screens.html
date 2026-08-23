@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en" data-theme-default="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype index · Prepeet</title>
+<meta name="description" content="Every screen in the Prepeet prototype, grouped by audience, with routes, states and flows.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/marketing.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  .idx-wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+  @media (max-width: 640px) { .idx-wrap { padding: 0 16px; } }
+  .idx-hero { padding: 56px 0 40px; border-bottom: 1px solid var(--border); }
+  .idx-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .idx-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); color: inherit; text-decoration: none !important; transition: border-color var(--dur-fast), box-shadow var(--dur-fast), transform var(--dur-fast); }
+  .idx-card:hover { border-color: var(--primary-border); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .idx-card h3 { font-size: var(--text-base); display: flex; align-items: center; gap: 8px; }
+  .idx-card p { font-size: var(--text-xs); color: var(--fg-2); line-height: 1.55; flex: 1; }
+  .idx-route { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--fg-3); word-break: break-all; }
+  .idx-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .idx-tags .badge { font-size: 10px; min-height: 19px; padding: 0 6px; }
+  .idx-section { padding: 48px 0; border-bottom: 1px solid var(--border); }
+  .idx-section:last-of-type { border-bottom: 0; }
+  .idx-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+  .idx-head h2 { font-family: var(--font-display); font-weight: 500; font-size: var(--text-2xl); letter-spacing: -0.02em; }
+  .idx-head p { color: var(--fg-2); font-size: var(--text-sm); margin-top: 6px; max-width: 620px; line-height: 1.55; }
+  .idx-nav { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .idx-nav .inner { max-width: 1240px; margin: 0 auto; padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 16px; }
+  .idx-nav .links { display: flex; gap: 2px; margin-left: 8px; overflow-x: auto; scrollbar-width: none; }
+  .idx-nav .links::-webkit-scrollbar { display: none; }
+  .idx-nav .links a { padding: 7px 10px; border-radius: var(--r-sm); font-size: var(--text-xs); font-weight: 600; color: var(--fg-2); white-space: nowrap; text-decoration: none !important; }
+  .idx-nav .links a:hover { background: var(--surface-3); color: var(--fg); }
+  .idx-nav .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  @media (max-width: 900px) { .idx-nav .links { display: none; } }
+  .anchor-off { scroll-margin-top: 76px; }
+</style>
+</head>
+
+<body>
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<nav class="idx-nav" aria-label="Prototype sections">
+  <div class="inner">
+    <a class="mk-brand" href="index.html" style="font-size:16px"><span class="logo-mark" id="brandmark"></span>Prepeet</a>
+    <div class="links">
+      <a href="#public">Public &amp; auth</a>
+      <a href="#candidate">Candidate</a>
+      <a href="#interview">Interview flow</a>
+      <a href="#recruiter">Recruiter</a>
+      <a href="#tenant">Tenant admin</a>
+      <a href="#platform">Platform</a>
+      <a href="#system">System</a>
+      <a href="#docs">Docs</a>
+    </div>
+    <div class="right">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">
+        <i data-lucide="moon" class="ic" data-icon-moon></i><i data-lucide="sun" class="ic" data-icon-sun hidden></i>
+      </button>
+      <a class="btn btn-sm btn-secondary" href="design-system.html">Design system</a>
+      <a class="btn btn-sm btn-primary" href="index.html">Marketing site</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main-content">
+
+  <!-- ══════════════════ HERO ══════════════════ -->
+  <header class="idx-hero">
+    <div class="idx-wrap">
+      <p class="eyebrow">Prototype index</p>
+      <h1 style="font-family:var(--font-display);font-weight:500;font-size:clamp(2rem,4.5vw,3.25rem);letter-spacing:-0.025em;line-height:1.08;margin-top:10px">Every screen in the Prepeet prototype</h1>
+      <p style="margin-top:16px;max-width:680px;color:var(--fg-2);line-height:1.65;font-size:var(--text-md)">
+        Prepeet is a multi-tenant, voice-based AI interview platform with two modes — <strong>practice</strong>
+        for candidates preparing, and <strong>screen</strong> for recruiter-run assessment. Every card below opens a
+        real, working screen with seeded data, both themes and its interaction states.
+      </p>
+
+      <div class="metrics-row" style="margin-top:32px">
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">Public &amp; auth</span><span class="metric-value" id="c-public">13</span><span class="metric-foot">screens</span></div></div>
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">Candidate</span><span class="metric-value" id="c-cand">15</span><span class="metric-foot">screens</span></div></div>
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">Recruiter &amp; tenant</span><span class="metric-value" id="c-rec">15</span><span class="metric-foot">screens</span></div></div>
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">Platform admin</span><span class="metric-value" id="c-plat">8</span><span class="metric-foot">screens</span></div></div>
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">System &amp; meta</span><span class="metric-value" id="c-sys">5</span><span class="metric-foot">screens</span></div></div>
+      </div>
+
+      <div class="banner banner-info" style="margin-top:26px">
+        <i data-lucide="info" class="ic"></i>
+        <div>
+          <strong>How to drive it.</strong> Every app screen has a <strong>theme toggle</strong>; the candidate topbar has a
+          <strong>Practice / Screen</strong> mock-data switch; the admin topbar has a <strong>Viewing as</strong> role switcher that
+          changes which navigation items exist. Most data screens carry a <strong>Preview state</strong> control for
+          loading, empty and error states. Dynamic routes use stable IDs such as
+          <code class="mono">ses_7Kq2XA</code> and <code class="mono">cand_R4T9MP</code>.
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════ PUBLIC & AUTH ══════════════════ -->
+  <section class="idx-section anchor-off" id="public" aria-labelledby="public-h">
+    <div class="idx-wrap">
+      <div class="idx-head">
+        <div>
+          <p class="eyebrow">Layer 01</p>
+          <h2 id="public-h">Public and authentication</h2>
+          <p>The marketing site and every state a person can land in before they are inside the product. Nine of these thirteen were inferred to make the authentication journey complete — see <a href="docs/inferred-screens.md">inferred-screens.md</a>.</p>
+        </div>
+        <span class="badge badge-outline badge-lg">13 screens</span>
+      </div>
+      <div class="idx-grid" id="grid-public"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ CANDIDATE ══════════════════ -->
+  <section class="idx-section anchor-off" id="candidate" aria-labelledby="cand-h">
+    <div class="idx-wrap">
+      <div class="idx-head">
+        <div>
+          <p class="eyebrow">Layer 02</p>
+          <h2 id="cand-h">Candidate application</h2>
+          <p>Designed mobile-first: calm, one clear action per view, and a hard boundary between practice coaching and employer-run screening.</p>
+        </div>
+        <span class="badge badge-outline badge-lg">15 screens</span>
+      </div>
+      <div class="idx-grid" id="grid-candidate"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ INTERVIEW FLOW ══════════════════ -->
+  <section class="idx-section anchor-off" id="interview" aria-labelledby="flow-h">
+    <div class="idx-wrap">
+      <div class="idx-head">
+        <div>
+          <p class="eyebrow">The core journey</p>
+          <h2 id="flow-h">Interview lifecycle, end to end</h2>
+          <p>Walk it in order. The last step forks on mode: a practice candidate gets coaching and evidence; a screening candidate gets a submission confirmation and nothing else.</p>
+        </div>
+      </div>
+
+      <ol class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;counter-reset:flow">
+        <li><a class="idx-card" href="candidate-start-interview.html"><span class="badge badge-primary" style="align-self:flex-start">Step 1</span><h3>Configure session</h3><p>Five-step wizard: role and focus, interview shape, persona, length and difficulty, review.</p><span class="idx-route">/candidate/start-interview</span></a></li>
+        <li><a class="idx-card" href="candidate-session-prepare.html?id=ses_7Kq2XA"><span class="badge badge-primary" style="align-self:flex-start">Step 2</span><h3>Prepare &amp; device checks</h3><p>Brief, persona preview, microphone, speaker, connection and browser checks, saved-progress notice.</p><span class="idx-route">/candidate/session/[id]/prepare</span></a></li>
+        <li><a class="idx-card" href="candidate-session-live.html?id=ses_7Kq2XA"><span class="badge badge-primary" style="align-self:flex-start">Step 3</span><h3>Live interview</h3><p>Phase, persona, connection, mic, waveform, speaking indicators, timer, reconnection, captions, push-to-talk.</p><span class="idx-route">/candidate/session/[id]</span></a></li>
+        <li><a class="idx-card" href="candidate-session-complete.html?id=ses_7Kq2XA"><span class="badge badge-primary" style="align-self:flex-start">Step 4</span><h3>Process &amp; evaluate</h3><p>Upload, transcribe, extract evidence, evaluate, prepare feedback — plus failure and delayed states.</p><span class="idx-route">/candidate/session/[id]/complete</span></a></li>
+        <li><a class="idx-card card-accent" href="candidate-session-results.html?id=ses_7Kq2XA"><span class="badge badge-mode practice" style="align-self:flex-start">Practice</span><h3>Outcome &amp; evidence</h3><p>Score, competencies with confidence, evidence spans, transcript and audio replay.</p><span class="idx-route">/candidate/session/[id]/results</span></a></li>
+        <li><a class="idx-card card-accent" href="candidate-session-review.html?id=ses_7Kq2XA"><span class="badge badge-mode practice" style="align-self:flex-start">Practice</span><h3>Coaching review</h3><p>Per-turn evaluation, what to change, model rewrites, redo a question, drills.</p><span class="idx-route">/candidate/session/[id]/review</span></a></li>
+        <li><a class="idx-card card-accent" href="candidate-session-articulation.html?id=ses_7Kq2XA"><span class="badge badge-mode practice" style="align-self:flex-start">Practice</span><h3>Delivery</h3><p>Measured pace, pauses and fillers, ten delivery dimensions, drills, redo next to the original.</p><span class="idx-route">/candidate/session/[id]/articulation</span></a></li>
+        <li><a class="idx-card" style="border-left:3px solid var(--plum-500)" href="candidate-session-complete.html?id=ses_4Bz9QD&amp;mode=screen&amp;state=complete-screen"><span class="badge badge-mode screen" style="align-self:flex-start">Screen</span><h3>Submitted — no score</h3><p>The entire screening outcome a candidate sees. No score, band, chart, coaching or recommendation.</p><span class="idx-route">?mode=screen</span></a></li>
+        <li><a class="idx-card" style="border-left:3px solid var(--plum-500)" href="admin-recruiter-detail.html?id=cand_R4T9MP"><span class="badge badge-mode screen" style="align-self:flex-start">Screen</span><h3>Recruiter receives</h3><p>The same session as the recruiter sees it: evidence, coverage, contradictions, decision, audit.</p><span class="idx-route">/admin/recruiter/[id]</span></a></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ══════════════════ RECRUITER ══════════════════ -->
+  <section class="idx-section anchor-off" id="recruiter" aria-labelledby="rec-h">
+    <div class="idx-wrap">
+      <div class="idx-head">
+        <div>
+          <p class="eyebrow">Layer 03</p>
+          <h2 id="rec-h">Recruiter workflow</h2>
+          <p>Evidence-first review for the Northwind Health System tenant. Visible at role <strong>Recruiter</strong> and above — use the “Viewing as” switch in the admin topbar to change role.</p>
+        </div>
+        <span class="badge badge-outline badge-lg">10 screens</span>
+      </div>
+      <div class="idx-grid" id="grid-recruiter"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ TENANT ADMIN ══════════════════ -->
+  <section class="idx-section anchor-off" id="tenant" aria-labelledby="ten-h">
+    <div class="idx-wrap">
+      <div class="idx-head">
+        <div>
+          <p class="eyebrow">Layer 04</p>
+          <h2 id="ten-h">Tenant configuration</h2>
+          <p>Visible at role <strong>Tenant admin</strong> and above. Open one of these as a plain recruiter to see the read-only variant.</p>
+        </div>
+        <span class="badge badge-outline badge-lg">5 screens</span>
+      </div>
+      <div class="idx-grid" id="grid-tenant"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PLATFORM ══════════════════ -->
+  <section class="idx-section anchor-off" id="platform" aria-labelledby="plat-h">
+    <div class="idx-wrap">
+      <div class="idx-head">
+        <div>
+          <p class="eyebrow">Layer 05</p>
+          <h2 id="plat-h">Platform administration</h2>
+          <p>Higher information density, operational tone. Visible at role <strong>Platform admin</strong>; the restricted console needs <strong>Super administrator</strong>. Opening one at a lower role renders a permission-denied state rather than the content.</p>
+        </div>
+        <span class="badge badge-outline badge-lg">8 screens</span>
+      </div>
+      <div class="idx-grid" id="grid-platform"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ SYSTEM & META ══════════════════ -->
+  <section class="idx-section anchor-off" id="system" aria-labelledby="sys-h">
+    <div class="idx-wrap">
+      <div class="idx-head">
+        <div>
+          <p class="eyebrow">Layer 06</p>
+          <h2 id="sys-h">System states and reference</h2>
+          <p>Error and permission screens, plus the design-system documentation.</p>
+        </div>
+        <span class="badge badge-outline badge-lg">5 screens</span>
+      </div>
+      <div class="idx-grid" id="grid-system"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ DOCS ══════════════════ -->
+  <section class="idx-section anchor-off" id="docs" aria-labelledby="docs-h">
+    <div class="idx-wrap">
+      <div class="idx-head">
+        <div>
+          <p class="eyebrow">Documentation</p>
+          <h2 id="docs-h">Project documentation</h2>
+          <p>Markdown files in <code class="mono">docs/</code>. Route verification, inferred-screen rationale, design-system summary, flows, assumptions, open questions, accessibility notes and the QA checklist.</p>
+        </div>
+      </div>
+      <div class="idx-grid">
+        <a class="idx-card" href="README.md"><h3><i data-lucide="book-open" class="ic"></i>README</h3><p>Setup, preview instructions, project structure, how to drive the prototype and the mode-boundary table.</p><span class="idx-route">README.md</span></a>
+        <a class="idx-card" href="docs/route-inventory.md"><h3><i data-lucide="list-tree" class="ic"></i>Route inventory</h3><p>Every route in the brief, verified, mapped to its file, with the corrected total.</p><span class="idx-route">docs/route-inventory.md</span></a>
+        <a class="idx-card" href="docs/inferred-screens.md"><h3><i data-lucide="git-branch-plus" class="ic"></i>Inferred screens</h3><p>What was added beyond the brief and why, plus the progression-nav and review-vs-results decisions.</p><span class="idx-route">docs/inferred-screens.md</span></a>
+        <a class="idx-card" href="docs/design-system.md"><h3><i data-lucide="palette" class="ic"></i>Design-system summary</h3><p>Intent, colour, theming, type, spacing, motion, density and the score/evidence rules.</p><span class="idx-route">docs/design-system.md</span></a>
+        <a class="idx-card" href="docs/component-inventory.md"><h3><i data-lucide="component" class="ic"></i>Component inventory</h3><p>Every component, its classes, and the shared behaviour API.</p><span class="idx-route">docs/component-inventory.md</span></a>
+        <a class="idx-card" href="docs/navigation-map.md"><h3><i data-lucide="map" class="ic"></i>Navigation &amp; flow map</h3><p>Navigation per role, the interview lifecycle, and where every screen is reachable from.</p><span class="idx-route">docs/navigation-map.md</span></a>
+        <a class="idx-card" href="docs/assumptions.md"><h3><i data-lucide="clipboard-list" class="ic"></i>Assumptions</h3><p>34 product and technical assumptions, each with what changes if it is wrong.</p><span class="idx-route">docs/assumptions.md</span></a>
+        <a class="idx-card" href="docs/open-questions.md"><h3><i data-lucide="help-circle" class="ic"></i>Open questions</h3><p>25 unresolved product questions, ordered by how expensive they are to get wrong.</p><span class="idx-route">docs/open-questions.md</span></a>
+        <a class="idx-card" href="docs/accessibility.md"><h3><i data-lucide="accessibility" class="ic"></i>Accessibility notes</h3><p>WCAG 2.2 AA approach, keyboard contracts, and an honest account of what has not been tested.</p><span class="idx-route">docs/accessibility.md</span></a>
+        <a class="idx-card" href="docs/qa-checklist.md"><h3><i data-lucide="check-check" class="ic"></i>QA checklist</h3><p>The verification checklist and its results, route by route.</p><span class="idx-route">docs/qa-checklist.md</span></a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="mk-footer" style="margin-top:0">
+    <div class="legal" style="border-top:0">
+      <span>Prepeet — front-end prototype. Seeded data only; no backend. All organisations and people depicted are invented.</span>
+      <span><a href="index.html">Marketing site</a> · <a href="design-system.html">Design system</a> · <a href="README.md">README</a></span>
+    </div>
+  </footer>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var SCREENS = {
+    public: [
+      ['index.html', '/', 'Marketing landing page', 'Hero, social proof, six use cases, features, how it works, the realtime experience, evidence, testimonials, FAQ and CTA. Dark by default.', ['Dark default', 'Responsive'], 'megaphone'],
+      ['login.html', '/login', 'Sign in', 'Password sign-in, dynamically loaded OAuth providers, redirect handling and an OAuth failure state.', ['OAuth error', 'Loading'], 'log-in'],
+      ['register.html', '/register', 'Create an account', 'Candidate or organisation sign-up with different fields, password strength and validation.', ['Two paths'], 'user-plus'],
+      ['oauth-callback.html', '/oauth/callback', 'OAuth handoff', 'Redirect processing with stepped status, plus failure and slow-response variants.', ['Processing', 'Error'], 'refresh-cw'],
+      ['forgot-password.html', '/forgot-password', 'Forgot password', 'Request a reset link. Inferred.', ['Inferred'], 'key-round'],
+      ['check-email.html', '/check-email', 'Check your email', 'Shared confirmation for reset, verification and magic link, with a real resend cooldown. Inferred.', ['Inferred', '?for='], 'mail-check'],
+      ['reset-password.html', '/reset-password', 'Set a new password', 'Live requirements checklist plus the expired-token variant. Inferred.', ['Inferred', 'Expired'], 'lock-keyhole'],
+      ['verify-email.html', '/verify-email', 'Verify email', 'Verifying, verified, already-verified and failed. Inferred.', ['Inferred', '4 states'], 'badge-check'],
+      ['magic-link.html', '/auth/magic', 'Magic-link sign-in', 'Signing in, success, link already used, wrong device. Inferred.', ['Inferred'], 'wand-2'],
+      ['otp.html', '/auth/otp', 'Two-factor code', 'Six-digit entry with auto-advance, paste support and a resend countdown. Inferred.', ['Inferred', 'Keyboard'], 'shield-check'],
+      ['auth-expired.html', '/auth/expired', 'Link expired', 'Expired or invalid authentication link, with recovery. Inferred.', ['Inferred'], 'clock-alert'],
+      ['access-denied.html', '/access-denied', 'No workspace access', 'Signed in, but this account cannot reach the requested workspace. Inferred.', ['Inferred'], 'user-x'],
+      ['invitation-accept.html', '/invite/[token]', 'Accept a screening invitation', 'Employer, role, what the interview involves, exactly what the employer receives, and consent. Inferred.', ['Inferred', 'Screen mode'], 'mail-open']
+    ],
+    candidate: [
+      ['candidate.html', '/candidate', 'Routing state', 'Decides whether a candidate goes to the dashboard, their first interview or a pending invitation.', ['3 outcomes'], 'route'],
+      ['candidate-dashboard.html', '/candidate/dashboard', 'Dashboard', 'Readiness, competency snapshot, recommended next session, recent sessions and goals. Mode-aware.', ['Practice/Screen'], 'layout-dashboard'],
+      ['candidate-start-interview.html', '/candidate/start-interview', 'Start an interview', 'Five-step wizard with validation, persona selector and URL-addressable steps.', ['Wizard', 'Validation'], 'circle-play'],
+      ['candidate-session-prepare.html', '/candidate/session/[id]/prepare', 'Prepare', 'Brief, persona preview, interactive device checks, saved-progress notice.', ['Device checks'], 'headphones'],
+      ['candidate-session-live.html', '/candidate/session/[id]', 'Live interview', 'The realtime voice interview. Distraction-free, dark, fully simulated.', ['Simulated', 'Dark'], 'mic'],
+      ['candidate-session-complete.html', '/candidate/session/[id]/complete', 'Processing &amp; outcome', 'Six processing stages plus complete, failed and delayed. Mode-specific outcome.', ['5 states'], 'loader-circle'],
+      ['candidate-session-review.html', '/candidate/session/[id]/review', 'Coaching review', 'Per-turn evaluation, model rewrites, redo a question, drills. Practice only.', ['Practice only'], 'sparkles'],
+      ['candidate-session-results.html', '/candidate/session/[id]/results', 'Outcome &amp; evidence', 'Score, competencies, evidence spans, transcript and audio replay. Practice only.', ['Practice only', 'Replay'], 'file-check-2'],
+      ['candidate-session-articulation.html', '/candidate/session/[id]/articulation', 'Delivery', 'Measured pace, pauses, fillers and restarts, ten delivery dimensions, drills, and the redo next to the original. Practice only.', ['Practice only', 'Measured'], 'audio-lines'],
+      ['candidate-sessions.html', '/candidate/sessions', 'Session history', 'State-aware links, filters that persist in the URL, and screen sessions with no score shown.', ['Filters', 'State-aware'], 'history'],
+      ['candidate-skills.html', '/candidate/skills', 'Skills', 'Competency breakdown with the evidence behind each score, and honest “insufficient evidence”.', ['Evidence'], 'target'],
+      ['candidate-progression.html', '/candidate/progression', 'Progression', 'Readiness over time, per-competency trends, milestones and readiness by role. Added to the sidebar.', ['Nav fix'], 'trending-up'],
+      ['candidate-goals.html', '/candidate/goals', 'Goals', 'Practice goals, milestones, cadence and streaks.', ['Create goal'], 'flag'],
+      ['candidate-profile.html', '/candidate/profile', 'Profile &amp; résumé', 'Résumé management, parsed experience, career context, evidence bank, employer visibility.', ['Upload states'], 'user-round'],
+      ['candidate-settings.html', '/candidate/settings', 'Settings', 'Account, notifications, accessibility, privacy and interview defaults. The accessibility controls really work.', ['5 tabs'], 'settings']
+    ],
+    recruiter: [
+      ['admin-dashboard.html', '/admin/dashboard', 'Tenant overview', 'Review queue, hiring activity, evaluation quality, recent decisions and open roles.', ['Recruiter+'], 'layout-dashboard'],
+      ['admin-recruiter.html', '/admin/recruiter', 'Candidate roster', 'Filters, multi-selection, inline decisions and a pending-review state. Never a bare leaderboard.', ['Filters', 'Bulk'], 'users-round'],
+      ['admin-recruiter-detail.html', '/admin/recruiter/[id]', 'Candidate review detail', 'Recommendation, competencies, confidence, transcript evidence, audio, coverage, contradictions, claim verification, JD compatibility, decision, override reason and audit. Inferred.', ['Inferred', '5 tabs'], 'file-search'],
+      ['admin-recruiter-compare.html', '/admin/recruiter/compare', 'Compare candidates', 'Side-by-side competencies and evidence with confidence ranges and “too close to call” called out.', ['2–4 people'], 'columns-3'],
+      ['admin-campaigns.html', '/admin/campaigns', 'Campaigns', 'The role, the pinned rubric version and the disclosure every invitation is issued under.', ['Scoped'], 'layers'],
+      ['admin-campaign-detail.html', '/admin/campaigns/[id]', 'Campaign detail', 'Pinned configuration, invitation funnel, candidates awaiting a human review, and append-only history.', ['Immutable'], 'layers-2'],
+      ['admin-invitations.html', '/admin/invitations', 'Invitations', 'Screen-mode invitation list with lifecycle status including bounced. Inferred.', ['Inferred'], 'mail-plus'],
+      ['admin-invitation-new.html', '/admin/invitations/new', 'Create invitation', 'Multi-candidate entry, configuration, message composer and a live email preview. Inferred.', ['Inferred'], 'send'],
+      ['admin-invitation-detail.html', '/admin/invitations/[id]', 'Invitation detail', 'Lifecycle timeline, delivery events and revocation with consequences. Inferred.', ['Inferred', 'Revoke'], 'mail-search'],
+      ['admin-appeals.html', '/admin/recruiter/appeals', 'Re-review queue', 'Candidate appeals and system-flagged low-confidence evaluations. Inferred.', ['Inferred', 'Fairness'], 'gavel']
+    ],
+    tenant: [
+      ['admin-recruiter-calibration.html', '/admin/recruiter/calibration', 'Calibration', 'Per-role band anchors, thresholds, weights, sufficiency rules, version history and publish.', ['Tenant admin+'], 'sliders-horizontal'],
+      ['admin-rubrics.html', '/admin/rubrics', 'Rubrics', 'The rubric library above calibration: create, clone, version, archive, assign. Inferred.', ['Inferred'], 'list-checks'],
+      ['admin-members.html', '/admin/members', 'Members &amp; roles', 'People, roles, the permission matrix, invitations and SSO provisioning. Inferred.', ['Inferred'], 'user-cog'],
+      ['admin-integrations.html', '/admin/integrations', 'Integrations', 'ATS connections, webhooks, delivery log and API keys. Inferred.', ['Inferred', 'Degraded'], 'webhook'],
+      ['admin-tenant-settings.html', '/admin/settings', 'Tenant settings', 'Organisation, interview defaults, candidate experience, retention and residency, notifications, billing. Inferred.', ['Inferred', '6 tabs'], 'building-2']
+    ],
+    platform: [
+      ['admin-platform-analytics.html', '/admin/platform/analytics', 'Platform analytics', 'Cross-tenant usage, funnel, cohorts and tenant comparison.', ['Dense'], 'bar-chart-3'],
+      ['admin-platform-analytics-sessions.html', '/admin/platform/analytics/sessions', 'Session analytics', 'Abandonment, duration, realtime health and per-session technical timelines.', ['Dense'], 'activity'],
+      ['admin-platform-analytics-evaluations.html', '/admin/platform/analytics/evaluations', 'Evaluation quality', 'Confidence, coverage, reviewer agreement and overrides, failures and rubric-version impact.', ['Dense'], 'scale'],
+      ['admin-platform-system.html', '/admin/platform/system', 'System health', 'Services, queue depth, failed jobs, latency, realtime health and runtime policy versions.', ['Incident state'], 'server'],
+      ['admin-platform-system-llm-usage.html', '/admin/platform/system/llm-usage', 'AI usage &amp; cost', 'Model and provider breakdown, token and audio cost split, per-tenant spend and efficiency levers.', ['Dense'], 'cpu'],
+      ['admin-platform-quotas.html', '/admin/platform/quotas', 'Quotas', 'Allowances, soft and hard limits, overage policy, rate limits and temporary headroom. Inferred.', ['Inferred'], 'gauge'],
+      ['admin-god.html', '/admin/god', 'Super-admin console', 'Elevation-gated tenant operations, feature flags, policy rollback and break-glass access.', ['Restricted'], 'shield-alert'],
+      ['admin-god-audit.html', '/admin/god/audit', 'Audit log', 'Append-only privileged audit viewer with hash-chain verification and audited export.', ['Restricted'], 'scroll-text']
+    ],
+    system: [
+      ['error-403.html', 'in-app 403', 'Permission denied', 'Rendered inside the admin shell: required role vs current role, and what you can reach. Inferred.', ['Inferred'], 'lock'],
+      ['error-404.html', '404', 'Not found', 'The attempted path plus destinations for all three audiences. Inferred.', ['Inferred'], 'file-question'],
+      ['error-500.html', '500', 'Application error', 'What is safe, a correlation id, retry and status-page link. Inferred.', ['Inferred'], 'triangle-alert'],
+      ['design-system.html', '—', 'Design system', 'Tokens, themes, type, spacing, motion, charts, score and evidence rules, and a live component gallery.', ['Reference'], 'palette'],
+      ['screens.html', '—', 'Prototype index', 'This page. Not an application route — prototype scaffolding.', ['Meta'], 'layout-grid']
+    ]
+  };
+
+  function card(s) {
+    var href = s[0], route = s[1], title = s[2], desc = s[3], tags = s[4], icon = s[5];
+    return '<a class="idx-card" href="' + href + '">' +
+      '<h3><i data-lucide="' + icon + '" class="ic" style="color:var(--primary)"></i>' + title + '</h3>' +
+      '<p>' + desc + '</p>' +
+      '<div class="idx-tags">' + tags.map(function (t) {
+        var cls = t === 'Inferred' ? 'badge-accent' : (t === 'Restricted' ? 'badge-danger' : 'badge-neutral');
+        return '<span class="badge ' + cls + '">' + t + '</span>';
+      }).join('') + '</div>' +
+      '<span class="idx-route">' + route + '</span></a>';
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var mark = document.getElementById('brandmark');
+    if (mark) mark.innerHTML = Prepeet.logoSvg;
+    Object.keys(SCREENS).forEach(function (k) {
+      var host = document.getElementById('grid-' + k);
+      if (host) host.innerHTML = SCREENS[k].map(card).join('');
+    });
+    document.getElementById('c-public').textContent = SCREENS.public.length;
+    document.getElementById('c-cand').textContent = SCREENS.candidate.length;
+    document.getElementById('c-rec').textContent = SCREENS.recruiter.length + SCREENS.tenant.length;
+    document.getElementById('c-plat').textContent = SCREENS.platform.length;
+    document.getElementById('c-sys').textContent = SCREENS.system.length;
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1215 @@
+<!doctype html>
+<html lang="en" data-theme-default="light" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System health · Prepeet</title>
+<meta name="description" content="Platform operations view: service status, queue depth, failed jobs, processing latency, realtime session health and incident history.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* ---- page-scoped: system health only ---- */
+.svc-grid { display:grid; gap:var(--sp-3); grid-template-columns:repeat(auto-fill,minmax(min(100%,248px),1fr)); }
+.svc { border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); padding:11px 13px; }
+.svc-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.svc-name { font-weight:650; font-size:var(--text-sm); }
+.svc-state { font-size:var(--text-2xs); font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+.svc-state.ok { color:var(--success-fg); } .svc-state.warn { color:var(--warning-fg); } .svc-state.bad { color:var(--danger-fg); } .svc-state.info { color:var(--info-fg); }
+.svc-kv { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px 8px; margin:10px 0 0; }
+.svc-kv dt { font-size:var(--text-2xs); color:var(--fg-3); font-weight:600; }
+.svc-kv dd { margin:0; font-family:var(--font-mono); font-size:var(--text-2xs); color:var(--fg); }
+.svc-foot { display:flex; align-items:center; gap:8px; margin-top:9px; padding-top:8px; border-top:1px solid var(--border-subtle); }
+.spark { flex:1; height:26px; min-width:0; }
+.spark polyline { fill:none; stroke:var(--chart-1); stroke-width:1.4; }
+.spark.dips polyline { stroke:var(--chart-3); }
+.spark.bad polyline { stroke:var(--chart-5); }
+.svc-up { font-family:var(--font-mono); font-size:var(--text-2xs); color:var(--fg-2); white-space:nowrap; }
+/* charts */
+.chart { width:100%; height:auto; overflow:visible; }
+.chart text { fill:var(--fg-3); font-size:10px; font-family:var(--font-sans); }
+.chart .grid { stroke:var(--border); stroke-width:1; }
+.chart .axis { stroke:var(--border-strong); stroke-width:1; }
+.chart .ln { fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.chart .c1 { stroke:var(--chart-1); } .chart .c3 { stroke:var(--chart-3); } .chart .c5 { stroke:var(--chart-5); }
+.stagebar { width:100%; height:auto; }
+.stagebar .s1 { fill:var(--chart-1); } .stagebar .s2 { fill:var(--chart-2); } .stagebar .s3 { fill:var(--chart-4); }
+.stagebar .s4 { fill:var(--chart-3); } .stagebar .s5 { fill:var(--chart-6); }
+.mini { height:56px; width:100%; }
+.mini .fillarea { fill:color-mix(in srgb, var(--chart-1) 18%, transparent); }
+.mini .ln { fill:none; stroke:var(--chart-1); stroke-width:1.6; }
+/* warning row treatment — border + icon + word, never colour alone */
+tr.row-warn td { background:color-mix(in srgb, var(--warning) 9%, transparent); }
+tr.row-warn td:first-child { box-shadow:inset 3px 0 0 var(--warning); }
+.table tbody tr.row-warn:hover td { background:color-mix(in srgb, var(--warning) 14%, transparent); }
+.jobrow { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; }
+.pool { display:grid; grid-template-columns:1fr; gap:4px; }
+.evt { display:grid; grid-template-columns:64px 1fr auto; gap:10px; align-items:baseline; padding:5px 0; border-bottom:1px solid var(--border-subtle); font-size:var(--text-xs); }
+.evt:last-child { border-bottom:0; }
+.evt time { font-family:var(--font-mono); font-size:var(--text-2xs); color:var(--fg-3); }
+@media (max-width:480px){ .evt { grid-template-columns:56px 1fr; } .evt .evt-badge { grid-column:2; justify-self:start; } }
+/* responsive helpers for this page's two-column splits */
+.split-2 { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.split-wide { grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); }
+@media (max-width:1024px){ .split-2, .split-wide { grid-template-columns:minmax(0,1fr); } }
+@media (max-width:640px){ .page-header .segmented { flex-wrap:wrap; } }
+
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="pf-system" data-title="System health"
+      data-crumbs="Admin>admin-dashboard.html|Platform>admin-platform-analytics.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content dense" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow eyebrow--muted">Platform operations</p>
+        <h1>System health</h1>
+        <p class="page-desc">Live operational view across all tenants. Metrics are scraped every 30 seconds; the deep dashboards live in Grafana.</p>
+        <div class="cluster" style="margin-top:8px">
+          <span class="badge badge-outline mono">/admin/platform/system</span>
+          <span class="badge badge-neutral"><i data-lucide="clock" class="ic-sm ic"></i>Refreshed 14:32 UTC</span>
+          <a class="badge badge-info ext" href="https://grafana.prepeet.example/d/prepeet-overview" target="_blank" rel="noopener noreferrer"><i data-lucide="bar-chart-3" class="ic-sm ic"></i>Grafana overview<span class="sr-only">(opens in a new tab)</span></a>
+        </div>
+      </div>
+      <div class="cluster" style="margin-left:auto;align-items:flex-end">
+        <div>
+          <span class="hint" style="display:block;margin-bottom:4px">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview screen state">
+            <button type="button" data-state-btn="operational" aria-pressed="true">Operational</button>
+            <button type="button" data-state-btn="degraded" aria-pressed="false">Degraded</button>
+            <button type="button" data-state-btn="incident" aria-pressed="false">Incident</button>
+            <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ LOADING ══════════════════ -->
+    <div data-state="loading" hidden aria-busy="true">
+      <div class="card" style="margin-bottom:var(--sp-4)">
+        <div class="card-body">
+          <div class="skeleton skeleton-text w-25" style="height:22px"></div>
+          <div class="skeleton skeleton-text w-50" style="margin-top:12px"></div>
+        </div>
+      </div>
+      <div class="svc-grid" style="margin-bottom:var(--sp-4)">
+        <div class="svc"><div class="skeleton skeleton-text w-75"></div><div class="skeleton skeleton-block" style="height:52px;margin-top:10px"></div></div>
+        <div class="svc"><div class="skeleton skeleton-text w-75"></div><div class="skeleton skeleton-block" style="height:52px;margin-top:10px"></div></div>
+        <div class="svc"><div class="skeleton skeleton-text w-75"></div><div class="skeleton skeleton-block" style="height:52px;margin-top:10px"></div></div>
+        <div class="svc"><div class="skeleton skeleton-text w-75"></div><div class="skeleton skeleton-block" style="height:52px;margin-top:10px"></div></div>
+        <div class="svc"><div class="skeleton skeleton-text w-75"></div><div class="skeleton skeleton-block" style="height:52px;margin-top:10px"></div></div>
+        <div class="svc"><div class="skeleton skeleton-text w-75"></div><div class="skeleton skeleton-block" style="height:52px;margin-top:10px"></div></div>
+      </div>
+      <div class="card"><div class="card-body"><div class="skeleton skeleton-block" style="height:200px"></div></div></div>
+      <p class="hint" style="margin-top:12px" role="status">Loading service status, queue metrics and the last 24 hours of latency…</p>
+    </div>
+
+    <!-- ══════════════════ OPERATIONAL / DEGRADED / INCIDENT ══════════════════ -->
+    <div data-state="operational degraded incident">
+
+      <!-- ---------- Overall status header ---------- -->
+      <section class="card" aria-labelledby="status-h" style="margin-bottom:var(--sp-4)">
+        <div class="card-body">
+          <div class="between" style="align-items:flex-start">
+            <div>
+              <div data-state="operational">
+                <div class="cluster">
+                  <span class="status-dot ok pulse" aria-hidden="true"></span>
+                  <h2 id="status-h" style="font-size:var(--text-lg)">All systems operational</h2>
+                </div>
+                <p class="hint" style="margin-top:6px;max-width:60ch">All 10 monitored services are serving traffic inside their error budget. No customer-facing degradation reported in the last 24 hours.</p>
+              </div>
+              <div data-state="degraded" hidden>
+                <div class="cluster">
+                  <span class="status-dot warn" aria-hidden="true"></span>
+                  <h2 style="font-size:var(--text-lg)">Degraded performance</h2>
+                  <span class="badge badge-warning"><i data-lucide="alert-triangle" class="ic-sm ic"></i>2 services affected</span>
+                </div>
+                <p class="hint" style="margin-top:6px;max-width:60ch">Evaluation results are being delivered late. Interviews still start, record and submit normally — only the evaluation step is behind. Some panels below are showing metrics scraped more than five minutes ago.</p>
+              </div>
+              <div data-state="incident" hidden>
+                <div class="cluster">
+                  <span class="status-dot bad" aria-hidden="true"></span>
+                  <h2 style="font-size:var(--text-lg)">Active incident</h2>
+                  <span class="badge badge-danger"><i data-lucide="siren" class="ic-sm ic"></i>P2 · INC-2026-0823-01</span>
+                </div>
+                <p class="hint" style="margin-top:6px;max-width:60ch">Evaluation delivery is stalled for EU tenants. Declared 13:58 UTC by the on-call engineer. In-flight interviews continue and are being buffered; nothing recorded has been lost.</p>
+              </div>
+            </div>
+            <div class="cluster" style="gap:var(--sp-5)">
+              <div class="metric metric-dense" style="padding:0">
+                <span class="metric-label">Uptime · 30 days</span>
+                <span class="metric-value tnum">99.94%</span>
+                <span class="metric-foot">Target 99.90% · 26m error budget left</span>
+              </div>
+              <div class="metric metric-dense" style="padding:0">
+                <span class="metric-label">Since last incident</span>
+                <span class="metric-value tnum" data-state="operational degraded">11d 4h</span>
+                <span class="metric-value tnum" data-state="incident" hidden>34m</span>
+                <span class="metric-foot" data-state="operational degraded">INC-2026-0812-02 resolved 12 Aug, 10:14 UTC</span>
+                <span class="metric-foot" data-state="incident" hidden>Ongoing since 13:58 UTC today</span>
+              </div>
+              <div class="metric metric-dense" style="padding:0">
+                <span class="metric-label">Open alerts</span>
+                <span class="metric-value tnum" data-state="operational">0</span>
+                <span class="metric-value tnum" data-state="degraded" hidden>2</span>
+                <span class="metric-value tnum" data-state="incident" hidden>5</span>
+                <span class="metric-foot">Paging routes to platform on-call</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Active incident banner (incident state) ---------- -->
+      <div class="banner banner-danger" data-state="incident" hidden role="alert" style="margin-bottom:var(--sp-4)">
+        <i data-lucide="siren" class="ic"></i>
+        <div>
+          <strong>INC-2026-0823-01 · P2 · Evaluation delivery stalled (EU)</strong>
+          <div style="margin-top:4px">Affected services: <strong>Evaluation engine</strong>, <strong>Webhook dispatcher</strong>. Affected tenants: Northwind Health System, Orbital Labs, Meridian Schools Trust. Candidates are unaffected — interviews start, record and submit as normal. Recruiter results are delayed by roughly 40 minutes.</div>
+          <div style="margin-top:4px">Next update 15:00 UTC · Incident commander Priya Raman · Comms owner Jonas Brandt</div>
+        </div>
+        <div class="banner-actions">
+          <a class="btn btn-sm btn-secondary ext" href="https://status.prepeet.example/incidents/inc-2026-0823-01" target="_blank" rel="noopener noreferrer">Status page<span class="sr-only">(opens in a new tab)</span></a>
+          <a class="btn btn-sm btn-danger" href="admin-god-audit.html?ref=INC-2026-0823-01">Audit trail</a>
+        </div>
+      </div>
+
+      <!-- ---------- Degraded banner ---------- -->
+      <div class="banner banner-warning" data-state="degraded" hidden role="status" style="margin-bottom:var(--sp-4)">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>
+          <strong>Evaluation queue backed up.</strong> Depth 412 with the oldest item waiting 6m 20s against a 90-second objective. Two consumer pods are restarting after an out-of-memory kill. No incident declared yet — the on-call engineer is watching.
+        </div>
+        <div class="banner-actions">
+          <a class="btn btn-sm btn-secondary" href="#queues">Go to queues</a>
+          <button class="btn btn-sm btn-secondary" type="button" data-toast="Declared incident INC-2026-0823-02" data-toast-desc="Paged platform on-call and opened the status page draft." data-toast-kind="danger">Declare incident</button>
+        </div>
+      </div>
+
+      <!-- ---------- Scheduled maintenance ---------- -->
+      <div class="banner banner-info" style="margin-bottom:var(--sp-5)">
+        <i data-lucide="calendar-clock" class="ic"></i>
+        <div>
+          <strong>Scheduled maintenance · Wed 26 Aug, 01:00–02:00 UTC.</strong> Identity/SSO certificate rotation. SAML and OIDC sign-in may fail for up to 90 seconds during the cutover. Interviews already in progress keep their session token and are not interrupted.
+        </div>
+        <div class="banner-actions">
+          <a class="btn btn-sm btn-ghost" href="admin-integrations.html">Affected integrations</a>
+        </div>
+      </div>
+
+      <!-- ══════════ Service status grid ══════════ -->
+      <section aria-labelledby="svc-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="svc-h" class="section-title" style="margin:0">Service status <span class="count">10 services</span></h2>
+          <a class="link ext" href="https://grafana.prepeet.example/d/prepeet-services" target="_blank" rel="noopener noreferrer">Per-service dashboards<span class="sr-only">(opens in a new tab)</span></a>
+        </div>
+        <div class="svc-grid">
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot ok" aria-hidden="true"></span><span class="svc-name">Realtime gateway</span><span class="svc-state ok">Operational</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>42 ms</dd></div><div><dt>p99</dt><dd>180 ms</dd></div><div><dt>Errors</dt><dd>0.02%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Realtime gateway daily uptime over 30 days: 99.99% average, single dip to 99.82% on day 18.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,2.76 31.41,2.76 34.79,2.76 38.17,2.76 41.55,2.76 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,5.49 61.83,3.37 65.21,2.76 68.59,2.76 71.97,2.76 75.34,2.76 78.72,2.76 82.1,2.76 85.48,2.76 88.86,2.76 92.24,2.76 95.62,2.76 99,2.76"/>
+              </svg>
+              <span class="svc-up">99.99% · eu-central-1, us-east-1</span>
+            </div>
+          </article>
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot ok" aria-hidden="true"></span><span class="svc-name">Session orchestrator</span><span class="svc-state ok">Operational</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>68 ms</dd></div><div><dt>p99</dt><dd>240 ms</dd></div><div><dt>Errors</dt><dd>0.04%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Session orchestrator daily uptime over 30 days: 99.99% average, dips to 99.91% and 99.88%.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,2.76 31.41,4.12 34.79,2.76 38.17,2.76 41.55,2.76 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,4.58 61.83,2.76 65.21,2.76 68.59,2.76 71.97,2.76 75.34,2.76 78.72,2.76 82.1,2.76 85.48,2.76 88.86,2.76 92.24,2.76 95.62,2.76 99,2.76"/>
+              </svg>
+              <span class="svc-up">99.99% · eu-central-1</span>
+            </div>
+          </article>
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot ok" aria-hidden="true"></span><span class="svc-name">Transcription</span><span class="svc-state ok">Operational</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>1.9 s</dd></div><div><dt>p99</dt><dd>4.4 s</dd></div><div><dt>Errors</dt><dd>0.31%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark dips" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Transcription daily uptime over 30 days: 99.98% average, lowest day 99.74%.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,6.7 17.9,3.82 21.28,2.76 24.66,2.76 28.03,2.76 31.41,2.76 34.79,2.76 38.17,2.76 41.55,2.76 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,2.76 61.83,2.76 65.21,2.76 68.59,2.76 71.97,2.76 75.34,5.64 78.72,2.76 82.1,2.76 85.48,2.76 88.86,2.76 92.24,2.76 95.62,2.76 99,2.76"/>
+              </svg>
+              <span class="svc-up">99.98% · eu-central-1</span>
+            </div>
+          </article>
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot ok" aria-hidden="true"></span><span class="svc-name">Evidence extraction</span><span class="svc-state ok">Operational</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>3.2 s</dd></div><div><dt>p99</dt><dd>7.8 s</dd></div><div><dt>Errors</dt><dd>0.18%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Evidence extraction daily uptime over 30 days: 99.99% average, lowest day 99.79%.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,2.76 31.41,2.76 34.79,2.76 38.17,2.76 41.55,4.88 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,2.76 61.83,2.76 65.21,2.76 68.59,2.76 71.97,2.76 75.34,2.76 78.72,2.76 82.1,2.76 85.48,2.76 88.86,5.94 92.24,2.76 95.62,2.76 99,2.76"/>
+              </svg>
+              <span class="svc-up">99.99% · eu-central-1</span>
+            </div>
+          </article>
+
+          <article class="svc" id="svc-evaluation">
+            <div class="svc-head">
+              <span data-state="operational"><span class="status-dot ok" aria-hidden="true"></span></span>
+              <span data-state="degraded incident" hidden><span class="status-dot bad" aria-hidden="true"></span></span>
+              <span class="svc-name">Evaluation engine</span>
+              <span class="svc-state ok" data-state="operational">Operational</span>
+              <span class="svc-state bad" data-state="degraded incident" hidden>Degraded</span>
+            </div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd><span data-state="operational">12.6 s</span><span data-state="degraded incident" hidden>48.2 s</span></dd></div>
+              <div><dt>p99</dt><dd><span data-state="operational">31.4 s</span><span data-state="degraded incident" hidden>6m 11s</span></dd></div>
+              <div><dt>Errors</dt><dd><span data-state="operational">0.42%</span><span data-state="degraded incident" hidden>3.81%</span></dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark dips" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Evaluation engine daily uptime over 30 days: 99.93% average, lowest day 99.41%.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,11.71 31.41,7.61 34.79,2.76 38.17,2.76 41.55,2.76 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,2.76 61.83,2.76 65.21,2.76 68.59,7.01 71.97,2.76 75.34,2.76 78.72,2.76 82.1,2.76 85.48,2.76 88.86,2.76 92.24,2.76 95.62,9.59 99,8.52"/>
+              </svg>
+              <span class="svc-up">99.93% · eu-central-1</span>
+            </div>
+          </article>
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot ok" aria-hidden="true"></span><span class="svc-name">Rubric service</span><span class="svc-state ok">Operational</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>24 ms</dd></div><div><dt>p99</dt><dd>96 ms</dd></div><div><dt>Errors</dt><dd>0.01%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Rubric service daily uptime over 30 days: 100.00% every day, no dips.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,2.76 31.41,2.76 34.79,2.76 38.17,2.76 41.55,2.76 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,2.76 61.83,2.76 65.21,2.76 68.59,2.76 71.97,2.76 75.34,2.76 78.72,2.76 82.1,2.76 85.48,2.76 88.86,2.76 92.24,2.76 95.62,2.76 99,2.76"/>
+              </svg>
+              <span class="svc-up">100.00% · eu-central-1</span>
+            </div>
+          </article>
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot ok" aria-hidden="true"></span><span class="svc-name">Notification service</span><span class="svc-state ok">Operational</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>110 ms</dd></div><div><dt>p99</dt><dd>420 ms</dd></div><div><dt>Errors</dt><dd>0.09%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Notification service daily uptime over 30 days: 99.99% average, lowest day 99.70%.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,2.76 31.41,2.76 34.79,2.76 38.17,2.76 41.55,2.76 44.93,2.76 48.31,7.31 51.69,3.67 55.07,2.76 58.45,2.76 61.83,2.76 65.21,2.76 68.59,2.76 71.97,2.76 75.34,2.76 78.72,2.76 82.1,2.76 85.48,2.76 88.86,2.76 92.24,2.76 95.62,2.76 99,2.76"/>
+              </svg>
+              <span class="svc-up">99.99% · eu-west-1</span>
+            </div>
+          </article>
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot warn" aria-hidden="true"></span><span class="svc-name">Webhook dispatcher</span><span class="svc-state warn">Elevated errors</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>240 ms</dd></div><div><dt>p99</dt><dd>1.8 s</dd></div><div><dt>Errors</dt><dd>1.24%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark bad" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Webhook dispatcher daily uptime over 30 days: 99.86% average, five dips, lowest day 98.94%.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,16.11 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,2.76 31.41,2.76 34.79,2.76 38.17,18.84 41.55,2.76 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,2.76 61.83,2.76 65.21,12.77 68.59,2.76 71.97,2.76 75.34,2.76 78.72,2.76 82.1,2.76 85.48,2.76 88.86,2.76 92.24,17.17 95.62,2.76 99,10.65"/>
+              </svg>
+              <span class="svc-up">99.86% · eu-west-1</span>
+            </div>
+            <p class="hint" style="margin-top:8px">Two customer endpoints are returning HTTP 502. Retries are capped at 5 before dead-lettering.</p>
+          </article>
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot ok" aria-hidden="true"></span><span class="svc-name">Object storage (audio)</span><span class="svc-state ok">Operational</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>38 ms</dd></div><div><dt>p99</dt><dd>210 ms</dd></div><div><dt>Errors</dt><dd>0.00%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Object storage for audio daily uptime over 30 days: 100.00% every day, no dips.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,2.76 31.41,2.76 34.79,2.76 38.17,2.76 41.55,2.76 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,2.76 61.83,2.76 65.21,2.76 68.59,2.76 71.97,2.76 75.34,2.76 78.72,2.76 82.1,2.76 85.48,2.76 88.86,2.76 92.24,2.76 95.62,2.76 99,2.76"/>
+              </svg>
+              <span class="svc-up">100.00% · eu-central-1 + replica</span>
+            </div>
+          </article>
+
+          <article class="svc">
+            <div class="svc-head"><span class="status-dot info" aria-hidden="true"></span><span class="svc-name">Identity/SSO</span><span class="svc-state info">Maintenance planned</span></div>
+            <dl class="svc-kv">
+              <div><dt>p50</dt><dd>88 ms</dd></div><div><dt>p99</dt><dd>310 ms</dd></div><div><dt>Errors</dt><dd>0.03%</dd></div>
+            </dl>
+            <div class="svc-foot">
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Identity and SSO daily uptime over 30 days: 100.00% average, one dip to 99.88%.">
+                <polyline vector-effect="non-scaling-stroke" points="1,2.76 4.38,2.76 7.76,2.76 11.14,2.76 14.52,2.76 17.9,2.76 21.28,2.76 24.66,2.76 28.03,2.76 31.41,2.76 34.79,2.76 38.17,2.76 41.55,2.76 44.93,2.76 48.31,2.76 51.69,2.76 55.07,2.76 58.45,2.76 61.83,2.76 65.21,2.76 68.59,2.76 71.97,2.76 75.34,2.76 78.72,4.58 82.1,2.76 85.48,2.76 88.86,2.76 92.24,2.76 95.62,2.76 99,2.76"/>
+              </svg>
+              <span class="svc-up">100.00% · global</span>
+            </div>
+          </article>
+
+        </div>
+        <p class="chart-summary">Text summary: 30-day uptime by service — realtime gateway 99.99%, session orchestrator 99.99%, transcription 99.98%, evidence extraction 99.99%, evaluation engine 99.93%, rubric service 100.00%, notification service 99.99%, webhook dispatcher 99.86%, object storage (audio) 100.00%, identity/SSO 100.00%. Lowest single day across all services was the webhook dispatcher at 98.94% on 5 August.</p>
+      </section>
+
+      <!-- ══════════ Queues + failed jobs ══════════ -->
+      <section aria-labelledby="queues-h" id="queues" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="queues-h" class="section-title" style="margin:0">Queue depth and failed jobs</h2>
+          <span class="hint">Objective: oldest item under 90 seconds on every queue</span>
+        </div>
+
+        <div class="scroll-x table-wrap" style="margin-bottom:var(--sp-4)">
+          <table class="table table-dense">
+            <caption class="sr-only">Work queue depth, oldest item age, throughput, consumer count and failed job count. Scroll horizontally to see all columns.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Queue</th>
+                <th scope="col" class="num">Depth</th>
+                <th scope="col" class="num">Oldest item</th>
+                <th scope="col" class="num">Throughput</th>
+                <th scope="col" class="num">Consumers</th>
+                <th scope="col" class="num">Failed (24h)</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="td-actions">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">transcription</td>
+                <td class="num tnum">34</td><td class="num tnum">12s</td><td class="num tnum">412/min</td><td class="num tnum">12</td><td class="num tnum">3</td>
+                <td><span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Healthy</span></td>
+                <td class="td-actions"><a class="btn btn-sm btn-ghost ext" href="https://grafana.prepeet.example/d/prepeet-queues?var-queue=transcription" target="_blank" rel="noopener noreferrer">Graph<span class="sr-only">(opens in a new tab)</span></a></td>
+              </tr>
+              <tr>
+                <td class="mono">evidence-extraction</td>
+                <td class="num tnum">61</td><td class="num tnum">41s</td><td class="num tnum">268/min</td><td class="num tnum">8</td><td class="num tnum">1</td>
+                <td><span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Healthy</span></td>
+                <td class="td-actions"><a class="btn btn-sm btn-ghost ext" href="https://grafana.prepeet.example/d/prepeet-queues?var-queue=evidence-extraction" target="_blank" rel="noopener noreferrer">Graph<span class="sr-only">(opens in a new tab)</span></a></td>
+              </tr>
+              <tr class="row-warn">
+                <td class="mono"><i data-lucide="alert-triangle" class="ic-sm ic" style="vertical-align:-2px;margin-right:5px;color:var(--warning)"></i>evaluation</td>
+                <td class="num tnum"><strong>412</strong></td><td class="num tnum"><strong>6m 20s</strong></td><td class="num tnum">96/min</td><td class="num tnum">6</td><td class="num tnum">14</td>
+                <td><span class="badge badge-warning"><i data-lucide="alert-triangle" class="ic-sm ic"></i>Elevated — above objective</span></td>
+                <td class="td-actions"><button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-scale">Scale consumers</button></td>
+              </tr>
+              <tr>
+                <td class="mono">webhook-delivery</td>
+                <td class="num tnum">128</td><td class="num tnum">2m 04s</td><td class="num tnum">340/min</td><td class="num tnum">4</td><td class="num tnum">26</td>
+                <td><span class="badge badge-neutral"><i data-lucide="eye" class="ic-sm ic"></i>Watching</span></td>
+                <td class="td-actions"><a class="btn btn-sm btn-ghost" href="admin-integrations.html">Endpoints</a></td>
+              </tr>
+              <tr>
+                <td class="mono">email</td>
+                <td class="num tnum">9</td><td class="num tnum">4s</td><td class="num tnum">88/min</td><td class="num tnum">3</td><td class="num tnum">0</td>
+                <td><span class="badge badge-success"><i data-lucide="check" class="ic-sm ic"></i>Healthy</span></td>
+                <td class="td-actions"><a class="btn btn-sm btn-ghost ext" href="https://grafana.prepeet.example/d/prepeet-queues?var-queue=email" target="_blank" rel="noopener noreferrer">Graph<span class="sr-only">(opens in a new tab)</span></a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint" style="margin:-8px 0 var(--sp-4)">This table scrolls sideways on narrow screens rather than stacking, because depth, age and consumer count are only meaningful when you can compare all five queues on one line.</p>
+
+        <!-- Failed jobs -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 style="font-size:var(--text-base)">Failed jobs <span class="count hint">6 awaiting a decision · 44 total in 24h</span></h3>
+              <p class="hint" style="margin-top:3px">Expand a row for the error payload. Retries re-enqueue at the head of the queue with the original idempotency key.</p>
+            </div>
+            <div class="cluster">
+              <button class="btn btn-sm btn-secondary" type="button" data-dialog-open="dlg-retry-all"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Retry all</button>
+              <button class="btn btn-sm btn-danger-soft" type="button" data-dialog-open="dlg-dlq-all"><i data-lucide="archive" class="ic ic-sm"></i>Send all to dead-letter</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="accordion" style="border:0;border-radius:0">
+
+              <div class="accordion-item">
+                <h4><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="job-1">
+                  <span class="jobrow" style="flex:1;min-width:0">
+                    <span style="min-width:0">
+                      <span class="mono" style="font-size:var(--text-xs)">job_ev_8f21c4</span>
+                      <span class="hint" style="display:block">evaluation · ses_7Kq2XA · Northwind Health System · 3 attempts · 14:02 UTC</span>
+                    </span>
+                    <span class="badge badge-danger">upstream_timeout</span>
+                  </span>
+                  <i data-lucide="chevron-down" class="ic"></i>
+                </button></h4>
+                <div class="accordion-panel" id="job-1" hidden>
+                  <pre class="codeblock">{
+  "job_id": "job_ev_8f21c4",
+  "queue": "evaluation",
+  "session_id": "ses_7Kq2XA",
+  "tenant_id": "tn_northwind",
+  "attempt": 3,
+  "max_attempts": 4,
+  "failed_at": "2026-08-23T14:02:11Z",
+  "error": {
+    "code": "upstream_timeout",
+    "message": "evaluation model call exceeded 90000 ms deadline",
+    "model": "pp-eval-pro-3",
+    "elapsed_ms": 90014,
+    "retryable": true
+  },
+  "idempotency_key": "eval:ses_7Kq2XA:rubric_v4.2.1"
+}</pre>
+                  <div class="cluster" style="margin-top:12px">
+                    <button class="btn btn-sm btn-secondary" type="button" data-retry="job_ev_8f21c4"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Retry</button>
+                    <button class="btn btn-sm btn-danger-soft" type="button" data-dlq="job_ev_8f21c4">Send to dead-letter</button>
+                    <a class="btn btn-sm btn-ghost" href="admin-god-audit.html?ref=job_ev_8f21c4">Audit entry</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h4><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="job-2">
+                  <span class="jobrow" style="flex:1;min-width:0">
+                    <span style="min-width:0">
+                      <span class="mono" style="font-size:var(--text-xs)">job_ev_a9d0e7</span>
+                      <span class="hint" style="display:block">evaluation · ses_IA01 · Northwind Health System · 2 attempts · 13:47 UTC</span>
+                    </span>
+                    <span class="badge badge-warning">rubric_version_mismatch</span>
+                  </span>
+                  <i data-lucide="chevron-down" class="ic"></i>
+                </button></h4>
+                <div class="accordion-panel" id="job-2" hidden>
+                  <pre class="codeblock">{
+  "job_id": "job_ev_a9d0e7",
+  "queue": "evaluation",
+  "session_id": "ses_IA01",
+  "tenant_id": "tn_northwind",
+  "attempt": 2,
+  "failed_at": "2026-08-23T13:47:38Z",
+  "error": {
+    "code": "rubric_version_mismatch",
+    "message": "session was recorded against rubric v4.1.9, active rubric is v4.2.1",
+    "recorded_rubric": "rub_icu_rn@4.1.9",
+    "active_rubric": "rub_icu_rn@4.2.1",
+    "retryable": false
+  },
+  "remediation": "pin the recorded rubric version, then retry"
+}</pre>
+                  <div class="cluster" style="margin-top:12px">
+                    <button class="btn btn-sm btn-secondary" type="button" data-retry="job_ev_a9d0e7"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Retry with pinned rubric</button>
+                    <a class="btn btn-sm btn-ghost" href="admin-rubrics.html">Open rubric</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h4><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="job-3">
+                  <span class="jobrow" style="flex:1;min-width:0">
+                    <span style="min-width:0">
+                      <span class="mono" style="font-size:var(--text-xs)">job_wh_5c73b1</span>
+                      <span class="hint" style="display:block">webhook-delivery · Orbital Labs · 5 attempts (exhausted) · 13:31 UTC</span>
+                    </span>
+                    <span class="badge badge-danger">http_502</span>
+                  </span>
+                  <i data-lucide="chevron-down" class="ic"></i>
+                </button></h4>
+                <div class="accordion-panel" id="job-3" hidden>
+                  <pre class="codeblock">{
+  "job_id": "job_wh_5c73b1",
+  "queue": "webhook-delivery",
+  "tenant_id": "tn_orbital",
+  "event": "evaluation.completed",
+  "endpoint": "https://ats.orbitallabs.example/hooks/prepeet",
+  "attempt": 5,
+  "max_attempts": 5,
+  "failed_at": "2026-08-23T13:31:02Z",
+  "error": {
+    "code": "http_502",
+    "message": "Bad Gateway from customer endpoint",
+    "response_ms": 3011,
+    "retryable": true
+  },
+  "next_action": "dead-letter after 5 attempts"
+}</pre>
+                  <div class="cluster" style="margin-top:12px">
+                    <button class="btn btn-sm btn-secondary" type="button" data-retry="job_wh_5c73b1"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Retry</button>
+                    <button class="btn btn-sm btn-danger-soft" type="button" data-dlq="job_wh_5c73b1">Send to dead-letter</button>
+                    <a class="btn btn-sm btn-ghost" href="admin-integrations.html">Endpoint settings</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h4><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="job-4">
+                  <span class="jobrow" style="flex:1;min-width:0">
+                    <span style="min-width:0">
+                      <span class="mono" style="font-size:var(--text-xs)">job_tr_2b40aa</span>
+                      <span class="hint" style="display:block">transcription · ses_MZ01 · Meridian Schools Trust · 1 attempt · 13:12 UTC</span>
+                    </span>
+                    <span class="badge badge-danger">audio_segment_corrupt</span>
+                  </span>
+                  <i data-lucide="chevron-down" class="ic"></i>
+                </button></h4>
+                <div class="accordion-panel" id="job-4" hidden>
+                  <pre class="codeblock">{
+  "job_id": "job_tr_2b40aa",
+  "queue": "transcription",
+  "session_id": "ses_MZ01",
+  "tenant_id": "tn_meridian",
+  "attempt": 1,
+  "failed_at": "2026-08-23T13:12:47Z",
+  "error": {
+    "code": "audio_segment_corrupt",
+    "message": "opus frame checksum failed on segment 0042",
+    "segment": "aud/ses_MZ01/0042.opus",
+    "bytes": 40961,
+    "retryable": true
+  },
+  "note": "segment re-fetch from object storage is available"
+}</pre>
+                  <div class="cluster" style="margin-top:12px">
+                    <button class="btn btn-sm btn-secondary" type="button" data-retry="job_tr_2b40aa"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Re-fetch and retry</button>
+                    <button class="btn btn-sm btn-danger-soft" type="button" data-dlq="job_tr_2b40aa">Send to dead-letter</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h4><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="job-5">
+                  <span class="jobrow" style="flex:1;min-width:0">
+                    <span style="min-width:0">
+                      <span class="mono" style="font-size:var(--text-xs)">job_ev_77e5f0</span>
+                      <span class="hint" style="display:block">evaluation · ses_ON01 · Caldera Capital · 4 attempts (exhausted) · 12:58 UTC</span>
+                    </span>
+                    <span class="badge badge-warning">token_budget_exceeded</span>
+                  </span>
+                  <i data-lucide="chevron-down" class="ic"></i>
+                </button></h4>
+                <div class="accordion-panel" id="job-5" hidden>
+                  <pre class="codeblock">{
+  "job_id": "job_ev_77e5f0",
+  "queue": "evaluation",
+  "session_id": "ses_ON01",
+  "tenant_id": "tn_caldera",
+  "attempt": 4,
+  "max_attempts": 4,
+  "failed_at": "2026-08-23T12:58:20Z",
+  "error": {
+    "code": "token_budget_exceeded",
+    "message": "assembled evaluation context 214812 tokens exceeds 200000 budget",
+    "transcript_minutes": 61,
+    "retryable": false
+  },
+  "remediation": "chunk the transcript by question block and evaluate per competency"
+}</pre>
+                  <div class="cluster" style="margin-top:12px">
+                    <button class="btn btn-sm btn-secondary" type="button" data-retry="job_ev_77e5f0"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Retry chunked</button>
+                    <button class="btn btn-sm btn-danger-soft" type="button" data-dlq="job_ev_77e5f0">Send to dead-letter</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h4><button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="job-6">
+                  <span class="jobrow" style="flex:1;min-width:0">
+                    <span style="min-width:0">
+                      <span class="mono" style="font-size:var(--text-xs)">job_wh_1a6d92</span>
+                      <span class="hint" style="display:block">webhook-delivery · Brightpath Commercial · 5 attempts (exhausted) · 12:44 UTC</span>
+                    </span>
+                    <span class="badge badge-danger">tls_handshake_failure</span>
+                  </span>
+                  <i data-lucide="chevron-down" class="ic"></i>
+                </button></h4>
+                <div class="accordion-panel" id="job-6" hidden>
+                  <pre class="codeblock">{
+  "job_id": "job_wh_1a6d92",
+  "queue": "webhook-delivery",
+  "tenant_id": "tn_brightpath",
+  "event": "interview.submitted",
+  "endpoint": "https://crm.brightpath.example/prepeet/events",
+  "attempt": 5,
+  "failed_at": "2026-08-23T12:44:09Z",
+  "error": {
+    "code": "tls_handshake_failure",
+    "message": "certificate expired 2026-08-22T00:00:00Z",
+    "peer_cn": "crm.brightpath.example",
+    "retryable": false
+  },
+  "owner_notified": "2026-08-23T12:45:00Z"
+}</pre>
+                  <div class="cluster" style="margin-top:12px">
+                    <button class="btn btn-sm btn-danger-soft" type="button" data-dlq="job_wh_1a6d92">Send to dead-letter</button>
+                    <button class="btn btn-sm btn-ghost" type="button" data-toast="Reminder sent to Brightpath Commercial" data-toast-desc="Integration owner notified that their endpoint certificate expired on 22 August." data-toast-kind="info">Notify tenant owner</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════ Processing latency ══════════ -->
+      <section aria-labelledby="lat-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="lat-h" class="section-title" style="margin:0">Processing latency</h2>
+          <span class="hint">Submission to recruiter-visible evaluation · last 24 hours (UTC)</span>
+        </div>
+        <div class="grid split-wide">
+          <div class="card">
+            <div class="card-body">
+              <svg class="chart" viewBox="0 0 760 250" role="img" aria-label="Line chart of evaluation latency over the last 24 hours. p50 stays between 830 and 1120 milliseconds, p95 between 1630 and 2240 milliseconds, p99 between 2250 and 3080 milliseconds. All three peak at 16:00 UTC.">
+                <line class="grid" x1="60" y1="210" x2="740" y2="210"/>
+                <line class="grid" x1="60" y1="162.5" x2="740" y2="162.5"/>
+                <line class="grid" x1="60" y1="115" x2="740" y2="115"/>
+                <line class="grid" x1="60" y1="67.5" x2="740" y2="67.5"/>
+                <line class="grid" x1="60" y1="20" x2="740" y2="20"/>
+                <text x="52" y="213" text-anchor="end">0</text>
+                <text x="52" y="166" text-anchor="end">0.8s</text>
+                <text x="52" y="118" text-anchor="end">1.6s</text>
+                <text x="52" y="71" text-anchor="end">2.4s</text>
+                <text x="52" y="24" text-anchor="end">3.2s</text>
+                <line class="axis" x1="60" y1="20" x2="60" y2="210"/>
+                <polyline class="ln c5" points="60,68.69 89.57,72.25 119.13,74.63 148.7,76.41 178.26,74.03 207.83,70.47 237.39,63.34 266.96,52.06 296.52,41.38 326.09,44.94 355.65,50.28 385.22,54.44 414.78,52.66 444.35,49.69 473.91,43.16 503.48,34.25 533.04,27.13 562.61,36.63 592.17,47.31 621.74,53.25 651.3,57.41 680.87,60.97 710.43,63.94 740,66.31"/>
+                <polyline class="ln c3" points="60,107.88 89.57,110.25 119.13,112.03 148.7,113.22 178.26,111.44 207.83,109.06 237.39,103.72 266.96,95.41 296.52,87.69 326.09,90.66 355.65,94.22 385.22,97.19 414.78,96 444.35,93.62 473.91,88.88 503.48,82.34 533.04,77 562.61,84.13 592.17,92.44 621.74,97.19 651.3,100.16 680.87,102.53 710.43,104.31 740,106.09"/>
+                <polyline class="ln c1" points="60,157.75 89.57,158.94 119.13,160.13 148.7,160.72 178.26,159.83 207.83,158.34 237.39,155.97 266.96,151.81 296.52,148.25 326.09,150.03 355.65,153 385.22,154.19 414.78,153.59 444.35,152.41 473.91,149.44 503.48,145.88 533.04,143.5 562.61,147.06 592.17,151.22 621.74,154.19 651.3,155.97 680.87,157.16 710.43,158.05 740,158.64"/>
+                <text x="60" y="228" text-anchor="middle">00:00</text>
+                <text x="178.26" y="228" text-anchor="middle">04:00</text>
+                <text x="296.52" y="228" text-anchor="middle">08:00</text>
+                <text x="414.78" y="228" text-anchor="middle">12:00</text>
+                <text x="533.04" y="228" text-anchor="middle">16:00</text>
+                <text x="651.3" y="228" text-anchor="middle">20:00</text>
+                <text x="740" y="228" text-anchor="end">23:00</text>
+                <text x="400" y="245" text-anchor="middle">Hour of day (UTC)</text>
+              </svg>
+              <div class="chart-legend" style="margin-top:10px">
+                <span><i style="background:var(--chart-1)"></i>p50 median</span>
+                <span><i style="background:var(--chart-3)"></i>p95</span>
+                <span><i style="background:var(--chart-5)"></i>p99</span>
+              </div>
+              <p class="chart-summary">Text summary: over the last 24 hours the median (p50) evaluation latency averaged 943 ms, ranging 830 ms at 03:00 to 1,120 ms at 16:00. p95 averaged 1,883 ms (range 1,630–2,240 ms) and p99 averaged 2,600 ms (range 2,250–3,080 ms). The single worst hour for all three percentiles was 16:00 UTC, which is also the daily concurrency peak.</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h3 style="font-size:var(--text-sm)">Stage breakdown · median session</h3></div>
+            <div class="card-body">
+              <svg class="stagebar" viewBox="0 0 760 44" role="img" aria-label="Horizontal stacked bar of the median 28.2 second pipeline: upload 1.2 seconds, transcription 8.4 seconds, evidence extraction 5.1 seconds, evaluation 12.6 seconds, delivery 0.9 seconds.">
+                <rect class="s1" x="0" y="0" width="32.34" height="24" rx="3"/>
+                <rect class="s2" x="32.34" y="0" width="226.38" height="24"/>
+                <rect class="s3" x="258.72" y="0" width="137.45" height="24"/>
+                <rect class="s4" x="396.17" y="0" width="339.57" height="24"/>
+                <rect class="s5" x="735.74" y="0" width="24.26" height="24" rx="3"/>
+              </svg>
+              <ul style="margin-top:12px;display:flex;flex-direction:column;gap:7px">
+                <li class="between" style="font-size:var(--text-xs)"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--chart-1);margin-right:7px"></i>Upload &amp; segment</span><span class="mono tnum">1.2s · 4.3%</span></li>
+                <li class="between" style="font-size:var(--text-xs)"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--chart-2);margin-right:7px"></i>Transcription</span><span class="mono tnum">8.4s · 29.8%</span></li>
+                <li class="between" style="font-size:var(--text-xs)"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--chart-4);margin-right:7px"></i>Evidence extraction</span><span class="mono tnum">5.1s · 18.1%</span></li>
+                <li class="between" style="font-size:var(--text-xs)"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--chart-3);margin-right:7px"></i>Evaluation</span><span class="mono tnum">12.6s · 44.7%</span></li>
+                <li class="between" style="font-size:var(--text-xs)"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--chart-6);margin-right:7px"></i>Delivery &amp; notify</span><span class="mono tnum">0.9s · 3.2%</span></li>
+              </ul>
+              <hr style="margin:var(--sp-4) 0">
+              <div class="between" style="font-size:var(--text-sm)"><strong>End to end (median)</strong><span class="mono tnum">28.2s</span></div>
+              <p class="chart-summary">Text summary: the median 28.2-second pipeline is dominated by evaluation at 12.6 seconds (44.7%), followed by transcription 8.4s (29.8%), evidence extraction 5.1s (18.1%), upload and segmenting 1.2s (4.3%) and delivery 0.9s (3.2%).</p>
+              <a class="btn btn-sm btn-secondary btn-block" style="margin-top:var(--sp-4)" href="admin-platform-analytics-evaluations.html">Evaluation quality view<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════ Realtime session health ══════════ -->
+      <section aria-labelledby="rt-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="rt-h" class="section-title" style="margin:0">Realtime session health</h2>
+          <a class="link" href="admin-platform-analytics-sessions.html">Session analytics<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+        </div>
+        <div class="grid grid-3">
+
+          <div class="card">
+            <div class="card-body">
+              <div class="metrics-row" style="grid-template-columns:1fr 1fr">
+                <div class="metric metric-dense" style="padding:0">
+                  <span class="metric-label"><span class="status-dot ok pulse" aria-hidden="true"></span>Concurrent now</span>
+                  <span class="metric-value tnum">287</span>
+                  <span class="metric-foot">Capacity 480 · 60% used</span>
+                </div>
+                <div class="metric metric-dense" style="padding:0">
+                  <span class="metric-label">Peak today</span>
+                  <span class="metric-value tnum">342</span>
+                  <span class="metric-foot">16:00 UTC</span>
+                </div>
+              </div>
+              <svg class="mini" viewBox="0 0 240 60" preserveAspectRatio="none" role="img" aria-label="Concurrent realtime sessions over 24 hours: from 64 at midnight, rising to a peak of 342 at 16:00 UTC and easing to 88 by 23:00.">
+                <path class="fillarea" d="M 2,46.76 L 12.26,48.49 L 22.52,49.64 L 32.78,50.08 L 43.04,49.07 L 53.3,45.6 L 63.57,38.96 L 73.83,29.13 L 84.09,20.18 L 94.35,17.87 L 104.61,21.19 L 114.87,23.07 L 125.13,21.91 L 135.39,19.6 L 145.65,15.41 L 155.91,10.07 L 166.17,6.6 L 176.43,11.37 L 186.7,14.54 L 196.96,17.58 L 207.22,22.49 L 217.48,30.29 L 227.74,38.09 L 238,43.29 L 238,56 L 2,56 Z"/>
+                <polyline class="ln" vector-effect="non-scaling-stroke" points="2,46.76 12.26,48.49 22.52,49.64 32.78,50.08 43.04,49.07 53.3,45.6 63.57,38.96 73.83,29.13 84.09,20.18 94.35,17.87 104.61,21.19 114.87,23.07 125.13,21.91 135.39,19.6 145.65,15.41 155.91,10.07 166.17,6.6 176.43,11.37 186.7,14.54 196.96,17.58 207.22,22.49 217.48,30.29 227.74,38.09 238,43.29"/>
+              </svg>
+              <p class="chart-summary">Text summary: concurrent realtime sessions over 24 hours started at 64, dipped to 41 at 03:00, climbed through the working day and peaked at 342 at 16:00 UTC before falling to 88 at 23:00. Current value 287.</p>
+              <hr style="margin:var(--sp-4) 0">
+              <dl class="kv" style="font-size:var(--text-xs)">
+                <dt>Reconnect rate</dt><dd>1.8% of sessions <span class="badge badge-success">under 3% target</span></dd>
+                <dt>Median join time</dt><dd>1.4 s</dd>
+                <dt>Audio drop-outs</dt><dd>0.6% of session-minutes</dd>
+                <dt>Sessions ended early</dt><dd>11 today (4 candidate-initiated)</dd>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h3 style="font-size:var(--text-sm)">Media server pools</h3></div>
+            <div class="card-body stack-sm">
+              <div class="pool">
+                <div class="between" style="font-size:var(--text-xs)"><span><strong>eu-central-1</strong> · 6 nodes · Healthy</span><span class="mono tnum">62%</span></div>
+                <div class="progress sm"><span style="width:62%"></span></div>
+              </div>
+              <div class="pool">
+                <div class="between" style="font-size:var(--text-xs)"><span><strong>eu-west-1</strong> · 3 nodes · Healthy</span><span class="mono tnum">48%</span></div>
+                <div class="progress sm"><span style="width:48%"></span></div>
+              </div>
+              <div class="pool">
+                <div class="between" style="font-size:var(--text-xs)"><span><strong>us-east-1</strong> · 4 nodes · Scaling up</span><span class="mono tnum">71%</span></div>
+                <div class="progress sm warning"><span style="width:71%"></span></div>
+              </div>
+              <div class="pool">
+                <div class="between" style="font-size:var(--text-xs)"><span><strong>ap-southeast-1</strong> · 2 nodes · Healthy</span><span class="mono tnum">34%</span></div>
+                <div class="progress sm"><span style="width:34%"></span></div>
+              </div>
+              <p class="hint" style="margin-top:8px">Autoscaler adds a node at 75% sustained for 5 minutes. us-east-1 crossed the threshold at 14:26 UTC and a fifth node is warming.</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 style="font-size:var(--text-sm)">Recent connection events</h3>
+              <span class="badge badge-neutral"><span class="status-dot ok pulse" aria-hidden="true"></span>live</span>
+            </div>
+            <div class="card-body" style="padding-top:8px">
+              <div role="log" aria-label="Most recent realtime session connection events" aria-live="off">
+                <div class="evt"><time datetime="2026-08-23T14:31:52Z">14:31:52</time><span>Session <span class="mono">ses_4Bz9QD</span> joined · eu-central-1</span><span class="badge badge-success evt-badge">connected</span></div>
+                <div class="evt"><time datetime="2026-08-23T14:31:40Z">14:31:40</time><span>Session <span class="mono">ses_YD01</span> renegotiated after network change</span><span class="badge badge-info evt-badge">reconnect</span></div>
+                <div class="evt"><time datetime="2026-08-23T14:31:18Z">14:31:18</time><span>Session <span class="mono">ses_PS01</span> completed · 26 min</span><span class="badge badge-neutral evt-badge">closed</span></div>
+                <div class="evt"><time datetime="2026-08-23T14:30:55Z">14:30:55</time><span>Session <span class="mono">ses_GM01</span> joined · eu-west-1</span><span class="badge badge-success evt-badge">connected</span></div>
+                <div class="evt"><time datetime="2026-08-23T14:30:31Z">14:30:31</time><span>Session <span class="mono">ses_LF01</span> ICE candidate timeout, fell back to TURN</span><span class="badge badge-warning evt-badge">degraded</span></div>
+                <div class="evt"><time datetime="2026-08-23T14:30:09Z">14:30:09</time><span>Session <span class="mono">ses_CW01</span> joined · us-east-1</span><span class="badge badge-success evt-badge">connected</span></div>
+                <div class="evt"><time datetime="2026-08-23T14:29:44Z">14:29:44</time><span>Session <span class="mono">ses_MZ01</span> ended early by candidate at 00:11</span><span class="badge badge-neutral evt-badge">closed</span></div>
+                <div class="evt"><time datetime="2026-08-23T14:29:12Z">14:29:12</time><span>Session <span class="mono">ses_TH01</span> joined · eu-central-1</span><span class="badge badge-success evt-badge">connected</span></div>
+              </div>
+              <p class="hint" style="margin-top:10px">Showing the 8 most recent events. Full stream is in the session analytics view.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════ Infrastructure ══════════ -->
+      <section aria-labelledby="infra-h" style="margin-bottom:var(--sp-6)">
+        <div class="section-head">
+          <h2 id="infra-h" class="section-title" style="margin:0">Infrastructure</h2>
+          <a class="link ext" href="https://grafana.prepeet.example/d/prepeet-infra" target="_blank" rel="noopener noreferrer">Infrastructure dashboard<span class="sr-only">(opens in a new tab)</span></a>
+        </div>
+        <div class="grid grid-4">
+          <div class="card"><div class="card-body">
+            <h3 style="font-size:var(--text-sm);margin-bottom:10px">Node pool utilisation</h3>
+            <div class="stack-sm">
+              <div><div class="between" style="font-size:var(--text-xs)"><span>app (12 nodes)</span><span class="mono tnum">62%</span></div><div class="progress sm"><span style="width:62%"></span></div></div>
+              <div><div class="between" style="font-size:var(--text-xs)"><span>gpu-transcode (6)</span><span class="mono tnum">78%</span></div><div class="progress sm warning"><span style="width:78%"></span></div></div>
+              <div><div class="between" style="font-size:var(--text-xs)"><span>batch-eval (8)</span><span class="mono tnum">41%</span></div><div class="progress sm"><span style="width:41%"></span></div></div>
+            </div>
+            <p class="hint" style="margin-top:10px">gpu-transcode is the tightest pool. Headroom for roughly 90 more concurrent sessions.</p>
+          </div></div>
+
+          <div class="card"><div class="card-body">
+            <h3 style="font-size:var(--text-sm);margin-bottom:10px">Database replica lag</h3>
+            <dl class="kv" style="font-size:var(--text-xs)">
+              <dt>primary → replica-eu</dt><dd class="mono">240 ms</dd>
+              <dt>primary → replica-us</dt><dd class="mono">610 ms</dd>
+              <dt>primary → analytics</dt><dd class="mono">3.1 s</dd>
+              <dt>Longest transaction</dt><dd class="mono">4.2 s</dd>
+            </dl>
+            <p class="hint" style="margin-top:10px">Analytics replica intentionally lags; reporting screens read from it and are labelled as up to 5 minutes behind.</p>
+          </div></div>
+
+          <div class="card"><div class="card-body">
+            <h3 style="font-size:var(--text-sm);margin-bottom:10px">Cache</h3>
+            <div class="metric metric-dense" style="padding:0">
+              <span class="metric-label">Hit rate</span>
+              <span class="metric-value tnum">91.4%</span>
+              <span class="metric-delta up"><i data-lucide="arrow-up" class="ic-sm ic"></i>+2.1 pts vs last week</span>
+            </div>
+            <dl class="kv" style="font-size:var(--text-xs);margin-top:12px">
+              <dt>Evictions / min</dt><dd class="mono">1,204</dd>
+              <dt>Memory used</dt><dd class="mono">18.2 / 32 GB</dd>
+              <dt>Keyspace</dt><dd class="mono">4.1M keys</dd>
+            </dl>
+          </div></div>
+
+          <div class="card"><div class="card-body">
+            <h3 style="font-size:var(--text-sm);margin-bottom:10px">Object storage growth</h3>
+            <div class="metric metric-dense" style="padding:0">
+              <span class="metric-label">Audio + transcripts</span>
+              <span class="metric-value tnum">18.4 <small>TB</small></span>
+              <span class="metric-delta up"><i data-lucide="arrow-up" class="ic-sm ic"></i>+412 GB in 7 days</span>
+            </div>
+            <dl class="kv" style="font-size:var(--text-xs);margin-top:12px">
+              <dt>Lifecycle deletes</dt><dd class="mono">1.9 TB / 30d</dd>
+              <dt>Oldest object</dt><dd>18 months (retention cap)</dd>
+            </dl>
+            <a class="link" style="font-size:var(--text-xs);display:inline-block;margin-top:8px" href="admin-tenant-settings.html#retention">Retention policy</a>
+          </div></div>
+        </div>
+      </section>
+
+      <!-- ══════════ Incident history + runtime policy versions ══════════ -->
+      <div class="grid split-2">
+
+        <section class="card" aria-labelledby="hist-h">
+          <div class="card-header">
+            <h2 id="hist-h" style="font-size:var(--text-base)">Incident history</h2>
+            <a class="link" href="admin-god-audit.html">Full audit trail<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+          </div>
+          <div class="card-body">
+            <ol class="timeline">
+              <li class="tl-item danger">
+                <div class="tl-title">INC-2026-0812-02 · Transcription backlog <span class="badge badge-warning">P2</span></div>
+                <div class="tl-meta">12 Aug 2026, 08:41–10:14 UTC · duration 1h 33m</div>
+                <div class="tl-body">A GPU node pool upgrade drained faster than replacements warmed. 1,102 sessions were transcribed late; none were lost. <a href="admin-god-audit.html?ref=INC-2026-0812-02">Postmortem</a></div>
+              </li>
+              <li class="tl-item warning">
+                <div class="tl-title">INC-2026-0731-01 · Webhook delivery failures <span class="badge badge-neutral">P3</span></div>
+                <div class="tl-meta">31 Jul 2026, 14:02–14:48 UTC · duration 46m</div>
+                <div class="tl-body">A shared egress IP was rate-limited by two customer gateways. Dispatcher now spreads retries across three egress addresses. <a href="admin-god-audit.html?ref=INC-2026-0731-01">Postmortem</a></div>
+              </li>
+              <li class="tl-item danger">
+                <div class="tl-title">INC-2026-0719-03 · Realtime gateway packet loss (us-east-1) <span class="badge badge-danger">P1</span></div>
+                <div class="tl-meta">19 Jul 2026, 16:20–17:52 UTC · duration 1h 32m</div>
+                <div class="tl-body">Provider network event caused 6% packet loss. 84 interviews were interrupted; all candidates were offered a rerun at no cost to the tenant. <a href="admin-god-audit.html?ref=INC-2026-0719-03">Postmortem</a></div>
+              </li>
+              <li class="tl-item warning">
+                <div class="tl-title">INC-2026-0703-01 · Evaluation policy rollback <span class="badge badge-neutral">P3</span></div>
+                <div class="tl-meta">3 Jul 2026, 09:15–09:38 UTC · duration 23m</div>
+                <div class="tl-body">Policy v4.1.0 raised the insufficient-evidence threshold too aggressively; 31 evaluations were re-run after rollback. <a href="admin-god-audit.html?ref=INC-2026-0703-01">Postmortem</a></div>
+              </li>
+            </ol>
+          </div>
+          <div class="card-footer">
+            <span class="hint">4 incidents in 90 days · mean time to resolve 1h 04m · 0 with data loss</span>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="pol-h">
+          <div class="card-header">
+            <div>
+              <h2 id="pol-h" style="font-size:var(--text-base)">Runtime policy versions</h2>
+              <p class="hint" style="margin-top:3px">What is live in production right now. Changes are two-person approved and recorded in the audit log.</p>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="scroll-x">
+              <table class="table table-dense">
+                <caption class="sr-only">Active runtime policy versions with activation date, activating administrator and a link to the change detail.</caption>
+                <thead><tr><th scope="col">Policy</th><th scope="col">Version</th><th scope="col">Activated</th><th scope="col">By</th><th scope="col" class="td-actions">Change</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td>Evaluation policy</td><td class="mono">v4.2.1</td><td>14 Aug 2026</td><td>Priya Raman</td>
+                    <td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-policy="eval">View change</button></td>
+                  </tr>
+                  <tr>
+                    <td>Rubric engine</td><td class="mono">v3.8.0</td><td>29 Jul 2026</td><td>Jonas Brandt</td>
+                    <td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-policy="rubric">View change</button></td>
+                  </tr>
+                  <tr>
+                    <td>Transcription model routing</td><td class="mono">v2.4.3</td><td>6 Aug 2026</td><td>Priya Raman</td>
+                    <td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-policy="routing">View change</button></td>
+                  </tr>
+                  <tr>
+                    <td>Safety policy</td><td class="mono">v1.9.2</td><td>21 Aug 2026</td><td>Elena Vasquez</td>
+                    <td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-policy="safety">View change</button></td>
+                  </tr>
+                  <tr>
+                    <td>Data-retention policy</td><td class="mono">v2.2.0</td><td>2 Jul 2026</td><td>Elena Vasquez</td>
+                    <td class="td-actions"><button class="btn btn-sm btn-ghost" type="button" data-policy="retention">View change</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p class="hint" style="padding:0 var(--sp-4) var(--sp-3)">Scrolls sideways on narrow screens: a version number is only useful next to who activated it and when.</p>
+          <div class="card-footer">
+            <div class="cluster">
+              <a class="btn btn-sm btn-secondary" href="admin-god-audit.html?filter=policy">Policy change log</a>
+              <a class="btn btn-sm btn-ghost" href="admin-platform-system-llm-usage.html">Model routing cost impact</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div><!-- /states -->
+  </div>
+</main>
+
+<!-- ══════════════════ DIALOGS ══════════════════ -->
+<dialog class="dialog" id="dlg-retry" aria-labelledby="dlg-retry-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-retry-h">Retry this job?</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button></div>
+    <div class="dialog-body">
+      <p>Re-enqueues <span class="mono" data-retry-id>job</span> at the head of its queue using the original idempotency key, so a duplicate evaluation cannot be produced.</p>
+      <p style="margin-top:10px">The retry is recorded in the audit log against your account.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="confirm-retry">Retry job</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-retry-all" aria-labelledby="dlg-retry-all-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-retry-all-h">Retry all 6 failed jobs?</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button></div>
+    <div class="dialog-body">
+      <p>Two of the six are marked non-retryable (<span class="mono">rubric_version_mismatch</span>, <span class="mono">tls_handshake_failure</span>) and will be skipped unless you fix the cause first.</p>
+      <div class="banner banner-warning" style="margin-top:12px"><i data-lucide="alert-triangle" class="ic"></i><div>Retrying 4 jobs adds roughly 90 seconds of work to the evaluation queue, which is already above its objective.</div></div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-dialog-close data-toast="Retrying 4 jobs" data-toast-desc="2 non-retryable jobs were skipped. Progress appears in the failed-jobs list." data-toast-kind="success">Retry 4 jobs</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-dlq" aria-labelledby="dlg-dlq-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-dlq-h">Send to dead-letter?</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button></div>
+    <div class="dialog-body">
+      <p>Moves <span class="mono" data-dlq-id>job</span> out of the live queue into the dead-letter store. It will not be retried automatically and the affected tenant will not receive the result until someone replays it.</p>
+      <div class="field" style="margin-top:14px">
+        <label class="label" for="dlq-reason">Reason <span class="hint">Required — appears in the audit log</span></label>
+        <input class="input" id="dlq-reason" type="text" placeholder="e.g. customer endpoint certificate expired, owner notified" required>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-danger" type="button" id="confirm-dlq">Send to dead-letter</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-dlq-all" aria-labelledby="dlg-dlq-all-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-dlq-all-h">Dead-letter all 6 jobs?</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button></div>
+    <div class="dialog-body">
+      <div class="banner banner-danger"><i data-lucide="alert-octagon" class="ic"></i><div>Six tenants stop receiving these results until someone replays them by hand. Prefer retrying the four retryable jobs first.</div></div>
+      <p style="margin-top:12px">Affected tenants: Northwind Health System (2), Orbital Labs, Meridian Schools Trust, Caldera Capital, Brightpath Commercial.</p>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-danger" type="button" data-dialog-close data-toast="6 jobs moved to dead-letter" data-toast-desc="Recorded in the audit log. Tenant owners were notified." data-toast-kind="danger">Dead-letter all</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-scale" aria-labelledby="dlg-scale-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-scale-h">Scale evaluation consumers</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button></div>
+    <div class="dialog-body">
+      <p>Current: 6 consumers draining 96 jobs/min against a depth of 412. Each consumer adds roughly 16 jobs/min.</p>
+      <div class="field" style="margin-top:14px">
+        <label class="label" for="scale-count">Target consumer count</label>
+        <input class="input" id="scale-count" type="number" min="6" max="24" value="12" step="1">
+        <p class="hint">Maximum 24 — above that the evaluation model rate limit becomes the bottleneck. See <a href="admin-platform-quotas.html#rate-limits">per-model rate limits</a>.</p>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label class="label" for="scale-reason">Change reason <span class="hint">Required</span></label>
+        <input class="input" id="scale-reason" type="text" value="Queue depth 412, oldest item 6m 20s, above 90s objective" required>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-dialog-close data-toast="Scaling evaluation consumers 6 → 12" data-toast-desc="New pods are warming. Expect the queue to drain in about 4 minutes." data-toast-kind="success">Apply</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-policy" aria-labelledby="dlg-policy-h">
+  <div class="dialog-panel wide">
+    <div class="dialog-header"><h2 id="dlg-policy-h">Policy change</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close"><i data-lucide="x" class="ic"></i></button></div>
+    <div class="dialog-body" id="policy-body"></div>
+    <div class="dialog-footer">
+      <a class="btn btn-secondary" href="admin-god-audit.html?filter=policy">Open in audit log</a>
+      <button class="btn btn-primary" type="button" data-dialog-close>Close</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+
+  /* ---------- permission guard ---------- */
+  function guard() {
+    if (Prepeet.can('platform_admin')) return true;
+    var roleLabel = Prepeet.roles[Prepeet.getRole()].label;
+    document.getElementById('main-content').innerHTML =
+      '<div class="state danger state-page">' +
+        '<div class="state-icon"><i data-lucide="shield-x" class="ic"></i></div>' +
+        '<h1>System health is restricted</h1>' +
+        '<p>You are signed in as <strong>' + roleLabel + '</strong>. Platform system health is visible to <strong>Platform admin</strong> and above, because it exposes operational data across every tenant.</p>' +
+        '<p class="code">/admin/platform/system · 403</p>' +
+        '<div class="actions">' +
+          '<a class="btn btn-primary" href="admin-dashboard.html">Back to overview</a>' +
+          '<a class="btn btn-secondary" href="error-403.html">Why am I seeing this?</a>' +
+        '</div>' +
+        '<p class="hint" style="margin-top:12px">Use the “Viewing as” control in the top bar to preview the console as a platform admin.</p>' +
+      '</div>';
+    Prepeet.init();
+    return false;
+  }
+
+  /* ---------- state switcher (space-separated data-state lists) ---------- */
+  var STATES = ['operational', 'degraded', 'incident', 'loading'];
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'operational');
+    if (STATES.indexOf(cur) === -1) cur = 'operational';
+    function apply(s, silent) {
+      document.querySelectorAll('[data-state]').forEach(function (el) {
+        var list = el.getAttribute('data-state').split(/\s+/);
+        el.hidden = list.indexOf(s) === -1;
+      });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+      });
+      Prepeet.query.set({ state: s === 'operational' ? null : s }, true);
+      Prepeet.init();
+      if (!silent) Prepeet.announce('Showing the ' + s + ' state of the system health screen.');
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(cur, true);
+  }
+
+  /* ---------- failed-job actions ---------- */
+  function initJobs() {
+    document.addEventListener('click', function (e) {
+      var r = e.target.closest('[data-retry]');
+      if (r) {
+        document.querySelector('[data-retry-id]').textContent = r.getAttribute('data-retry');
+        document.getElementById('confirm-retry').setAttribute('data-job', r.getAttribute('data-retry'));
+        Prepeet.openDialog('dlg-retry');
+        return;
+      }
+      var d = e.target.closest('[data-dlq]');
+      if (d) {
+        document.querySelector('[data-dlq-id]').textContent = d.getAttribute('data-dlq');
+        document.getElementById('confirm-dlq').setAttribute('data-job', d.getAttribute('data-dlq'));
+        document.getElementById('dlq-reason').value = '';
+        document.getElementById('dlq-reason').setAttribute('aria-invalid', 'false');
+        Prepeet.openDialog('dlg-dlq');
+      }
+    });
+
+    document.getElementById('confirm-retry').addEventListener('click', function () {
+      var id = this.getAttribute('data-job') || 'job';
+      Prepeet.closeDialog('dlg-retry');
+      Prepeet.toast({ title: 'Retrying ' + id, desc: 'Re-enqueued at the head of its queue. Recorded in the audit log.', kind: 'success' });
+    });
+
+    document.getElementById('confirm-dlq').addEventListener('click', function () {
+      var input = document.getElementById('dlq-reason');
+      if (!input.value.trim()) {
+        input.setAttribute('aria-invalid', 'true');
+        input.focus();
+        Prepeet.announce('A reason is required before a job can be dead-lettered.');
+        return;
+      }
+      var id = this.getAttribute('data-job') || 'job';
+      Prepeet.closeDialog('dlg-dlq');
+      Prepeet.toast({ title: id + ' moved to dead-letter', desc: 'Reason recorded in the audit log.', kind: 'danger' });
+    });
+  }
+
+  /* ---------- policy change dialog ---------- */
+  var POLICIES = {
+    eval: {
+      title: 'Evaluation policy v4.2.1',
+      meta: 'Activated 14 Aug 2026, 09:20 UTC by Priya Raman · approved by Jonas Brandt · previous v4.2.0',
+      body: 'Raised the minimum number of independent evidence spans required before a competency is scored from 2 to 3. Competencies below the threshold now return “insufficient evidence” rather than a low-confidence score.',
+      diff: '- min_evidence_spans: 2\n+ min_evidence_spans: 3\n  insufficient_label: "Insufficient evidence"\n  confidence_bands: [low, medium, high]\n+ recompute_on_activate: false'
+    },
+    rubric: {
+      title: 'Rubric engine v3.8.0',
+      meta: 'Activated 29 Jul 2026, 07:05 UTC by Jonas Brandt · approved by Priya Raman · previous v3.7.4',
+      body: 'Rubric versions are now pinned to the session at recording time, so a rubric edited after an interview cannot change how that interview is scored. This is the change that surfaces the rubric_version_mismatch failures you see in the queue.',
+      diff: '+ pin_rubric_version_at_record: true\n  allow_retro_rescore: false\n  max_competencies_per_rubric: 12'
+    },
+    routing: {
+      title: 'Transcription model routing v2.4.3',
+      meta: 'Activated 6 Aug 2026, 11:40 UTC by Priya Raman · approved by Elena Vasquez · previous v2.4.2',
+      body: 'Sessions shorter than 8 minutes route to the faster transcription tier. Longer sessions and any session with detected clinical terminology stay on the accurate tier.',
+      diff: '  default_tier: accurate\n+ fast_tier_if:\n+   duration_minutes_lt: 8\n+   domain_not_in: [nursing, medicine]\n  fallback_on_error: accurate'
+    },
+    safety: {
+      title: 'Safety policy v1.9.2',
+      meta: 'Activated 21 Aug 2026, 16:02 UTC by Elena Vasquez · approved by Priya Raman · previous v1.9.1',
+      body: 'Added handling for candidate disclosures of personal distress: the interviewer persona acknowledges, offers to pause, and the session is flagged for human review rather than scored automatically.',
+      diff: '+ distress_disclosure:\n+   persona_action: acknowledge_and_offer_pause\n+   route_to: human_review\n+   suppress_auto_score: true'
+    },
+    retention: {
+      title: 'Data-retention policy v2.2.0',
+      meta: 'Activated 2 Jul 2026, 08:00 UTC by Elena Vasquez · approved by Jonas Brandt · previous v2.1.0',
+      body: 'Default audio retention shortened from 24 to 18 months. Tenants may set a shorter period; none may set a longer one. Transcripts follow the same clock as the audio they came from.',
+      diff: '- audio_retention_months: 24\n+ audio_retention_months: 18\n  tenant_override: shorter_only\n  transcript_follows_audio: true'
+    }
+  };
+  function initPolicies() {
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-policy]');
+      if (!b) return;
+      var p = POLICIES[b.getAttribute('data-policy')];
+      if (!p) return;
+      document.getElementById('dlg-policy-h').textContent = p.title;
+      document.getElementById('policy-body').innerHTML =
+        '<p class="hint">' + p.meta + '</p>' +
+        '<p style="margin-top:12px">' + p.body + '</p>' +
+        '<h3 style="font-size:var(--text-sm);margin:16px 0 8px">Configuration diff</h3>' +
+        '<pre class="codeblock">' + p.diff.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>';
+      Prepeet.openDialog('dlg-policy');
+    });
+  }
+
+  /* ---------- ui.js swallows data-toast when the same button also closes a
+     dialog (its handler returns early). Re-fire the toast here. ---------- */
+  function initConfirmToasts() {
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-dialog-close][data-toast]');
+      if (!t) return;
+      Prepeet.toast({
+        title: t.getAttribute('data-toast'),
+        desc: t.getAttribute('data-toast-desc') || '',
+        kind: t.getAttribute('data-toast-kind') || 'default'
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!guard()) return;
+    initStates();
+    initJobs();
+    initPolicies();
+    initConfirmToasts();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

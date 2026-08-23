@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invitation detail · Prepeet</title>
+<meta name="description" content="The full lifecycle of one screening invitation: configuration, email delivery, what the candidate saw, and how to revoke it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Page-scoped: the rendered email surface and the separated danger zone. */
+  .mail { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); overflow: hidden; }
+  .mail-head { padding: 10px 14px; background: var(--surface-3); border-bottom: 1px solid var(--border); font-size: var(--text-xs); color: var(--fg-3); }
+  .mail-head b { color: var(--fg-2); font-weight: 600; }
+  .mail-body { padding: 16px 14px; font-size: var(--text-sm); line-height: 1.6; color: var(--fg-2); white-space: pre-wrap; }
+  .danger-zone { border: 1px solid var(--danger-border); border-top: 3px solid var(--danger); background: var(--surface); }
+  .danger-zone .card-header { border-bottom-color: var(--danger-border); }
+  .countdown { font-family: var(--font-mono); font-size: var(--text-lg); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fg); }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="invitations" data-title="Invitation detail"
+      data-crumbs="Hiring>admin-dashboard.html|Invitations>admin-invitations.html" data-search="off">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <!-- Revoked banner -->
+    <div class="banner banner-danger" id="revoked-banner" hidden role="status" style="margin-bottom:var(--sp-5)">
+      <i data-lucide="circle-slash" class="ic"></i>
+      <div>
+        <strong>This invitation was revoked.</strong>
+        <span id="revoked-detail">The candidate link no longer works.</span>
+        <span id="revoked-eval-note"></span>
+      </div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-secondary" href="admin-invitation-new.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>Issue a new invitation</a>
+      </div>
+    </div>
+
+    <!-- Expired banner -->
+    <div class="banner banner-warning" id="expired-banner" hidden role="status" style="margin-bottom:var(--sp-5)">
+      <i data-lucide="timer-off" class="ic"></i>
+      <div><strong>The deadline passed on 19 August 2026 at 23:59.</strong> The link stopped working and the candidate did not start the interview. Two reminders were sent. If you still want this candidate in the process, issue a new invitation rather than extending a closed one.</div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-primary" href="admin-invitation-new.html"><i data-lucide="mail-plus" class="ic ic-sm"></i>Issue a new invitation</a>
+      </div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Invitation · Northwind Health System</p>
+        <h1 id="cand-name">Amara Osei</h1>
+        <p class="page-desc" id="head-role">Registered Nurse — Intensive Care · invited 12 August 2026 by Priya Raman</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-lg" id="head-status">Completed</span>
+          <span class="badge badge-outline mono" id="head-id">inv_QX72HL</span>
+          <span class="badge badge-outline mono">/admin/invitations/[id]</span>
+          <span class="badge badge-mode screen">Screen mode</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary" type="button" id="act-copy" data-copy="https://app.prepeet.example/i/inv_QX72HL"><i data-lucide="link" class="ic ic-sm"></i>Copy link</button>
+        <button class="btn btn-secondary" type="button" id="act-resend"><i data-lucide="send" class="ic ic-sm"></i>Resend</button>
+        <button class="btn btn-secondary" type="button" id="act-extend" data-dialog-open="dlg-extend"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Extend deadline</button>
+        <button class="btn btn-danger-soft" type="button" id="act-revoke" data-dialog-open="dlg-revoke"><i data-lucide="circle-slash" class="ic ic-sm"></i>Revoke</button>
+      </div>
+    </div>
+
+    <div class="cluster" style="margin-bottom:var(--sp-5)">
+      <span class="hint">Preview state</span>
+      <div class="segmented" role="group" aria-label="Preview invitation state">
+        <button type="button" data-state-btn="completed" aria-pressed="true">Completed</button>
+        <button type="button" data-state-btn="pending" aria-pressed="false">Pending</button>
+        <button type="button" data-state-btn="expired" aria-pressed="false">Expired</button>
+        <button type="button" data-state-btn="revoked" aria-pressed="false">Revoked</button>
+      </div>
+    </div>
+
+    <div class="grid grid-main-aside">
+
+      <!-- ══════════ MAIN ══════════ -->
+      <div class="stack-lg">
+
+        <!-- Lifecycle -->
+        <section class="card" aria-labelledby="tl-h">
+          <div class="card-header">
+            <div>
+              <h2 id="tl-h">Lifecycle</h2>
+              <p class="hint" style="margin-top:3px">Every event Prepeet recorded for this invitation. Times are shown in your timezone, Europe/Berlin.</p>
+            </div>
+            <a class="btn btn-sm btn-ghost" href="admin-invitations.html">All invitations<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+          </div>
+          <div class="card-body">
+            <ol class="timeline" id="timeline"></ol>
+          </div>
+        </section>
+
+        <!-- Configuration -->
+        <section class="card" aria-labelledby="cfg-h">
+          <div class="card-header">
+            <div>
+              <h2 id="cfg-h">Invitation configuration</h2>
+              <p class="hint" style="margin-top:3px">Read-only. Configuration is fixed when the invitation is sent so every candidate for this role gets the same interview.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <dl class="kv">
+              <dt>Role</dt><dd>Registered Nurse — Intensive Care</dd>
+              <dt>Rubric version</dt><dd>ICU Nursing v4.2 · calibrated 4 August 2026 <a href="admin-recruiter-calibration.html" style="margin-left:6px">View rubric</a></dd>
+              <dt>Interview shape</dt><dd>Panel simulation — three rotating interviewer viewpoints in one session</dd>
+              <dt>Persona</dt><dd>Lena — panel chair, formal and measured <span class="hint" style="display:block">A persona is an interview style. It changes how questions are asked, never how answers are evidenced against the rubric.</span></dd>
+              <dt>Target duration</dt><dd>40 minutes</dd>
+              <dt>Questions</dt><dd>8 questions, competency-based with scripted follow-ups</dd>
+              <dt>Deadline</dt><dd id="cfg-deadline">26 August 2026, 23:59 Europe/London (the candidate's timezone)</dd>
+              <dt>Reminders sent</dt><dd id="cfg-reminders">1 of a maximum 2 · 19 August 2026, 08:00</dd>
+              <dt>Language</dt><dd>English (United Kingdom)</dd>
+              <dt>Captions</dt><dd>On by default, candidate can toggle during the interview</dd>
+              <dt>Accommodations</dt><dd id="cfg-accom">25% extra thinking time offered in the invitation. Not requested by this candidate. Accommodations do not affect evaluation.</dd>
+            </dl>
+          </div>
+        </section>
+
+        <!-- Email delivery -->
+        <section class="card" aria-labelledby="mail-h">
+          <div class="card-header">
+            <div>
+              <h2 id="mail-h">Email delivery</h2>
+              <p class="hint" style="margin-top:3px">The exact message that was sent, and what the receiving mail server did with it.</p>
+            </div>
+            <span class="badge badge-success" id="delivery-badge"><i data-lucide="check-circle-2" class="ic-sm ic"></i>Delivered</span>
+          </div>
+          <div class="card-body stack">
+
+            <div class="mail">
+              <div class="mail-head">
+                <div><b>From</b> Priya Raman via Prepeet &lt;no-reply@prepeet.example&gt;</div>
+                <div><b>To</b> Amara Osei &lt;amara.osei@example.com&gt;</div>
+                <div><b>Subject</b> Interview invitation: Registered Nurse — Intensive Care at Northwind Health System</div>
+                <div><b>Sent</b> <span id="mail-sent">12 August 2026, 09:04</span></div>
+              </div>
+              <div class="mail-body">Hi Amara,
+
+Thank you for applying for the Registered Nurse — Intensive Care role at Northwind Health System. The next step is a recorded interview you can take on your own, at whatever time suits you, any time before 26 August 2026.
+
+It takes about 40 minutes. You talk to an AI interviewer that asks everyone applying for this role the same questions, and you can pause between them. There is nothing to prepare and no trick questions — we are asking about work you have actually done.
+
+Your answers and the transcript go to the hiring team here at Northwind. A person reads them and decides what happens next.
+
+If you need an adjustment to take part, reply to this email and we will sort it out. It will not count against you.
+
+Priya Raman
+Talent acquisition, Northwind Health System
+
+— — —
+Start your interview: https://app.prepeet.example/i/inv_QX72HL
+Closes 26 August 2026 at 23:59 in your timezone. Panel simulation, about 40 minutes, 8 questions.
+Captions are on. You can ask for 25% extra thinking time — just tick the box on the start screen, you do not need to explain why.
+
+What Northwind Health System receives: a recording and transcript of your answers, and a competency summary that quotes what you said and states where the evidence was thin.
+What you will see: confirmation that your interview was submitted. Not a score, a band, a ranking or a recommendation.
+Who decides: a person on the Northwind hiring team. Prepeet does not decide the outcome.
+What is never assessed: your personality, accent, appearance or how confident you sound. Only what you said, against the published rubric.
+Your rights: ask for a human re-review, request a copy of your data, or withdraw at any time.
+Retention: 18 months from your interview date, then deleted.</div>
+            </div>
+
+            <div>
+              <h3 class="section-title" style="font-size:var(--text-sm)">Delivery events</h3>
+              <div class="table-wrap">
+                <table class="table table-dense table-responsive">
+                  <caption class="sr-only">Mail delivery events for this invitation.</caption>
+                  <thead><tr><th scope="col">Event</th><th scope="col">When</th><th scope="col">Detail</th></tr></thead>
+                  <tbody id="delivery-rows"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="banner" id="resend-box">
+              <i data-lucide="send" class="ic"></i>
+              <div id="resend-copy">Resend the same invitation. The original link stays valid and no new link is issued.</div>
+              <div class="banner-actions">
+                <button class="btn btn-sm btn-secondary" type="button" id="resend-btn"><i data-lucide="send" class="ic ic-sm"></i>Resend invitation</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- What the candidate saw -->
+        <section class="card" aria-labelledby="saw-h">
+          <div class="card-header">
+            <div>
+              <h2 id="saw-h">What the candidate saw</h2>
+              <p class="hint" style="margin-top:3px">So a reviewer can judge the evaluation knowing what the candidate was told and shown.</p>
+            </div>
+            <a class="btn btn-sm btn-secondary" href="invitation-accept.html?id=inv_QX72HL"><i data-lucide="external-link" class="ic ic-sm"></i>Open candidate view</a>
+          </div>
+          <div class="card-body">
+            <ol class="stages">
+              <li class="stage done" id="saw-1"><span class="stage-icon"><i data-lucide="mail-open" class="ic"></i></span>
+                <span><span class="stage-name">The invitation email</span><span class="stage-sub">Who is hiring, the role, the deadline, how long it takes, and the transparency block above.</span></span>
+                <span class="stage-time">Step 1</span></li>
+              <li class="stage done" id="saw-2"><span class="stage-icon"><i data-lucide="file-check-2" class="ic"></i></span>
+                <span><span class="stage-name">The acceptance page</span><span class="stage-sub">Recording consent, what the employer receives, that no score is shown to them, the right to withdraw, and an accommodations request box.</span></span>
+                <span class="stage-time">Step 2</span></li>
+              <li class="stage done" id="saw-3"><span class="stage-icon"><i data-lucide="mic" class="ic"></i></span>
+                <span><span class="stage-name">Device and microphone check</span><span class="stage-sub">A practice question that is not recorded or evaluated, so nobody loses an interview to a bad headset.</span></span>
+                <span class="stage-time">Step 3</span></li>
+              <li class="stage done" id="saw-4"><span class="stage-icon"><i data-lucide="messages-square" class="ic"></i></span>
+                <span><span class="stage-name">The interview itself</span><span class="stage-sub">8 questions with Lena, captions on, a visible timer and a pause control between questions.</span></span>
+                <span class="stage-time">Step 4</span></li>
+              <li class="stage done" id="saw-5"><span class="stage-icon"><i data-lucide="check" class="ic"></i></span>
+                <span><span class="stage-name">The confirmation screen</span><span class="stage-sub">Confirmation that the interview was submitted, and that Northwind will be in touch. No score, no band, no feedback — screen mode never shows a candidate an evaluation.</span></span>
+                <span class="stage-time">Step 5</span></li>
+            </ol>
+            <div class="banner banner-info" style="margin-top:var(--sp-4)">
+              <i data-lucide="eye-off" class="ic"></i>
+              <div id="saw-note">Amara has not been shown any part of the evaluation and cannot be. If she asks what happened, the honest answer is that a person at Northwind is reading her answers and will contact her.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Danger zone -->
+        <section class="card danger-zone" aria-labelledby="danger-h">
+          <div class="card-header">
+            <div>
+              <h2 id="danger-h">Revoke this invitation</h2>
+              <p class="hint" style="margin-top:3px">Separated deliberately. Revocation is immediate and is written to the audit log with your name against it.</p>
+            </div>
+          </div>
+          <div class="card-body stack">
+            <ul class="plus-minus">
+              <li class="minus"><i data-lucide="link-2-off" class="ic"></i><span>The candidate link stops working straight away. If they open it, they see a neutral page saying the invitation is no longer available.</span></li>
+              <li class="minus"><i data-lucide="pause-circle" class="ic"></i><span>An interview that is part-way through is ended. Answers already given are kept and marked incomplete.</span></li>
+              <li class="minus"><i data-lucide="file-text" class="ic"></i><span id="danger-eval">Because this interview is already complete, revoking removes access to the invitation but <strong>does not delete the evaluation</strong>. Deleting the evaluation and the recording is a separate data-deletion request.</span></li>
+              <li class="minus"><i data-lucide="undo-2" class="ic"></i><span>Revocation cannot be undone. To bring the candidate back into the process, issue a new invitation.</span></li>
+            </ul>
+            <div class="cluster">
+              <button class="btn btn-danger" type="button" id="danger-revoke" data-dialog-open="dlg-revoke"><i data-lucide="circle-slash" class="ic ic-sm"></i>Revoke invitation</button>
+              <a class="btn btn-ghost" href="admin-tenant-settings.html#privacy">Data deletion requests</a>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ══════════ ASIDE ══════════ -->
+      <aside class="stack sticky-aside" aria-label="Invitation status and links">
+
+        <!-- Countdown (pending only) -->
+        <div class="card card-accent" id="countdown-card" hidden>
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Time left to respond</h2></div>
+          <div class="card-body">
+            <p class="countdown" id="countdown" aria-live="off">3 days 14 hours 39 minutes</p>
+            <p class="hint" style="margin-top:6px" id="countdown-sub">Closes 26 August 2026 at 23:59 in Amara's timezone (Europe/London). One reminder is still scheduled, 48 hours before.</p>
+            <div class="progress warning" style="margin-top:12px"><span style="width:79%"></span></div>
+            <p class="chart-summary">Text summary: 11 of the 14 days in the response window have passed. 3 days remain.</p>
+          </div>
+        </div>
+
+        <!-- Candidate link -->
+        <div class="card">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Candidate link</h2></div>
+          <div class="card-body stack-sm">
+            <p class="codeblock" style="white-space:normal;word-break:break-all" id="link-text">https://app.prepeet.example/i/inv_QX72HL</p>
+            <button class="btn btn-sm btn-secondary btn-block" type="button" id="link-copy" data-copy="https://app.prepeet.example/i/inv_QX72HL"><i data-lucide="copy" class="ic ic-sm"></i>Copy candidate link</button>
+            <p class="hint" id="link-note">Single-use and tied to Amara's email address. It expires at the deadline, or the moment the invitation is revoked. Sharing it with anyone else will not work.</p>
+          </div>
+        </div>
+
+        <!-- Evaluation -->
+        <div class="card" id="eval-card">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Resulting evaluation</h2></div>
+          <div class="card-body stack-sm">
+            <div class="row">
+              <span class="avatar">AO</span>
+              <div>
+                <div style="font-weight:600;font-size:var(--text-sm)">Amara Osei</div>
+                <div class="hint">Submitted 16 Aug · awaiting reviewer decision</div>
+              </div>
+            </div>
+            <a class="btn btn-sm btn-primary btn-block" href="admin-recruiter-detail.html?id=cand_R4T9MP"><i data-lucide="file-search" class="ic ic-sm"></i>Open evaluation</a>
+            <p class="hint">The evaluation is evidence-backed and states its own confidence. The hiring decision is the reviewer's.</p>
+          </div>
+        </div>
+
+        <div class="card" id="no-eval-card" hidden>
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Resulting evaluation</h2></div>
+          <div class="card-body">
+            <p class="hint" id="no-eval-copy">No interview was submitted against this invitation, so there is nothing to evaluate.</p>
+            <a class="btn btn-sm btn-secondary btn-block" style="margin-top:10px" href="admin-recruiter.html">Back to candidates</a>
+          </div>
+        </div>
+
+        <!-- Related -->
+        <div class="card card-subtle">
+          <div class="card-body stack-sm">
+            <div class="cluster"><i data-lucide="git-branch" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Related</strong></div>
+            <a class="link" style="font-size:var(--text-sm)" href="admin-invitations.html">All invitations for this role</a>
+            <a class="link" style="font-size:var(--text-sm)" href="admin-recruiter-calibration.html">ICU Nursing v4.2 rubric</a>
+            <a class="link" style="font-size:var(--text-sm)" href="admin-appeals.html">Re-review queue</a>
+            <a class="link" style="font-size:var(--text-sm)" href="admin-invitation-new.html">Invite another candidate</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════ DIALOGS ═══════════ -->
+<dialog class="dialog" id="dlg-revoke" aria-labelledby="dlg-revoke-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-revoke-h">Revoke this invitation</h2></div>
+    <div class="dialog-body stack">
+      <p><strong>Applies to:</strong> <span id="revoke-target">Amara Osei · Registered Nurse — Intensive Care · inv_QX72HL</span></p>
+
+      <div class="banner banner-danger">
+        <i data-lucide="alert-octagon" class="ic"></i>
+        <div>
+          <strong>What happens when you confirm.</strong>
+          <span id="revoke-consequence">The candidate link stops working immediately. Because this interview is already complete, revoking removes the candidate's access to the invitation but does not delete the evaluation, the transcript or the recording — deleting those is a separate data-deletion request.</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="revoke-reason">Reason</label>
+        <select class="select" id="revoke-reason" aria-describedby="revoke-reason-err">
+          <option value="">Choose a reason…</option>
+          <option>Role closed or filled</option>
+          <option>Candidate withdrew</option>
+          <option>Invitation sent in error</option>
+          <option>Duplicate invitation</option>
+          <option>Wrong role or rubric attached</option>
+          <option>Requested by the candidate</option>
+          <option>Data-protection or legal request</option>
+        </select>
+        <p class="error-text" id="revoke-reason-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Choose a reason before revoking.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="revoke-note">Explain in your own words</label>
+        <textarea class="textarea" id="revoke-note" rows="3" placeholder="What a colleague reading the audit log in six months would need to know." aria-describedby="revoke-note-hint revoke-note-err"></textarea>
+        <p class="hint" id="revoke-note-hint">Stored on the audit record with your name and the time. Not sent to the candidate.</p>
+        <p class="error-text" id="revoke-note-err" hidden><i data-lucide="alert-circle" class="ic-sm ic"></i>Add a short explanation for the audit log.</p>
+      </div>
+
+      <label class="check"><input type="checkbox" id="revoke-notify" checked><span>Tell the candidate the invitation was withdrawn
+        <span class="hint">A short, neutral email. It does not repeat the reason you chose above.</span></span></label>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-danger" type="button" id="revoke-confirm"><i data-lucide="circle-slash" class="ic ic-sm"></i>Revoke invitation</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="dlg-extend" aria-labelledby="dlg-extend-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-extend-h">Extend the deadline</h2></div>
+    <div class="dialog-body stack">
+      <p><strong>Applies to:</strong> Amara Osei · <span class="mono">inv_QX72HL</span></p>
+      <div class="field">
+        <label class="label" for="extend-date">New deadline</label>
+        <input class="input" id="extend-date" type="date" value="2026-09-02" min="2026-08-24" max="2026-12-31" aria-describedby="extend-hint">
+        <p class="hint" id="extend-hint">Enforced at 23:59 in the candidate's timezone (Europe/London), not yours.</p>
+      </div>
+      <label class="check"><input type="checkbox" id="extend-notify" checked><span>Email the candidate about the new date
+        <span class="hint">Recommended — somebody who planned around the old date will otherwise not know.</span></span></label>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" id="extend-confirm"><i data-lucide="calendar-plus" class="ic ic-sm"></i>Extend deadline</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var invId = Prepeet.query.get('id', Prepeet.ids.invitation) || Prepeet.ids.invitation;
+  var state = Prepeet.query.get('state', 'completed');
+  if (['completed', 'pending', 'expired', 'revoked'].indexOf(state) < 0) state = 'completed';
+
+  function el(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[<>"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  /* ------------------------------------------------------------ timelines */
+  var TIMELINES = {
+    completed: [
+      ['done', 'Invitation created', '12 Aug 2026, 09:04 · Priya Raman', 'Role: Registered Nurse — Intensive Care. Rubric ICU Nursing v4.2. Deadline set to 26 August.'],
+      ['done', 'Email delivered', '12 Aug 2026, 09:04', 'Accepted by mx1.example.com with SMTP 250. No bounce, no spam complaint.'],
+      ['done', 'Invitation opened', '12 Aug 2026, 18:22', 'Opened on a mobile browser. The link was clicked 40 seconds later.'],
+      ['done', 'Invitation accepted', '13 Aug 2026, 07:41', 'Recording consent given. No accommodations requested.'],
+      ['done', 'Interview started', '16 Aug 2026, 11:00', 'Panel simulation with Lena. Device check passed on the first attempt.'],
+      ['done', 'Interview completed', '16 Aug 2026, 11:41', '8 of 8 questions answered. 41 minutes. Audio good throughout.'],
+      ['done', 'Evaluation ready', '16 Aug 2026, 11:53', 'Transcript, evidence spans and competency summary generated. 12 minutes of processing.'],
+      ['active', 'Viewed by reviewer', '22 Aug 2026, 09:20 · Priya Raman', 'First reviewer opened the evaluation. No decision recorded yet.']
+    ],
+    pending: [
+      ['done', 'Invitation created', '12 Aug 2026, 09:04 · Priya Raman', 'Role: Registered Nurse — Intensive Care. Rubric ICU Nursing v4.2. Deadline set to 26 August.'],
+      ['done', 'Email delivered', '12 Aug 2026, 09:04', 'Accepted by mx1.example.com with SMTP 250.'],
+      ['done', 'Reminder sent', '19 Aug 2026, 08:00', 'First of a maximum two reminders. Restated the deadline and the withdrawal link.'],
+      ['active', 'Waiting for the candidate', 'Since 12 Aug 2026', 'Not opened yet. Nothing here says anything about the candidate — people miss email.'],
+      ['', 'Second reminder scheduled', '24 Aug 2026, 08:00', '48 hours before the deadline. Cancelled automatically if the interview starts.'],
+      ['warning', 'Deadline', '26 Aug 2026, 23:59 Europe/London', 'The link stops working. You can extend it before then.']
+    ],
+    expired: [
+      ['done', 'Invitation created', '5 Aug 2026, 10:12 · Priya Raman', 'Role: Registered Nurse — Intensive Care. Deadline set to 19 August.'],
+      ['done', 'Email delivered', '5 Aug 2026, 10:12', 'Accepted by mx1.example.com with SMTP 250.'],
+      ['done', 'Invitation opened', '6 Aug 2026, 21:07', 'Opened once. The interview was never started.'],
+      ['done', 'Reminder sent', '12 Aug 2026, 08:00', 'First reminder.'],
+      ['done', 'Reminder sent', '17 Aug 2026, 08:00', 'Second and final reminder. No further chasing is sent.'],
+      ['warning', 'Deadline passed — invitation expired', '19 Aug 2026, 23:59', 'The link stopped working. No interview was submitted, so there is no evaluation.']
+    ],
+    revoked: [
+      ['done', 'Invitation created', '12 Aug 2026, 09:04 · Priya Raman', 'Role: Registered Nurse — Intensive Care. Rubric ICU Nursing v4.2.'],
+      ['done', 'Email delivered', '12 Aug 2026, 09:04', 'Accepted by mx1.example.com with SMTP 250.'],
+      ['done', 'Invitation opened', '12 Aug 2026, 18:22', 'Opened on a mobile browser.'],
+      ['danger', 'Invitation revoked', '20 Aug 2026, 15:12 · Priya Raman', 'Reason: role closed or filled. Note: “Post withdrawn after the ICU establishment review; all outstanding invitations for this requisition were closed the same afternoon.” Candidate was notified.']
+    ]
+  };
+
+  var DELIVERY = {
+    completed: [
+      ['Queued', '12 Aug 09:04:02', 'Accepted for delivery'],
+      ['Delivered', '12 Aug 09:04:07', 'mx1.example.com · SMTP 250 2.0.0 OK'],
+      ['Opened', '12 Aug 18:22:11', 'Mobile browser'],
+      ['Link clicked', '12 Aug 18:22:51', 'Invitation acceptance page'],
+      ['Reminder delivered', '19 Aug 08:00:04', 'Sent before the interview was completed; cancelled thereafter']
+    ],
+    pending: [
+      ['Queued', '12 Aug 09:04:02', 'Accepted for delivery'],
+      ['Delivered', '12 Aug 09:04:07', 'mx1.example.com · SMTP 250 2.0.0 OK'],
+      ['Reminder delivered', '19 Aug 08:00:04', 'First of two'],
+      ['Reminder scheduled', '24 Aug 08:00', 'Cancelled automatically if the interview starts']
+    ],
+    expired: [
+      ['Queued', '5 Aug 10:12:01', 'Accepted for delivery'],
+      ['Delivered', '5 Aug 10:12:05', 'mx1.example.com · SMTP 250 2.0.0 OK'],
+      ['Opened', '6 Aug 21:07:33', 'Desktop browser'],
+      ['Reminder delivered', '12 Aug 08:00:03', 'First reminder'],
+      ['Reminder delivered', '17 Aug 08:00:02', 'Second and final reminder']
+    ],
+    revoked: [
+      ['Queued', '12 Aug 09:04:02', 'Accepted for delivery'],
+      ['Delivered', '12 Aug 09:04:07', 'mx1.example.com · SMTP 250 2.0.0 OK'],
+      ['Opened', '12 Aug 18:22:11', 'Mobile browser'],
+      ['Withdrawal notice delivered', '20 Aug 15:12:19', 'Neutral notice that the invitation was withdrawn']
+    ]
+  };
+
+  var CONFIG = {
+    completed: { badge: 'badge-success', label: 'Completed', icon: 'check-circle-2',
+      deadline: '26 August 2026, 23:59 Europe/London (the candidate’s timezone) — met on 16 August',
+      reminders: '1 of a maximum 2 · 19 August 2026, 08:00',
+      sent: '12 August 2026, 09:04', delivery: ['badge-success', 'check-circle-2', 'Delivered'] },
+    pending: { badge: 'badge-neutral', label: 'Sent — not yet opened', icon: 'send',
+      deadline: '26 August 2026, 23:59 Europe/London (the candidate’s timezone)',
+      reminders: '1 of a maximum 2 · 19 August 2026, 08:00 · next scheduled 24 August',
+      sent: '12 August 2026, 09:04', delivery: ['badge-success', 'check-circle-2', 'Delivered'] },
+    expired: { badge: 'badge-outline', label: 'Expired', icon: 'timer-off',
+      deadline: '19 August 2026, 23:59 Europe/London — passed 4 days ago',
+      reminders: '2 of a maximum 2 · 12 and 17 August 2026',
+      sent: '5 August 2026, 10:12', delivery: ['badge-warning', 'timer-off', 'Delivered, then expired'] },
+    revoked: { badge: 'badge-neutral', label: 'Revoked', icon: 'circle-slash',
+      deadline: '26 August 2026, 23:59 Europe/London — no longer enforced, the link is dead',
+      reminders: '0 · reminders were cancelled on revocation',
+      sent: '12 August 2026, 09:04', delivery: ['badge-neutral', 'circle-slash', 'Revoked'] }
+  };
+
+  /* --------------------------------------------------------------- render */
+  var countdownTimer = null;
+  var hadEvaluation = false;   /* true once a completed invitation is revoked in-session */
+  var keepTimeline = null;     /* preserves the history when revoking, instead of swapping in the canned one */
+
+  function render() {
+    var c = CONFIG[state];
+
+    /* header */
+    el('head-id').textContent = invId;
+    el('head-status').className = 'badge badge-lg ' + c.badge;
+    el('head-status').innerHTML = '<i data-lucide="' + c.icon + '" class="ic-sm ic"></i>' + c.label;
+    el('link-text').textContent = 'https://app.prepeet.example/i/' + invId;
+    el('link-copy').setAttribute('data-copy', 'https://app.prepeet.example/i/' + invId);
+    el('act-copy').setAttribute('data-copy', 'https://app.prepeet.example/i/' + invId);
+    el('revoke-target').textContent = 'Amara Osei · Registered Nurse — Intensive Care · ' + invId;
+    el('mail-sent').textContent = c.sent;
+    el('cfg-deadline').textContent = c.deadline;
+    el('cfg-reminders').textContent = c.reminders;
+
+    el('delivery-badge').className = 'badge ' + c.delivery[0];
+    el('delivery-badge').innerHTML = '<i data-lucide="' + c.delivery[1] + '" class="ic-sm ic"></i>' + c.delivery[2];
+
+    /* banners */
+    el('revoked-banner').hidden = state !== 'revoked';
+    el('expired-banner').hidden = state !== 'expired';
+    if (state === 'revoked') {
+      el('revoked-detail').textContent = 'Revoked on 20 August 2026 at 15:12 by Priya Raman — role closed or filled. The candidate link no longer works and the candidate was notified.';
+      el('revoked-eval-note').textContent = ' No interview had been submitted, so there is no evaluation to retain.';
+    }
+
+    /* timeline — a revocation made here is appended to the real history, not a canned one */
+    if (keepTimeline !== null) { el('timeline').innerHTML = keepTimeline; keepTimeline = null; }
+    else el('timeline').innerHTML = TIMELINES[state].map(function (t) {
+      return '<li class="tl-item' + (t[0] ? ' ' + t[0] : '') + '">' +
+        '<div class="tl-title">' + esc(t[1]) + '</div>' +
+        '<div class="tl-meta">' + esc(t[2]) + '</div>' +
+        '<div class="tl-body">' + esc(t[3]) + '</div></li>';
+    }).join('');
+    /* anything still pending stops being "next" once the invitation is closed */
+    if (state === 'revoked') el('timeline').querySelectorAll('.tl-item.active').forEach(function (li) { li.classList.remove('active'); });
+
+    /* delivery events */
+    el('delivery-rows').innerHTML = DELIVERY[state].map(function (d) {
+      return '<tr><td data-label="Event" class="td-primary">' + esc(d[0]) + '</td>' +
+        '<td data-label="When" class="mono">' + esc(d[1]) + '</td>' +
+        '<td data-label="Detail">' + esc(d[2]) + '</td></tr>';
+    }).join('');
+
+    /* action availability */
+    var locked = state === 'revoked';
+    var complete = state === 'completed';
+    var hasEval = complete || (locked && hadEvaluation);
+    setDisabled('act-resend', locked || complete || state === 'expired');
+    setDisabled('act-extend', locked || complete);
+    setDisabled('act-revoke', locked);
+    setDisabled('danger-revoke', locked);
+    setDisabled('resend-btn', locked || complete || state === 'expired');
+
+    if (complete) {
+      el('resend-copy').innerHTML = '<strong>Resending is unavailable.</strong> The interview is already complete, so a new invitation email would send Amara to an interview she has already submitted. If you need her to answer again, issue a new invitation with its own rubric version and deadline.';
+      el('resend-box').className = 'banner banner-warning';
+    } else if (locked) {
+      el('resend-copy').innerHTML = '<strong>Resending is unavailable.</strong> This invitation was revoked. Issue a new invitation instead.';
+      el('resend-box').className = 'banner banner-danger';
+    } else if (state === 'expired') {
+      el('resend-copy').innerHTML = '<strong>The deadline has passed.</strong> Extend the deadline first and the same link becomes valid again, or issue a new invitation.';
+      el('resend-box').className = 'banner banner-warning';
+    } else {
+      el('resend-copy').textContent = 'Resend the same invitation. The original link stays valid and no new link is issued. Two reminders is the cap.';
+      el('resend-box').className = 'banner';
+    }
+
+    /* danger-zone wording */
+    el('danger-eval').innerHTML = hasEval
+      ? 'Because this interview is already complete, revoking removes access to the invitation but <strong>does not delete the evaluation</strong>. Deleting the evaluation and the recording is a separate data-deletion request.'
+      : 'No interview has been submitted, so there is nothing to evaluate and nothing is retained beyond the invitation record itself.';
+    el('revoke-consequence').textContent = hasEval
+      ? 'The candidate link stops working immediately. Because this interview is already complete, revoking removes the candidate’s access to the invitation but does not delete the evaluation, the transcript or the recording — deleting those is a separate data-deletion request.'
+      : 'The candidate link stops working immediately and any scheduled reminders are cancelled. No interview has been submitted, so no evaluation exists.';
+
+    /* candidate-saw stages: only mark what this candidate actually reached */
+    var reached = hasEval ? 5 : { completed: 5, pending: 1, expired: 2, revoked: 2 }[state];
+    for (var i = 1; i <= 5; i++) { el('saw-' + i).className = 'stage' + (i <= reached ? ' done' : ''); }
+    el('saw-note').textContent = hasEval && locked
+      ? 'Amara completed the interview before the invitation was revoked. She was shown confirmation that it was submitted, and nothing else. Opening her link now shows a neutral page saying the invitation is no longer available.'
+      : hasEval
+      ? 'Amara has not been shown any part of the evaluation and cannot be. If she asks what happened, the honest answer is that a person at Northwind is reading her answers and will contact her.'
+      : state === 'pending'
+        ? 'Amara has received the email and nothing else. She has not opened it, so she has not yet seen the acceptance page or any part of the interview.'
+        : state === 'expired'
+          ? 'Amara opened the email and reached the acceptance page, but never started the interview. She was shown the deadline on every screen she saw.'
+          : 'Amara opened the email and reached the acceptance page. She now sees a neutral page saying the invitation is no longer available.';
+
+    /* aside cards */
+    el('eval-card').hidden = !hasEval;
+    el('no-eval-card').hidden = hasEval;
+    if (!hasEval) {
+      el('no-eval-copy').textContent = state === 'pending'
+        ? 'Nothing has been submitted yet. An evaluation appears here within about 15 minutes of the interview finishing.'
+        : state === 'expired'
+          ? 'The invitation expired before the interview was started, so there is no evaluation.'
+          : 'The invitation was revoked before an interview was submitted, so there is no evaluation.';
+    }
+
+    el('link-note').textContent = locked
+      ? 'This link has been revoked. Opening it shows a neutral page saying the invitation is no longer available.'
+      : state === 'expired'
+        ? 'This link expired at the deadline. Extending the deadline reactivates the same link.'
+        : 'Single-use and tied to Amara’s email address. It expires at the deadline, or the moment the invitation is revoked. Sharing it with anyone else will not work.';
+
+    /* countdown */
+    el('countdown-card').hidden = state !== 'pending';
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    if (state === 'pending') startCountdown();
+
+    /* state buttons */
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === state));
+    });
+
+    Prepeet.init();
+  }
+
+  function setDisabled(id, off) {
+    var b = el(id); if (!b) return;
+    b.disabled = !!off;
+    b.setAttribute('aria-disabled', String(!!off));
+  }
+
+  function startCountdown() {
+    var now = new Date(2026, 7, 23, 9, 20, 0);
+    var end = new Date(2026, 7, 26, 23, 59, 0);
+    function tick() {
+      var ms = end - now;
+      if (ms <= 0) { el('countdown').textContent = 'Closed'; clearInterval(countdownTimer); return; }
+      var d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000), s = Math.floor(ms % 60000 / 1000);
+      el('countdown').textContent = d + 'd ' + h + 'h ' + m + 'm ' + s + 's';
+      now = new Date(now.getTime() + 1000);
+    }
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  }
+
+  /* -------------------------------------------------------------- actions */
+  el('act-resend').addEventListener('click', function () {
+    Prepeet.toast({ title: 'Reminder sent to amara.osei@example.com', desc: 'The original link stays valid. This was reminder 2 of 2.', kind: 'success' });
+  });
+  el('resend-btn').addEventListener('click', function () {
+    Prepeet.toast({ title: 'Reminder sent to amara.osei@example.com', desc: 'The original link stays valid. This was reminder 2 of 2.', kind: 'success' });
+  });
+
+  el('extend-confirm').addEventListener('click', function () {
+    var v = el('extend-date').value || '2026-09-02';
+    el('cfg-deadline').textContent = Prepeet.fmt.date(v) + ', 23:59 Europe/London (the candidate’s timezone)';
+    Prepeet.closeDialog('dlg-extend');
+    Prepeet.toast({ title: 'Deadline moved to ' + Prepeet.fmt.date(v), desc: el('extend-notify').checked ? 'Amara has been emailed.' : 'The candidate was not notified.', kind: 'success' });
+    Prepeet.announce('Deadline extended to ' + Prepeet.fmt.date(v) + '.');
+  });
+
+  el('revoke-confirm').addEventListener('click', function () {
+    var reason = el('revoke-reason'), note = el('revoke-note');
+    var bad = null;
+    if (!reason.value) { el('revoke-reason-err').hidden = false; reason.setAttribute('aria-invalid', 'true'); bad = bad || reason; }
+    else { el('revoke-reason-err').hidden = true; reason.setAttribute('aria-invalid', 'false'); }
+    if (!note.value.trim()) { el('revoke-note-err').hidden = false; note.setAttribute('aria-invalid', 'true'); bad = bad || note; }
+    else { el('revoke-note-err').hidden = true; note.setAttribute('aria-invalid', 'false'); }
+    if (bad) { bad.focus(); Prepeet.announce('Revocation needs a reason and a short explanation.'); return; }
+
+    var wasComplete = state === 'completed';
+    hadEvaluation = wasComplete;
+    var reasonText = reason.value, noteText = note.value.trim();
+    var notified = el('revoke-notify').checked;
+
+    keepTimeline = el('timeline').innerHTML;
+    state = 'revoked';
+    Prepeet.query.set({ state: 'revoked' }, true);
+    render();
+
+    /* replace the generic revoked copy with what actually just happened */
+    el('revoked-detail').textContent = 'Revoked just now by Priya Raman — ' + reasonText.toLowerCase() + '. The candidate link no longer works.' + (notified ? ' Amara has been sent a neutral withdrawal notice.' : ' The candidate was not notified.');
+    el('revoked-eval-note').textContent = wasComplete
+      ? ' The completed evaluation, transcript and recording are retained and still open to reviewers — deleting them is a separate data-deletion request.'
+      : ' No interview had been submitted, so there is no evaluation to retain.';
+
+    /* add the new timeline entry */
+    var li = document.createElement('li');
+    li.className = 'tl-item danger';
+    li.innerHTML = '<div class="tl-title">Invitation revoked</div>' +
+      '<div class="tl-meta">23 Aug 2026, 09:20 · Priya Raman</div>' +
+      '<div class="tl-body">Reason: ' + esc(reasonText.toLowerCase()) + '. Note: “' + esc(noteText) + '”. ' +
+      (notified ? 'Candidate notified.' : 'Candidate not notified.') +
+      (wasComplete ? ' The existing evaluation was not deleted.' : '') + '</div>';
+    el('timeline').appendChild(li);
+
+
+    Prepeet.closeDialog('dlg-revoke');
+    Prepeet.toast({ title: 'Invitation revoked', desc: 'inv_QX72HL · ' + reasonText, kind: 'danger' });
+    Prepeet.announce('Invitation revoked. The candidate link no longer works.');
+    Prepeet.init();
+  });
+
+  /* ---------------------------------------------------------- state switch */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-state-btn]');
+    if (!b) return;
+    state = b.getAttribute('data-state-btn');
+    hadEvaluation = false;
+    Prepeet.query.set({ state: state === 'completed' ? null : state }, true);
+    render();
+    Prepeet.announce('Previewing the ' + state + ' state.');
+  });
+
+  document.addEventListener('DOMContentLoaded', function () { render(); });
+})();
+</script>
+</body>
+</html>

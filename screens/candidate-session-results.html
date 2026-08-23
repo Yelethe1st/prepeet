@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outcome &amp; evidence · Prepeet</title>
+<meta name="description" content="The scored outcome of your Systems design deep-dive: competency breakdown with confidence, the evidence behind every score, the full transcript and the recording.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: evidence spans are buttons but must wrap inline like text */
+  button.ev { display: inline; font: inherit; color: inherit; text-align: left; }
+  .transcript-scroll { max-height: 620px; overflow-y: auto; padding-right: 6px; }
+  @media (max-width: 768px) { .transcript-scroll { max-height: none; overflow: visible; } }
+  mark.hit { background: var(--accent-soft); color: var(--fg); border-radius: 3px; padding: 0 1px; }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="sessions"
+      data-title="Outcome &amp; evidence" data-crumbs="Candidate>candidate-dashboard.html|Sessions>candidate-sessions.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SCREEN-MODE GUARD
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="screen-guard" hidden>
+      <div class="page-header">
+        <div>
+          <p class="eyebrow eyebrow--muted">Session <span class="mono" id="guard-id">ses_4Bz9QD</span></p>
+          <h1 id="guard-h1">Screening interview — no results shown to candidates</h1>
+          <p class="page-desc">This session was a screening interview for an employer. Prepeet does not show candidates a score, a band, a competency breakdown or an evidence trail for screening interviews.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-main-aside">
+        <section class="card card-accent" aria-labelledby="guard-panel-h">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:12px">
+              <span class="badge badge-mode screen">Screening</span>
+              <span class="badge badge-primary"><i data-lucide="send" class="ic-sm ic"></i>Submitted</span>
+              <span class="badge badge-outline mono" id="guard-route">/candidate/session/ses_4Bz9QD/results</span>
+            </div>
+            <h2 id="guard-panel-h" style="font-size:var(--text-lg)">Why there is no score here</h2>
+            <div class="prose" style="margin-top:10px;font-size:var(--text-sm)">
+              <p>A screening evaluation is produced for the hiring team, against their rubric, to support a decision they make themselves. It is a set of evidence and confidence statements — not a verdict, and not something Prepeet is entitled to hand back as a personal result.</p>
+              <p>If we showed you a number you would reasonably read it as your outcome. It is not: the employer weighs it alongside your application, your references and everything else they know. So this screen stays empty for screening sessions by design, in every mode and at every point in the process.</p>
+              <p>What you can always see is what was captured, when it was delivered, and a copy of your own data on request.</p>
+            </div>
+            <div class="cluster" style="margin-top:var(--sp-5)">
+              <a class="btn btn-primary" id="guard-complete-link" href="candidate-session-complete.html?id=ses_4Bz9QD&amp;mode=screen"><i data-lucide="file-check" class="ic ic-sm"></i>See what was submitted</a>
+              <a class="btn btn-secondary" href="candidate-settings.html#privacy"><i data-lucide="download" class="ic ic-sm"></i>Request your data</a>
+            </div>
+          </div>
+        </section>
+
+        <aside class="stack" aria-label="Practice mode">
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px">
+                <i data-lucide="circle-play" class="ic" style="color:var(--primary)"></i>
+                <strong style="font-size:var(--text-sm)">Practice sessions do show all of this</strong>
+              </div>
+              <p class="hint" style="line-height:1.55">Sessions you start yourself get a score, a competency breakdown with confidence ranges, the quoted evidence behind every number, and the recording. Employers never see them.</p>
+              <a class="btn btn-sm btn-soft" style="margin-top:12px" href="candidate-start-interview.html?mode=practice">Start a practice interview</a>
+            </div>
+          </div>
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="history" class="ic" style="color:var(--fg-3)"></i><strong style="font-size:var(--text-sm)">Your other sessions</strong></div>
+              <p class="hint" style="line-height:1.55">Nine scored practice sessions with full evidence trails.</p>
+              <a class="btn btn-sm btn-secondary" style="margin-top:12px" href="candidate-sessions.html">All sessions</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         PRACTICE VIEW
+         ══════════════════════════════════════════════════════════════════ -->
+    <div id="practice-root">
+
+      <div class="page-header">
+        <div>
+          <p class="eyebrow eyebrow--muted">Friday 21 August 2026 · 18:40 · 38 minutes · 6 questions</p>
+          <h1>Outcome &amp; evidence — Systems design deep-dive</h1>
+          <div class="cluster" style="margin-top:10px">
+            <span class="badge badge-mode practice">Practice</span>
+            <span class="badge badge-neutral"><i data-lucide="briefcase" class="ic-sm ic"></i>Senior Backend Engineer</span>
+            <span class="badge badge-outline"><span class="avatar avatar-persona avatar-sm" style="width:16px;height:16px;font-size:9px">RA</span>Ravi · direct and technical</span>
+            <span class="badge badge-outline mono" id="route-chip">/candidate/session/ses_7Kq2XA/results</span>
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" type="button" data-dialog-open="share-dialog"><i data-lucide="share-2" class="ic ic-sm"></i>Share</button>
+          <button class="btn btn-secondary" type="button" data-loading-sim="1400" data-loading-done="Evidence pack exported as PDF" data-loading-kind="success"><i data-lucide="file-down" class="ic ic-sm"></i>Export as PDF</button>
+          <a class="btn btn-primary" href="candidate-session-review.html?id=ses_7Kq2XA"><i data-lucide="messages-square" class="ic ic-sm"></i>Coaching review</a>
+        </div>
+      </div>
+
+      <!-- Shared sub-navigation -->
+      <div style="margin-bottom:var(--sp-5)">
+        <nav class="tabs" aria-label="Session views">
+          <a class="tab" href="candidate-session-results.html?id=ses_7Kq2XA" aria-current="page"><i data-lucide="clipboard-check" class="ic ic-sm"></i>Outcome &amp; evidence</a>
+          <a class="tab" href="candidate-session-review.html?id=ses_7Kq2XA"><i data-lucide="messages-square" class="ic ic-sm"></i>Coaching review</a>
+          <a class="tab" href="candidate-session-articulation.html?id=ses_7Kq2XA"><i data-lucide="audio-lines" class="ic ic-sm"></i>Delivery</a>
+        </nav>
+        <p class="hint" style="margin-top:10px;max-width:760px">
+          Two screens, one session. <strong>Outcome &amp; evidence</strong> is the record — your score, the evidence behind it, the transcript and the audio. <strong>Coaching review</strong> is the work — what to change, a model rewrite of each answer, and drills. This page is read-only and never changes.
+        </p>
+      </div>
+
+      <!-- Preview state control -->
+      <div class="between" style="margin-bottom:var(--sp-5)">
+        <p class="hint" style="margin:0">Scored 21 August, 19:15 · Senior Backend Engineer rubric v4 · 11 evidence spans.</p>
+        <div class="cluster" style="margin-left:auto">
+          <span class="hint">Preview state</span>
+          <div class="segmented" role="group" aria-label="Preview screen state">
+            <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+            <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+            <button type="button" data-state-btn="insufficient" aria-pressed="false">Insufficient</button>
+            <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ────────────────────────────────── STATE: default ───────────────── -->
+      <div data-state="default" class="stack-lg">
+
+        <!-- ══ Outcome band ══ -->
+        <section class="card" aria-labelledby="outcome-h">
+          <div class="card-header">
+            <h2 id="outcome-h">Outcome</h2>
+            <span class="badge badge-primary"><i data-lucide="lock" class="ic-sm ic"></i>Visible only to you</span>
+          </div>
+          <div class="card-body">
+            <div style="display:flex;gap:var(--sp-8);align-items:center;flex-wrap:wrap">
+              <div style="text-align:center">
+                <div class="ring ring-xl" data-score="74" data-sub="Solid" data-label="Session score"></div>
+                <p class="hint" style="margin-top:8px">out of 100</p>
+              </div>
+              <div style="flex:1;min-width:260px" class="stack">
+                <div>
+                  <p class="display" style="font-size:var(--text-xl)">Solid</p>
+                  <p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:6px">
+                    A competent systems design conversation with one clearly strong answer and one clearly thin one. Up 11 points on the same session shape from 24 July.
+                  </p>
+                </div>
+                <div class="cluster">
+                  <span class="badge badge-warning"><i data-lucide="gauge" class="ic-sm ic"></i>Medium confidence</span>
+                  <span class="badge badge-neutral"><i data-lucide="layers" class="ic-sm ic"></i>11 evidence spans</span>
+                  <span class="badge badge-neutral"><i data-lucide="list-checks" class="ic-sm ic"></i>5 of 6 competencies touched</span>
+                  <span class="badge badge-success"><i data-lucide="trending-up" class="ic-sm ic"></i>+11 vs 24 July</span>
+                </div>
+              </div>
+            </div>
+
+            <hr style="margin:var(--sp-5) 0">
+
+            <div class="grid grid-2">
+              <div>
+                <h3 style="font-size:var(--text-sm);margin-bottom:6px"><i data-lucide="gauge" class="ic ic-sm" style="vertical-align:-3px;color:var(--warning)"></i> Confidence: medium</h3>
+                <p class="hint" style="line-height:1.6">Enough evidence for a provisional view. Systems design rests on five separate spans and is reliable; debugging, collaboration and ownership each rest on a single answer, so their individual numbers could move by ten points or more with one more session.</p>
+              </div>
+              <div>
+                <h3 style="font-size:var(--text-sm);margin-bottom:6px"><i data-lucide="pie-chart" class="ic ic-sm" style="vertical-align:-3px;color:var(--primary)"></i> Rubric coverage: 5 of 6</h3>
+                <p class="hint" style="line-height:1.6">Six questions touched five of the six competencies in the Senior Backend Engineer rubric. <strong>Prioritisation under pressure</strong> was never asked about, so it is absent from the score rather than scored low.</p>
+                <div class="progress" style="margin-top:10px"><span style="width:83%"></span></div>
+                <p class="chart-summary">Text summary: 5 of 6 rubric competencies (83%) were touched by at least one question in this session.</p>
+              </div>
+            </div>
+
+            <div class="banner" style="margin-top:var(--sp-5)">
+              <i data-lucide="info" class="ic"></i>
+              <div>
+                <strong>What this number is, and what it is not.</strong>
+                It is a practice signal from one 38-minute conversation, scored against a rubric you chose, from what you actually said. It is <em>not</em> a prediction of whether you will be hired, a measure of your ability, or something an employer will ever see. Treat a single session as one data point; the trend across sessions is the useful part.
+                <a class="link" style="display:inline-block;margin-top:6px;font-size:var(--text-xs)" href="candidate-progression.html">See the trend across 9 sessions<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ Competency breakdown ══ -->
+        <section class="card" aria-labelledby="comp-h">
+          <div class="card-header">
+            <div>
+              <h2 id="comp-h">Competency breakdown</h2>
+              <p class="hint" style="margin-top:3px">Scores from this session only. Brackets show the range the true score is likely to sit in given how much evidence there is — a wider bracket means less evidence, not a worse answer.</p>
+            </div>
+            <a class="btn btn-sm btn-ghost" href="candidate-skills.html">All-time skills<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+          </div>
+          <div class="card-body">
+            <div class="comp-list" id="comp-list"></div>
+            <p class="chart-summary" id="comp-summary"></p>
+
+            <h3 class="section-title" style="font-size:var(--text-sm);margin-top:var(--sp-6)">Evidence behind each score</h3>
+            <p class="hint" style="margin-bottom:var(--sp-3)">Open a competency to read the exact words that produced its score, with a control to hear the moment.</p>
+            <div class="accordion" id="comp-accordion" data-accordion-single></div>
+          </div>
+        </section>
+
+        <!-- ══ Replay ══ -->
+        <section class="card" aria-labelledby="replay-h" id="replay">
+          <div class="card-header">
+            <div>
+              <h2 id="replay-h">Replay</h2>
+              <p class="hint" style="margin-top:3px">The recording plays alongside the transcript below — the current turn is highlighted as it goes.</p>
+            </div>
+            <span class="badge badge-outline"><i data-lucide="flask-conical" class="ic-sm ic"></i>Simulated playback</span>
+          </div>
+          <div class="card-body">
+            <div class="banner banner-warning" style="margin-bottom:var(--sp-4)">
+              <i data-lucide="volume-x" class="ic"></i>
+              <div><strong>No audio in this prototype.</strong> The controls below are wired to a timer, not to a media file: play, scrub, skip and speed all move a simulated playhead and drive the transcript highlight. Transcript segments are seeded up to 05:24; past that the highlight stays on the last available turn.</div>
+            </div>
+
+            <div class="player">
+              <button class="play" type="button" id="play-btn" aria-pressed="false" aria-label="Play the simulated recording">
+                <i data-lucide="play" class="ic" data-icon-play></i>
+                <i data-lucide="pause" class="ic" data-icon-pause hidden></i>
+              </button>
+              <div class="timeline">
+                <div class="wave-mini" id="wave" aria-hidden="true"></div>
+                <label class="sr-only" for="scrub">Playback position, in seconds, of a 38 minute recording</label>
+                <input class="scrub" id="scrub" type="range" min="0" max="2280" step="1" value="0"
+                       aria-valuetext="0 minutes 0 seconds of 38 minutes">
+                <div class="times"><span id="t-now">00:00</span><span id="t-total">38:00</span></div>
+              </div>
+              <div class="ctl">
+                <button class="icon-btn icon-btn-outline" type="button" id="back10" aria-label="Skip back 10 seconds"><i data-lucide="rotate-ccw" class="ic ic-sm"></i></button>
+                <button class="icon-btn icon-btn-outline" type="button" id="fwd10" aria-label="Skip forward 10 seconds"><i data-lucide="rotate-cw" class="ic ic-sm"></i></button>
+                <div class="segmented" data-segmented role="group" aria-label="Playback speed" id="speed">
+                  <button type="button" data-value="1" aria-pressed="true">1x<span class="sr-only"> speed</span></button>
+                  <button type="button" data-value="1.25" aria-pressed="false">1.25x<span class="sr-only"> speed</span></button>
+                  <button type="button" data-value="1.5" aria-pressed="false">1.5x<span class="sr-only"> speed</span></button>
+                </div>
+              </div>
+            </div>
+
+            <p class="hint" role="status" id="player-status" style="margin-top:10px">Paused at 00:00. Speed 1x.</p>
+
+            <div class="cluster" style="margin-top:var(--sp-4)">
+              <span class="hint">Jump to a question:</span>
+              <button class="chip" type="button" data-jump="00:00">Q1 · opening</button>
+              <button class="chip" type="button" data-jump="00:58">Q2 · double booking</button>
+              <button class="chip" type="button" data-jump="02:05">Q3 · sharding</button>
+              <button class="chip" type="button" data-jump="02:41">Q4 · hotspot</button>
+              <button class="chip" type="button" data-jump="04:10">Q5 · EHR timeout</button>
+              <button class="chip" type="button" data-jump="05:16">Q6 · challenge</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ Transcript ══ -->
+        <section class="card" aria-labelledby="tr-h" id="transcript">
+          <div class="card-header">
+            <div>
+              <h2 id="tr-h">Transcript</h2>
+              <p class="hint" style="margin-top:3px">Everything you and Ravi said, with the evidence spans that produced your scores. Click a highlight to see why it counted.</p>
+            </div>
+            <span class="badge badge-neutral" id="turn-count">14 turns</span>
+          </div>
+          <div class="card-body">
+
+            <div class="transcript-toolbar">
+              <div class="input-wrap" style="flex:1 1 220px;min-width:180px">
+                <i data-lucide="search" class="ic ic-sm"></i>
+                <label class="sr-only" for="tr-search">Search the transcript</label>
+                <input class="input input-sm" id="tr-search" type="search" placeholder="Search the transcript…" autocomplete="off">
+              </div>
+              <label class="check" style="font-size:var(--text-xs)"><input type="checkbox" id="tr-filter"><span>Only turns with evidence</span></label>
+              <label class="switch" style="font-size:var(--text-xs)"><input type="checkbox" id="tr-plain"><span>Plain transcript</span></label>
+            </div>
+
+            <p class="hint" role="status" id="tr-status" style="margin-bottom:var(--sp-3)">Showing all 14 turns.</p>
+
+            <div class="ev-legend" id="ev-legend" style="margin-bottom:var(--sp-4)">
+              <span><i class="i-supporting"></i>Supporting — backs a competency up</span>
+              <span><i class="i-contradiction"></i>Contradiction — conflicts with something you said earlier</span>
+              <span><i class="i-claim"></i>Claim — asserted without being checked</span>
+              <span><i class="i-gap"></i>Gap — the question was not really answered</span>
+            </div>
+
+            <div class="transcript-scroll">
+              <div class="transcript" id="transcript-list"></div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="cluster">
+              <button class="btn btn-sm btn-ghost" type="button" data-copy="Prepeet session ses_7Kq2XA — Systems design deep-dive, 21 August 2026. Transcript available in your Prepeet account."><i data-lucide="copy" class="ic ic-sm"></i>Copy session reference</button>
+              <a class="btn btn-sm btn-ghost" href="candidate-session-review.html?id=ses_7Kq2XA">See coaching on these answers<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ Coverage & gaps ══ -->
+        <section class="card" aria-labelledby="gaps-h">
+          <div class="card-header">
+            <div>
+              <h2 id="gaps-h">Coverage &amp; gaps</h2>
+              <p class="hint" style="margin-top:3px">Where the evidence is thin, and the question type that would fill it. Thin evidence is not a low score — it is a missing measurement.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="table table-responsive">
+                <caption class="sr-only">Competencies with thin or missing evidence in this session, and the question type that would fill each gap</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Competency</th>
+                    <th scope="col">Evidence here</th>
+                    <th scope="col">Why it is thin</th>
+                    <th scope="col">What would fill it</th>
+                    <th scope="col"><span class="sr-only">Action</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td data-label="Competency" class="td-primary">Prioritisation under pressure</td>
+                    <td data-label="Evidence here"><span class="badge badge-outline">0 spans</span></td>
+                    <td data-label="Why it is thin">No question in this session asked you to choose between competing demands under a deadline.</td>
+                    <td data-label="What would fill it">A case or scenario session with escalating constraints — three or four forced trade-offs.</td>
+                    <td data-label="Action" class="td-actions"><a class="btn btn-sm btn-secondary" href="candidate-start-interview.html?shape=shape_case&amp;focus=prioritisation">Set up<i data-lucide="arrow-right" class="ic ic-sm"></i></a></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Competency" class="td-primary">Ownership &amp; follow-through</td>
+                    <td data-label="Evidence here"><span class="badge badge-warning">1 span</span></td>
+                    <td data-label="Why it is thin">One sentence at 05:24. Your strongest technical story was attributed to a team, so it did not count here.</td>
+                    <td data-label="What would fill it">A behavioural session that asks what you personally decided, shipped and followed up.</td>
+                    <td data-label="Action" class="td-actions"><a class="btn btn-sm btn-secondary" href="candidate-start-interview.html?shape=shape_behavioural&amp;focus=ownership">Set up<i data-lucide="arrow-right" class="ic ic-sm"></i></a></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Competency" class="td-primary">Debugging &amp; incident response</td>
+                    <td data-label="Evidence here"><span class="badge badge-warning">1 span</span></td>
+                    <td data-label="Why it is thin">Only one failure question was asked, and it was about a decision rather than a diagnosis.</td>
+                    <td data-label="What would fill it">An incident scenario where you have to say how you would know before you say what you would do.</td>
+                    <td data-label="Action" class="td-actions"><a class="btn btn-sm btn-secondary" href="candidate-start-interview.html?shape=shape_case&amp;focus=detection-first">Set up<i data-lucide="arrow-right" class="ic ic-sm"></i></a></td>
+                  </tr>
+                  <tr>
+                    <td data-label="Competency" class="td-primary">Collaboration &amp; influence</td>
+                    <td data-label="Evidence here"><span class="badge badge-warning">1 span</span></td>
+                    <td data-label="Why it is thin">Ravi challenged you once. One exchange is not enough to read how you handle sustained disagreement.</td>
+                    <td data-label="What would fill it">A session with Marcus, who pushes back on claims and asks you to defend decisions.</td>
+                    <td data-label="Action" class="td-actions"><a class="btn btn-sm btn-secondary" href="candidate-start-interview.html?persona=per_marcus&amp;focus=collaboration">Set up<i data-lucide="arrow-right" class="ic ic-sm"></i></a></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="chart-summary">Text summary: of six rubric competencies, systems design has 5 evidence spans and technical communication has 3; debugging, collaboration and ownership have 1 each; prioritisation under pressure has none. Four competencies need more evidence before their scores can be trusted individually.</p>
+          </div>
+          <div class="card-footer">
+            <a class="btn btn-sm btn-soft" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start an interview</a>
+          </div>
+        </section>
+
+        <!-- Cross-link to review -->
+        <div class="banner banner-info">
+          <i data-lucide="messages-square" class="ic"></i>
+          <div><strong>This page tells you what happened. The coaching review tells you what to do about it.</strong> Per-answer feedback, a model rewrite of every answer you gave, a five-minute redo of any question, and drills that feed your goals.</div>
+          <div class="banner-actions">
+            <a class="btn btn-sm btn-primary" href="candidate-session-review.html?id=ses_7Kq2XA">Open coaching review</a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ────────────────────────────────── STATE: loading ───────────────── -->
+      <div data-state="loading" hidden class="stack-lg" aria-busy="true">
+        <section class="card">
+          <div class="card-header"><div class="skeleton skeleton-text" style="width:120px;height:14px"></div></div>
+          <div class="card-body">
+            <div style="display:flex;gap:var(--sp-8);align-items:center;flex-wrap:wrap">
+              <div class="skeleton skeleton-circle" style="width:180px;height:180px"></div>
+              <div style="flex:1;min-width:260px">
+                <div class="skeleton skeleton-text" style="width:40%;height:22px"></div>
+                <div class="skeleton skeleton-text" style="width:92%"></div>
+                <div class="skeleton skeleton-text" style="width:76%"></div>
+                <div class="skeleton skeleton-text" style="width:54%"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header"><div class="skeleton skeleton-text" style="width:190px;height:14px"></div></div>
+          <div class="card-body">
+            <div class="skeleton skeleton-text" style="width:100%;height:16px"></div>
+            <div class="skeleton skeleton-text" style="width:100%;height:16px"></div>
+            <div class="skeleton skeleton-text" style="width:100%;height:16px"></div>
+            <div class="skeleton skeleton-text" style="width:100%;height:16px"></div>
+            <div class="skeleton skeleton-text" style="width:100%;height:16px"></div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-body"><div class="skeleton skeleton-block" style="height:88px"></div></div>
+        </section>
+        <section class="card">
+          <div class="card-body">
+            <div class="skeleton skeleton-block" style="height:220px"></div>
+          </div>
+        </section>
+        <p class="hint" role="status" style="text-align:center">Loading the evidence trail for this session — this normally takes under two seconds.</p>
+      </div>
+
+      <!-- ────────────────────────────────── STATE: insufficient ──────────── -->
+      <div data-state="insufficient" hidden class="stack-lg">
+        <div class="banner banner-warning">
+          <i data-lucide="circle-slash" class="ic"></i>
+          <div><strong>This session was too short to score.</strong> It ran for 12 minutes of a planned 25 and covered two questions. We will not put a number on that, because a number built from two answers would be wrong in a way you could not see.</div>
+        </div>
+
+        <section class="card" aria-labelledby="insuf-h">
+          <div class="card-header"><h2 id="insuf-h">Outcome</h2></div>
+          <div class="card-body">
+            <div style="display:flex;gap:var(--sp-8);align-items:center;flex-wrap:wrap">
+              <div style="text-align:center">
+                <div class="ring ring-xl" data-score="" data-sub="Not scored" data-label="Session score"></div>
+                <p class="hint" style="margin-top:8px">no score</p>
+              </div>
+              <div style="flex:1;min-width:260px" class="stack">
+                <div>
+                  <p class="display" style="font-size:var(--text-xl)">Insufficient evidence</p>
+                  <p class="text-2" style="font-size:var(--text-sm);line-height:1.6;margin-top:6px">
+                    Scoring needs at least four evidence spans across three competencies. This session produced two spans across one. Rather than show you a low number, we show you nothing — a short session is missing measurement, not poor performance.
+                  </p>
+                </div>
+                <div class="cluster">
+                  <span class="badge badge-outline"><i data-lucide="help-circle" class="ic-sm ic"></i>Insufficient evidence</span>
+                  <span class="badge badge-neutral"><i data-lucide="layers" class="ic-sm ic"></i>2 evidence spans</span>
+                  <span class="badge badge-neutral"><i data-lucide="list-checks" class="ic-sm ic"></i>1 of 6 competencies touched</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="captured-h">
+          <div class="card-header"><h2 id="captured-h">What was captured</h2></div>
+          <div class="card-body">
+            <dl class="kv">
+              <dt>Duration</dt><dd>12 minutes 04 seconds of a planned 25</dd>
+              <dt>Questions asked</dt><dd>2 of 6</dd>
+              <dt>Questions answered</dt><dd>2 — both fully</dd>
+              <dt>Transcript</dt><dd>6 turns, saved and searchable</dd>
+              <dt>Recording</dt><dd>Saved · 12:04 · available to replay</dd>
+              <dt>Evidence spans</dt><dd>2, both supporting, both on systems design</dd>
+              <dt>Competencies touched</dt><dd>Systems design only</dd>
+              <dt>Counts towards progression</dt><dd>No — unscored sessions do not move your trend either way</dd>
+            </dl>
+            <div class="banner" style="margin-top:var(--sp-4)">
+              <i data-lucide="shield-check" class="ic"></i>
+              <div>Ending a session early never lowers a competency score. It simply adds no evidence, which is why every number on this page is blank rather than low.</div>
+            </div>
+            <div class="cluster" style="margin-top:var(--sp-4)">
+              <a class="btn btn-primary btn-sm" href="candidate-start-interview.html?shape=shape_technical&amp;persona=per_ravi&amp;minutes=25"><i data-lucide="circle-play" class="ic ic-sm"></i>Run a full session</a>
+              <a class="btn btn-secondary btn-sm" href="candidate-session-review.html?id=ses_7Kq2XA&amp;state=partial">Coaching on the two answers</a>
+              <a class="btn btn-ghost btn-sm" href="candidate-sessions.html">All sessions</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ────────────────────────────────── STATE: error ─────────────────── -->
+      <div data-state="error" hidden>
+        <div class="card">
+          <div class="state danger">
+            <div class="state-icon"><i data-lucide="alert-triangle" class="ic"></i></div>
+            <h2 style="font-size:var(--text-md)">We could not load these results</h2>
+            <p>The evidence store did not respond for session <span class="mono">ses_7Kq2XA</span>. Your recording, transcript and score are intact — this page failed to read them, and a retry usually works.</p>
+            <p class="mono" style="font-size:var(--text-xs);color:var(--fg-3)">evidence_fetch_failed · 23 Aug 2026 10:12 UTC · trace 4c71ab</p>
+            <div class="actions">
+              <button class="btn btn-primary" type="button" data-loading-sim="1200" data-loading-done="Still unavailable — try again shortly" data-loading-kind="warning"><i data-lucide="rotate-cw" class="ic ic-sm"></i>Try again</button>
+              <a class="btn btn-secondary" href="candidate-session-review.html?id=ses_7Kq2XA">Open coaching review</a>
+              <a class="btn btn-ghost" href="candidate-sessions.html">All sessions</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /practice-root -->
+
+  </div>
+</main>
+
+<!-- ══════════════════════════════════════ DRAWER ══════════════════════════ -->
+<dialog class="drawer" id="ev-drawer" aria-labelledby="ev-drawer-h">
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <h2 id="ev-drawer-h">Evidence detail</h2>
+      <button class="icon-btn" type="button" data-drawer-close aria-label="Close evidence detail"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="drawer-body stack" id="ev-drawer-body"></div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary btn-sm" type="button" data-drawer-close>Close</button>
+      <button class="btn btn-primary btn-sm" type="button" id="ev-drawer-jump"><i data-lucide="play" class="ic ic-sm"></i>Jump to this moment</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dialog" id="share-dialog" aria-labelledby="share-h">
+  <div class="dialog-panel">
+    <div class="dialog-header">
+      <h2 id="share-h">Sharing your results</h2>
+      <button class="icon-btn" type="button" data-dialog-close aria-label="Close dialog"><i data-lucide="x" class="ic"></i></button>
+    </div>
+    <div class="dialog-body stack">
+      <div class="banner banner-info">
+        <i data-lucide="lock" class="ic"></i>
+        <div><strong>Practice results are private by default.</strong> No employer, recruiter or Prepeet reviewer can open this page. A share link only exists if you create one.</div>
+      </div>
+      <p>Choose what a link includes:</p>
+      <div class="stack-sm">
+        <label class="check"><input type="checkbox" checked><span>Score and competency breakdown<span class="hint">The 74, the bands and the confidence ranges.</span></span></label>
+        <label class="check"><input type="checkbox" checked><span>Evidence spans<span class="hint">The quoted sentences behind each score, with timestamps.</span></span></label>
+        <label class="check"><input type="checkbox"><span>Full transcript<span class="hint">Everything you and Ravi said.</span></span></label>
+        <label class="check"><input type="checkbox"><span>Audio recording<span class="hint">Off by default.</span></span></label>
+      </div>
+      <div class="field">
+        <label class="label" for="share-expiry">Link expires</label>
+        <select class="select" id="share-expiry">
+          <option>After 7 days</option>
+          <option selected>After 30 days</option>
+          <option>When I revoke it</option>
+        </select>
+        <p class="hint">Anyone with the link can view it. You can revoke it at any time from settings.</p>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <a class="btn btn-ghost btn-sm" href="candidate-settings.html#privacy">Privacy settings</a>
+      <button class="btn btn-secondary" type="button" data-dialog-close>Cancel</button>
+      <button class="btn btn-primary" type="button" data-dialog-close data-toast="Share link created" data-toast-desc="Score and evidence · expires 22 September 2026" data-toast-kind="success">Create link</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var SESSION = Prepeet.query.get('id', Prepeet.ids.session);
+  var TR = Prepeet.data.transcript;
+
+  /* ---------------------------------------------------------------------
+     Evidence spans for ses_7Kq2XA — resolved from the markers seeded in
+     Prepeet.data.transcript into exact quotes, each with the reason it
+     counted and its confidence. Kept identical to the copy on
+     candidate-session-review.html.
+     --------------------------------------------------------------------- */
+  var EV = [
+    { id: 'ev1', t: '00:24', kind: 'supporting', comp: 'Systems design',
+      quote: 'I would start with the read and write shapes rather than the components',
+      why: 'Opened on access patterns rather than a component list. Ordering the problem by read and write shape before naming any technology is the marker the rubric looks for at senior level, and it arrived unprompted within 24 seconds.',
+      conf: 'High', related: ['ev2'] },
+    { id: 'ev2', t: '01:12', kind: 'supporting', comp: 'Systems design',
+      quote: 'A conditional write on the slot row with an optimistic version, so two writers cannot both take the last slot',
+      why: 'Named the correct concurrency primitive before describing any machinery, and named it first. The rubric credits identifying the mechanism that makes the invariant hold, not the surrounding architecture.',
+      conf: 'High', related: ['ev1', 'ev3', 'ev10'] },
+    { id: 'ev3', t: '01:12', kind: 'supporting', comp: 'Technical communication',
+      quote: 'It cut our double-booking incidents from roughly one a week to none in six months',
+      why: 'A quantified outcome with a before, an after and a time window. The rubric treats a measured result as materially stronger than an assertion of success, and "roughly" is honest about precision rather than vague.',
+      conf: 'High', related: ['ev9'] },
+    { id: 'ev4', t: '02:14', kind: 'claim', comp: 'Systems design',
+      quote: 'because bookings never cross clinics',
+      why: 'The whole shard key rests on this, and it was asserted rather than checked. Referrals and multi-site clinicians are the standard counter-example. Marked as a claim, not a mistake — the design is sound if the premise holds, and the rubric asks whether you knew it was a premise.',
+      conf: 'Medium', related: ['ev5', 'ev10'] },
+    { id: 'ev5', t: '02:47', kind: 'gap', comp: 'Systems design',
+      quote: 'Probably a queue in front of it. I would let requests line up and process them in order.',
+      why: 'A hedge and a noun with no mechanism underneath it: no admission control, no depth bound, no overflow behaviour and no ordering guarantee. The question asked how to handle a hotspot and this does not answer it, so it removes credit rather than adding it.',
+      conf: 'High', related: ['ev4', 'ev10'] },
+    { id: 'ev6', t: '03:26', kind: 'supporting', comp: 'Collaboration & influence',
+      quote: 'Honestly, I have not designed that part before.',
+      why: 'Named the edge of his own experience to a direct, technical interviewer and then produced a design anyway. The rubric scores calibrated disclosure under challenge as collaboration evidence: it makes everything else said more trustworthy.',
+      conf: 'Medium', related: ['ev7', 'ev11'] },
+    { id: 'ev7', t: '03:26', kind: 'claim', comp: 'Technical communication',
+      quote: 'I would need to check what our booking partners support before committing to that',
+      why: 'A dependency raised as a blocker with no follow-up plan attached. Naming the dependency is right; leaving it without a fallback means the listener cannot tell whether the design survives the answer being "no".',
+      conf: 'Medium', related: ['ev6'] },
+    { id: 'ev8', t: '04:22', kind: 'supporting', comp: 'Debugging & incident response',
+      quote: 'I would fail closed — reject the booking rather than confirm something the clinical record does not know about',
+      why: 'Chose the safe failure mode and justified it by consequence rather than by system purity. In a clinical context the rubric weights this heavily — the wrong call here is a patient arriving for an appointment the clinic cannot see.',
+      conf: 'High', related: ['ev9'] },
+    { id: 'ev9', t: '04:22', kind: 'supporting', comp: 'Technical communication',
+      quote: 'Confirming a booking the EHR never received is the worse outcome for a patient.',
+      why: 'Translated a systems trade-off into the affected person\u2019s terms in a single sentence. The rubric credits explaining a technical decision in the language of whoever bears the cost of it.',
+      conf: 'High', related: ['ev3', 'ev8'] },
+    { id: 'ev10', t: '05:24', kind: 'contradiction', comp: 'Systems design',
+      quote: 'Per-shard queue, not global.',
+      why: 'The correction is right, but it resolves a conflict between the sharding answer at 02:14 and the queue answer at 02:47 that the interviewer found rather than the candidate. The rubric deducts for the inconsistency and separately credits the recovery.',
+      conf: 'High', related: ['ev4', 'ev5', 'ev11'] },
+    { id: 'ev11', t: '05:24', kind: 'supporting', comp: 'Ownership & follow-through',
+      quote: 'I said it loosely the first time.',
+      why: 'Owned the imprecision in one sentence with no defence and no deflection. This is the only unambiguous ownership evidence in the session, which is why the ownership score rests entirely on it and its range is wide.',
+      conf: 'Medium', related: ['ev6', 'ev10'] }
+  ];
+  var EVMAP = {}; EV.forEach(function (e) { EVMAP[e.id] = e; });
+  var KIND_LABEL = { supporting: 'Supporting', contradiction: 'Contradiction', claim: 'Claim', gap: 'Gap' };
+
+  /* Competency scores from this session only ---------------------------- */
+  var COMPS = [
+    { id: 'systems-design', name: 'Systems design', score: 76, band: 'solid', ci: [68, 83], conf: 'Medium',
+      note: 'Five spans, and they disagree with each other: the opening and the concurrency answer are strong, the hotspot answer is a gap and the shard-key premise went unchecked.' },
+    { id: 'technical-communication', name: 'Technical communication', score: 82, band: 'strong', ci: [76, 87], conf: 'Medium',
+      note: 'Consistently clear, with real numbers and one excellent translation of a trade-off into patient terms.' },
+    { id: 'debugging', name: 'Debugging & incident response', score: 71, band: 'solid', ci: [60, 80], conf: 'Low',
+      note: 'One span. The decision was right; nothing in the session shows how you would detect the problem in the first place.' },
+    { id: 'collaboration', name: 'Collaboration & influence', score: 68, band: 'solid', ci: [57, 78], conf: 'Low',
+      note: 'One span, from a single challenge. Not enough to read how you handle sustained disagreement.' },
+    { id: 'ownership', name: 'Ownership & follow-through', score: 61, band: 'developing', ci: [48, 72], conf: 'Low',
+      note: 'One span. Your strongest technical story was attributed to a team, so it produced no ownership evidence.' },
+    { id: 'prioritisation', name: 'Prioritisation under pressure', score: null, band: 'insufficient', ci: null, conf: 'None',
+      note: 'Not touched by any question in this session. Absent from the score rather than scored low.' }
+  ];
+
+  /* ------------------------------------------------------------- helpers */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function secs(t) { var p = t.split(':'); return Number(p[0]) * 60 + Number(p[1]); }
+  function mmss(s) { s = Math.max(0, Math.round(s)); var m = Math.floor(s / 60); var r = s % 60; return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r; }
+  function spoken(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ' minutes ' + (s % 60) + ' seconds'; }
+  function turnId(t) { return 'turn-' + t.replace(':', ''); }
+
+  /* -------------------------------------------------- transcript renderer */
+  var view = { plain: false, filter: false, q: '' };
+
+  function markSearch(text) {
+    if (!view.q) return esc(text);
+    var out = '', low = text.toLowerCase(), needle = view.q.toLowerCase(), i = 0, j;
+    while ((j = low.indexOf(needle, i)) !== -1) {
+      out += esc(text.slice(i, j)) + '<mark class="hit">' + esc(text.slice(j, j + needle.length)) + '</mark>';
+      i = j + needle.length;
+    }
+    return out + esc(text.slice(i));
+  }
+
+  function turnBody(turn) {
+    var text = turn.text;
+    var marks = (view.plain || turn.who !== 'user') ? [] : EV.filter(function (e) { return e.t === turn.t; })
+      .map(function (e) { var i = text.indexOf(e.quote); return i < 0 ? null : { s: i, e: i + e.quote.length, ev: e }; })
+      .filter(Boolean).sort(function (a, b) { return a.s - b.s; });
+    var out = '', pos = 0;
+    marks.forEach(function (m) {
+      if (m.s < pos) return;
+      out += markSearch(text.slice(pos, m.s));
+      out += '<button type="button" class="ev ev-' + m.ev.kind + '" data-ev="' + m.ev.id + '">' +
+        markSearch(text.slice(m.s, m.e)) +
+        '<span class="sr-only"> — ' + KIND_LABEL[m.ev.kind].toLowerCase() + ' evidence for ' + esc(m.ev.comp) + '. Open detail.</span></button>';
+      pos = m.e;
+    });
+    out += markSearch(text.slice(pos));
+    return out;
+  }
+
+  function renderTranscript() {
+    var host = document.getElementById('transcript-list');
+    if (!host) return;
+    var rows = TR.filter(function (turn) {
+      if (view.filter && !EV.some(function (e) { return e.t === turn.t; })) return false;
+      if (view.q && turn.text.toLowerCase().indexOf(view.q.toLowerCase()) === -1) return false;
+      return true;
+    });
+
+    if (!rows.length) {
+      host.innerHTML = '<div class="state state-compact"><div class="state-icon"><i data-lucide="search-x" class="ic"></i></div>' +
+        '<h3>No turns match</h3><p>Nothing in this transcript contains &ldquo;' + esc(view.q) + '&rdquo;' +
+        (view.filter ? ' among turns that carry evidence' : '') + '.</p>' +
+        '<div class="actions"><button class="btn btn-secondary btn-sm" type="button" id="clear-filters">Clear search and filters</button></div></div>';
+    } else {
+      host.innerHTML = rows.map(function (turn) {
+        var isAi = turn.who === 'ai';
+        return '<div class="turn ' + (isAi ? 'ai' : 'user') + '" id="' + turnId(turn.t) + '" data-turn="' + turn.t + '">' +
+          '<span class="avatar avatar-sm' + (isAi ? ' avatar-persona' : '') + '">' + (isAi ? 'RA' : 'DO') + '</span>' +
+          '<div>' +
+            '<div class="turn-meta"><span class="who">' + esc(turn.speaker) + '</span><time>' + turn.t + '</time>' +
+              (EV.some(function (e) { return e.t === turn.t; }) ? '<span class="badge badge-outline">' + EV.filter(function (e) { return e.t === turn.t; }).length + ' evidence</span>' : '') +
+            '</div>' +
+            '<p class="turn-text">' + turnBody(turn) + '</p>' +
+            '<div class="turn-actions"><button class="btn btn-sm btn-ghost" type="button" data-jump="' + turn.t + '"><i data-lucide="play" class="ic ic-sm"></i>Play from ' + turn.t + '</button></div>' +
+          '</div></div>';
+      }).join('');
+    }
+
+    var st = document.getElementById('tr-status');
+    var bits = ['Showing ' + rows.length + ' of ' + TR.length + ' turns'];
+    if (view.filter) bits.push('evidence turns only');
+    if (view.q) bits.push('matching “' + view.q + '”');
+    if (view.plain) bits.push('highlighting off');
+    st.textContent = bits.join(' · ') + '.';
+    document.getElementById('turn-count').textContent = rows.length + ' of ' + TR.length + ' turns';
+    Prepeet.init(host);
+    syncHighlight();
+  }
+
+  /* ------------------------------------------------------- competencies */
+  function renderComps() {
+    var host = document.getElementById('comp-list');
+    host.innerHTML = COMPS.map(function (c) {
+      var ci = c.ci ? '<span class="ci" style="left:' + c.ci[0] + '%;width:' + (c.ci[1] - c.ci[0]) + '%"></span>' : '';
+      var n = EV.filter(function (e) { return e.comp === c.name; }).length;
+      return '<div class="comp-row">' +
+        '<div class="comp-name">' + esc(c.name) +
+          '<small>' + n + ' evidence span' + (n === 1 ? '' : 's') + ' · ' + Prepeet.bandLabel(c.band) + ' · ' + c.conf.toLowerCase() + ' confidence</small></div>' +
+        '<div class="comp-bar band-' + c.band + '"><span style="width:' + (c.score == null ? 0 : c.score) + '%"></span>' + ci + '</div>' +
+        '<div class="comp-val">' + (c.score == null ? '<span class="text-muted" style="font-size:var(--text-xs)">n/a</span>' : c.score) + '</div>' +
+      '</div>';
+    }).join('');
+    document.getElementById('comp-summary').textContent =
+      'Text summary: technical communication 82, strong, 3 evidence spans, likely range 76 to 87. Systems design 76, solid, 5 spans, range 68 to 83. ' +
+      'Debugging and incident response 71, solid, 1 span, range 60 to 80. Collaboration and influence 68, solid, 1 span, range 57 to 78. ' +
+      'Ownership and follow-through 61, developing, 1 span, range 48 to 72. Prioritisation under pressure has no score and no evidence — it was not asked about. Overall 74, solid.';
+
+    var acc = document.getElementById('comp-accordion');
+    acc.innerHTML = COMPS.map(function (c, i) {
+      var mine = EV.filter(function (e) { return e.comp === c.name; });
+      var pid = 'acc-' + c.id;
+      var body = mine.length
+        ? '<div class="stack">' + mine.map(function (e) {
+            return '<div class="ev-card ' + e.kind + '">' +
+              '<div class="ev-meta"><span>' + KIND_LABEL[e.kind] + '</span><span>·</span><span>' + e.t + '</span><span>·</span><span>' + e.conf + ' confidence</span><span>·</span><span>' + e.id + '</span></div>' +
+              '<blockquote>“' + esc(e.quote) + '”</blockquote>' +
+              '<p style="color:var(--fg-2);line-height:1.55">' + esc(e.why) + '</p>' +
+              '<div class="cluster" style="margin-top:10px">' +
+                '<button class="btn btn-sm btn-secondary" type="button" data-jump="' + e.t + '"><i data-lucide="play" class="ic ic-sm"></i>Jump to this moment</button>' +
+                '<button class="btn btn-sm btn-ghost" type="button" data-ev="' + e.id + '">Full detail</button>' +
+              '</div></div>';
+          }).join('') + '</div>'
+        : '<div class="banner"><i data-lucide="help-circle" class="ic"></i><div>No evidence in this session. ' + esc(c.note) +
+          ' <a href="candidate-start-interview.html?shape=shape_case&amp;focus=prioritisation">Run a case session to gather some</a>.</div></div>';
+      return '<div class="accordion-item">' +
+        '<button class="accordion-trigger" type="button" aria-expanded="' + (i === 0 ? 'true' : 'false') + '" aria-controls="' + pid + '">' +
+          '<span style="display:flex;flex-direction:column;gap:2px;text-align:left">' +
+            '<span>' + esc(c.name) + '</span>' +
+            '<span class="hint" style="font-weight:500">' + (c.score == null ? 'Not scored' : c.score + ' · ' + Prepeet.bandLabel(c.band)) + ' · ' + mine.length + ' evidence span' + (mine.length === 1 ? '' : 's') + '</span>' +
+          '</span>' +
+          '<i data-lucide="chevron-down" class="ic"></i>' +
+        '</button>' +
+        '<div class="accordion-panel" id="' + pid + '"' + (i === 0 ? '' : ' hidden') + '>' +
+          '<p style="margin-bottom:12px">' + esc(c.note) + '</p>' + body +
+        '</div></div>';
+    }).join('');
+  }
+
+  /* -------------------------------------------------------------- player */
+  var DUR = 2280;                 /* 38:00 */
+  var pos = 0, playing = false, speed = 1, timer = null;
+
+  function paintPlayer() {
+    document.getElementById('t-now').textContent = mmss(pos);
+    var sc = document.getElementById('scrub');
+    sc.value = String(Math.round(pos));
+    sc.setAttribute('aria-valuetext', spoken(pos) + ' of 38 minutes');
+    var wave = document.getElementById('wave');
+    var pct = pos / DUR;
+    Array.prototype.forEach.call(wave.children, function (bar, i) {
+      bar.classList.toggle('played', (i + 1) / wave.children.length <= pct);
+    });
+    document.getElementById('player-status').textContent =
+      (playing ? 'Playing' : 'Paused') + ' at ' + mmss(pos) + '. Speed ' + speed + 'x. Simulated — no audio.';
+    syncHighlight();
+  }
+
+  function syncHighlight() {
+    var current = null;
+    TR.forEach(function (t) { if (secs(t.t) <= pos) current = t; });
+    document.querySelectorAll('.turn.is-current').forEach(function (el) { el.classList.remove('is-current'); });
+    if (current) {
+      var el = document.getElementById(turnId(current.t));
+      if (el) el.classList.add('is-current');
+    }
+  }
+
+  function setPlaying(on) {
+    playing = on;
+    var btn = document.getElementById('play-btn');
+    btn.setAttribute('aria-pressed', String(on));
+    btn.setAttribute('aria-label', on ? 'Pause the simulated recording' : 'Play the simulated recording');
+    var ip = btn.querySelector('[data-icon-play]'), ia = btn.querySelector('[data-icon-pause]');
+    if (ip) ip.hidden = on;
+    if (ia) ia.hidden = !on;
+    clearInterval(timer);
+    if (on) {
+      timer = setInterval(function () {
+        pos = Math.min(DUR, pos + 0.25 * speed);
+        if (pos >= DUR) setPlaying(false);
+        paintPlayer();
+      }, 250);
+    }
+    paintPlayer();
+  }
+
+  function jumpTo(t, scroll) {
+    pos = secs(t);
+    paintPlayer();
+    var el = document.getElementById(turnId(t));
+    if (!el && (view.filter || view.q)) {          /* target hidden by a filter — clear it */
+      view.filter = false; view.q = '';
+      document.getElementById('tr-filter').checked = false;
+      document.getElementById('tr-search').value = '';
+      renderTranscript();
+      el = document.getElementById(turnId(t));
+    }
+    if (el && scroll !== false) { el.scrollIntoView({ block: 'center' }); }
+    Prepeet.announce('Playhead moved to ' + t + '. Transcript scrolled to that turn.');
+  }
+
+  /* -------------------------------------------------------------- drawer */
+  function openEvidence(id) {
+    var e = EVMAP[id]; if (!e) return;
+    var body = document.getElementById('ev-drawer-body');
+    var related = (e.related || []).map(function (r) {
+      var o = EVMAP[r]; if (!o) return '';
+      return '<li><button class="btn btn-sm btn-ghost" type="button" data-ev="' + o.id + '" style="text-align:left;height:auto;padding:8px 10px;white-space:normal">' +
+        '<span class="badge badge-outline">' + KIND_LABEL[o.kind] + '</span> <span style="font-weight:500">' + o.t + ' · ' + esc(o.comp) + '</span></button></li>';
+    }).join('');
+    body.innerHTML =
+      '<div class="cluster">' +
+        '<span class="badge ' + (e.kind === 'supporting' ? 'badge-success' : e.kind === 'contradiction' ? 'badge-danger' : e.kind === 'claim' ? 'badge-accent' : 'badge-warning') + '">' + KIND_LABEL[e.kind] + '</span>' +
+        '<span class="badge badge-outline mono">' + e.t + '</span>' +
+        '<span class="badge badge-neutral">' + e.conf + ' confidence</span>' +
+        '<span class="badge badge-outline mono">' + e.id + '</span>' +
+      '</div>' +
+      '<div class="ev-card ' + e.kind + '">' +
+        '<div class="ev-meta"><span>Daniel Okonkwo</span><span>·</span><span>' + e.t + '</span></div>' +
+        '<blockquote>“' + esc(e.quote) + '”</blockquote>' +
+      '</div>' +
+      '<div><h3 style="font-size:var(--text-sm);margin-bottom:6px">Competency it supports</h3>' +
+        '<p style="font-size:var(--text-sm)"><a href="candidate-skills.html#' + (COMPS.filter(function (c) { return c.name === e.comp; })[0] || {}).id + '">' + esc(e.comp) + '</a></p></div>' +
+      '<div><h3 style="font-size:var(--text-sm);margin-bottom:6px">Why it counted</h3>' +
+        '<p style="font-size:var(--text-sm);line-height:1.6;color:var(--fg-2)">' + esc(e.why) + '</p></div>' +
+      '<div><h3 style="font-size:var(--text-sm);margin-bottom:6px">Confidence</h3>' +
+        '<p class="hint" style="line-height:1.6">' + (e.conf === 'High'
+          ? 'High — the wording is unambiguous and the span stands on its own without needing the surrounding turns to interpret it.'
+          : 'Medium — the span is clear but short, and its weight depends on context from nearby turns. One more example would firm it up.') + '</p></div>' +
+      (related ? '<div><h3 style="font-size:var(--text-sm);margin-bottom:6px">Related evidence</h3><ul class="stack-sm">' + related + '</ul></div>' : '') +
+      '<div class="banner"><i data-lucide="messages-square" class="ic"></i><div>Want to know what to do differently here? The <a href="candidate-session-review.html?id=' + SESSION + '">coaching review</a> rewrites this answer.</div></div>';
+    document.getElementById('ev-drawer-jump').setAttribute('data-jump', e.t);
+    Prepeet.openDialog('ev-drawer');
+    Prepeet.init(body);
+  }
+
+  /* ----------------------------------------------------------- behaviour */
+  function wire() {
+    document.getElementById('play-btn').addEventListener('click', function () { setPlaying(!playing); });
+    document.getElementById('back10').addEventListener('click', function () { pos = Math.max(0, pos - 10); paintPlayer(); });
+    document.getElementById('fwd10').addEventListener('click', function () { pos = Math.min(DUR, pos + 10); paintPlayer(); });
+    document.getElementById('scrub').addEventListener('input', function (e) { pos = Number(e.target.value); paintPlayer(); });
+    document.getElementById('speed').addEventListener('change', function (e) {
+      if (e.detail && e.detail.value) { speed = Number(e.detail.value); if (playing) setPlaying(true); else paintPlayer(); }
+    });
+
+    document.getElementById('tr-search').addEventListener('input', function (e) { view.q = e.target.value.trim(); renderTranscript(); });
+    document.getElementById('tr-filter').addEventListener('change', function (e) { view.filter = e.target.checked; renderTranscript(); });
+    document.getElementById('tr-plain').addEventListener('change', function (e) {
+      view.plain = e.target.checked;
+      document.getElementById('ev-legend').hidden = view.plain;
+      renderTranscript();
+      Prepeet.announce(view.plain ? 'Evidence highlighting turned off.' : 'Evidence highlighting turned on.');
+    });
+
+    document.addEventListener('click', function (e) {
+      var b;
+      if ((b = e.target.closest('[data-ev]'))) { openEvidence(b.getAttribute('data-ev')); return; }
+      if ((b = e.target.closest('[data-jump]'))) {
+        var d = b.closest('dialog');
+        if (d) Prepeet.closeDialog(d);
+        jumpTo(b.getAttribute('data-jump'));
+        return;
+      }
+      if (e.target.id === 'clear-filters') {
+        view.q = ''; view.filter = false;
+        document.getElementById('tr-search').value = '';
+        document.getElementById('tr-filter').checked = false;
+        renderTranscript();
+      }
+    });
+  }
+
+  /* --------------------------------------------------------------- states */
+  function initStates() {
+    var cur = Prepeet.query.get('state', 'default');
+    function apply(s) {
+      document.querySelectorAll('[data-state]').forEach(function (el) { el.hidden = el.getAttribute('data-state') !== s; });
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s)); });
+      Prepeet.query.set({ state: s === 'default' ? null : s }, true);
+      if (s !== 'default' && playing) setPlaying(false);
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) { var b = e.target.closest('[data-state-btn]'); if (b) apply(b.getAttribute('data-state-btn')); });
+    apply(['default', 'loading', 'insufficient', 'error'].indexOf(cur) >= 0 ? cur : 'default');
+  }
+
+  /* ---------------------------------------------------------- screen guard */
+  function screenGuard() {
+    var isScreen = SESSION === Prepeet.ids.screenSession || Prepeet.getMode() === 'screen';
+    if (!isScreen) return false;
+    var id = SESSION === Prepeet.ids.screenSession ? SESSION : Prepeet.ids.screenSession;
+    document.getElementById('practice-root').remove();      /* removed, not hidden — nothing to leak */
+    ['ev-drawer', 'share-dialog'].forEach(function (d) { var n = document.getElementById(d); if (n) n.remove(); });
+    var g = document.getElementById('screen-guard');
+    g.hidden = false;
+    document.getElementById('guard-id').textContent = id;
+    document.getElementById('guard-route').textContent = '/candidate/session/' + id + '/results';
+    document.getElementById('guard-complete-link').setAttribute('href', 'candidate-session-complete.html?id=' + id + '&mode=screen');
+    return true;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (screenGuard()) { Prepeet.init(); return; }
+    document.getElementById('screen-guard').remove();   /* keeps exactly one <h1> in the rendered page */
+
+    document.getElementById('route-chip').textContent = '/candidate/session/' + SESSION + '/results';
+    document.querySelectorAll('a[href*="?id=ses_7Kq2XA"]').forEach(function (a) {
+      a.setAttribute('href', a.getAttribute('href').replace('ses_7Kq2XA', SESSION));
+    });
+
+    renderComps();
+    Prepeet.init();                 /* builds the wave-mini bars before first paint */
+    renderTranscript();
+    wire();
+    initStates();
+    paintPlayer();
+
+    var jump = Prepeet.query.get('jump');
+    if (jump && /^\d\d:\d\d$/.test(jump)) { setTimeout(function () { jumpTo(jump); }, 120); }
+
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

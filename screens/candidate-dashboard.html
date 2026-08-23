@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · Prepeet</title>
+<meta name="description" content="Your interview practice home: readiness, next best session, recent feedback and goals.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="dashboard" data-title="Dashboard" data-crumbs="Candidate>candidate.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <!-- ══════════ PRACTICE MODE ══════════ -->
+    <div data-mode-view="practice">
+
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">Wednesday, 23 August</p>
+          <h1>Good evening, Daniel</h1>
+          <p class="page-desc">You are four sessions into your Senior Backend Engineer plan. Your weakest evidence right now is <a href="candidate-skills.html#ownership">ownership &amp; follow-through</a> — one focused session would move it.</p>
+        </div>
+        <div class="page-actions">
+          <a class="btn btn-secondary" href="candidate-sessions.html"><i data-lucide="history" class="ic ic-sm"></i>All sessions</a>
+          <a class="btn btn-primary" href="candidate-start-interview.html"><i data-lucide="circle-play" class="ic ic-sm"></i>Start an interview</a>
+        </div>
+      </div>
+
+      <!-- Resume banner -->
+      <div class="banner banner-info" style="margin-bottom:var(--sp-5)" role="status">
+        <i data-lucide="bookmark" class="ic"></i>
+        <div>
+          <strong>You have a saved setup.</strong> “Case — cost reduction scenario” with Marcus, 25 minutes. Saved this morning at 09:02.
+        </div>
+        <div class="banner-actions">
+          <button class="btn btn-sm btn-ghost" data-toast="Saved setup discarded" data-toast-kind="default">Discard</button>
+          <a class="btn btn-sm btn-primary" href="candidate-session-prepare.html?id=ses_DraftB">Resume setup</a>
+        </div>
+      </div>
+
+      <div class="grid grid-main-aside">
+
+        <!-- ══ MAIN COLUMN ══ -->
+        <div class="stack-lg">
+
+          <!-- Readiness -->
+          <section class="card" aria-labelledby="readiness-h">
+            <div class="card-header">
+              <div>
+                <h2 id="readiness-h">Readiness for Senior Backend Engineer</h2>
+                <p class="hint" style="margin-top:3px">Based on 8 scored practice sessions since 11 July. This is a practice signal, not a prediction of hiring outcomes.</p>
+              </div>
+              <a class="btn btn-sm btn-ghost" href="candidate-progression.html">Progression<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+            <div class="card-body">
+              <div style="display:flex;gap:var(--sp-6);align-items:center;flex-wrap:wrap">
+                <div class="ring ring-lg" data-score="72" data-sub="Ready-ish" data-label="Overall readiness"></div>
+                <div style="flex:1;min-width:240px" class="stack-sm">
+                  <p class="text-2" style="font-size:var(--text-sm);line-height:1.6">
+                    You are <strong>up 11 points</strong> since your first session. Technical communication is your strongest area; ownership stories are the thing most likely to cost you an offer at this level.
+                  </p>
+                  <div class="cluster">
+                    <span class="badge badge-success"><i data-lucide="trending-up" class="ic-sm ic"></i>+11 in 6 weeks</span>
+                    <span class="badge badge-neutral"><i data-lucide="layers" class="ic-sm ic"></i>8 scored sessions</span>
+                    <span class="badge badge-outline"><i data-lucide="calendar" class="ic-sm ic"></i>Last: 2 days ago</span>
+                  </div>
+                </div>
+              </div>
+
+              <hr style="margin:var(--sp-5) 0">
+
+              <h3 class="section-title" style="font-size:var(--text-sm)">Competency snapshot
+                <span class="info-tip" data-tooltip="Bars show your latest score out of 100. The lighter bracket is the range we are confident the true score sits in, given how much evidence we have."><i data-lucide="info" class="ic"></i></span>
+              </h3>
+              <div class="comp-list" id="comp-list"></div>
+              <p class="chart-summary">Text summary: Technical communication 84 (strong), systems design 78 (solid), collaboration 72 (solid), debugging 66 (solid), ownership 58 (developing), prioritisation not yet scored — only one relevant answer recorded.</p>
+              <div style="margin-top:var(--sp-4)">
+                <a class="btn btn-sm btn-secondary" href="candidate-skills.html">Open skill breakdown<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+              </div>
+            </div>
+          </section>
+
+          <!-- Recommended next -->
+          <section aria-labelledby="next-h">
+            <div class="section-head">
+              <h2 id="next-h" class="section-title" style="margin:0">Recommended next</h2>
+              <a class="link" href="candidate-start-interview.html">Configure your own<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+            <div class="grid grid-2">
+              <a class="card card-interactive card-accent" href="candidate-start-interview.html?shape=shape_behavioural&amp;focus=ownership">
+                <div class="card-body">
+                  <div class="cluster" style="margin-bottom:10px">
+                    <span class="badge badge-warning">Closes your biggest gap</span>
+                    <span class="badge badge-outline">25 min</span>
+                  </div>
+                  <h3 style="font-size:var(--text-base)">Ownership &amp; follow-through</h3>
+                  <p class="hint" style="margin-top:6px;line-height:1.55">Behavioural session with Ama. Five questions that ask what you personally decided, shipped and followed up — the shape of answer your last two sessions were missing.</p>
+                  <div class="cluster" style="margin-top:14px">
+                    <span class="avatar avatar-persona avatar-sm">AM</span>
+                    <span class="hint">Ama · warm and structured</span>
+                  </div>
+                </div>
+              </a>
+              <a class="card card-interactive" href="candidate-start-interview.html?shape=shape_case&amp;focus=prioritisation">
+                <div class="card-body">
+                  <div class="cluster" style="margin-bottom:10px">
+                    <span class="badge badge-neutral">Unscored competency</span>
+                    <span class="badge badge-outline">25 min</span>
+                  </div>
+                  <h3 style="font-size:var(--text-base)">Prioritisation under pressure</h3>
+                  <p class="hint" style="margin-top:6px;line-height:1.55">Case session with Marcus. You have one answer on record here, which is not enough to score. A scenario format will surface three or four.</p>
+                  <div class="cluster" style="margin-top:14px">
+                    <span class="avatar avatar-persona avatar-sm">MA</span>
+                    <span class="hint">Marcus · sceptical stakeholder</span>
+                  </div>
+                </div>
+              </a>
+            </div>
+          </section>
+
+          <!-- Recent sessions -->
+          <section aria-labelledby="recent-h">
+            <div class="section-head">
+              <h2 id="recent-h" class="section-title" style="margin:0">Recent sessions</h2>
+              <a class="link" href="candidate-sessions.html">See all 12<i data-lucide="arrow-right" class="ic ic-sm"></i></a>
+            </div>
+            <div class="card" style="overflow:hidden">
+              <ul id="recent-sessions"></ul>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ══ ASIDE ══ -->
+        <aside class="stack sticky-aside" aria-label="Your practice at a glance">
+
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">This week</h2></div>
+            <div class="card-body stack">
+              <div>
+                <div class="between" style="margin-bottom:6px">
+                  <span style="font-size:var(--text-sm);font-weight:600">Sessions</span>
+                  <span class="tnum text-muted" style="font-size:var(--text-xs)">2 of 3</span>
+                </div>
+                <div class="progress"><span style="width:66%"></span></div>
+                <p class="hint" style="margin-top:6px">One more before Sunday keeps your streak.</p>
+              </div>
+              <hr>
+              <div>
+                <div class="between" style="margin-bottom:6px">
+                  <span style="font-size:var(--text-sm);font-weight:600">Ownership evidence</span>
+                  <span class="tnum text-muted" style="font-size:var(--text-xs)">3 of 6</span>
+                </div>
+                <div class="progress warning"><span style="width:50%"></span></div>
+                <p class="hint" style="margin-top:6px">Six examples is where scores stabilise.</p>
+              </div>
+              <a class="btn btn-sm btn-secondary btn-block" href="candidate-goals.html">Manage goals</a>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Last coaching note</h2></div>
+            <div class="card-body">
+              <blockquote style="margin:0;font-size:var(--text-sm);line-height:1.6;color:var(--fg-2);border-left:3px solid var(--primary);padding-left:12px">
+                You reach for the fix before you describe the diagnosis. In your incident answers, spend the first two sentences on how you knew what was wrong — that is the part interviewers score.
+              </blockquote>
+              <div class="cluster" style="margin-top:14px">
+                <a class="btn btn-sm btn-soft" href="candidate-session-review.html?id=ses_7Kq2XA">Open full review</a>
+                <a class="btn btn-sm btn-ghost" href="candidate-session-results.html?id=ses_7Kq2XA">Results</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px">
+                <i data-lucide="shield-check" class="ic" style="color:var(--primary)"></i>
+                <strong style="font-size:var(--text-sm)">Your practice stays yours</strong>
+              </div>
+              <p class="hint" style="line-height:1.55">Practice recordings, transcripts and scores are visible only to you. Nothing from practice mode is shared with employers. Screening interviews are separate and always clearly labelled.</p>
+              <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-settings.html#privacy">Privacy &amp; data settings</a>
+            </div>
+          </div>
+
+        </aside>
+      </div>
+    </div>
+
+    <!-- ══════════ SCREEN MODE ══════════ -->
+    <div data-mode-view="screen" hidden>
+
+      <div class="page-header">
+        <div>
+          <p class="eyebrow">Wednesday, 23 August</p>
+          <h1>Hello, Daniel</h1>
+          <p class="page-desc">You are here for a screening interview requested by an employer. Screening interviews are reviewed by the hiring team — Prepeet does not show you scores or coaching for them.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-main-aside">
+        <div class="stack-lg">
+
+          <section class="card card-accent" aria-labelledby="screen-h">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:12px">
+                <span class="badge badge-mode screen">Screening</span>
+                <span class="badge badge-primary"><i data-lucide="send" class="ic-sm ic"></i>Submitted</span>
+              </div>
+              <h2 id="screen-h" style="font-size:var(--text-lg)">Registered Nurse — Intensive Care</h2>
+              <p class="text-2" style="font-size:var(--text-sm);margin-top:6px">Northwind Health System · Panel simulation · 41 minutes</p>
+              <hr style="margin:var(--sp-4) 0">
+              <dl class="kv">
+                <dt>Completed</dt><dd>16 August 2026, 11:41</dd>
+                <dt>Questions answered</dt><dd>8 of 8</dd>
+                <dt>Audio quality</dt><dd>Good throughout</dd>
+                <dt>Status</dt><dd>Delivered to the Northwind Health hiring team</dd>
+              </dl>
+              <div class="banner banner-info" style="margin-top:var(--sp-4)">
+                <i data-lucide="info" class="ic"></i>
+                <div>Your answers were sent to the hiring team on 16 August. Prepeet does not decide the outcome and cannot tell you what the team concluded — Northwind Health will contact you directly.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="screen-next-h">
+            <div class="card-header"><h2 id="screen-next-h">What happens next</h2></div>
+            <div class="card-body">
+              <ol class="timeline">
+                <li class="tl-item done"><div class="tl-title">Interview completed</div><div class="tl-meta">16 August, 11:41</div></li>
+                <li class="tl-item done"><div class="tl-title">Transcript and evidence prepared</div><div class="tl-meta">16 August, 11:53</div></li>
+                <li class="tl-item active"><div class="tl-title">With the Northwind Health hiring team</div><div class="tl-meta">Since 16 August</div><div class="tl-body">Reviewers read your answers alongside the transcript. Most teams respond within ten working days.</div></li>
+                <li class="tl-item"><div class="tl-title">Outcome communicated by the employer</div><div class="tl-meta">Northwind Health will email you directly</div></li>
+              </ol>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="practice-invite-h">
+            <div class="card-body">
+              <h2 id="practice-invite-h" style="font-size:var(--text-base)">Want to practise for your next one?</h2>
+              <p class="hint" style="margin-top:6px;line-height:1.55">Practice mode is separate from screening. You get scores, per-answer coaching and the ability to retry questions — and employers never see any of it.</p>
+              <a class="btn btn-primary btn-sm" style="margin-top:14px" href="candidate-start-interview.html?mode=practice"><i data-lucide="circle-play" class="ic ic-sm"></i>Start a practice interview</a>
+            </div>
+          </section>
+        </div>
+
+        <aside class="stack sticky-aside" aria-label="Screening details">
+          <div class="card">
+            <div class="card-header"><h2 style="font-size:var(--text-sm)">Your screening</h2></div>
+            <div class="card-body">
+              <dl class="kv kv-row">
+                <dt>Employer</dt><dd>Northwind Health System</dd>
+                <dt>Reference</dt><dd class="mono">ses_4Bz9QD</dd>
+                <dt>Invited</dt><dd>12 August 2026</dd>
+                <dt>Deadline</dt><dd>Met — 26 August 2026</dd>
+              </dl>
+            </div>
+          </div>
+          <div class="card card-subtle">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="lock" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Why you cannot see a score</strong></div>
+              <p class="hint" style="line-height:1.55">Screening evaluations are written for the hiring team and include evidence they must weigh themselves. Showing candidates a number would misrepresent a decision Prepeet does not make. You can request a copy of your data at any time.</p>
+              <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-settings.html#privacy">Request your data</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt;
+
+  /* Mode-aware view swap ------------------------------------------------- */
+  function applyMode() {
+    var mode = Prepeet.getMode();
+    document.querySelectorAll('[data-mode-view]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-mode-view') !== mode;
+    });
+  }
+
+  /* Competency bars ------------------------------------------------------ */
+  function renderComps() {
+    var host = document.getElementById('comp-list');
+    if (!host) return;
+    host.innerHTML = D.competencies.map(function (c) {
+      var band = c.band;
+      /* An unscored competency fills the whole bar with the hatched insufficient texture —
+         an empty track would read as "scored zero" rather than "not enough evidence". */
+      var pct = c.score == null ? 100 : c.score;
+      var ci = '';
+      if (c.ci) {
+        var l = c.ci[0], w = c.ci[1] - c.ci[0];
+        ci = '<span class="ci" style="left:' + l + '%;width:' + w + '%"></span>';
+      }
+      return '<div class="comp-row">' +
+        '<div class="comp-name">' + c.name + '<small>' + c.evidence + ' evidence span' + (c.evidence === 1 ? '' : 's') + '</small></div>' +
+        '<div class="comp-bar band-' + band + '"><span style="width:' + pct + '%"></span>' + ci + '</div>' +
+        '<div class="comp-val">' + (c.score == null ? '<span class="text-muted" style="font-size:var(--text-xs)">n/a</span>' : c.score + (c.ci ? '<small>' + c.ci[0] + '&ndash;' + c.ci[1] + '</small>' : '')) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* Recent sessions list ------------------------------------------------- */
+  function renderRecent() {
+    var host = document.getElementById('recent-sessions');
+    if (!host) return;
+    var rows = D.sessions.filter(function (s) { return s.mode === 'practice'; }).slice(0, 4);
+    host.innerHTML = rows.map(function (s, i) {
+      var meta = D.statusMeta[s.status];
+      var href = s.status === 'complete' ? 'candidate-session-review.html?id=' + s.id
+        : s.status === 'processing' ? 'candidate-session-complete.html?id=' + s.id
+        : s.status === 'saved' ? 'candidate-session-prepare.html?id=' + s.id
+        : 'candidate-sessions.html';
+      return '<li' + (i ? ' style="border-top:1px solid var(--border-subtle)"' : '') + '>' +
+        '<a href="' + href + '" style="display:flex;gap:14px;align-items:center;padding:14px 18px;color:inherit;text-decoration:none">' +
+          (s.score != null
+            ? '<div class="ring ring-sm" data-score="' + s.score + '" data-label="' + s.title + ' score"></div>'
+            : '<div class="avatar avatar-square" style="background:var(--surface-3);color:var(--fg-3)"><i data-lucide="' + meta.icon + '" class="ic"></i></div>') +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-weight:600;font-size:var(--text-sm)" class="truncate">' + s.title + '</div>' +
+            '<div class="hint" style="margin-top:2px">' + s.shape + ' · ' + s.persona + ' · ' + F.date(s.date) + (s.minutes ? ' · ' + s.minutes + ' min' : '') + '</div>' +
+          '</div>' +
+          '<span class="badge ' + meta.badge + '">' + meta.label + '</span>' +
+          '<i data-lucide="chevron-right" class="ic ic-sm" style="color:var(--fg-muted)"></i>' +
+        '</a></li>';
+    }).join('');
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    applyMode(); renderComps(); renderRecent(); Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

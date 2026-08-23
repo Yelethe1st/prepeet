@@ -1,0 +1,950 @@
+<!doctype html>
+<html lang="en" data-theme-default="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prepare · Prepeet</title>
+<meta name="description" content="Pre-interview brief: what will be assessed, who is interviewing you, and a microphone, speaker and connection check before you start.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* page-unique: device-check list */
+  .dcheck { border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 14px; background: var(--surface); }
+  .dcheck + .dcheck { margin-top: 10px; }
+  .dcheck-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .dcheck-row > .dc-text { flex: 1 1 170px; min-width: 0; }
+  .dcheck-icon { width: 34px; height: 34px; border-radius: var(--r-md); display: grid; place-items: center; background: var(--surface-3); color: var(--fg-3); flex: 0 0 auto; }
+  .dcheck.is-testing .dcheck-icon { background: var(--info-soft); color: var(--info); }
+  .dcheck.is-pass { border-color: var(--success-border); }
+  .dcheck.is-pass .dcheck-icon { background: var(--success-soft); color: var(--success); }
+  .dcheck.is-fail { border-color: var(--danger-border); }
+  .dcheck.is-fail .dcheck-icon { background: var(--danger-soft); color: var(--danger); }
+  .dcheck-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+  .dc-name { font-weight: 650; font-size: var(--text-sm); }
+</style>
+</head>
+
+<body class="app" data-shell="candidate" data-nav="start" data-title="Prepare" data-crumbs="Candidate>candidate-dashboard.html|Start an interview>candidate-start-interview.html">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Pre-interview brief</p>
+        <h1>Prepare for your interview</h1>
+        <p class="page-desc" data-mode-view="practice">Read the brief, check your microphone, then start when you are ready. Nothing is recorded until you press start.</p>
+        <p class="page-desc" data-mode-view="screen" hidden>This is a screening interview for an employer. Read the brief, check your microphone, then start when you are ready — you get one attempt.</p>
+        <div class="cluster" style="margin-top:10px">
+          <span class="badge badge-outline mono" id="route-chip">/candidate/session/ses_7Kq2XA/prepare</span>
+          <span class="badge badge-mode practice" data-mode-view="practice">Practice</span>
+          <span class="badge badge-mode screen" data-mode-view="screen" hidden>Screening</span>
+        </div>
+      </div>
+      <div class="cluster" style="margin-left:auto">
+        <span class="hint">Preview state</span>
+        <div class="segmented" role="group" aria-label="Preview screen state">
+          <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+          <button type="button" data-state-btn="mic-denied" aria-pressed="false">Mic denied</button>
+          <button type="button" data-state-btn="saved" aria-pressed="false">Saved</button>
+          <button type="button" data-state-btn="unsupported" aria-pressed="false">Unsupported</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved progress notice -->
+    <div class="banner banner-info" id="saved-banner" hidden style="margin-bottom:var(--sp-5)" role="status">
+      <i data-lucide="bookmark" class="ic"></i>
+      <div>
+        <strong>You saved this setup earlier.</strong> Case / scenario with Marcus, 25 minutes, saved today at 09:02. Nothing was recorded — only the settings were kept.
+      </div>
+      <div class="banner-actions">
+        <a class="btn btn-sm btn-ghost" href="candidate-start-interview.html">Start fresh</a>
+        <button class="btn btn-sm btn-primary" type="button" id="resume-btn">Resume this setup</button>
+      </div>
+    </div>
+
+    <!-- Unsupported browser notice -->
+    <div class="banner banner-danger" id="unsupported-banner" hidden style="margin-bottom:var(--sp-5)" role="alert">
+      <i data-lucide="alert-octagon" class="ic"></i>
+      <div>
+        <strong>This browser cannot run a Prepeet interview.</strong> It does not expose microphone capture or the Opus audio codec we need, so the interview would end as soon as it started.
+      </div>
+    </div>
+
+    <div class="grid grid-main-aside">
+
+      <!-- ══════════ MAIN ══════════ -->
+      <div class="stack-lg">
+
+        <!-- ───── Brief ───── -->
+        <section class="card" aria-labelledby="brief-h">
+          <div class="card-header">
+            <div>
+              <h2 id="brief-h">Your brief</h2>
+              <p class="hint" style="margin-top:3px" id="brief-sub">Read this before you start — it is the same information the interviewer is working from.</p>
+            </div>
+            <span class="badge badge-outline mono" id="id-chip">ses_7Kq2XA</span>
+          </div>
+          <div class="card-body">
+            <dl class="kv" id="brief-kv"></dl>
+
+            <hr style="margin:var(--sp-5) 0">
+
+            <h3 class="section-title" style="font-size:var(--text-sm)">What will be assessed
+              <span class="info-tip" data-tooltip="Each competency is scored from what you actually said. Where there is not enough evidence, it is reported as insufficient rather than guessed."><i data-lucide="info" class="ic"></i></span>
+            </h3>
+            <div class="cluster" id="brief-comps"></div>
+            <p class="hint" style="margin-top:10px;line-height:1.55">Scores come from evidence in your answers — specific decisions, numbers and outcomes. Prepeet does not assess personality, accent, tone or how confident you sound.</p>
+
+            <hr style="margin:var(--sp-5) 0">
+
+            <h3 class="section-title" style="font-size:var(--text-sm)">Honest expectations</h3>
+            <ul class="plus-minus" id="brief-expect"></ul>
+          </div>
+        </section>
+
+        <!-- ───── Persona preview ───── -->
+        <section class="card" aria-labelledby="persona-h">
+          <div class="card-header"><h2 id="persona-h">Who is interviewing you</h2></div>
+          <div class="card-body">
+            <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+              <span class="avatar avatar-persona avatar-xl" id="persona-initials">RA</span>
+              <div style="flex:1;min-width:200px">
+                <div class="cluster">
+                  <h3 style="font-size:var(--text-md)" id="persona-name">Ravi</h3>
+                  <span class="badge badge-outline" id="persona-style">Direct and technical</span>
+                </div>
+                <p class="text-2" style="font-size:var(--text-sm);margin-top:8px;line-height:1.6" id="persona-desc"></p>
+                <dl class="kv" style="margin-top:12px;grid-template-columns:auto 1fr;gap:4px 12px;font-size:var(--text-xs)">
+                  <dt>Voice</dt><dd id="persona-voice"></dd>
+                  <dt>Best for</dt><dd id="persona-best"></dd>
+                </dl>
+              </div>
+            </div>
+
+            <div class="card card-subtle" style="margin-top:var(--sp-5)">
+              <div class="card-body">
+                <p class="label" style="margin-bottom:8px"><i data-lucide="quote" class="ic ic-sm"></i>A likely opening question</p>
+                <blockquote style="margin:0;font-size:var(--text-base);line-height:1.6;color:var(--fg);border-left:3px solid var(--primary);padding-left:14px" id="persona-quote"></blockquote>
+                <div class="player" style="margin-top:14px">
+                  <button class="play" type="button" id="sample-play" aria-pressed="false" aria-label="Play the interviewer voice sample"><i data-lucide="play" class="ic"></i></button>
+                  <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+                    <div class="waveform" id="sample-wave" data-bars="24" style="height:32px;overflow:hidden"></div>
+                    <div class="progress sm"><span id="sample-bar" style="width:0%"></span></div>
+                    <div class="times"><span id="sample-cur">0:00</span><span>0:08</span></div>
+                  </div>
+                  <span class="badge badge-outline">Sample</span>
+                </div>
+                <p class="hint" style="margin-top:8px">A synthesised sample of the interviewer's pace and tone, not a recording of a real person and not one of your questions.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ───── Device checks ───── -->
+        <section class="card" aria-labelledby="checks-h">
+          <div class="card-header">
+            <div>
+              <h2 id="checks-h">Device check</h2>
+              <p class="hint" style="margin-top:3px">The microphone check must pass before you can start. The rest are strongly recommended.</p>
+            </div>
+            <button class="btn btn-sm btn-secondary" type="button" id="run-all"><i data-lucide="play-circle" class="ic ic-sm"></i>Run all checks</button>
+          </div>
+          <div class="card-body">
+            <ul id="checks">
+
+              <!-- Microphone -->
+              <li class="dcheck" data-check="mic">
+                <div class="dcheck-row">
+                  <span class="dcheck-icon"><i data-lucide="mic" class="ic"></i></span>
+                  <div class="dc-text">
+                    <p class="dc-name">Microphone</p>
+                    <p class="hint" data-msg>Not tested. Required — the interview cannot run without audio input.</p>
+                  </div>
+                  <span class="badge badge-outline" data-status>Not tested</span>
+                  <button class="btn btn-sm btn-secondary" type="button" data-run="mic">Test microphone</button>
+                </div>
+                <div class="dcheck-detail" data-detail hidden>
+                  <div data-panel="testing" hidden>
+                    <p class="hint" style="margin-bottom:8px">Say a sentence out loud — “I am ready to start my interview” is plenty.</p>
+                    <div class="waveform" id="mic-wave" data-bars="28" style="height:44px;overflow:hidden"></div>
+                    <div class="between" style="margin-top:10px">
+                      <span class="hint">Input level</span>
+                      <span class="hint tnum" id="mic-level-val">0%</span>
+                    </div>
+                    <div class="progress"><span id="mic-level" style="width:0%"></span></div>
+                  </div>
+                  <div data-panel="fail" hidden>
+                    <p class="label" style="margin-bottom:8px"><i data-lucide="mic-off" class="ic ic-sm"></i>Microphone permission was refused</p>
+                    <p class="hint" style="line-height:1.6">Your browser blocked the request, so Prepeet never received any audio. Nothing was recorded. To fix it:</p>
+                    <ol class="timeline" style="margin-top:12px">
+                      <li class="tl-item"><div class="tl-title">1. Open the site permissions</div><div class="tl-body">Select the padlock or sliders icon to the left of the address bar.</div></li>
+                      <li class="tl-item"><div class="tl-title">2. Set Microphone to “Allow”</div><div class="tl-body">On Safari it is Safari → Settings for This Website. On Firefox, clear the blocked permission next to Use the Microphone.</div></li>
+                      <li class="tl-item"><div class="tl-title">3. Reload this page and test again</div><div class="tl-body">If your operating system also asks, allow your browser to use the microphone — on macOS that is System Settings → Privacy &amp; Security → Microphone.</div></li>
+                    </ol>
+                    <div class="cluster" style="margin-top:12px">
+                      <button class="btn btn-sm btn-primary" type="button" data-run="mic">Test again</button>
+                      <a class="btn btn-sm btn-ghost" href="candidate-settings.html#help">Get help</a>
+                    </div>
+                  </div>
+                  <div data-panel="pass" hidden>
+                    <p class="hint">Peak input 62%, no clipping, background noise low. Built-in microphone — MacBook Pro.</p>
+                  </div>
+                </div>
+              </li>
+
+              <!-- Speaker -->
+              <li class="dcheck" data-check="speaker">
+                <div class="dcheck-row">
+                  <span class="dcheck-icon"><i data-lucide="volume-2" class="ic"></i></span>
+                  <div class="dc-text">
+                    <p class="dc-name">Speaker or headphones</p>
+                    <p class="hint" data-msg>Not tested. You need to hear the interviewer to answer them.</p>
+                  </div>
+                  <span class="badge badge-outline" data-status>Not tested</span>
+                  <button class="btn btn-sm btn-secondary" type="button" data-run="speaker">Play test tone</button>
+                </div>
+                <div class="dcheck-detail" data-detail hidden>
+                  <div data-panel="testing" hidden>
+                    <p class="hint" style="margin-bottom:8px">Playing a two-second tone at a comfortable level.</p>
+                    <div class="waveform is-ai" data-bars="24" style="height:36px;overflow:hidden"></div>
+                  </div>
+                  <div data-panel="confirm" hidden>
+                    <p class="label" style="margin-bottom:8px">Did you hear the tone?</p>
+                    <div class="cluster">
+                      <button class="btn btn-sm btn-primary" type="button" data-heard="yes">Yes, I heard it</button>
+                      <button class="btn btn-sm btn-secondary" type="button" data-heard="no">No, nothing</button>
+                    </div>
+                  </div>
+                  <div data-panel="fail" hidden>
+                    <p class="hint" style="line-height:1.6">Check that your volume is up, that the right output device is selected in your system sound settings, and that nothing else has taken over the audio device — video calls are the usual culprit. Then play the tone again.</p>
+                    <button class="btn btn-sm btn-primary" type="button" data-run="speaker" style="margin-top:10px">Play the tone again</button>
+                  </div>
+                  <div data-panel="pass" hidden>
+                    <p class="hint">Output confirmed — MacBook Pro speakers. Headphones are still better: they stop the interviewer hearing itself through your microphone.</p>
+                  </div>
+                </div>
+              </li>
+
+              <!-- Connection -->
+              <li class="dcheck" data-check="net">
+                <div class="dcheck-row">
+                  <span class="dcheck-icon"><i data-lucide="wifi" class="ic"></i></span>
+                  <div class="dc-text">
+                    <p class="dc-name">Connection</p>
+                    <p class="hint" data-msg>Not measured. A short round-trip test takes two seconds.</p>
+                  </div>
+                  <span class="badge badge-outline" data-status>Not tested</span>
+                  <button class="btn btn-sm btn-secondary" type="button" data-run="net">Measure</button>
+                </div>
+                <div class="dcheck-detail" data-detail hidden>
+                  <div data-panel="testing" hidden>
+                    <div class="cluster"><span class="spinner"></span><span class="hint">Sending 20 probes to the audio gateway…</span></div>
+                  </div>
+                  <div data-panel="pass" hidden>
+                    <dl class="kv" style="grid-template-columns:auto 1fr;gap:4px 12px;font-size:var(--text-xs)">
+                      <dt>Round trip</dt><dd><strong>38 ms</strong> · good (under 150 ms is fine)</dd>
+                      <dt>Jitter</dt><dd>6 ms · steady</dd>
+                      <dt>Upload</dt><dd>4.2 Mbps · far more than the 64 kbps a voice interview uses</dd>
+                    </dl>
+                  </div>
+                </div>
+              </li>
+
+              <!-- Browser -->
+              <li class="dcheck" data-check="browser">
+                <div class="dcheck-row">
+                  <span class="dcheck-icon"><i data-lucide="app-window" class="ic"></i></span>
+                  <div class="dc-text">
+                    <p class="dc-name">Browser support</p>
+                    <p class="hint" data-msg>Checking…</p>
+                  </div>
+                  <span class="badge badge-outline" data-status>Not tested</span>
+                  <button class="btn btn-sm btn-secondary" type="button" data-run="browser">Re-check</button>
+                </div>
+                <div class="dcheck-detail" data-detail hidden>
+                  <div data-panel="pass" hidden>
+                    <p class="hint">Microphone capture, Opus audio and live captions are all available in this browser.</p>
+                  </div>
+                  <div data-panel="fail" hidden>
+                    <p class="hint" style="line-height:1.6">This browser does not expose microphone capture or the Opus codec. Open this page in a current version of Chrome, Edge, Firefox or Safari on a desktop or laptop, or use the Prepeet mobile web app on iOS 16 and later. In-app browsers inside social or email apps are the most common cause — choose “Open in browser” from that app's menu.</p>
+                    <div class="cluster" style="margin-top:10px">
+                      <button class="btn btn-sm btn-secondary" type="button" data-copy="https://app.prepeet.example/candidate/session/ses_7Kq2XA/prepare"><i data-lucide="link" class="ic ic-sm"></i>Copy this link</button>
+                      <a class="btn btn-sm btn-ghost" href="candidate-settings.html#help">Supported browsers</a>
+                    </div>
+                  </div>
+                </div>
+              </li>
+
+            </ul>
+
+            <p class="hint" id="check-live" role="status" aria-live="polite" style="margin-top:14px">No checks run yet. 0 of 4 complete.</p>
+          </div>
+        </section>
+
+        <!-- ───── Quiet space & accessibility ───── -->
+        <section class="card" aria-labelledby="quiet-h">
+          <div class="card-header"><h2 id="quiet-h">Quiet space &amp; accessibility</h2></div>
+          <div class="card-body">
+            <div class="banner" style="margin-bottom:var(--sp-4)">
+              <i data-lucide="door-closed" class="ic"></i>
+              <div>Find somewhere you can talk out loud for the full session without being interrupted. The interviewer waits when it hears silence, so a pause to think costs you nothing.</div>
+            </div>
+
+            <div class="stack">
+              <label class="switch"><input type="checkbox" id="opt-captions" checked>
+                <span><span style="font-weight:600">Live captions</span><span class="hint" style="display:block">Every question appears as text while it is spoken.</span></span>
+              </label>
+              <label class="switch"><input type="checkbox" id="opt-ptt">
+                <span><span style="font-weight:600">Push to talk</span><span class="hint" style="display:block">Hold the space bar while answering instead of leaving the microphone open.</span></span>
+              </label>
+              <label class="switch"><input type="checkbox" id="opt-think">
+                <span><span style="font-weight:600">Extra thinking time</span><span class="hint" style="display:block">Doubles the silence the interviewer waits through before it prompts you. It does not affect your evaluation and is never reported to anyone.</span></span>
+              </label>
+            </div>
+
+            <div class="accordion" style="margin-top:var(--sp-5)">
+              <div class="accordion-item">
+                <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="acc-drop">What if my connection drops?<i data-lucide="chevron-down" class="ic"></i></button>
+                <div class="accordion-panel" id="acc-drop" hidden>
+                  <p>Your answers are captured on your device and uploaded a few seconds behind you, so a short drop loses nothing. If the connection goes for more than 20 seconds the interview pauses and shows a reconnect screen; you have 10 minutes to come back and resume from the same question. Close the tab by accident and the same thing happens — reopen the session from your dashboard.</p>
+                  <p style="margin-top:10px">If you cannot get back, the session is saved as ended early with whatever you had answered. <span data-mode-view="practice">In practice mode you can simply run it again.</span><span data-mode-view="screen" hidden>For a screening, contact the employer's hiring team — they can reissue the invitation.</span></p>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <button class="accordion-trigger" type="button" aria-expanded="false" aria-controls="acc-adjust">Adjustments and assistive technology<i data-lucide="chevron-down" class="ic"></i></button>
+                <div class="accordion-panel" id="acc-adjust" hidden>
+                  <p>The interview screen is operable by keyboard alone, works with screen readers, and captions can be resized from your settings. If you need longer answer windows, a text-only interview or a break part-way through, set it up in advance — adjustments are applied to the session, not requested mid-interview.</p>
+                  <a class="link" style="display:inline-block;margin-top:8px" href="candidate-settings.html#help">Accessibility settings</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ───── Practice-only options ───── -->
+        <section class="card" data-mode-view="practice" aria-labelledby="practice-opts-h">
+          <div class="card-header"><h2 id="practice-opts-h">Practice options</h2></div>
+          <div class="card-body">
+            <div class="stack">
+              <label class="switch"><input type="checkbox" id="opt-redo" checked>
+                <span><span style="font-weight:600">Let me redo questions</span><span class="hint" style="display:block">One retake per question. The redone answer is the one scored; both stay in your transcript so you can compare them.</span></span>
+              </label>
+              <label class="switch"><input type="checkbox" id="opt-coaching" checked>
+                <span><span style="font-weight:600">Coaching after each answer</span><span class="hint" style="display:block">A short note on what the answer was missing, shown between questions. Turn it off for a realistic run.</span></span>
+              </label>
+            </div>
+            <p class="hint" style="margin-top:14px;line-height:1.55">Redo and coaching exist only in practice. Screening interviews never offer either — that is what keeps a screening comparable between candidates.</p>
+          </div>
+        </section>
+
+        <!-- ───── Consent ─────
+             Nothing is recorded until this is given, and the start button is
+             blocked until it is. Optional consent is separate and starts off. -->
+        <section class="card" id="consent-card" aria-labelledby="consent-h">
+          <div class="card-header">
+            <div>
+              <h2 id="consent-h">Consent</h2>
+              <p class="hint" style="margin-top:4px" data-mode-view="practice">Nothing has been recorded yet. Nothing will be until you agree and press start.</p>
+              <p class="hint" style="margin-top:4px" data-mode-view="screen" hidden>You gave this consent when you accepted the invitation. It is repeated here so you can see it before you begin.</p>
+            </div>
+            <span class="badge badge-outline" id="consent-version">Practice recording consent v2</span>
+          </div>
+
+          <!-- practice: consent is given here -->
+          <div class="card-body" data-mode-view="practice">
+            <div class="stack">
+              <label class="check" style="align-items:flex-start">
+                <input type="checkbox" id="consent-required" aria-describedby="consent-required-d">
+                <span>
+                  <span style="font-weight:600">Record and transcribe this interview so it can be evaluated. <span style="color:var(--danger-fg)">Required</span></span>
+                  <span class="hint" id="consent-required-d" style="display:block;line-height:1.55">Your voice is recorded, turned into a transcript, and evaluated against the rubric for this session. Both are stored in your own account. No employer can see a practice session — not this one, not any of them.</span>
+                </span>
+              </label>
+
+              <label class="check" style="align-items:flex-start">
+                <input type="checkbox" id="consent-improve" aria-describedby="consent-improve-d">
+                <span>
+                  <span style="font-weight:600">Let Prepeet use this session to improve its interviewing. <span class="hint" style="font-weight:400">Optional</span></span>
+                  <span class="hint" id="consent-improve-d" style="display:block;line-height:1.55">Off unless you switch it on, and never bundled with the consent above. You can change your mind for past sessions at any time in <a class="link" href="candidate-settings.html#privacy">privacy settings</a>.</span>
+                </span>
+              </label>
+            </div>
+
+            <dl class="kv" style="margin-top:var(--sp-5)">
+              <dt>Recording kept for</dt><dd id="consent-retention">18 months, or until you delete it</dd>
+              <dt>Transcript kept for</dt><dd>18 months, or until you delete it</dd>
+              <dt>Who can see it</dt><dd>You</dd>
+            </dl>
+            <p class="hint" style="margin-top:10px">You can delete this session, or ask for a copy of everything held about you, from <a class="link" href="candidate-settings.html#privacy">privacy settings</a>. Deleting a session does not delete the competency history it contributed to unless you ask for that too.</p>
+          </div>
+
+          <!-- screen: consent was given at the invitation; this is the receipt -->
+          <div class="card-body" data-mode-view="screen" hidden>
+            <div class="banner banner-success">
+              <i data-lucide="check-circle-2" class="ic"></i>
+              <div>
+                <strong>You accepted Northwind Health System's disclosure on 20 August, 09:02.</strong>
+                <p style="margin:4px 0 0">Disclosure v3 (EU / UK). It has not changed since you accepted it.</p>
+              </div>
+            </div>
+            <dl class="kv" style="margin-top:var(--sp-4)">
+              <dt>Recorded and transcribed</dt><dd>Yes</dd>
+              <dt>Who can see it</dt><dd>Named reviewers at Northwind Health System</dd>
+              <dt>Kept for</dt><dd>18 months</dd>
+              <dt>What you will be told</dt><dd>That your interview was submitted</dd>
+              <dt>Who decides</dt><dd>A person at Northwind Health System</dd>
+            </dl>
+            <div class="cluster" style="margin-top:var(--sp-4)">
+              <a class="btn btn-sm btn-secondary" href="invitation-accept.html"><i data-lucide="file-text" class="ic ic-sm"></i>Read the full disclosure</a>
+              <button class="btn btn-sm btn-ghost" type="button" data-dialog-open="dlg-withdraw"><i data-lucide="undo-2" class="ic ic-sm"></i>Withdraw consent</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ───── Start ───── -->
+        <section class="card card-accent" aria-labelledby="start-h">
+          <div class="card-body">
+            <h2 id="start-h" style="font-size:var(--text-base)">Ready?</h2>
+            <p class="hint" style="margin-top:6px;line-height:1.55" id="start-hint">Recording begins the moment you press start. The first question comes about five seconds later.</p>
+            <div class="cluster" style="margin-top:var(--sp-4)">
+              <button class="btn btn-primary btn-lg" type="button" id="start-btn" disabled aria-describedby="start-blocked"><i data-lucide="circle-play" class="ic"></i>Start interview</button>
+              <a class="btn btn-secondary" href="candidate-start-interview.html" data-mode-view="practice"><i data-lucide="arrow-left" class="ic ic-sm"></i>Back to setup</a>
+              <a class="btn btn-secondary" href="invitation-accept.html" data-mode-view="screen" hidden><i data-lucide="arrow-left" class="ic ic-sm"></i>Back to your invitation</a>
+              <a class="btn btn-ghost" href="candidate-dashboard.html">Not now</a>
+            </div>
+            <p class="hint" id="start-blocked" style="margin-top:10px">Run the microphone check to enable the start button.</p>
+            <button class="btn btn-sm btn-ghost" type="button" id="start-fix" style="margin-top:6px"><i data-lucide="arrow-down" class="ic ic-sm"></i>Take me to what is missing</button>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ══════════ ASIDE ══════════ -->
+      <aside class="stack sticky-aside" aria-label="Session details">
+
+        <div class="card">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">This session</h2></div>
+          <div class="card-body">
+            <dl class="kv kv-row" id="aside-kv"></dl>
+          </div>
+        </div>
+
+        <div class="card card-accent" data-mode-view="screen" hidden>
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:8px"><i data-lucide="send" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Your answers go to the hiring team</strong></div>
+            <p class="hint" style="line-height:1.55">Northwind Health System receives your recording, the transcript and an evidence-backed evaluation. You will not see a score — Prepeet does not make the decision and will not preview one. The team contacts you directly with the outcome.</p>
+            <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-settings.html#privacy">What is shared, exactly</a>
+          </div>
+        </div>
+
+        <div class="card card-subtle" data-mode-view="practice">
+          <div class="card-body">
+            <div class="cluster" style="margin-bottom:8px"><i data-lucide="shield-check" class="ic" style="color:var(--primary)"></i><strong style="font-size:var(--text-sm)">Practice stays private</strong></div>
+            <p class="hint" style="line-height:1.55">This recording, transcript and score are visible only to you. No employer sees practice sessions, and you can delete any session from your history.</p>
+            <a class="link" style="font-size:var(--text-xs);margin-top:8px;display:inline-block" href="candidate-settings.html#privacy">Privacy &amp; data settings</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2 style="font-size:var(--text-sm)">Checklist</h2></div>
+          <div class="card-body">
+            <ul class="stages" id="mini-checks">
+              <li class="stage" data-mini="mic"><span class="stage-icon"><i data-lucide="mic" class="ic"></i></span><span class="stage-name">Microphone<span class="stage-sub" data-mini-sub>Required</span></span><span class="stage-time" data-mini-state>Pending</span></li>
+              <li class="stage" data-mini="speaker"><span class="stage-icon"><i data-lucide="volume-2" class="ic"></i></span><span class="stage-name">Speaker<span class="stage-sub" data-mini-sub>Recommended</span></span><span class="stage-time" data-mini-state>Pending</span></li>
+              <li class="stage" data-mini="net"><span class="stage-icon"><i data-lucide="wifi" class="ic"></i></span><span class="stage-name">Connection<span class="stage-sub" data-mini-sub>Recommended</span></span><span class="stage-time" data-mini-state>Pending</span></li>
+              <li class="stage" data-mini="browser"><span class="stage-icon"><i data-lucide="app-window" class="ic"></i></span><span class="stage-name">Browser<span class="stage-sub" data-mini-sub>Required</span></span><span class="stage-time" data-mini-state>Pending</span></li>
+            </ul>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═════════════════ withdraw screening consent ═════════════════
+     Withdrawal is a route, not a dead end: it says plainly what it does,
+     what it cannot undo, and who answers. -->
+<dialog class="dialog" id="dlg-withdraw" aria-labelledby="dlg-withdraw-h">
+  <div class="dialog-panel">
+    <div class="dialog-header"><h2 id="dlg-withdraw-h">Withdraw your consent</h2></div>
+    <div class="dialog-body stack">
+      <div class="banner banner-warning">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>
+          <strong>This ends your application for this role.</strong>
+          <p style="margin:4px 0 0">Northwind Health System will be told that you withdrew. You will not be penalised for it, and you can apply again in future.</p>
+        </div>
+      </div>
+      <div>
+        <p class="label" style="margin-bottom:6px">What withdrawing does</p>
+        <ul class="stack-sm hint" style="line-height:var(--leading-normal)">
+          <li>Stops this interview. Nothing further is recorded or processed.</li>
+          <li>Stops any further use of what you have already given.</li>
+        </ul>
+      </div>
+      <div>
+        <p class="label" style="margin-bottom:6px">What it may not do straight away</p>
+        <ul class="stack-sm hint" style="line-height:var(--leading-normal)">
+          <li>Whether an employer must delete an interview you already completed depends on where you are and on their own record-keeping duties. We will tell you which applies to you in writing rather than promise something we cannot do.</li>
+          <li>You can make a separate deletion request at any time from <a class="link" href="candidate-settings.html#privacy">privacy settings</a>, and we will tell you what was deleted and what was held back, and why.</li>
+        </ul>
+      </div>
+      <div class="field">
+        <label class="label" for="withdraw-reason">Reason (optional)</label>
+        <textarea class="textarea" id="withdraw-reason" rows="2" placeholder="You do not have to give one."></textarea>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" type="button" data-dialog-close>Keep my consent</button>
+      <button class="btn btn-danger" type="button" id="withdraw-confirm">Withdraw consent</button>
+    </div>
+  </div>
+</dialog>
+
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, Q = Prepeet.query, F = Prepeet.fmt;
+
+  var mode = 'practice', sessionId = Prepeet.ids.session, ses = null, persona = null, screenState = 'default';
+
+  var ROLE_MAP = {
+    'Senior Backend Engineer': 'rl_swe',
+    'Engineering Manager': 'rl_em',
+    'Registered Nurse — ICU': 'rl_rn',
+    'Registered Nurse — Intensive Care': 'rl_rn'
+  };
+  var SAMPLE = {
+    Ama: 'Take your time with this one. Tell me about a piece of work you were genuinely responsible for, start to finish.',
+    Ravi: 'Thanks for making the time, Daniel. I want to spend most of today on one system — appointment booking for a health network, four million patients. Where would you start?',
+    Lena: 'Question one of eight, and you have four minutes. Describe a situation where you escalated a concern about patient safety and what you did when the first response was not enough.',
+    Marcus: 'I have read your summary and I am not convinced by it. Why should we believe that improvement was down to your team rather than the timing?'
+  };
+  var EXPECT = {
+    Ravi: [
+      ['minus', 'Ravi will interrupt to probe — that is normal. It is how he works with everyone, and an interruption usually means the thread is worth pulling.'],
+      ['plus', 'He is after the reasoning, not the vocabulary. “I have not built that before, here is how I would approach it” is a good answer.'],
+      ['minus', 'Expect fewer questions than you think. Six in forty minutes, each one going three or four levels deep.']
+    ],
+    Ama: [
+      ['plus', 'Ama leaves a few seconds of silence after you finish. That is thinking room, not a hint to keep talking.'],
+      ['plus', 'She will ask for one concrete example per competency. Have two or three situations you know well.'],
+      ['minus', 'Thin answers get a gentle second pass rather than a pass. “Can you give me the specifics?” means the first answer was too general.']
+    ],
+    Lena: [
+      ['minus', 'Lena time-boxes every question and will move to the next one when the time is up, even mid-sentence. Answer what was asked first, then add context.'],
+      ['plus', 'The format is scripted, so every candidate gets the same questions in the same order.'],
+      ['plus', 'She reads the question twice if you ask. Asking costs you nothing.']
+    ],
+    Marcus: [
+      ['minus', 'Marcus pushes back on claims and may sound unconvinced. That is the format, not a verdict on your answer.'],
+      ['plus', 'Holding your position with evidence scores well. So does changing it with a reason.'],
+      ['minus', 'He is harder than a real first round on purpose. Do not read the pressure as a signal you did badly.']
+    ]
+  };
+
+  function qset(o) { try { Q.set(o, true); } catch (e) {} }
+  function el(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  /* ─────────────────────────── data ─────────────────────────── */
+  /* ?mode= wins; otherwise an explicit ?id decides (a practice session must never
+     render as a screening) and the shell toggle only picks which session to open */
+  function loadSession() {
+    var qid = Q.get('id'), qmode = Q.get('mode');
+    var explicit = (qmode === 'screen' || qmode === 'practice') ? qmode : null;
+    var m0 = explicit || Prepeet.getMode();
+    sessionId = qid || (m0 === 'screen' ? Prepeet.ids.screenSession : Prepeet.ids.session);
+    ses = D.sessions.filter(function (s) { return s.id === sessionId; })[0];
+    if (!ses) ses = D.sessions.filter(function (s) { return s.id === Prepeet.ids.session; })[0];
+    mode = explicit || (qid ? ses.mode : m0);
+    persona = D.personas.filter(function (p) { return p.name === ses.persona; })[0] || D.personas[0];
+  }
+  function plannedMinutes() { return ses.minutes ? Math.round(ses.minutes / 5) * 5 : 25; }
+  function plannedQuestions() { return ses.questions || 5; }
+  function roleComps() {
+    var r = D.roleLibrary.filter(function (x) { return x.id === (ROLE_MAP[ses.role] || 'rl_swe'); })[0];
+    return r ? r.comps : [];
+  }
+
+  function applyMode() {
+    document.querySelectorAll('[data-mode-view]').forEach(function (n) {
+      n.hidden = n.getAttribute('data-mode-view') !== mode;
+    });
+  }
+
+  function renderBrief() {
+    el('id-chip').textContent = sessionId;
+    el('route-chip').textContent = '/candidate/session/' + sessionId + '/prepare';
+
+    var rows = [
+      ['Role', ses.role],
+      ['Interview shape', ses.shape],
+      ['Length', 'Up to ' + plannedMinutes() + ' minutes'],
+      ['Questions', plannedQuestions() + ' planned, each with follow-ups'],
+      ['Interviewer', persona.name + ' · ' + persona.style.toLowerCase()],
+      ['Format', 'Spoken. No coding editor, no video, nothing to download.']
+    ];
+    if (mode === 'screen') {
+      rows.splice(1, 0, ['Employer', 'Northwind Health System']);
+      rows.push(['Complete by', '26 August 2026, 23:59 · Europe/London']);
+      rows.push(['Attempts', 'One. The interview cannot be restarted once it begins.']);
+    } else {
+      rows.push(['Attempts', 'Unlimited — practice sessions can be re-run whenever you like.']);
+    }
+    el('brief-kv').innerHTML = rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('');
+
+    el('brief-comps').innerHTML = roleComps().map(function (c) {
+      return '<span class="badge badge-primary badge-lg">' + esc(c) + '</span>';
+    }).join('');
+
+    var ex = EXPECT[persona.name] || EXPECT.Ama;
+    el('brief-expect').innerHTML = ex.map(function (e) {
+      return '<li class="' + e[0] + '"><i data-lucide="' + (e[0] === 'plus' ? 'check' : 'alert-triangle') + '" class="ic"></i><span>' + esc(e[1]) + '</span></li>';
+    }).join('');
+
+    el('brief-sub').textContent = mode === 'screen'
+      ? 'Set by Northwind Health System. Every candidate for this post answers the same questions in the same order.'
+      : 'Read this before you start — it is the same information the interviewer is working from.';
+
+    el('persona-initials').textContent = persona.initials;
+    el('persona-name').textContent = persona.name;
+    el('persona-style').textContent = persona.style;
+    el('persona-desc').textContent = persona.desc;
+    el('persona-voice').textContent = persona.voice;
+    el('persona-best').textContent = persona.best;
+    el('persona-quote').textContent = '“' + (SAMPLE[persona.name] || SAMPLE.Ama) + '”';
+
+    var aside = [
+      ['Reference', sessionId],
+      ['Mode', mode === 'screen' ? 'Screening interview' : 'Practice session'],
+      ['Shape', ses.shape],
+      ['Interviewer', persona.name],
+      ['Length', 'Up to ' + plannedMinutes() + ' min'],
+      ['Candidate', D.candidateUser.name]
+    ];
+    if (mode === 'screen') { aside.splice(2, 0, ['Employer', 'Northwind Health System']); aside.push(['Deadline', '26 August 2026']); }
+    else { aside.push(['Today', '23 August 2026']); }
+    el('aside-kv').innerHTML = aside.map(function (r) {
+      return '<dt>' + esc(r[0]) + '</dt><dd' + (r[0] === 'Reference' ? ' class="mono"' : '') + '>' + esc(r[1]) + '</dd>';
+    }).join('');
+
+    el('start-hint').textContent = mode === 'screen'
+      ? 'Recording begins the moment you press start, and this is your only attempt. The first question comes about five seconds later.'
+      : 'Recording begins the moment you press start. The first question comes about five seconds later — and you can end the session at any point.';
+  }
+
+  /* ───────────────────── sample playback (mock) ───────────────────── */
+  var sTimer = null, sPlaying = false;
+  function stopSample() {
+    if (sTimer) { clearInterval(sTimer); sTimer = null; }
+    sPlaying = false;
+    el('sample-bar').style.width = '0%';
+    el('sample-cur').textContent = '0:00';
+    el('sample-wave').classList.remove('is-ai');
+    var b = el('sample-play');
+    b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = '<i data-lucide="play" class="ic"></i>';
+    Prepeet.init(b);
+  }
+  function toggleSample() {
+    if (sPlaying) { stopSample(); Prepeet.announce('Sample stopped.'); return; }
+    sPlaying = true;
+    var b = el('sample-play');
+    b.setAttribute('aria-pressed', 'true');
+    b.innerHTML = '<i data-lucide="pause" class="ic"></i>';
+    el('sample-wave').classList.add('is-ai');
+    Prepeet.init(b);
+    Prepeet.announce('Playing a voice sample of ' + persona.name + '.');
+    var t = 0;
+    sTimer = setInterval(function () {
+      t += 0.2;
+      if (t >= 8) { stopSample(); return; }
+      el('sample-bar').style.width = (t / 8 * 100).toFixed(1) + '%';
+      el('sample-cur').textContent = '0:0' + Math.floor(t);
+    }, 200);
+  }
+
+  /* ───────────────────────── device checks ───────────────────────── */
+  var checks = { mic: 'pending', speaker: 'pending', net: 'pending', browser: 'pending' };
+  var STATUS = {
+    pending: { label: 'Not tested', cls: 'badge-outline' },
+    testing: { label: 'Testing…', cls: 'badge-info' },
+    pass: { label: 'Passed', cls: 'badge-success' },
+    fail: { label: 'Action needed', cls: 'badge-danger' },
+    confirm: { label: 'Needs your answer', cls: 'badge-warning' }
+  };
+  var MINI = { pending: 'Pending', testing: 'Testing', pass: 'Passed', fail: 'Failed', confirm: 'Confirm' };
+  var busy = {};
+
+  function node(id) { return document.querySelector('[data-check="' + id + '"]'); }
+  function panel(id, name) { return node(id).querySelector('[data-panel="' + name + '"]'); }
+
+  function setCheck(id, status, msg, showPanel) {
+    checks[id] = status;
+    var n = node(id);
+    n.classList.toggle('is-testing', status === 'testing');
+    n.classList.toggle('is-pass', status === 'pass');
+    n.classList.toggle('is-fail', status === 'fail');
+    var badge = n.querySelector('[data-status]');
+    badge.className = 'badge ' + STATUS[status].cls;
+    badge.textContent = STATUS[status].label;
+    if (msg) n.querySelector('[data-msg]').textContent = msg;
+    n.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.getAttribute('data-panel') !== showPanel; });
+    n.querySelector('[data-detail]').hidden = !showPanel;
+    var mini = document.querySelector('[data-mini="' + id + '"]');
+    mini.className = 'stage' + (status === 'pass' ? ' done' : status === 'testing' ? ' active' : status === 'fail' ? ' failed' : '');
+    mini.querySelector('[data-mini-state]').textContent = MINI[status];
+    updateStart();
+    Prepeet.init(n);
+  }
+
+  /* Validation failure moves focus to the first problem rather than just
+     disabling something and leaving the person to work out why. */
+  function focusFirstProblem() {
+    if (checks.mic !== 'pass') {
+      var mic = document.querySelector('[data-run="mic"]') || el('start-btn');
+      mic.focus();
+      Prepeet.announce('The microphone check has not passed yet.');
+      return;
+    }
+    if (!consentGiven()) {
+      var box = el('consent-required');
+      if (box) { box.focus(); Prepeet.announce('Recording consent is required before you can start.'); }
+    }
+  }
+
+  function consentGiven() {
+    /* Screening consent was given on the invitation; practice consent is given here. */
+    if (mode === 'screen') return true;
+    var box = el('consent-required');
+    return !!(box && box.checked);
+  }
+
+  function updateStart() {
+    var done = Object.keys(checks).filter(function (k) { return checks[k] === 'pass'; }).length;
+    var checksOk = checks.mic === 'pass' && checks.browser === 'pass';
+    var consent = consentGiven();
+    var ok = checksOk && consent;
+    var btn = el('start-btn');
+    btn.disabled = !ok;
+    el('start-blocked').textContent = ok
+      ? 'All required checks passed. ' + done + ' of 4 checks complete.'
+      : checks.browser === 'fail'
+        ? 'The start button stays disabled until you open this page in a supported browser.'
+        : checks.mic === 'fail'
+          ? 'The start button stays disabled until the microphone check passes.'
+          : !checksOk
+            ? 'Run the microphone check to enable the start button.'
+            : 'Agree to recording above to enable the start button. Nothing is recorded until you do.';
+    var fix = el('start-fix');
+    if (fix) fix.hidden = ok || checks.browser === 'fail';
+    el('check-live').textContent = done + ' of 4 checks passed. ' +
+      (checks.mic === 'pass' ? 'Microphone ready.' : checks.mic === 'fail' ? 'Microphone blocked — follow the recovery steps.' : 'Microphone not tested yet.');
+  }
+
+  function runMic() {
+    if (busy.mic) return;
+    busy.mic = true;
+    setCheck('mic', 'testing', 'Listening. Say a sentence out loud.', 'testing');
+    Prepeet.announce('Microphone test started. Say a sentence out loud.');
+    el('mic-wave').classList.add('is-user');
+    var t = 0, peak = 0;
+    var iv = setInterval(function () {
+      t += 0.15;
+      var lvl = Math.round(38 + 22 * Math.sin(t * 2.2) + 12 * Math.sin(t * 5.7));
+      lvl = Math.max(4, Math.min(94, lvl));
+      peak = Math.max(peak, lvl);
+      el('mic-level').style.width = lvl + '%';
+      el('mic-level-val').textContent = lvl + '%';
+      if (t >= 3.2) {
+        clearInterval(iv);
+        el('mic-wave').classList.remove('is-user');
+        el('mic-level').style.width = '0%';
+        el('mic-level-val').textContent = '0%';
+        busy.mic = false;
+        if (screenState === 'mic-denied') {
+          setCheck('mic', 'fail', 'Blocked by the browser. No audio reached Prepeet.', 'fail');
+          Prepeet.announce('Microphone check failed: permission denied. Recovery steps are shown, and the start button stays disabled.');
+        } else {
+          setCheck('mic', 'pass', 'Working — peak input ' + peak + '%, no clipping.', 'pass');
+          Prepeet.announce('Microphone check passed. Peak input ' + peak + ' percent.');
+        }
+      }
+    }, 150);
+  }
+
+  function runSpeaker() {
+    if (busy.speaker) return;
+    busy.speaker = true;
+    setCheck('speaker', 'testing', 'Playing a 440 Hz test tone for two seconds.', 'testing');
+    Prepeet.announce('Playing a test tone.');
+    setTimeout(function () {
+      busy.speaker = false;
+      setCheck('speaker', 'confirm', 'Tone finished. Tell us whether you heard it.', 'confirm');
+      var y = panel('speaker', 'confirm').querySelector('[data-heard="yes"]');
+      if (y) y.focus();
+    }, 2000);
+  }
+
+  function runNet() {
+    if (busy.net) return;
+    busy.net = true;
+    setCheck('net', 'testing', 'Measuring round-trip time to the audio gateway.', 'testing');
+    setTimeout(function () {
+      busy.net = false;
+      setCheck('net', 'pass', '38 ms round trip · good. Jitter 6 ms, upload 4.2 Mbps.', 'pass');
+      Prepeet.announce('Connection measured: 38 milliseconds, good.');
+    }, 1600);
+  }
+
+  function runBrowser(quiet) {
+    if (screenState === 'unsupported') {
+      setCheck('browser', 'fail', 'Microphone capture and Opus audio are not available here.', 'fail');
+      if (!quiet) Prepeet.announce('Browser check failed. This browser cannot capture microphone audio.');
+    } else {
+      setCheck('browser', 'pass', 'Chrome 128 on macOS · microphone capture, Opus audio and captions supported.', 'pass');
+      if (!quiet) Prepeet.announce('Browser check passed.');
+    }
+  }
+
+  function resetChecks() {
+    ['mic', 'speaker', 'net', 'browser'].forEach(function (k) { busy[k] = false; });
+    setCheck('mic', 'pending', 'Not tested. Required — the interview cannot run without audio input.', null);
+    setCheck('speaker', 'pending', 'Not tested. You need to hear the interviewer to answer them.', null);
+    setCheck('net', 'pending', 'Not measured. A short round-trip test takes two seconds.', null);
+    runBrowser(true);
+  }
+
+  /* ───────────────────────── state switcher ───────────────────────── */
+  function initStates() {
+    function apply(s) {
+      screenState = s;
+      document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+      });
+      qset({ state: s === 'default' ? null : s });
+
+      el('saved-banner').hidden = !(s === 'saved' || sessionId === 'ses_DraftB');
+      el('unsupported-banner').hidden = s !== 'unsupported';
+      document.querySelectorAll('[data-run]').forEach(function (b) {
+        b.disabled = (s === 'unsupported' && b.getAttribute('data-run') !== 'browser');
+      });
+      el('run-all').disabled = s === 'unsupported';
+      resetChecks();
+      Prepeet.init();
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]');
+      if (b) apply(b.getAttribute('data-state-btn'));
+    });
+    apply(Q.get('state', 'default'));
+  }
+
+  /* ───────────────────────── wiring ───────────────────────── */
+  function wire() {
+    document.addEventListener('click', function (e) {
+      var t;
+      if ((t = e.target.closest('[data-run]:not([disabled])'))) {
+        var w = t.getAttribute('data-run');
+        if (w === 'mic') runMic();
+        if (w === 'speaker') runSpeaker();
+        if (w === 'net') runNet();
+        if (w === 'browser') runBrowser();
+      }
+      if ((t = e.target.closest('[data-heard]'))) {
+        if (t.getAttribute('data-heard') === 'yes') {
+          setCheck('speaker', 'pass', 'You confirmed you heard the tone.', 'pass');
+          Prepeet.announce('Speaker check passed.');
+        } else {
+          setCheck('speaker', 'fail', 'No sound reached you. Try the troubleshooting steps.', 'fail');
+          Prepeet.announce('Speaker check failed. Troubleshooting steps are shown. This does not block the start button, but you will not hear the interviewer.');
+        }
+      }
+    });
+
+    el('sample-play').addEventListener('click', toggleSample);
+
+    el('run-all').addEventListener('click', function () {
+      Prepeet.announce('Running all device checks.');
+      runBrowser(true); runNet(); runMic();
+      setTimeout(runSpeaker, 3600);
+    });
+
+    el('resume-btn').addEventListener('click', function () {
+      el('saved-banner').hidden = true;
+      Prepeet.toast({ title: 'Saved setup restored', desc: 'Case / scenario with Marcus, 25 minutes.', kind: 'success' });
+      Prepeet.announce('Saved setup restored.');
+    });
+
+    el('start-btn').addEventListener('click', function () {
+      if (this.disabled) return;
+      Prepeet.toast({ title: 'Starting your interview', desc: 'Recording begins now.', kind: 'info', duration: 2500 });
+      var href = 'candidate-session-live.html?id=' + sessionId + (mode === 'screen' ? '&mode=screen' : '');
+      setTimeout(function () { location.href = href; }, 900);
+    });
+
+    /* Consent drives the start button, and the version badge names what was agreed. */
+    var creq = el('consent-required');
+    if (creq) creq.addEventListener('change', function () {
+      updateStart();
+      Prepeet.announce(creq.checked
+        ? 'Recording consent given. The start button is now available if your checks have passed.'
+        : 'Recording consent withdrawn. The start button is disabled.');
+    });
+    var cimp = el('consent-improve');
+    if (cimp) cimp.addEventListener('change', function () {
+      Prepeet.announce(cimp.checked
+        ? 'Optional improvement consent turned on.'
+        : 'Optional improvement consent turned off.');
+    });
+
+    /* A blocked start says what is in the way and offers to take you there. */
+    el('start-fix').addEventListener('click', focusFirstProblem);
+
+    el('withdraw-confirm') && el('withdraw-confirm').addEventListener('click', function () {
+      Prepeet.closeDialog('dlg-withdraw');
+      Prepeet.toast({ kind: 'success', title: 'Consent withdrawal requested',
+        desc: 'Northwind Health System has been notified. You will get a written answer within 5 working days.' });
+    });
+
+    ['opt-captions', 'opt-ptt', 'opt-think', 'opt-redo', 'opt-coaching'].forEach(function (id) {
+      var n = el(id);
+      if (!n) return;
+      n.addEventListener('change', function () {
+        var label = n.parentNode.querySelector('span span') || n.parentNode;
+        Prepeet.announce(label.textContent.trim() + (n.checked ? ' turned on.' : ' turned off.'));
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadSession();
+    applyMode();
+    renderBrief();
+    wire();
+    initStates();
+    Prepeet.init();
+    if (sessionId === 'ses_DraftB') Prepeet.announce('You have a saved setup for this session.');
+  });
+})();
+</script>
+</body>
+</html>

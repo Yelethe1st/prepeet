@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en" data-theme-default="light" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform analytics · Prepeet</title>
+<meta name="description" content="Cross-tenant usage analytics for the Prepeet platform: sessions, tenants, mode split, growth and the invitation funnel.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<script src="assets/js/theme.js"></script>
+<style>
+/* ---- page-scoped: platform analytics filter bar + hand-authored SVG charts ---- */
+.pf-bar { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); box-shadow:var(--shadow-xs); }
+.pf-bar .pf-field { display:flex; align-items:center; gap:6px; min-width:0; }
+.pf-bar .pf-field > label { font-size:var(--text-2xs); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--fg-3); white-space:nowrap; }
+.pf-bar .select { min-width:0; }
+.pf-updated { display:flex; align-items:center; gap:8px; font-size:var(--text-xs); color:var(--fg-3); margin-left:auto; }
+@media (max-width:700px){ .pf-updated { margin-left:0; width:100%; } .pf-bar .pf-field { flex:1 1 auto; } }
+.chart-svg { width:100%; height:auto; display:block; }
+.chart-min { min-width:660px; }
+.chart-min-sm { min-width:420px; }
+.ax { fill:var(--fg-3); font-size:10px; font-family:var(--font-sans); }
+.axl { stroke:var(--border); stroke-width:1; }
+.axl-base { stroke:var(--border-strong); stroke-width:1; }
+.c1{fill:var(--chart-1)} .c2{fill:var(--chart-2)} .c3{fill:var(--chart-3)} .c4{fill:var(--chart-4)} .c5{fill:var(--chart-5)} .c6{fill:var(--chart-6)} .c7{fill:var(--chart-7)}
+.sl{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.bar-val { fill:var(--fg-2); font-size:10px; font-weight:600; font-family:var(--font-sans); }
+.bar-lbl { fill:var(--fg); font-size:11px; font-weight:600; font-family:var(--font-sans); }
+/* cohort heat grid — shade AND printed number, never colour alone */
+.heat td, .heat th.rowh { font-variant-numeric:tabular-nums; }
+.heat .hc { display:block; border-radius:var(--r-xs); padding:5px 2px; font-weight:650; font-size:var(--text-xs); border:1px solid var(--border-subtle); }
+.qbar { position:relative; height:8px; border-radius:999px; background:var(--surface-3); min-width:64px; }
+.qbar > span { display:block; height:100%; border-radius:999px; background:var(--chart-1); }
+.qbar.warn > span { background:var(--warning); } .qbar.bad > span { background:var(--danger); }
+.funnel-step { display:grid; grid-template-columns:minmax(96px,150px) minmax(0,1fr) auto; gap:10px; align-items:center; font-size:var(--text-xs); }
+.funnel-track { height:22px; border-radius:var(--r-sm); background:var(--surface-3); overflow:hidden; }
+.funnel-track > span { display:block; height:100%; background:var(--chart-1); }
+.dim { color:var(--fg-3); }
+@media (max-width:560px){ .funnel-step { grid-template-columns:1fr auto; } .funnel-step .funnel-track { grid-column:1 / -1; } }
+</style>
+</head>
+
+<body class="app" data-shell="admin" data-nav="pf-analytics" data-title="Platform analytics"
+      data-crumbs="Platform>admin-dashboard.html" data-search="off">
+<div data-shell-sidebar></div>
+
+<main class="app-main">
+  <div data-shell-topbar></div>
+
+  <div class="app-content dense" id="main-content">
+
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Platform · cross-tenant</p>
+        <h1>Platform analytics</h1>
+        <p class="page-desc">Usage across all six tenants. Operational counts only — nothing on this page is a judgement about a candidate.</p>
+        <div class="cluster" style="margin-top:8px">
+          <span class="badge badge-outline mono">/admin/platform/analytics</span>
+          <span class="badge badge-privileged"><i data-lucide="shield" class="ic-sm ic"></i>Platform admin</span>
+        </div>
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-sm btn-secondary" href="admin-platform-system.html"><i data-lucide="server" class="ic ic-sm"></i>System health</a>
+        <a class="btn btn-sm btn-secondary" href="admin-platform-quotas.html"><i data-lucide="gauge" class="ic ic-sm"></i>Quotas</a>
+        <button class="btn btn-sm btn-primary" type="button" data-loading-sim="1400" data-loading-done="CSV export queued — you will get an email when it is ready"><i data-lucide="download" class="ic ic-sm"></i>Export CSV</button>
+      </div>
+    </div>
+
+    <div class="cluster" style="margin-bottom:var(--sp-4)">
+      <span class="hint">Preview state</span>
+      <div class="segmented" role="group" aria-label="Preview screen state">
+        <button type="button" data-state-btn="default" aria-pressed="true">Default</button>
+        <button type="button" data-state-btn="loading" aria-pressed="false">Loading</button>
+        <button type="button" data-state-btn="empty" aria-pressed="false">Empty</button>
+        <button type="button" data-state-btn="error" aria-pressed="false">Error</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ FILTER BAR ═══════════════ -->
+    <section class="pf-bar" aria-label="Analytics filters" style="margin-bottom:var(--sp-4)">
+      <div class="pf-field">
+        <label for="f-range">Range</label>
+        <select class="select input-sm" id="f-range">
+          <option value="24h">Last 24 hours</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d" selected>Last 30 days</option>
+          <option value="90d">Last 90 days</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div class="pf-field" id="f-custom-wrap" hidden>
+        <label for="f-from">From</label>
+        <input class="input input-sm" id="f-from" type="date" value="2026-06-01" style="width:auto">
+        <label for="f-to">To</label>
+        <input class="input input-sm" id="f-to" type="date" value="2026-08-23" style="width:auto">
+      </div>
+      <div class="pf-field">
+        <label for="f-tenant">Tenant</label>
+        <select class="select input-sm" id="f-tenant"><option value="all">All tenants</option></select>
+      </div>
+      <div class="pf-field">
+        <label class="switch" for="f-compare"><input type="checkbox" id="f-compare"><span>Compare with previous period</span></label>
+      </div>
+      <p class="pf-updated" role="status">
+        <span class="status-dot ok" aria-hidden="true"></span>
+        <span>Updated <time id="f-updated" datetime="2026-08-23T18:42">23 Aug 2026, 18:42 UTC</time></span>
+        <button class="btn btn-sm btn-ghost" type="button" id="f-refresh"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Refresh</button>
+      </p>
+    </section>
+
+    <!-- ═══════════════ LOADING ═══════════════ -->
+    <div data-state="loading" hidden aria-busy="true">
+      <div class="metrics-row" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+        <div class="card"><div class="metric metric-dense"><div class="skeleton skeleton-text w-75"></div><div class="skeleton" style="height:26px;width:70%"></div><div class="skeleton skeleton-text w-50"></div></div></div>
+      </div>
+      <div class="card" style="margin-bottom:var(--sp-4)"><div class="card-body"><div class="skeleton skeleton-text w-25"></div><div class="skeleton skeleton-block" style="height:220px;margin-top:12px"></div></div></div>
+      <div class="card"><div class="card-body"><div class="skeleton skeleton-text w-25"></div><div class="skeleton skeleton-block" style="height:180px;margin-top:12px"></div></div></div>
+      <p class="hint" style="text-align:center;margin-top:12px">Querying the analytics store for the selected range…</p>
+    </div>
+
+    <!-- ═══════════════ EMPTY ═══════════════ -->
+    <div data-state="empty" hidden>
+      <div class="card"><div class="state">
+        <div class="state-icon"><i data-lucide="calendar-x" class="ic"></i></div>
+        <h2 style="font-size:var(--text-md)">No sessions in this range</h2>
+        <p>The analytics store returned zero sessions for the selected range and tenant filter. Nothing is broken — the filter is simply narrower than the data.</p>
+        <div class="actions">
+          <button class="btn btn-secondary btn-sm" type="button" id="empty-reset"><i data-lucide="rotate-ccw" class="ic ic-sm"></i>Reset to last 30 days, all tenants</button>
+          <a class="btn btn-ghost btn-sm" href="admin-platform-quotas.html">Check tenant quotas</a>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ═══════════════ ERROR (partial data) ═══════════════ -->
+    <div data-state="error" hidden>
+      <div class="banner banner-warning" style="margin-bottom:var(--sp-4)" role="status">
+        <i data-lucide="alert-triangle" class="ic"></i>
+        <div>
+          <strong>Partial data.</strong> The aggregate analytics store (ClickHouse cluster <span class="mono">an-eu-1</span>) stopped responding at 18:11 UTC. Session counts below are served from the last complete rollup at <strong>18:00 UTC</strong> and exclude the last 42 minutes. Tenant, plan and quota figures come from the primary database and are current.
+        </div>
+        <div class="banner-actions">
+          <a class="btn btn-sm btn-secondary" href="admin-platform-system.html">Incident detail</a>
+        </div>
+      </div>
+      <div class="metrics-row" style="margin-bottom:var(--sp-4)">
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">Total sessions (30d)</span><span class="metric-value dim">—</span><span class="metric-foot">Unavailable — rollup stale</span></div></div>
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">Active tenants</span><span class="metric-value">6</span><span class="metric-foot">From primary database</span></div></div>
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">Seats provisioned</span><span class="metric-value">132</span><span class="metric-foot">From primary database</span></div></div>
+        <div class="card"><div class="metric metric-dense"><span class="metric-label">Gross AI cost (30d)</span><span class="metric-value dim">—</span><span class="metric-foot">Unavailable — rollup stale</span></div></div>
+      </div>
+      <div class="card"><div class="state danger">
+        <div class="state-icon"><i data-lucide="database-backup" class="ic"></i></div>
+        <h2 style="font-size:var(--text-md)">Analytics store unavailable</h2>
+        <p>Time-series queries are failing with <span class="mono">read timeout after 30000ms</span>. Charts, the tenant leaderboard and the funnel cannot be rendered until the cluster recovers. The primary database is unaffected, so tenant administration and quotas still work.</p>
+        <p class="hint mono">trace_id 4f2a9c1e-77b0-4d3a-9d21-6bb0a1c5e0f7 · reported 18:11 UTC</p>
+        <div class="actions">
+          <button class="btn btn-primary btn-sm" type="button" data-loading-sim="1600" data-loading-done="Still unavailable — retry queued for 60 seconds" data-loading-kind="warning"><i data-lucide="refresh-cw" class="ic ic-sm"></i>Retry query</button>
+          <a class="btn btn-secondary btn-sm" href="admin-platform-system.html">System health</a>
+          <a class="btn btn-ghost btn-sm" href="error-500.html">What a full outage looks like</a>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ═══════════════ DEFAULT ═══════════════ -->
+    <div data-state="default">
+
+      <!-- Metric row -->
+      <h2 class="sr-only">Headline metrics</h2>
+      <div class="metrics-row" style="margin-bottom:var(--sp-5)">
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Total sessions</span>
+          <span class="metric-value tnum">9,001</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+12.4%</span>
+          <span class="metric-foot" data-compare hidden>Previous period 8,008</span>
+        </div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Active tenants</span>
+          <span class="metric-value tnum">6</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+1 tenant</span>
+          <span class="metric-foot" data-compare hidden>Previous period 5</span>
+        </div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Active candidates</span>
+          <span class="metric-value tnum">4,318</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+9.1%</span>
+          <span class="metric-foot" data-compare hidden>Previous period 3,958</span>
+        </div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Completion rate</span>
+          <span class="metric-value tnum">87.4%</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+1.2 pts</span>
+          <span class="metric-foot" data-compare hidden>Previous period 86.2%</span>
+        </div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Median session length</span>
+          <span class="metric-value tnum">26m 40s</span>
+          <span class="metric-delta down"><i data-lucide="arrow-down-right" class="ic-sm ic"></i>−40s</span>
+          <span class="metric-foot" data-compare hidden>Previous period 27m 20s</span>
+        </div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Evaluations produced</span>
+          <span class="metric-value tnum">7,842</span>
+          <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+11.8%</span>
+          <span class="metric-foot" data-compare hidden>Previous period 7,014</span>
+        </div></div>
+        <div class="card"><div class="metric metric-dense">
+          <span class="metric-label">Gross AI cost</span>
+          <span class="metric-value tnum">$9,618.69</span>
+          <span class="metric-delta down"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>+14.2%</span>
+          <span class="metric-foot"><a href="admin-platform-system-llm-usage.html">Cost breakdown</a></span>
+        </div></div>
+      </div>
+
+      <!-- Sessions over time -->
+      <section class="card" aria-labelledby="sot-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="sot-h">Sessions over time, by mode</h2>
+            <p class="hint" style="margin-top:3px">Daily count, 25 July – 23 August 2026. Practice sessions are candidate-initiated; screening sessions are employer-invited.</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="sot-table" aria-expanded="false" aria-controls="sot-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+        </div>
+        <div class="card-body">
+          <div class="chart-legend" style="margin-bottom:10px">
+            <span><i style="background:var(--chart-1)"></i>Practice</span>
+            <span><i style="background:var(--chart-2)"></i>Screening</span>
+            <span data-compare hidden><i style="background:var(--chart-7)"></i>Previous 30 days (total)</span>
+          </div>
+          <div class="scroll-x"><div class="chart-min" id="sot-chart"></div></div>
+          <p class="hint" style="margin-top:6px">This chart scrolls sideways on narrow screens: thirty daily bars cannot be stacked without losing the shape of the trend.</p>
+          <p class="chart-summary" id="sot-summary">Text summary: loading.</p>
+          <div id="sot-table" hidden style="margin-top:var(--sp-4)">
+            <div class="scroll-x table-wrap"><table class="table table-dense" id="sot-table-el">
+              <caption class="sr-only">Daily session counts by mode, 25 July to 23 August 2026</caption>
+              <thead><tr><th scope="col">Day</th><th scope="col" class="num">Practice</th><th scope="col" class="num">Screening</th><th scope="col" class="num">Total</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tenant leaderboard -->
+      <section class="card" aria-labelledby="lb-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="lb-h">Tenant usage leaderboard</h2>
+            <p class="hint" style="margin-top:3px">Usage and delivery health only. This table says nothing about the quality of any tenant's hiring decisions.</p>
+          </div>
+          <a class="btn btn-sm btn-secondary" href="admin-platform-quotas.html"><i data-lucide="gauge" class="ic ic-sm"></i>Manage quotas</a>
+        </div>
+        <div class="card-body">
+          <p class="hint" style="margin-bottom:10px">Nine columns scroll sideways rather than stacking into cards — the point of this table is comparing tenants row against row, which stacking destroys. Sort with the column buttons.</p>
+          <div class="scroll-x table-wrap"><table class="table table-dense" id="lb-table">
+            <caption class="sr-only">Tenant usage leaderboard, sortable. Last 30 days.</caption>
+            <thead><tr>
+              <th scope="col"><button type="button" class="row-link" data-sort="name">Tenant<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+              <th scope="col">Plan</th>
+              <th scope="col" class="num"><button type="button" class="row-link" data-sort="sessions">Sessions<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+              <th scope="col" class="num">Seats used</th>
+              <th scope="col" class="num"><button type="button" class="row-link" data-sort="completion">Completion<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+              <th scope="col" class="num"><button type="button" class="row-link" data-sort="evalok">Eval success<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+              <th scope="col" class="num"><button type="button" class="row-link" data-sort="spend">Spend<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+              <th scope="col"><button type="button" class="row-link" data-sort="quota">Quota used<i data-lucide="chevrons-up-down" class="ic"></i></button></th>
+              <th scope="col">Status</th>
+            </tr></thead>
+            <tbody></tbody>
+            <tfoot><tr>
+              <th scope="row">All tenants</th><td>—</td><td class="num tnum">9,001</td><td class="num tnum">119 / 132</td>
+              <td class="num tnum">87.4%</td><td class="num tnum">98.1%</td><td class="num tnum">$9,618.69</td><td>—</td><td>—</td>
+            </tr></tfoot>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- Mode split + domain mix -->
+      <div class="grid grid-2" style="margin-bottom:var(--sp-5)">
+        <section class="card" aria-labelledby="ms-h">
+          <div class="card-header"><h2 id="ms-h">Mode split</h2></div>
+          <div class="card-body">
+            <div style="display:flex;gap:var(--sp-5);align-items:center;flex-wrap:wrap">
+              <svg class="chart-svg" style="width:150px;flex:0 0 auto" viewBox="0 0 140 140" role="img" aria-label="Donut chart of session mode split: practice 6,830 sessions, 75.9 per cent; screening 2,171 sessions, 24.1 per cent.">
+                <circle cx="70" cy="70" r="54" fill="none" stroke="var(--surface-3)" stroke-width="20"></circle>
+                <circle cx="70" cy="70" r="54" fill="none" stroke="var(--chart-1)" stroke-width="20" stroke-dasharray="257.5 339.3" transform="rotate(-90 70 70)"></circle>
+                <circle cx="70" cy="70" r="54" fill="none" stroke="var(--chart-2)" stroke-width="20" stroke-dasharray="81.8 339.3" stroke-dashoffset="-257.5" transform="rotate(-90 70 70)"></circle>
+                <text x="70" y="66" text-anchor="middle" style="fill:var(--fg);font-size:19px;font-weight:700;font-family:var(--font-sans)">9,001</text>
+                <text x="70" y="82" text-anchor="middle" class="ax" style="font-size:9px">sessions</text>
+              </svg>
+              <div style="flex:1;min-width:180px" class="stack-sm">
+                <div class="between"><span class="cluster" style="gap:8px"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--chart-1)"></i><strong style="font-size:var(--text-sm)">Practice</strong></span><span class="tnum">6,830 · 75.9%</span></div>
+                <div class="between"><span class="cluster" style="gap:8px"><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--chart-2)"></i><strong style="font-size:var(--text-sm)">Screening</strong></span><span class="tnum">2,171 · 24.1%</span></div>
+                <hr>
+                <p class="hint">Screening share is up from 21.8% last period. The self-serve tenant contributes 5,412 practice sessions and no screening.</p>
+              </div>
+            </div>
+            <p class="chart-summary">Text summary: of 9,001 sessions in the last 30 days, 6,830 (75.9%) were practice sessions and 2,171 (24.1%) were employer-invited screening sessions.</p>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="dm-h">
+          <div class="card-header">
+            <h2 id="dm-h">Domain mix</h2>
+            <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="dm-table" aria-expanded="false" aria-controls="dm-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+          </div>
+          <div class="card-body">
+            <div id="dm-chart"></div>
+            <p class="chart-summary" id="dm-summary">Text summary: loading.</p>
+            <div id="dm-table" hidden style="margin-top:var(--sp-3)">
+              <div class="table-wrap"><table class="table table-dense table-responsive">
+                <caption class="sr-only">Sessions by tenant domain, last 30 days</caption>
+                <thead><tr><th scope="col">Domain</th><th scope="col" class="num">Sessions</th><th scope="col" class="num">Share</th></tr></thead>
+                <tbody id="dm-tbody"></tbody>
+              </table></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Growth -->
+      <section class="card" aria-labelledby="gr-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="gr-h">Growth</h2>
+            <p class="hint" style="margin-top:3px">New tenants, seat expansion and seat retention by onboarding cohort.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="metrics-row" style="margin-bottom:var(--sp-4)">
+            <div class="card card-subtle"><div class="metric metric-dense">
+              <span class="metric-label">New tenants (30d)</span><span class="metric-value tnum">1</span>
+              <span class="metric-foot">Brightpath Commercial, onboarded 4 Aug</span></div></div>
+            <div class="card card-subtle"><div class="metric metric-dense">
+              <span class="metric-label">New tenants (90d)</span><span class="metric-value tnum">2</span>
+              <span class="metric-foot">Caldera Capital (12 Jun), Brightpath (4 Aug)</span></div></div>
+            <div class="card card-subtle"><div class="metric metric-dense">
+              <span class="metric-label">Seat expansion (30d)</span><span class="metric-value tnum">+18</span>
+              <span class="metric-delta up"><i data-lucide="arrow-up-right" class="ic-sm ic"></i>114 → 132 seats</span></div></div>
+            <div class="card card-subtle"><div class="metric metric-dense">
+              <span class="metric-label">Seats active</span><span class="metric-value tnum">119</span>
+              <span class="metric-foot">90.2% of 132 provisioned seats ran a session</span></div></div>
+          </div>
+
+          <h3 class="section-title" style="font-size:var(--text-sm)">Seat retention by onboarding cohort
+            <span class="info-tip" data-tooltip="Share of a cohort's seats that ran at least one session in each month after onboarding. Shade and number carry the same information."><i data-lucide="info" class="ic"></i></span>
+          </h3>
+          <p class="hint" style="margin-bottom:8px">Six cohorts by six periods scroll sideways rather than stacking — a cohort grid is only readable as a grid. Each cell prints its percentage, so the shading is a second cue and never the only one.</p>
+          <div class="scroll-x table-wrap"><table class="table table-dense heat">
+            <caption class="sr-only">Seat retention by onboarding cohort. Rows are monthly cohorts, columns are months since onboarding. Each cell prints the retention percentage.</caption>
+            <thead><tr>
+              <th scope="col">Cohort</th><th scope="col" class="num">Seats</th>
+              <th scope="col" class="num">M0</th><th scope="col" class="num">M1</th><th scope="col" class="num">M2</th>
+              <th scope="col" class="num">M3</th><th scope="col" class="num">M4</th><th scope="col" class="num">M5</th>
+            </tr></thead>
+            <tbody id="cohort-body"></tbody>
+          </table></div>
+          <p class="chart-summary">Text summary: retention settles between 44% and 51% by month three across every cohort. The March 2026 cohort (26 seats) is the only one with six months of history and holds 44% at M5. June 2026 (18 seats) is the strongest early cohort at 73% M1 and 62% M2. Empty cells are months that have not happened yet, not zeroes.</p>
+        </div>
+      </section>
+
+      <!-- Funnel -->
+      <section class="card" aria-labelledby="fn-h" style="margin-bottom:var(--sp-5)">
+        <div class="card-header">
+          <div>
+            <h2 id="fn-h">Screening funnel</h2>
+            <p class="hint" style="margin-top:3px">Employer-invited screening only, last 30 days. Practice sessions are excluded — they have no invitation step.</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" type="button" data-toggle-target="fn-table" aria-expanded="false" aria-controls="fn-table"><i data-lucide="table" class="ic ic-sm"></i>View as table</button>
+        </div>
+        <div class="card-body">
+          <div class="stack-sm" id="fn-chart"></div>
+          <div class="banner banner-warning" style="margin-top:var(--sp-4)">
+            <i data-lucide="trending-down" class="ic"></i>
+            <div><strong>Largest drop-off: invitation sent → accepted.</strong> 806 of 3,420 invitations (23.6%) were never accepted. 512 of those expired without being opened, which points at delivery and reminder timing rather than candidate reluctance. <a href="admin-invitations.html">Review invitation settings</a>.</div>
+          </div>
+          <p class="chart-summary" id="fn-summary">Text summary: loading.</p>
+          <div id="fn-table" hidden style="margin-top:var(--sp-4)">
+            <div class="table-wrap"><table class="table table-dense table-responsive">
+              <caption class="sr-only">Screening funnel stages with counts and drop-off</caption>
+              <thead><tr><th scope="col">Stage</th><th scope="col" class="num">Count</th><th scope="col" class="num">Of previous</th><th scope="col" class="num">Drop-off</th></tr></thead>
+              <tbody id="fn-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Onward links -->
+      <section aria-labelledby="next-h">
+        <h2 id="next-h" class="section-title">Go deeper</h2>
+        <div class="grid grid-3">
+          <a class="card card-interactive card-accent" href="admin-platform-analytics-sessions.html">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="activity" class="ic" style="color:var(--primary)"></i><strong>Session analytics</strong></div>
+              <p class="hint">Abandonment by phase, duration distribution, realtime connection health and per-region latency.</p>
+            </div>
+          </a>
+          <a class="card card-interactive card-accent" href="admin-platform-analytics-evaluations.html">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="scale" class="ic" style="color:var(--primary)"></i><strong>Evaluation quality</strong></div>
+              <p class="hint">Confidence and coverage distributions, reviewer agreement, failure reasons and rubric version impact.</p>
+            </div>
+          </a>
+          <a class="card card-interactive card-accent" href="admin-platform-system.html">
+            <div class="card-body">
+              <div class="cluster" style="margin-bottom:8px"><i data-lucide="server" class="ic" style="color:var(--primary)"></i><strong>System health</strong></div>
+              <p class="hint">Queue depth, worker saturation, error budgets and the active incident board.</p>
+            </div>
+          </a>
+        </div>
+      </section>
+
+    </div><!-- /default -->
+
+  </div>
+</main>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/shell.js"></script>
+<script>
+(function () {
+  var D = Prepeet.data, F = Prepeet.fmt, Q = Prepeet.query;
+
+  /* ── seed series (hand-authored, deterministic) ─────────────────────── */
+  var LABELS = ['25 Jul','26 Jul','27 Jul','28 Jul','29 Jul','30 Jul','31 Jul','1 Aug','2 Aug','3 Aug','4 Aug','5 Aug','6 Aug','7 Aug','8 Aug','9 Aug','10 Aug','11 Aug','12 Aug','13 Aug','14 Aug','15 Aug','16 Aug','17 Aug','18 Aug','19 Aug','20 Aug','21 Aug','22 Aug','23 Aug'];
+  var PRACTICE = [140,149,257,263,266,264,259,149,142,240,236,237,241,249,151,160,280,287,291,291,288,168,160,268,263,262,265,271,162,171];
+  var SCREEN   = [40,38,86,82,80,77,79,29,34,93,97,97,96,93,33,29,84,85,90,97,100,45,45,101,97,94,91,91,32,36];
+  var TOTALS = PRACTICE.map(function (v, i) { return v + SCREEN[i]; });
+  var PREV = (function () {
+    var p = TOTALS.map(function (v) { return Math.round(v * 8008 / 9001); });
+    var s = p.reduce(function (a, b) { return a + b; }, 0);
+    p[p.length - 1] += (8008 - s); return p;
+  })();
+
+  var TENANT_EXTRA = {
+    tn_northwind:  { seatsUsed: 44, completion: 89.1, evalok: 98.6 },
+    tn_orbital:    { seatsUsed: 29, completion: 86.7, evalok: 98.9 },
+    tn_meridian:   { seatsUsed: 23, completion: 82.4, evalok: 96.2 },
+    tn_caldera:    { seatsUsed: 11, completion: 90.2, evalok: 99.1 },
+    tn_brightpath: { seatsUsed: 12, completion: 88.0, evalok: 98.4 },
+    tn_selfserve:  { seatsUsed: null, completion: 87.6, evalok: 98.0 }
+  };
+
+  var COHORTS = [
+    { name: 'Mar 2026', seats: 26, r: [100, 68, 57, 51, 47, 44] },
+    { name: 'Apr 2026', seats: 21, r: [100, 71, 60, 54, 49, null] },
+    { name: 'May 2026', seats: 19, r: [100, 66, 55, 48, null, null] },
+    { name: 'Jun 2026', seats: 18, r: [100, 73, 62, null, null, null] },
+    { name: 'Jul 2026', seats: 32, r: [100, 70, null, null, null, null] },
+    { name: 'Aug 2026', seats: 16, r: [100, null, null, null, null, null] }
+  ];
+
+  var FUNNEL = [
+    { name: 'Invitations sent', n: 3420 },
+    { name: 'Accepted', n: 2614 },
+    { name: 'Session started', n: 2398 },
+    { name: 'Completed', n: 2171 },
+    { name: 'Evaluated', n: 2130 },
+    { name: 'Reviewed by a human', n: 1802 }
+  ];
+
+  /* ── tiny SVG helpers (no chart library) ────────────────────────────── */
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function stackedBars(host, summaryEl) {
+    var compare = document.getElementById('f-compare').checked;
+    var W = 900, H = 250, pl = 40, pr = 10, pt = 12, pb = 30;
+    var iw = W - pl - pr, ih = H - pt - pb, max = 400, n = TOTALS.length;
+    var slot = iw / n, bw = slot * 0.68;
+    var y = function (v) { return pt + ih - (v / max) * ih; };
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Stacked bar chart of daily sessions by mode from 25 July to 23 August 2026. Practice sessions range from 140 to 291 a day and screening from 29 to 101. The busiest day is 13 August with 388 sessions; the quietest is 2 August, a Sunday, with 176.">';
+    [0, 100, 200, 300, 400].forEach(function (t) {
+      s += '<line class="' + (t === 0 ? 'axl-base' : 'axl') + '" x1="' + pl + '" y1="' + y(t) + '" x2="' + (W - pr) + '" y2="' + y(t) + '"></line>';
+      s += '<text class="ax" x="' + (pl - 6) + '" y="' + (y(t) + 3.5) + '" text-anchor="end">' + t + '</text>';
+    });
+    for (var i = 0; i < n; i++) {
+      var x = pl + i * slot + (slot - bw) / 2;
+      var hp = (PRACTICE[i] / max) * ih, hs = (SCREEN[i] / max) * ih;
+      s += '<rect class="c1" x="' + x.toFixed(1) + '" y="' + (y(PRACTICE[i])).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hp.toFixed(1) + '" rx="1"></rect>';
+      s += '<rect class="c2" x="' + x.toFixed(1) + '" y="' + (y(TOTALS[i])).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hs.toFixed(1) + '" rx="1"></rect>';
+      if (i % 5 === 0 || i === n - 1) s += '<text class="ax" x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + LABELS[i] + '</text>';
+    }
+    if (compare) {
+      var pts = PREV.map(function (v, j) { return (pl + j * slot + slot / 2).toFixed(1) + ',' + y(v).toFixed(1); }).join(' ');
+      s += '<polyline class="sl" points="' + pts + '" stroke="var(--chart-7)" stroke-dasharray="5 4"></polyline>';
+    }
+    s += '</svg>';
+    host.innerHTML = s;
+    summaryEl.textContent = 'Text summary: 9,001 sessions across 30 days — 6,830 practice (75.9%) and 2,171 screening (24.1%). Weekday volume runs 240–390 a day; weekends fall to 176–210. The busiest day was Thursday 13 August (388: 291 practice, 97 screening); the quietest was Sunday 2 August (176). The first seven days totalled 2,080 sessions and the last seven 2,204, a 6.0% rise.' +
+      (compare ? ' Compare on: the dashed grey line is the same 30 days a period earlier, 8,008 sessions in total — 11.0% below the current period.' : '');
+  }
+
+  function hbars(host, items, opts) {
+    opts = opts || {};
+    var W = 560, rowH = 30, pl = opts.labelW || 132, pr = 70, pt = 6;
+    var H = pt * 2 + items.length * rowH;
+    var max = Math.max.apply(null, items.map(function (d) { return d.value; }));
+    var iw = W - pl - pr;
+    var s = '<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opts.aria || '') + '">';
+    items.forEach(function (d, i) {
+      var yy = pt + i * rowH, bw = Math.max(2, (d.value / max) * iw);
+      s += '<text class="bar-lbl" x="0" y="' + (yy + 15) + '">' + esc(d.label) + '</text>';
+      s += '<rect x="' + pl + '" y="' + (yy + 5) + '" width="' + iw + '" height="15" rx="3" fill="var(--surface-3)"></rect>';
+      s += '<rect class="c' + ((i % 6) + 1) + '" x="' + pl + '" y="' + (yy + 5) + '" width="' + bw.toFixed(1) + '" height="15" rx="3"></rect>';
+      s += '<text class="bar-val" x="' + (W - pr + 6) + '" y="' + (yy + 16) + '">' + esc(d.note) + '</text>';
+    });
+    s += '</svg>';
+    host.innerHTML = '<div class="scroll-x"><div class="chart-min-sm">' + s + '</div></div>';
+  }
+
+  function renderDomainMix() {
+    var byDomain = D.tenants.map(function (t) { return { label: t.domain, value: t.sessions30 }; })
+      .sort(function (a, b) { return b.value - a.value; });
+    var total = byDomain.reduce(function (a, b) { return a + b.value; }, 0);
+    byDomain.forEach(function (d) { d.pct = (d.value / total * 100); d.note = F.num(d.value) + ' · ' + d.pct.toFixed(1) + '%'; });
+    hbars(document.getElementById('dm-chart'), byDomain, {
+      aria: 'Horizontal bar chart of sessions by tenant domain: consumer self-serve 5,412; healthcare 1,284; software 964; education 612; finance 388; sales 341.'
+    });
+    document.getElementById('dm-summary').textContent = 'Text summary: consumer self-serve practice dominates with 5,412 sessions (60.1%), followed by healthcare 1,284 (14.3%), software 964 (10.7%), education 612 (6.8%), finance 388 (4.3%) and sales 341 (3.8%). Each domain here is a single tenant, so domain mix and tenant mix are the same thing at this scale.';
+    document.getElementById('dm-tbody').innerHTML = byDomain.map(function (d) {
+      return '<tr><td data-label="Domain" class="td-primary">' + d.label + '</td><td data-label="Sessions" class="num tnum">' + F.num(d.value) + '</td><td data-label="Share" class="num tnum">' + d.pct.toFixed(1) + '%</td></tr>';
+    }).join('');
+  }
+
+  /* ── tenant leaderboard ─────────────────────────────────────────────── */
+  var sortKey = 'sessions', sortDir = -1;
+  function renderLeaderboard() {
+    var rows = D.tenants.map(function (t) {
+      var x = TENANT_EXTRA[t.id];
+      return { id: t.id, name: t.name, plan: t.plan, sessions: t.sessions30, seats: t.seats, seatsUsed: x.seatsUsed, completion: x.completion, evalok: x.evalok, spend: t.spend, quota: t.quota, status: t.status };
+    });
+    rows.sort(function (a, b) {
+      var av = a[sortKey], bv = b[sortKey];
+      if (typeof av === 'string') return av.localeCompare(bv) * (sortDir === -1 ? -1 : 1);
+      return (av - bv) * sortDir;
+    });
+    var body = document.querySelector('#lb-table tbody');
+    body.innerHTML = rows.map(function (r) {
+      var qc = r.quota >= 90 ? 'bad' : r.quota >= 75 ? 'warn' : '';
+      var st = r.status === 'healthy'
+        ? '<span class="badge badge-success"><span class="dot"></span>Healthy</span>'
+        : '<span class="badge badge-warning"><span class="dot"></span>Degraded</span>';
+      return '<tr>' +
+        '<td><a class="row-link" href="admin-platform-analytics-sessions.html?tenant=' + r.id + '">' + esc(r.name) + '</a>' +
+          '<span class="td-sub mono">' + r.id + '</span></td>' +
+        '<td><span class="badge badge-outline">' + esc(r.plan) + '</span></td>' +
+        '<td class="num tnum">' + F.num(r.sessions) + '</td>' +
+        '<td class="num tnum">' + (r.seatsUsed === null ? '<span class="dim">n/a · self-serve</span>' : r.seatsUsed + ' / ' + r.seats) + '</td>' +
+        '<td class="num tnum">' + r.completion.toFixed(1) + '%</td>' +
+        '<td class="num tnum">' + r.evalok.toFixed(1) + '%</td>' +
+        '<td class="num tnum">' + F.money(r.spend) + '</td>' +
+        '<td><a href="admin-platform-quotas.html#' + r.id + '" style="display:flex;align-items:center;gap:8px;color:inherit">' +
+          '<span class="qbar ' + qc + '" style="flex:1"><span style="width:' + r.quota + '%"></span></span>' +
+          '<span class="tnum" style="font-size:var(--text-2xs);font-weight:700;min-width:30px">' + r.quota + '%</span></a></td>' +
+        '<td>' + st + '</td></tr>';
+    }).join('');
+    document.querySelectorAll('#lb-table th').forEach(function (th) {
+      var b = th.querySelector('[data-sort]');
+      th.removeAttribute('aria-sort');
+      if (b && b.getAttribute('data-sort') === sortKey) th.setAttribute('aria-sort', sortDir === -1 ? 'descending' : 'ascending');
+    });
+    Prepeet.init();
+  }
+
+  /* ── cohorts ────────────────────────────────────────────────────────── */
+  function renderCohorts() {
+    document.getElementById('cohort-body').innerHTML = COHORTS.map(function (c) {
+      var cells = c.r.map(function (v) {
+        if (v === null) return '<td class="num"><span class="dim" aria-label="not yet measured">—</span></td>';
+        var pct = Math.round(14 + v * 0.40);   /* capped tint so var(--fg) stays legible in both themes */
+        return '<td class="num"><span class="hc" style="background:color-mix(in srgb, var(--chart-1) ' + pct + '%, transparent)">' + v + '%</span></td>';
+      }).join('');
+      return '<tr><th scope="row" class="rowh">' + c.name + '</th><td class="num tnum">' + c.seats + '</td>' + cells + '</tr>';
+    }).join('');
+  }
+
+  /* ── funnel ─────────────────────────────────────────────────────────── */
+  function renderFunnel() {
+    var top = FUNNEL[0].n;
+    document.getElementById('fn-chart').innerHTML = FUNNEL.map(function (f, i) {
+      var prev = i ? FUNNEL[i - 1].n : null;
+      var ofPrev = prev ? (f.n / prev * 100) : 100;
+      var drop = prev ? (100 - ofPrev) : 0;
+      var lost = prev ? prev - f.n : 0;
+      return '<div class="funnel-step">' +
+        '<div><strong>' + f.name + '</strong></div>' +
+        '<div class="funnel-track"><span style="width:' + (f.n / top * 100).toFixed(1) + '%;background:var(--chart-' + (i + 1) + ')"></span></div>' +
+        '<div class="tnum" style="text-align:right;min-width:120px">' + F.num(f.n) +
+          (prev ? ' <span class="dim">· −' + F.num(lost) + ' (' + drop.toFixed(1) + '%)</span>' : ' <span class="dim">· start</span>') +
+        '</div></div>';
+    }).join('');
+    document.getElementById('fn-tbody').innerHTML = FUNNEL.map(function (f, i) {
+      var prev = i ? FUNNEL[i - 1].n : null;
+      var ofPrev = prev ? (f.n / prev * 100) : 100;
+      return '<tr><td data-label="Stage" class="td-primary">' + f.name + '</td>' +
+        '<td data-label="Count" class="num tnum">' + F.num(f.n) + '</td>' +
+        '<td data-label="Of previous" class="num tnum">' + (prev ? ofPrev.toFixed(1) + '%' : '—') + '</td>' +
+        '<td data-label="Drop-off" class="num tnum">' + (prev ? '−' + F.num(prev - f.n) + ' (' + (100 - ofPrev).toFixed(1) + '%)' : '—') + '</td></tr>';
+    }).join('');
+    document.getElementById('fn-summary').textContent = 'Text summary: 3,420 invitations sent, 2,614 accepted (76.4%, 806 lost), 2,398 sessions started (91.7% of accepted, 216 lost), 2,171 completed (90.5%, 227 lost), 2,130 evaluated (98.1%, 41 lost) and 1,802 reviewed by a human (84.6%, 328 still queued). End to end, 52.7% of invitations reach a reviewed evaluation.';
+  }
+
+  /* ── sessions-over-time table ───────────────────────────────────────── */
+  function renderSotTable() {
+    document.querySelector('#sot-table-el tbody').innerHTML = LABELS.map(function (l, i) {
+      return '<tr><th scope="row" style="font-weight:600">' + l + '</th><td class="num tnum">' + PRACTICE[i] + '</td><td class="num tnum">' + SCREEN[i] + '</td><td class="num tnum">' + TOTALS[i] + '</td></tr>';
+    }).join('');
+  }
+
+  /* ── filter bar ─────────────────────────────────────────────────────── */
+  function initFilters() {
+    var range = document.getElementById('f-range'), tenant = document.getElementById('f-tenant'),
+        cmp = document.getElementById('f-compare'), custom = document.getElementById('f-custom-wrap');
+    D.tenants.forEach(function (t) {
+      var o = document.createElement('option'); o.value = t.id; o.textContent = t.name; tenant.appendChild(o);
+    });
+    range.value = Q.get('range', '30d');
+    tenant.value = Q.get('tenant', 'all');
+    if (!tenant.value) tenant.value = 'all';
+    cmp.checked = Q.get('compare') === '1';
+    custom.hidden = range.value !== 'custom';
+    applyCompare();
+
+    range.addEventListener('change', function () {
+      custom.hidden = range.value !== 'custom';
+      Q.set({ range: range.value === '30d' ? null : range.value }, true);
+      simulateReload('Range set to ' + range.options[range.selectedIndex].text);
+    });
+    tenant.addEventListener('change', function () {
+      Q.set({ tenant: tenant.value === 'all' ? null : tenant.value }, true);
+      simulateReload('Filtered to ' + tenant.options[tenant.selectedIndex].text);
+    });
+    cmp.addEventListener('change', function () {
+      Q.set({ compare: cmp.checked ? '1' : null }, true);
+      applyCompare();
+      stackedBars(document.getElementById('sot-chart'), document.getElementById('sot-summary'));
+      Prepeet.announce(cmp.checked ? 'Comparison with the previous period is on.' : 'Comparison off.');
+    });
+    document.getElementById('f-refresh').addEventListener('click', function () { simulateReload('Analytics refreshed'); });
+    document.getElementById('empty-reset').addEventListener('click', function () {
+      range.value = '30d'; tenant.value = 'all'; custom.hidden = true;
+      Q.set({ range: null, tenant: null, state: null }, true);
+      applyState('default');
+    });
+  }
+  function applyCompare() {
+    var on = document.getElementById('f-compare').checked;
+    document.querySelectorAll('[data-compare]').forEach(function (el) { el.hidden = !on; });
+  }
+  function stamp() {
+    var d = new Date();
+    var hh = String(d.getUTCHours()).padStart(2, '0'), mm = String(d.getUTCMinutes()).padStart(2, '0');
+    var el = document.getElementById('f-updated');
+    el.textContent = '23 Aug 2026, ' + hh + ':' + mm + ' UTC';
+    el.setAttribute('datetime', '2026-08-23T' + hh + ':' + mm);
+  }
+  var currentState = 'default';
+  function simulateReload(msg) {
+    var back = currentState === 'loading' ? 'default' : currentState;
+    applyState('loading', true);
+    Prepeet.announce('Loading analytics…');
+    setTimeout(function () { stamp(); applyState(back, true); Prepeet.toast({ title: msg, kind: 'success', duration: 2600 }); }, 950);
+  }
+
+  /* ── states ─────────────────────────────────────────────────────────── */
+  function applyState(s, silent) {
+    currentState = s;
+    document.querySelectorAll('[data-state]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-state').split(' ').indexOf(s) === -1;
+    });
+    document.querySelectorAll('[data-state-btn]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-state-btn') === s));
+    });
+    if (!silent) Q.set({ state: s === 'default' ? null : s }, true);
+    Prepeet.init();
+  }
+  function initStates() {
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-state-btn]'); if (b) applyState(b.getAttribute('data-state-btn'));
+    });
+    applyState(Q.get('state', 'default'), true);
+  }
+
+  /* ── permission guard ───────────────────────────────────────────────── */
+  function guard() {
+    if (Prepeet.can('platform_admin')) return false;
+    var role = Prepeet.roles[Prepeet.getRole()];
+    document.getElementById('main-content').innerHTML =
+      '<div class="state state-page danger">' +
+        '<div class="state-icon"><i data-lucide="shield-x" class="ic"></i></div>' +
+        '<h1>Platform analytics requires platform administrator access</h1>' +
+        '<p>You are signed in as <strong>' + esc(role.label) + '</strong> — ' + esc(role.desc.toLowerCase()) + '. Cross-tenant analytics aggregate data from every customer, so they are restricted to the platform operations team.</p>' +
+        '<p class="code">/admin/platform/analytics · required role platform_admin · your role ' + esc(Prepeet.getRole()) + '</p>' +
+        '<div class="actions">' +
+          '<a class="btn btn-primary btn-sm" href="admin-dashboard.html"><i data-lucide="layout-dashboard" class="ic ic-sm"></i>Back to your overview</a>' +
+          '<a class="btn btn-secondary btn-sm" href="error-403.html">About this restriction</a>' +
+          '<a class="btn btn-ghost btn-sm" href="admin-platform-analytics.html?role=platform_admin">Preview as platform admin</a>' +
+        '</div></div>';
+    document.title = 'Access denied · Prepeet';
+    Prepeet.init();
+    return true;
+  }
+
+  /* ── sorting ────────────────────────────────────────────────────────── */
+  function initSort() {
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('#lb-table [data-sort]'); if (!b) return;
+      var k = b.getAttribute('data-sort');
+      if (k === sortKey) sortDir = -sortDir; else { sortKey = k; sortDir = (k === 'name') ? 1 : -1; }
+      renderLeaderboard();
+      Prepeet.announce('Sorted by ' + b.textContent.trim() + ', ' + (sortDir === -1 ? 'highest first' : 'lowest first'));
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (guard()) return;
+    initFilters();
+    renderLeaderboard(); renderDomainMix(); renderCohorts(); renderFunnel(); renderSotTable();
+    stackedBars(document.getElementById('sot-chart'), document.getElementById('sot-summary'));
+    initSort(); initStates();
+    Prepeet.init();
+  });
+})();
+</script>
+</body>
+</html>

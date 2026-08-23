@@ -58,15 +58,26 @@ never inferred from a resource identifier.
 
 ### IAM-04 · Build the capability catalogue and policy evaluation service
 
-**Depends on** IAM-03 · **Blocks** every protected route
+**Depends on** IAM-03 · **Blocks** every protected route · **In progress**
 
 Roles are bundles of capabilities. Authorization evaluates identity, capability, tenant, resource scope,
-purpose and resource state — and is the single place that decides.
+purpose and resource state, and is the single place that decides.
+
+Built in `services/platform/platform/authz`, 29 tests, no dependency on the identity provider decision
+in DEC-02. What remains is binding it to real sessions and memberships, which needs IAM-01 and IAM-03,
+and the role bundles themselves, which need the tenant role model.
 
 **Done when**
-- [ ] The capability catalogue is a versioned contract, free of page-specific names.
-- [ ] Policy evaluation is one code path used by every module.
-- [ ] Deny is the default for an unknown capability, not an allow.
+- [x] The capability catalogue is a versioned contract, free of page-specific names, enforced by test.
+- [x] Policy evaluation is one code path, and every decision carries the reason an audit record needs.
+- [x] Deny is the default for an unknown capability, an empty context, a missing tenant and a missing scope.
+- [x] A scoped capability asked without a scope is denied, so a list endpoint cannot leak by omission.
+- [x] Own-data capabilities cannot be satisfied by tenant authority, structurally rather than by filtering.
+- [x] Privileged platform capabilities require an active elevation carrying a reason and a ticket.
+- [x] Destructive and evaluation-changing capabilities require recent authentication.
+- [x] A subject cannot grant authority it does not hold.
+- [ ] Roles are defined as capability bundles, which needs the tenant role model in TEN-02.
+- [ ] The catalogue is published as a versioned machine-readable contract alongside the API.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md)
 

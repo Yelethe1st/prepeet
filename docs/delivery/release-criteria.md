@@ -7,6 +7,9 @@
 ## Foundation
 
 - [ ] Reproducible Next.js/Go/Python builds and immutable deploys.
+- [ ] Coverage thresholds enforced per deployable, frontend and backend alike, and failing on a drop.
+- [ ] Documentation completeness gate passes for Go, Python, and shared TypeScript.
+- [ ] Every merged implementation has a test written before it.
 - [ ] OpenAPI/Protobuf lint, generation, drift, and compatibility gates.
 - [ ] Module boundaries and forbidden imports enforced.
 - [ ] Empty/prior-version migrations pass; RLS blocks cross-tenant reads/writes/lists.
@@ -21,6 +24,7 @@
 ## Practice
 
 - [ ] Full candidate journey and documented states pass.
+- [ ] Every ported screen matches the prototype in layout, copy, and state coverage, or records why it does not.
 - [ ] Coaching cites evidence and preserves facts.
 - [ ] Articulation distinguishes assessability and provides relevant drills.
 - [ ] Redo preserves history; progression keeps unknown distinct.

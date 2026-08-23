@@ -4,7 +4,7 @@
 **Owner:** Principal Engineer and delivery leads  
 **Last updated:** 2026-08-23
 
-Every piece of work the specification implies, broken into 161 tickets across 22 epics. This is the
+Every piece of work the specification implies, broken into 164 tickets across 22 epics. This is the
 delivery view of the same system [implementation-roadmap.md](../implementation-roadmap.md) describes in
 phases and [dependency-map.md](../dependency-map.md) describes as a critical path.
 
@@ -16,6 +16,28 @@ and a link to the specification it implements.
 
 A ticket is done when its checklist is satisfied and the linked specification is still true — if the work
 proved the specification wrong, updating the specification is part of the ticket.
+
+## Definition of done
+
+These apply to every ticket in this backlog, in addition to its own **Done when** list. A ticket that
+satisfies its checklist but not these is not finished.
+
+- **Test first.** The failing test is written before the implementation and ships in the same change.
+  No implementation is merged without a test covering it.
+- **Full coverage on both sides.** The Next.js frontend is held to the same standard as the Go and
+  Python services. Coverage thresholds are enforced in CI for every deployable, and a drop fails the
+  build. See [PLT-10](02-platform-foundation.md#plt-10--build-the-test-harness-and-coverage-gates-for-all-three-deployables).
+- **Comprehensive, not happy path.** Failure modes, edge cases and the invariants the specification
+  names each need a test. For this product that includes cross tenant attempts, insufficient evidence,
+  unassessable input, reconnection and duplicate delivery.
+- **Documented.** Every exported type, function, endpoint, workflow and component carries documentation
+  that says which rule it enforces and which invariant it protects. Documentation completeness is a
+  build gate. See [PLT-11](02-platform-foundation.md#plt-11--establish-and-enforce-code-documentation-standards).
+- **Ported, not redesigned.** UI work carries the design across from the HTML prototype in
+  [`/screens`](../../../screens) rather than reinterpreting it, including its copy and its states. See
+  [WEB-06](05-web-foundation.md#web-06--port-every-prototype-screen-to-nextjs-with-verified-parity).
+- **Accessible.** A candidate facing surface is not done until it is operable by keyboard and screen
+  reader, because an inaccessible path excludes someone from a hiring process.
 
 ## Conventions
 
@@ -32,10 +54,10 @@ proved the specification wrong, updating the specification is part of the ticket
 | Epic | Title | Phase | Tickets |
 |---|---|---|---|
 | [DEC](01-decisions-and-adrs.md) | Decisions and ADRs | 0 | 18 |
-| [PLT](02-platform-foundation.md) | Platform foundation | 1 | 9 |
+| [PLT](02-platform-foundation.md) | Platform foundation | 1 | 11 |
 | [CTR](03-contracts-and-codegen.md) | Contracts and code generation | 1 | 4 |
 | [IAM](04-identity-and-authorization.md) | Identity, tenancy and authorization | 1–2 | 7 |
-| [WEB](05-web-foundation.md) | Design system and application shell | 1–2 | 5 |
+| [WEB](05-web-foundation.md) | Design system and application shell | 1–2 | 6 |
 | [PRO](06-candidate-profile.md) | Candidate profile and documents | 3 | 5 |
 | [CAT](07-catalog-and-composition.md) | Catalogue, artifacts and session composition | 2–3 | 6 |
 | [SES](08-session-lifecycle.md) | Session lifecycle and orchestration | 2–3 | 8 |
@@ -54,7 +76,7 @@ proved the specification wrong, updating the specification is part of the ticket
 | [QUA](21-ai-quality.md) | AI quality, datasets and monitoring | 2–6, continuous | 6 |
 | [REL](22-release-readiness.md) | Release readiness and operational proof | 3, 5 and 6 gates | 7 |
 
-**161 tickets** in total.
+**164 tickets** in total.
 
 ## Suggested order
 
@@ -97,6 +119,8 @@ after them, and REL turns each gate into evidence.
 - **[PLT-07](02-platform-foundation.md#plt-07--establish-secret-management-and-workload-identity)** · Establish secret management and workload identity
 - **[PLT-08](02-platform-foundation.md#plt-08--instrument-distributed-tracing-metrics-and-structured-logging)** · Instrument distributed tracing, metrics and structured logging
 - **[PLT-09](02-platform-foundation.md#plt-09--build-environment-provisioning-and-immutable-deploy-with-rollback)** · Build environment provisioning and immutable deploy with rollback
+- **[PLT-10](02-platform-foundation.md#plt-10--build-the-test-harness-and-coverage-gates-for-all-three-deployables)** · Build the test harness and coverage gates for all three deployables
+- **[PLT-11](02-platform-foundation.md#plt-11--establish-and-enforce-code-documentation-standards)** · Establish and enforce code documentation standards
 
 ### CTR — Contracts and code generation
 
@@ -122,6 +146,7 @@ after them, and REL turns each gate into evidence.
 - **[WEB-03](05-web-foundation.md#web-03--scope-navigation-for-screening-candidates-to-their-invitation)** · Scope navigation for screening candidates to their invitation
 - **[WEB-04](05-web-foundation.md#web-04--implement-the-cross-journey-state-contract-in-shared-components)** · Implement the cross-journey state contract in shared components
 - **[WEB-05](05-web-foundation.md#web-05--build-the-error-forbidden-and-no-workspace-destinations)** · Build the error, forbidden and no-workspace destinations
+- **[WEB-06](05-web-foundation.md#web-06--port-every-prototype-screen-to-nextjs-with-verified-parity)** · Port every prototype screen to Next.js with verified parity
 
 ### PRO — Candidate profile and documents
 

@@ -182,6 +182,10 @@ Reproducibility means reconstructing inputs and the decision path; exact byte-fo
 
 ## Testing and CI baseline
 
+**Status:** Required
+
+Development is test driven. The failing test is written before the implementation and ships in the same change, and no implementation is merged without a test covering it. This applies to the Next.js frontend exactly as it applies to the Go and Python services: component behaviour, state, routing, realtime and accessibility are covered, not only backend units. Coverage thresholds are enforced in CI per deployable and a drop fails the build.
+
 Test portfolio:
 
 - domain/state and property tests for lifecycle, reducers, idempotency, and authorization;
@@ -194,7 +198,19 @@ Test portfolio:
 - load tests for start bursts, concurrent sessions, media completion, and evaluation backlog;
 - restore and recovery exercises.
 
-Required CI gates include format/lint/type/unit, empty/prior database migrations, OpenAPI/Protobuf breaking checks, generated drift, module boundaries, image/dependency/secret scans, integration tests, artifact digest/schema validation, AI regression for changed intelligence artifacts, and preview smoke tests.
+Required CI gates include format/lint/type/unit, coverage thresholds per deployable, documentation completeness, empty/prior database migrations, OpenAPI/Protobuf breaking checks, generated drift, module boundaries, image/dependency/secret scans, integration tests, artifact digest/schema validation, AI regression for changed intelligence artifacts, and preview smoke tests.
+
+## Documentation baseline
+
+**Status:** Required
+
+Every exported type, function, endpoint, workflow, and component carries documentation stating which rule it enforces and which invariant it protects, in the idiomatic form for its language. Each module and feature directory carries a README naming what it owns and what it must never do. Documentation explains why rather than restating what the code already says, and completeness is a build gate rather than a review preference.
+
+## Frontend design source
+
+**Status:** Required
+
+The production interface is a port of the high-fidelity prototype in `/screens`, not a fresh design. Design tokens port first and remain the single source of colour, spacing, radius, and motion, followed by components and then screens. The prototype's copy and interaction states port with it, because both were written against the content and accessibility rules in `product/information-architecture.md`. Deviations are recorded with a reason; research findings may override the prototype, developer preference may not.
 
 ## Implementation approach
 

@@ -85,3 +85,22 @@ offering a real way forward.
 - [ ] 500 carries a correlation identifier the support team can act on.
 
 **Spec** [information-architecture.md](../../product/information-architecture.md)
+
+---
+
+### WEB-06 · Port every prototype screen to Next.js with verified parity
+
+**Depends on** WEB-01, WEB-04, CTR-01 · **Blocks** every screen ticket
+
+The 56 file prototype in [`/screens`](../../../screens) is the design source. Porting carries over the
+layout, the visual design, the copy and the interaction states. It is not an invitation to redesign, and
+a screen is not ported until its states are reachable, not merely its default view.
+
+**Done when**
+- [ ] Design tokens are ported first and remain the single source of colour, spacing, radius and motion.
+- [ ] Each ported screen is checked against the prototype for layout, copy and state coverage.
+- [ ] Every state the prototype demonstrates is reachable in the port, including the failure and empty ones.
+- [ ] Deviations from the prototype are recorded with a reason, and a research finding is the only thing that overrides it.
+- [ ] Ported screens carry the component and accessibility tests required by PLT-10 before they are considered done.
+
+**Spec** [information-architecture.md](../../product/information-architecture.md)

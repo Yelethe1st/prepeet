@@ -149,3 +149,41 @@ a demonstrated procedure, not a hope.
 - [ ] Database restore is demonstrated and timed against the RPO/RTO in DEC-01's region choice.
 
 **Spec** [deployment-topology.md](../../operations/deployment-topology.md) · [disaster-recovery.md](../../operations/disaster-recovery.md)
+
+---
+
+### PLT-10 · Build the test harness and coverage gates for all three deployables
+
+**Depends on** PLT-01, PLT-02 · **Blocks** every implementation ticket
+
+The project is built test first, so the harness has to exist before the first feature does. Web, Go and
+Python each need a runner, fixtures, real dependencies for integration tests, and a coverage gate that
+fails the build rather than producing a report nobody reads.
+
+**Done when**
+- [ ] Each deployable has a fast unit runner and an integration runner using real PostgreSQL, object storage and Temporal.
+- [ ] Frontend testing covers component behaviour, routing, state, realtime and accessibility, not only pure functions.
+- [ ] Coverage thresholds are enforced in CI for the frontend and the backend alike, and a drop fails the build.
+- [ ] Writing a failing test first is the documented default, and the harness makes it the easy path.
+- [ ] Test data builders exist so a test states what matters and inherits sensible defaults for the rest.
+
+**Spec** [architecture-and-implementation-brief.md](../../architecture/architecture-and-implementation-brief.md)
+
+---
+
+### PLT-11 · Establish and enforce code documentation standards
+
+**Depends on** PLT-02 · **Blocks** nothing, applies to everything
+
+Every exported type, function, endpoint, workflow and component carries documentation that says which
+rule it enforces and which invariant it protects. Documentation completeness is a build gate, not a
+review preference.
+
+**Done when**
+- [ ] Doc comment requirements are enforced by the linter for Go, Python and shared TypeScript.
+- [ ] Each module and feature directory has a README stating what it owns and what it must never do.
+- [ ] Code that enforces a specification rule names the rule, so removing the rule requires noticing it.
+- [ ] Generated API reference builds from the source and is published with each release.
+- [ ] The standard says to document why rather than restating what the code already says.
+
+**Spec** [architecture-and-implementation-brief.md](../../architecture/architecture-and-implementation-brief.md)

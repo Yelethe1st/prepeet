@@ -81,14 +81,18 @@ deletion and outbox delivery all sit on this.
 
 ### DEC-05 · Decide PostgreSQL schema layout, RLS strategy and connection roles
 
-**Depends on** DEC-01, DEC-03 · **Blocks** PLT-03, PLT-05
+**Depends on** DEC-01, DEC-03 · **Blocks** PLT-03, PLT-05 · **Done** 2026-08-24
 
 Shared schema with row-level security is the proposal. Confirm it, or replace it, and define the
-connection roles — including which role, if any, may bypass RLS and under what audit.
+connection roles, including which role, if any, may bypass RLS and under what audit.
+
+Decided in [ADR-0002](../../architecture/decisions/0002-postgresql-schema-rls-and-connection-roles.md):
+one database, a schema per module, forced row-level security on every tenant-owned table, tenant context
+set per transaction with `SET LOCAL`, and three roles none of which can bypass the policy.
 
 **Done when**
-- [ ] ADR accepted covering schema layout, RLS policy shape, connection roles, and migration tooling.
-- [ ] The bypass path is named, restricted, and audited, or explicitly does not exist.
+- [x] ADR accepted covering schema layout, RLS policy shape, connection roles, and migration tooling.
+- [x] The bypass path is named, restricted, and audited, or explicitly does not exist. It does not exist: `prepeet_app` is created `NOSUPERUSER NOBYPASSRLS`, every tenant-owned table forces its policy, and a test fails the build if one does not.
 
 **Spec** [data-architecture.md](../../architecture/data-architecture.md)
 

@@ -47,9 +47,10 @@ check, dependency audit and container scan, on every change.
 Tenant isolation defended twice: in application authorization and again in the database. The
 application's connection role must not be able to bypass RLS.
 
-Built in `services/platform/platform/database` against [ADR-0002](../../architecture/decisions/0002-postgresql-schema-rls-and-connection-roles.md),
-which is proposed and awaiting approval. The schema currently covers tenancy, identity and membership;
-later contexts add their own tables under the same rules.
+Built in `services/platform/platform/database` against
+[ADR-0002](../../architecture/decisions/0002-postgresql-schema-rls-and-connection-roles.md), accepted
+2026-08-24. The schema currently covers tenancy, identity and membership; later contexts add their own
+tables under the same rules.
 
 **Done when**
 - [x] Every tenant-scoped table carries an RLS policy keyed to the active tenant, forced so the owner cannot bypass it.

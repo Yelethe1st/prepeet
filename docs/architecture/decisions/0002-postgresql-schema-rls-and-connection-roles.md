@@ -1,9 +1,9 @@
 # ADR-0002: PostgreSQL schema layout, row-level security and connection roles
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Owner:** olabode omoyele  
-**Decision date:** Pending approval  
-**Review date:** 2027-02-23  
+**Decision date:** 2026-08-24  
+**Review date:** 2027-02-24  
 **Supersedes:** None  
 **Superseded by:** None
 
@@ -42,9 +42,21 @@ inherited by the next request that borrows the same pooled connection. A pooled 
 previous request's tenant is precisely the bug RLS is meant to catch, so the mechanism must not create
 it.
 
-**Policies deny when no tenant is set.** `current_setting('app.tenant_id', true)` returns NULL when
-unset, and a comparison with NULL is not true, so an unscoped query returns nothing rather than
-everything. Forgetting to set the context fails closed and loudly.
+**Policies deny when no tenant is set**, and the expression has to be written carefully to achieve it:
+
+```sql
+USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+```
+
+The `NULLIF` is not decoration. A setting that was never set reads as NULL, so the bare call looks
+sufficient, and it is until the first tenant-scoped transaction on that connection ends: `SET LOCAL`
+then reverts the setting to the empty string rather than to NULL, and `''::uuid` raises. Without
+`NULLIF` the next unscoped query on a pooled connection fails with a cast error instead of quietly
+returning no rows. This was found by the isolation tests rather than by reading, and it is recorded
+here because someone writing the next policy from this document would otherwise reintroduce it.
+
+With `NULLIF`, an unset context makes the comparison NULL, which is not true, so an unscoped query
+returns nothing rather than everything. Forgetting to set the context fails closed.
 
 **Three roles, none of which can bypass RLS.**
 

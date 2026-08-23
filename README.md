@@ -12,6 +12,7 @@ prototype in [screens/](screens/README.md), which the production frontend is por
 
 ```bash
 make bootstrap    # install every toolchain and dependency
+make local-up     # PostgreSQL, MinIO and Temporal in containers
 make test         # run every suite
 make cover        # run every suite and enforce the coverage floors
 make dev          # how to start each deployable
@@ -19,7 +20,10 @@ make dev          # how to start each deployable
 
 `make help` lists everything.
 
-Requirements: Go 1.26, Node 22 with pnpm, Python 3.12 or later with [uv](https://docs.astral.sh/uv/).
+Requirements: Go 1.26, Node 22 with pnpm, Python 3.12 or later with
+[uv](https://docs.astral.sh/uv/), and Docker for the local stack. No cloud account is needed to run the
+product locally: MinIO stands in for S3, so the object storage adapter is written once against the S3
+API and differs only by endpoint between here and production.
 
 ## Repository layout
 
@@ -64,6 +68,13 @@ These are invariants rather than preferences, and a change that breaks one is a 
 - Sessions pin every artifact version they used, so a result can be reconstructed later.
 
 [docs/security/responsible-hiring.md](docs/security/responsible-hiring.md) holds the full set.
+
+## Where this runs
+
+AWS, `eu-west-2` London, ECS on Fargate, with candidate recordings, transcripts and evaluations stored
+and processed in the tenant's region. Model and transcription providers are named sub-processors and may
+process content elsewhere under contract, which is disclosed to candidates rather than buried in an
+annex. See [ADR-0001](docs/architecture/decisions/0001-hosting-platform-and-regional-topology.md).
 
 ## Status
 

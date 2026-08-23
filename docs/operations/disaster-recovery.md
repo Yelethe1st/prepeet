@@ -8,6 +8,8 @@
 
 Proposed starting database RPO: 15 minutes or better. Proposed service RTO: 4 hours. Business and enterprise commitments must ratify these values.
 
+[ADR-0001](../architecture/decisions/0001-hosting-platform-and-regional-topology.md) runs a single region with point-in-time recovery, so a regional outage is an outage rather than a failover: RTO for region loss is measured in hours and must be stated to tenants rather than implied away. These values stay proposals until a restore has been performed and timed, per the validation in that ADR. Warm standby in a second region is the pre-agreed next step if a buyer will not accept the measured figure.
+
 ## Recovery assets
 
 - Managed multi-zone PostgreSQL with PITR.

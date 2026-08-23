@@ -60,7 +60,13 @@ Scale independently: web, Go API, Go workers, Python realtime/evaluation workers
 
 Consider only when service count/traffic, specialized scheduling, multi-region control, policy, or platform-team maturity make managed containers materially inadequate. Record through ADR with migration/operating cost.
 
+## Decided
+
+Cloud, first region, managed container product, PostgreSQL topology and region-loss strategy are settled in [ADR-0001](../architecture/decisions/0001-hosting-platform-and-regional-topology.md): AWS, `eu-west-2` London, ECS on Fargate, multi-AZ RDS for PostgreSQL with PITR, and a single region.
+
+Local development runs PostgreSQL, MinIO and Temporal in containers. MinIO is S3-compatible, so the object storage adapter is written once against the S3 API and differs only by endpoint and credentials between local and deployed environments.
+
 ## Open decisions
 
-Cloud and regions, managed container product, managed Temporal, PostgreSQL topology, Redis need, observability vendor, provider egress, and region-loss strategy.
+Managed Temporal, Redis need, observability vendor, and provider egress.
 

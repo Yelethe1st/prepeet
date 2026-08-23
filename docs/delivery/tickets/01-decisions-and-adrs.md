@@ -13,15 +13,19 @@ A ticket in this epic is done when the decision is *made and recorded*, not when
 
 ### DEC-01 · Choose the hosting platform and regional topology
 
-**Depends on** nothing · **Blocks** PLT-01, PLT-05, SEC-08
+**Depends on** nothing · **Blocks** PLT-01, PLT-05, SEC-08 · **Done** 2026-08-23
 
 Pick the cloud, the first region, and the data-residency position. Residency drives where recordings and
 transcripts may live, which the retention schedule and every provider contract then inherit.
 
+Decided in [ADR-0001](../../architecture/decisions/0001-hosting-platform-and-regional-topology.md):
+AWS with ECS on Fargate, `eu-west-2` London, in-region storage with disclosed AI sub-processors, single
+region with point-in-time recovery, and MinIO standing in for S3 in local development.
+
 **Done when**
-- [ ] ADR accepted covering platform, first region, expansion path, and residency commitments.
-- [ ] Fallback scope recorded if the chosen region cannot host a required provider.
-- [ ] Cost assumptions handed to [cost-and-capacity-model.md](../../operations/cost-and-capacity-model.md).
+- [x] ADR accepted covering platform, first region, expansion path, and residency commitments.
+- [x] Fallback scope recorded if the chosen region cannot host a required provider.
+- [x] Cost assumptions handed to [cost-and-capacity-model.md](../../operations/cost-and-capacity-model.md).
 
 **Spec** [deployment-topology.md](../../operations/deployment-topology.md)
 

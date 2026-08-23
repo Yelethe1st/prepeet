@@ -4,6 +4,8 @@
 **Owner:** Platform, AI engineering, product, and finance  
 **Last updated:** 2026-08-23
 
+Infrastructure is priced against AWS `eu-west-2` London per [ADR-0001](../architecture/decisions/0001-hosting-platform-and-regional-topology.md), which runs roughly 5 to 10 percent above `us-east-1` for equivalent resources. Model and realtime provider spend is expected to dominate infrastructure spend, so that premium is not the first number to optimise.
+
 ## Demand inputs
 
 - Registered/monthly active candidates.

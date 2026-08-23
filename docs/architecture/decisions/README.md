@@ -2,9 +2,15 @@
 
 This directory contains approved Architecture Decision Records (ADRs). Proposed architecture elsewhere in `docs/` does not substitute for a decision where alternatives materially affect cost, risk, security, or reversibility.
 
+## Accepted
+
+| ADR | Decision | Date |
+|---|---|---|
+| [0001](0001-hosting-platform-and-regional-topology.md) | Hosting platform and regional topology: AWS, `eu-west-2` London, in-region storage with disclosed AI sub-processors, single region with PITR | 2026-08-23 |
+
 ## Required initial ADRs
 
-1. Hosting platform and regional topology.
+1. ~~Hosting platform and regional topology.~~ Accepted as [ADR-0001](0001-hosting-platform-and-regional-topology.md).
 2. Identity build/buy and enterprise federation.
 3. Go modular-monolith boundary and extraction criteria.
 4. Temporal hosting and workflow ownership.

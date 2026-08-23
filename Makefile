@@ -113,6 +113,29 @@ fmt: ## Format everything in place
 	cd $(PY_DIR) && uv run ruff format .
 	cd $(WEB_DIR) && pnpm format
 
+# --------------------------------------------------------------- local stack
+
+COMPOSE := docker compose -f infrastructure/local/docker-compose.yml
+
+.PHONY: local-up
+local-up: ## Start PostgreSQL, MinIO and Temporal locally
+	$(COMPOSE) up -d --wait
+	@echo "  postgres      localhost:5432"
+	@echo "  minio S3      localhost:9000   console localhost:9001"
+	@echo "  temporal      localhost:7233   ui      localhost:8233"
+
+.PHONY: local-down
+local-down: ## Stop the local stack, keeping its data
+	$(COMPOSE) down
+
+.PHONY: local-reset
+local-reset: ## Stop the local stack and delete its data
+	$(COMPOSE) down --volumes
+
+.PHONY: local-logs
+local-logs: ## Follow the local stack logs
+	$(COMPOSE) logs -f
+
 # ------------------------------------------------------------------ run local
 
 .PHONY: dev

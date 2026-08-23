@@ -1,8 +1,8 @@
 # ADR-0004: REST, RPC, event and generated-contract conventions
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Owner:** olabode omoyele  
-**Decision date:** Pending approval  
+**Decision date:** 2026-08-24  
 **Review date:** 2027-02-24  
 **Supersedes:** None  
 **Superseded by:** None
@@ -39,12 +39,24 @@ needs its own ADR for the internal Go import rules that
 and the event schemas. **Generated, never edited, and regenerated in CI:** Go server interfaces, the Go
 and Python RPC stubs, and the TypeScript client and types.
 
-Spec-first rather than code-first, deliberately. Generating OpenAPI from Go annotations makes the
-contract a description of whatever was built, which means the web workstream waits for the backend and
-the compatibility gate can only ever report a break after it has happened. Writing the contract first
-costs some YAML and buys three things: both workstreams start on the same day, the Go handler implements
-a generated interface so drift is a compile error rather than a lint warning, and a breaking change is
-detectable before any code exists to break.
+Spec-first rather than code-first, deliberately.
+
+The usual argument is parallel workstreams, and it is real but not the one that decided this. It is
+weak on a small team, because one person cannot write both sides at once anyway.
+
+The argument that carries it is specific to this product. An unusual amount of this API surface is a
+compliance obligation rather than an implementation detail: returning `404` where existence is
+sensitive, error codes that never change meaning, idempotency that cannot bill an interview twice, and
+result disclosure enforced at the API rather than by hiding a link. Legal, security and an external
+auditor need to read those in one reviewable artifact before a screening pilot, which
+[REL-03](../../delivery/tickets/22-release-readiness.md) requires. A contract inferred from Go
+annotations is not that artifact, and retro-writing one at the moment the gate demands it is the worst
+available time to start.
+
+Two further properties follow: the Go handler implements a generated interface, so drift is a compile
+error rather than a lint warning, and a breaking change is detectable before any code exists to break
+it. Generating OpenAPI from annotations gives neither, because a contract derived from code can only
+report a break after it has happened.
 
 This resolves an ambiguity in [public-api.md](../../contracts/public-api.md), whose status line reads
 "generated OpenAPI is authoritative after implementation". The authoritative artifact is the
@@ -160,10 +172,18 @@ tool agree about what they are looking at.
 the dependency so the web workstream waits. It also weakens the compatibility gate into a report of
 what already changed. Rejected for those two reasons rather than on taste.
 
-**gRPC for the browser too, through gRPC-Web or Connect.** One toolchain instead of two, and genuinely
-attractive. Rejected because the browser surface is read by more people than any other part of this
-system, including auditors and tenant integrators, and a curl-able JSON API is worth more than the
-consistency. Connect remains the obvious answer if a public API for tenants is ever built.
+**Connect for the browser too.** One schema language across both boundaries instead of two toolchains,
+with better end-to-end type safety. Genuinely attractive, and rejected on who else reads this surface
+rather than on developer experience.
+
+An earlier draft of this ADR rejected Connect on the grounds that REST is curl-able and Connect is not.
+That was wrong: the Connect protocol speaks JSON over plain HTTP, so the two are equally inspectable,
+and the argument is recorded here as mistaken rather than quietly removed.
+
+What stands is the audience. Tenant integrators, ATS adapters and auditors are all handed this surface,
+webhooks already leave as JSON under [webhook-protocol.md](../../contracts/webhook-protocol.md), and any
+eventual public API for tenants wants OpenAPI regardless. One toolchain would be better for the team
+building it and worse for the people receiving it, and the second group cannot be renegotiated with.
 
 **GraphQL for the browser.** Rejected in the architecture brief already, and this ADR does not reopen
 it. The client surfaces are known and stable, and the authorization model is capability and scope based,

@@ -135,12 +135,12 @@ captured, in what format, how it is aligned to the transcript, and how long each
 
 ### DEC-08 · Fix REST, RPC, event and generated-contract conventions
 
-**Depends on** DEC-03 · **Blocks** CTR-01, CTR-02, CTR-03 · **Awaiting approval**
+**Depends on** DEC-03 · **Blocks** CTR-01, CTR-02, CTR-03 · **Done** 2026-08-24
 
 Error shape, idempotency, pagination, versioning, envelope fields and compatibility rules, agreed once,
 before three languages implement them differently.
 
-Drafted as [ADR-0004](../../architecture/decisions/0004-contract-conventions-and-code-generation.md).
+Decided in [ADR-0004](../../architecture/decisions/0004-contract-conventions-and-code-generation.md).
 The decision that matters is that contracts are hand-authored and everything else is generated from
 them, which is what lets the web and Go workstreams start on the same day rather than in sequence.
 
@@ -149,8 +149,8 @@ architecture brief and schema ownership by ADR-0002, so nothing outstanding in D
 contract. DEC-03 still needs its own ADR for the Go import rules PLT-04 enforces.
 
 **Done when**
-- [ ] ADR accepted covering REST conventions, Protobuf conventions, event envelope, and compatibility policy.
-- [ ] Breaking-change and deprecation process stated.
+- [x] ADR accepted covering REST conventions, Protobuf conventions, event envelope, and compatibility policy.
+- [x] Breaking-change and deprecation process stated, per surface, with the gates that enforce it.
 
 **Spec** [public-api.md](../../contracts/public-api.md) · [internal-rpc.md](../../contracts/internal-rpc.md) · [event-catalog.md](../../contracts/event-catalog.md)
 

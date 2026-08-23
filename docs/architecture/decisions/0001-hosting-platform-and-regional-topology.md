@@ -59,12 +59,32 @@ versioned object storage, and a restore procedure rehearsed under
 [disaster-recovery.md](../../operations/disaster-recovery.md) stand as proposals until measured by a
 real restore.
 
-**Local development: containerised, with MinIO standing in for S3.** The local stack runs PostgreSQL,
-MinIO and Temporal in containers so an engineer needs no cloud account to run the product. MinIO is
-S3-compatible, so the object storage adapter in `services/platform/platform/objectstore` is written
-once against the S3 API and differs only by endpoint and credentials between local and deployed
-environments. Local buckets hold synthetic data only, per
+**Local development: containerised, with LocalStack standing in for AWS.** The local stack runs
+PostgreSQL, LocalStack and Temporal in containers so an engineer needs no cloud account to run the
+product. The object storage adapter in `services/platform/platform/objectstore` is written once against
+the S3 API and differs only by endpoint and credentials between local and deployed environments. Local
+buckets hold synthetic data only, per
 [deployment-topology.md](../../operations/deployment-topology.md).
+
+LocalStack rather than MinIO, decided by measurement rather than preference. The object storage
+integration suite was run against both:
+
+| | Container start | Multipart upload listing | Presigned playback | Expiry enforced |
+|---|---|---|---|---|
+| MinIO `RELEASE.2025-09-07` | 4.3s | **No** | Yes | Yes |
+| LocalStack 3.8 | 8.2s | Yes | Yes | Yes, once `S3_SKIP_SIGNATURE_VALIDATION=0` |
+
+MinIO returned nothing from `ListMultipartUploads` with a valid in-progress upload, which makes the
+orphaned-upload reconciliation [PLT-05](../../delivery/tickets/02-platform-foundation.md) requires
+impossible to test locally. It also accepted a `CreateBucket` with no location constraint, which real S3
+rejects outside `us-east-1`, so a bug that would have failed on first deploy passed locally. LocalStack
+caught both, and additionally provides Secrets Manager and KMS for
+[PLT-07](../../delivery/tickets/02-platform-foundation.md), so the alternative was running two emulators
+whose behaviour could drift apart.
+
+MinIO is lighter, starts in roughly half the time, and is not AGPL. Those are real advantages and the
+trade was made against them deliberately. Neither emulator is a substitute for exercising S3 behaviours
+against real S3 in a deployed environment before the practice release gate.
 
 Concrete service choices that follow, each reversible without revisiting this ADR:
 
@@ -72,7 +92,7 @@ Concrete service choices that follow, each reversible without revisiting this AD
 |---|---|---|
 | Compute | ECS on Fargate | App Runner is simpler but gives less control over networking and private egress |
 | Database | RDS for PostgreSQL, multi-AZ, PITR | Aurora is reconsidered when connection or throughput limits are measured, not before |
-| Object storage | S3 in `eu-west-2` | MinIO locally |
+| Object storage | S3 in `eu-west-2` | LocalStack locally |
 | Secrets | AWS Secrets Manager with KMS | Feeds [PLT-07](../../delivery/tickets/02-platform-foundation.md) |
 | Edge | CloudFront with WAF | Public exposure only at edge, web and API |
 | Temporal | Deferred to [DEC-04](../../delivery/tickets/01-decisions-and-adrs.md) | Region availability is now a constraint on that decision |
@@ -137,7 +157,7 @@ a team that does not yet have a platform specialism.
 | A UK health buyer requires that no data reaches a non-UK sub-processor | Per-tenant hard-residency offering, priced separately, with a reduced capability set stated up front |
 | Regional outage during a live screening interview | Interruption is recorded as coverage rather than as poor performance, per [SES-06](../../delivery/tickets/08-session-lifecycle.md), and re-invitation is a human decision under [SCR-08](../../delivery/tickets/14-screening-and-invitations.md) |
 | Single region RTO proves unacceptable to a buyer | Warm standby in the second region is the pre-agreed next step, costed before it is needed |
-| Local and deployed object storage behaviour diverges | The adapter is written against the S3 API only, and integration tests run against MinIO in CI so divergence surfaces there |
+| Local and deployed object storage behaviour diverges | The adapter is written against the S3 API only, and integration tests run against LocalStack in CI so divergence surfaces there. An emulator is still not real S3, so the S3-specific behaviours are exercised against real S3 before the practice release gate |
 
 ## Fallback scope if the region cannot host a required provider
 
@@ -174,7 +194,8 @@ outside `services/platform/platform/` may call an AWS SDK directly.
 ## Validation
 
 - Every tenant record carries a region, and no code path infers region from anything else.
-- Integration tests run against MinIO, and the object storage adapter contains no MinIO-specific branch.
+- Integration tests run against LocalStack, and the object storage adapter contains no emulator-specific branch.
+- Presigned upload, presigned playback, expiry enforcement and multipart reconciliation are exercised against real S3 in a deployed environment before the practice release gate, because an emulator passing is not evidence that S3 does.
 - A restore from PITR into an isolated environment is performed and timed before the practice release
   gate, and the measured RPO and RTO replace the proposed values in
   [disaster-recovery.md](../../operations/disaster-recovery.md).

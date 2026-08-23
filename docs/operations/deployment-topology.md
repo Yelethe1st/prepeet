@@ -64,7 +64,7 @@ Consider only when service count/traffic, specialized scheduling, multi-region c
 
 Cloud, first region, managed container product, PostgreSQL topology and region-loss strategy are settled in [ADR-0001](../architecture/decisions/0001-hosting-platform-and-regional-topology.md): AWS, `eu-west-2` London, ECS on Fargate, multi-AZ RDS for PostgreSQL with PITR, and a single region.
 
-Local development runs PostgreSQL, MinIO and Temporal in containers. MinIO is S3-compatible, so the object storage adapter is written once against the S3 API and differs only by endpoint and credentials between local and deployed environments.
+Local development runs PostgreSQL, LocalStack and Temporal in containers. LocalStack provides S3, Secrets Manager and KMS, so adapters are written once against the AWS APIs and differ only by endpoint and credentials between local and deployed environments. LocalStack was chosen over MinIO by measurement; see [ADR-0001](../architecture/decisions/0001-hosting-platform-and-regional-topology.md).
 
 ## Open decisions
 

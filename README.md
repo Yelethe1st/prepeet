@@ -12,7 +12,7 @@ prototype in [screens/](screens/README.md), which the production frontend is por
 
 ```bash
 make bootstrap    # install every toolchain and dependency
-make local-up     # PostgreSQL, MinIO and Temporal in containers
+make local-up     # PostgreSQL, LocalStack and Temporal in containers
 make test         # run every suite
 make cover        # run every suite and enforce the coverage floors
 make dev          # how to start each deployable
@@ -22,8 +22,8 @@ make dev          # how to start each deployable
 
 Requirements: Go 1.26, Node 22 with pnpm, Python 3.12 or later with
 [uv](https://docs.astral.sh/uv/), and Docker for the local stack. No cloud account is needed to run the
-product locally: MinIO stands in for S3, so the object storage adapter is written once against the S3
-API and differs only by endpoint between here and production.
+product locally: LocalStack stands in for S3, Secrets Manager and KMS, so adapters are written once
+against the AWS APIs and differ only by endpoint and credentials between here and production.
 
 ## Repository layout
 

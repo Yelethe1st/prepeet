@@ -74,15 +74,22 @@ another module's tables is a build failure, not a review comment.
 
 ### PLT-05 · Provision object storage with scoped upload and playback authorization
 
-**Depends on** DEC-01, DEC-05 · **Blocks** RTC-05, SEC-04
+**Depends on** DEC-01, DEC-05 · **Blocks** RTC-05, SEC-04 · **In progress**
 
 Recordings and derived media live here. The browser never gets a durable credential; every upload and
 every playback is short-lived, scoped and reconciled against a manifest.
 
+The adapter is built in `services/platform/platform/objectstore`, with keys derived rather than accepted,
+presigned lifetimes clamped, and integration tests against LocalStack. What remains is the deployed side:
+Terraform-created buckets with versioning, encryption and lifecycle rules, and the per-actor half of
+playback authorization, which belongs to the policy layer in IAM-04 rather than to storage.
+
 **Done when**
-- [ ] Upload initiation, part upload and finalization work with short-lived scoped authorization.
-- [ ] Playback authorization is per-object, per-actor and time-bound.
-- [ ] Orphaned-object reconciliation runs and reports.
+- [x] Upload initiation, part upload and finalization work with short-lived scoped authorization.
+- [x] Finalization verifies what was stored against what the client said it sent.
+- [ ] Playback authorization is per-object, per-actor and time-bound. Per-object and time-bound are done; per-actor waits on IAM-04.
+- [ ] Orphaned-object reconciliation runs and reports. Discovery and abort work; the scheduled job that reports is not built.
+- [ ] Buckets are created by Terraform with versioning, encryption and lifecycle rules, not by application code.
 
 **Spec** [data-architecture.md](../../architecture/data-architecture.md)
 

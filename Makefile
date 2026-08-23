@@ -67,6 +67,10 @@ test-py: ## Run the Python suite
 test-web: ## Run the web suite
 	cd $(WEB_DIR) && pnpm test
 
+.PHONY: test-integration
+test-integration: ## Run the integration suites against real dependencies in containers
+	cd $(GO_DIR) && go test -tags integration -timeout 15m ./...
+
 .PHONY: watch-go
 watch-go: ## Re-run the Go suite on change, for the red-green loop
 	cd $(GO_DIR) && go test ./... -count=1 -failfast
@@ -77,8 +81,12 @@ watch-go: ## Re-run the Go suite on change, for the red-green loop
 cover: cover-go cover-py cover-web ## Run every suite and enforce the coverage floors
 
 .PHONY: cover-go
+# Coverage runs with the integration tag so the storage adapter is measured by
+# the tests that actually exercise it. Without the tag the adapter reads as
+# untested, which is both wrong and the kind of number that invites lowering the
+# floor. This needs Docker; `make test-go` stays fast for the red-green loop.
 cover-go:
-	cd $(GO_DIR) && go test -race -coverprofile=coverage.out -covermode=atomic $(GO_COVER_PKGS)
+	cd $(GO_DIR) && go test -tags integration -race -timeout 15m -coverprofile=coverage.out -covermode=atomic $(GO_COVER_PKGS)
 	@cd $(GO_DIR) && total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $$3); print $$3}'; ) \
 		&& ../../tools/coverage/check.sh go "$$total" $(GO_COVERAGE_MIN)
 
@@ -118,11 +126,11 @@ fmt: ## Format everything in place
 COMPOSE := docker compose -f infrastructure/local/docker-compose.yml
 
 .PHONY: local-up
-local-up: ## Start PostgreSQL, MinIO and Temporal locally
+local-up: ## Start PostgreSQL, LocalStack and Temporal locally
 	$(COMPOSE) up -d --wait
 	@echo "  postgres      localhost:5432"
-	@echo "  minio S3      localhost:9000   console localhost:9001"
-	@echo "  temporal      localhost:7233   ui      localhost:8233"
+	@echo "  localstack    localhost:4566   (s3, secretsmanager, kms)"
+	@echo "  temporal      localhost:7233   ui localhost:8233"
 
 .PHONY: local-down
 local-down: ## Stop the local stack, keeping its data

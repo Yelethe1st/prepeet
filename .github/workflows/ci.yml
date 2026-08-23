@@ -36,8 +36,13 @@ jobs:
         run: go vet ./...
       - name: Build every binary
         run: go build ./...
+      # Coverage runs with the integration tag so the storage adapter is
+      # measured by the tests that exercise it. Without the tag it reads as
+      # untested, which is both wrong and the kind of number that invites
+      # lowering the floor. Testcontainers starts LocalStack, which the runner
+      # has Docker for.
       - name: Test with the race detector and coverage
-        run: go test -race -covermode=atomic -coverprofile=coverage.out ./platform/... ./internal/...
+        run: go test -tags integration -race -timeout 15m -covermode=atomic -coverprofile=coverage.out ./platform/... ./internal/...
       - name: Enforce the coverage floor
         run: |
           total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')

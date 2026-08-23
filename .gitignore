@@ -36,5 +36,5 @@ htmlcov/
 # Build output
 dist/
 build/
-coverage/
+apps/web/coverage/
 *.log

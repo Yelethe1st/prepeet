@@ -41,7 +41,9 @@ jobs:
       - name: Enforce the coverage floor
         run: |
           total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
-          ../../tools/coverage/check.sh go "$total" 80
+          # Absolute path: this step runs from services/platform, and a relative
+          # path here failed once when the script was not in the checkout at all.
+          "$GITHUB_WORKSPACE/tools/coverage/check.sh" go "$total" 80
 
   python:
     name: Python intelligence

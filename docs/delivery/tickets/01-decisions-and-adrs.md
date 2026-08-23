@@ -135,10 +135,18 @@ captured, in what format, how it is aligned to the transcript, and how long each
 
 ### DEC-08 · Fix REST, RPC, event and generated-contract conventions
 
-**Depends on** DEC-03 · **Blocks** CTR-01, CTR-02, CTR-03
+**Depends on** DEC-03 · **Blocks** CTR-01, CTR-02, CTR-03 · **Awaiting approval**
 
-Error shape, idempotency, pagination, versioning, envelope fields and compatibility rules — agreed once,
+Error shape, idempotency, pagination, versioning, envelope fields and compatibility rules, agreed once,
 before three languages implement them differently.
+
+Drafted as [ADR-0004](../../architecture/decisions/0004-contract-conventions-and-code-generation.md).
+The decision that matters is that contracts are hand-authored and everything else is generated from
+them, which is what lets the web and Go workstreams start on the same day rather than in sequence.
+
+The stated dependency on DEC-03 does not hold in practice: the deployable boundaries are fixed by the
+architecture brief and schema ownership by ADR-0002, so nothing outstanding in DEC-03 changes a wire
+contract. DEC-03 still needs its own ADR for the Go import rules PLT-04 enforces.
 
 **Done when**
 - [ ] ADR accepted covering REST conventions, Protobuf conventions, event envelope, and compatibility policy.

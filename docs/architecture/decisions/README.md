@@ -10,6 +10,12 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0002](0002-postgresql-schema-rls-and-connection-roles.md) | PostgreSQL: one database, a schema per module, forced row-level security on every tenant-owned table, tenant context set per transaction | 2026-08-24 |
 | [0003](0003-identity-built-in-go.md) | Authentication built in Go with argon2id and revocable opaque sessions; enterprise federation deferred behind an adapter | 2026-08-24 |
 
+## Proposed
+
+| ADR | Decision | Raised |
+|---|---|---|
+| [0004](0004-contract-conventions-and-code-generation.md) | Contracts are hand-authored and everything else is generated from them; REST, RPC and event conventions, and what counts as a breaking change | 2026-08-24 |
+
 ## Required initial ADRs
 
 1. ~~Hosting platform and regional topology.~~ Accepted as [ADR-0001](0001-hosting-platform-and-regional-topology.md).
@@ -19,7 +25,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 5. ~~PostgreSQL schemas, row-level security, and connection roles.~~ Accepted as [ADR-0002](0002-postgresql-schema-rls-and-connection-roles.md).
 6. Realtime provider, media topology, and outage fallback.
 7. Recording source, format, alignment, and retention.
-8. REST, gRPC, event, and generated-contract conventions.
+8. REST, gRPC, event, and generated-contract conventions. Proposed as [ADR-0004](0004-contract-conventions-and-code-generation.md), awaiting approval.
 9. Artifact registry, review, publication, and rollback.
 10. Model providers, routing, regional policy, fallback, and budgets.
 11. Screening disclosure, appeals, and human-decision semantics.

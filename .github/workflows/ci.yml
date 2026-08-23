@@ -1,0 +1,111 @@
+# Continuous integration.
+#
+# PLT-02: the invariants become enforceable here. A change that breaks a
+# contract, crosses a module boundary, drops coverage or fails a lint is
+# rejected by the pipeline rather than by a reviewer noticing.
+#
+# The three deployables run as separate jobs so a failure names which one broke,
+# and so they run in parallel.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go control plane
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/platform/go.mod
+          cache-dependency-path: services/platform/go.sum
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: Vet
+        run: go vet ./...
+      - name: Build every binary
+        run: go build ./...
+      - name: Test with the race detector and coverage
+        run: go test -race -covermode=atomic -coverprofile=coverage.out ./platform/... ./internal/...
+      - name: Enforce the coverage floor
+        run: |
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
+          ../../tools/coverage/check.sh go "$total" 80
+
+  python:
+    name: Python intelligence
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/intelligence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --all-extras
+      - name: Lint
+        run: uv run ruff check .
+      - name: Check formatting
+        run: uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy src
+      - name: Test and enforce the coverage floor
+        run: uv run pytest --cov=prepeet_ai --cov-report=term-missing --cov-fail-under=80
+
+  web:
+    name: Web application
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+      - name: Type check
+        run: pnpm typecheck
+      - name: Test and enforce the coverage floor
+        run: pnpm test:coverage
+      - name: Build
+        run: pnpm build
+
+  docs:
+    name: Documentation links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every internal documentation link resolves
+        run: |
+          broken=0
+          while IFS= read -r file; do
+            dir=$(dirname "$file")
+            while IFS= read -r link; do
+              case "$link" in http*|\#*) continue;; esac
+              target="${link%%#*}"
+              [ -z "$target" ] && continue
+              if [ ! -e "$dir/$target" ]; then
+                echo "broken: $file -> $link"
+                broken=1
+              fi
+            done < <(grep -o ']([^)]*)' "$file" | sed 's/](//;s/)$//')
+          done < <(find docs screens/docs -name '*.md')
+          exit $broken

@@ -12,8 +12,29 @@ Thumbs.db
 .idea/
 *.swp
 
-# Dependencies / build
+# JavaScript
 node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Go
+services/platform/coverage.out
+services/platform/bin/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build output
 dist/
 build/
+coverage/
 *.log

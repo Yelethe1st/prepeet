@@ -1,0 +1,12 @@
+{
+  "name": "prepeet",
+  "private": true,
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint"
+  }
+}

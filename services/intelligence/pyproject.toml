@@ -1,0 +1,65 @@
+[project]
+name = "prepeet-intelligence"
+version = "0.1.0"
+description = "Typed intelligence for Prepeet: composition, evaluation, articulation and coaching."
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "mypy>=1.13",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/prepeet_ai"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# Strict markers and strict config turn a typo in a decorator or a setting into
+# an error rather than a silently skipped test.
+addopts = "--strict-markers --strict-config"
+
+[tool.coverage.run]
+source = ["prepeet_ai"]
+branch = true
+
+[tool.coverage.report]
+# A partially covered branch is an untested decision, and this service makes
+# decisions about people's evaluations.
+show_missing = true
+skip_covered = false
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF", "D"]
+ignore = [
+    "D203",  # incompatible with D211, which we keep
+    "D213",  # incompatible with D212, which we keep
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test names document the behaviour they assert, so a docstring on every test
+# would duplicate the name rather than add anything.
+"tests/*" = ["D100", "D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+# Go validates everything this service returns, but an untyped boundary here
+# means the validation is the first place a mistake is noticed.
+disallow_any_explicit = false

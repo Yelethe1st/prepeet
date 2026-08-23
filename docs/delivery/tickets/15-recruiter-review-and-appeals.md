@@ -1,0 +1,135 @@
+# Epic REV — Recruiter review, decisions and appeals
+
+**Phase 5–6** · **Workstream** Web, Go, Security/privacy
+
+Evidence first, decision second, and the decision belongs to a named person. Nothing here advances or
+rejects a candidate automatically, and every sensitive read is audited.
+
+---
+
+### REV-01 · Build the candidate roster with campaign-scoped access
+
+**Depends on** SCR-01, IAM-06 · **Blocks** REV-02
+
+Candidates for the campaigns a reviewer is scoped to, with filters, states and pending-review counts —
+never a bare leaderboard.
+
+**Done when**
+- [ ] The roster is filtered server-side by campaign scope, not hidden in the browser.
+- [ ] Insufficient-evidence candidates are shown as such, not sorted to the bottom as low scorers.
+- [ ] No ranking or sort presents candidates as ordered by quality.
+
+**Spec** [screen-mode.md](../../product/screen-mode.md)
+
+---
+
+### REV-02 · Build the evidence-first candidate review screen
+
+**Depends on** EVL-05, EVL-06, REV-01 · **Blocks** REV-03
+
+Pinned configuration and artifact versions, evidence summary framed as evidence rather than a verdict,
+competencies with anchors and sufficiency, transcript spans, audio, coverage, contradictions, unverified
+claims, job-requirement evidence, missing evidence and suggested follow-ups.
+
+**Done when**
+- [ ] Every material conclusion links to the evidence behind it.
+- [ ] Uncertainty and coverage appear beside every score, not in a footnote.
+- [ ] The screen states that the decision belongs to the reviewer, and never presents a recommendation as one.
+
+**Spec** [screen-mode.md](../../product/screen-mode.md)
+
+---
+
+### REV-03 · Implement human decisions with override rationale and append-only history
+
+**Depends on** REV-02, IAM-04 · **Blocks** REV-04
+
+Advance, hold, decline or request re-review, each with a named actor and a reason, and an override
+rationale required when the reviewer disagrees with the suggested band.
+
+**Done when**
+- [ ] No code path can produce an outcome without a named human actor.
+- [ ] Override requires a rationale and records the band it disagreed with.
+- [ ] Decision history is append-only and preserves the true actor and evidence version.
+
+**Spec** [responsible-hiring.md](../../security/responsible-hiring.md)
+
+---
+
+### REV-04 · Audit sensitive transcript, audio and evaluation reads
+
+**Depends on** REV-02, OPS-06 · **Blocks** REL-03
+
+Every open of a transcript, recording or evaluation is recorded against a named person and is visible to
+the tenant.
+
+**Done when**
+- [ ] Reads are audited even when nothing is changed.
+- [ ] The tenant can see who accessed a candidate's evidence and when.
+- [ ] Unusual access volume raises an alert rather than sitting in a log nobody reads.
+
+**Spec** [observability.md](../../operations/observability.md)
+
+---
+
+### REV-05 · Implement constrained candidate comparison
+
+**Depends on** DEC-17, REV-02 · **Blocks** nothing
+
+Only if DEC-17 approves it. Two to four candidates, same role, comparable rubric, uncertainty and
+coverage shown, indistinguishable differences stated, no ranking, and individual review required first.
+
+**Done when**
+- [ ] Every constraint is enforced server-side, not by the interface.
+- [ ] Comparison is unavailable until each candidate in it has been individually reviewed.
+- [ ] The feature is behind a flag that is off unless a tenant is explicitly approved.
+
+**Spec** [screen-mode.md](../../product/screen-mode.md) · [responsible-hiring.md](../../security/responsible-hiring.md)
+
+---
+
+### REV-06 · Build the appeals and re-review workflow
+
+**Depends on** DEC-11, REV-03 · **Blocks** REV-07
+
+Eligibility, request reason, frozen original inputs, assigned reviewer, independence where required,
+SLA, outcome, permitted disclosure and append-only history.
+
+**Done when**
+- [ ] The original evidence and configuration are frozen at the moment the appeal is raised.
+- [ ] Independent assignment is enforced where policy requires it — the original reviewer cannot self-review.
+- [ ] Outcome, rationale and disclosure are recorded and delivered to the permitted parties.
+
+**Spec** [responsible-hiring.md](../../security/responsible-hiring.md)
+
+---
+
+### REV-07 · Build the candidate-facing appeal request and status
+
+**Depends on** REV-06, DEC-11 · **Blocks** nothing
+
+*Gap found against the prototype: appeals exist only as a recruiter queue. A candidate has no way to
+raise one or to see what happened to it.*
+
+**Done when**
+- [ ] An eligible candidate can raise an appeal and see its status, owner and SLA.
+- [ ] Eligibility rules are explained rather than expressed as a missing button.
+- [ ] The outcome is disclosed to the candidate to the extent DEC-11 permits.
+
+**Spec** [responsible-hiring.md](../../security/responsible-hiring.md) · [product-requirements.md](../../product/product-requirements.md)
+
+---
+
+### REV-08 · Implement system-flagged low-confidence review
+
+**Depends on** EVL-05, REV-06 · **Blocks** nothing
+
+Some evaluations should reach a human without a candidate having to ask — low confidence, low coverage,
+a short session, or an assessability warning.
+
+**Done when**
+- [ ] Flag criteria are configurable policy, not thresholds hardcoded in a handler.
+- [ ] A flagged evaluation cannot be actioned without acknowledging the flag.
+- [ ] Flag rates are monitored as a fairness signal in QUA-05.
+
+**Spec** [evaluation-system.md](../../architecture/evaluation-system.md)

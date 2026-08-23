@@ -1,11 +1,11 @@
 # Documentation Coverage Manifest
 
-**Purpose:** Demonstrate how the consolidated greenfield specification was redistributed into `docs-new/` and identify artifacts that remain implementation or governance work.  
+**Purpose:** Demonstrate how the consolidated greenfield specification was redistributed into `docs/` and identify artifacts that remain implementation or governance work.  
 **Last audited:** 2026-08-23
 
 ## Audit rule
 
-The split is considered complete when every material requirement, invariant, protocol, control, open decision, delivery gate, and operational expectation from the consolidated specification has a canonical home in `docs-new/`. Repeated explanations need not be duplicated merely to preserve word count.
+The split is considered complete when every material requirement, invariant, protocol, control, open decision, delivery gate, and operational expectation from the consolidated specification has a canonical home in `docs/`. Repeated explanations need not be duplicated merely to preserve word count.
 
 ## Source-to-target mapping
 
@@ -40,6 +40,7 @@ The split is considered complete when every material requirement, invariant, pro
 | Phases, workstreams, first 90 days, ADRs, risks, exit criteria | `delivery/implementation-roadmap.md` |
 | Critical path, work packages, parallel work, blockers | `delivery/dependency-map.md` |
 | Foundation/practice/screen/operations gates and stop-ship | `delivery/release-criteria.md` |
+| Every implied unit of implementation work, as tickets | `delivery/tickets/` |
 
 ## Preserved high-risk decisions
 

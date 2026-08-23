@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-This directory contains approved Architecture Decision Records (ADRs). Proposed architecture elsewhere in `docs-new/` does not substitute for a decision where alternatives materially affect cost, risk, security, or reversibility.
+This directory contains approved Architecture Decision Records (ADRs). Proposed architecture elsewhere in `docs/` does not substitute for a decision where alternatives materially affect cost, risk, security, or reversibility.
 
 ## Required initial ADRs
 

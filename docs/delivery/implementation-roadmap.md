@@ -4,6 +4,8 @@
 **Owner:** Principal Engineer and product leadership  
 **Last updated:** 2026-08-23
 
+The phase-by-phase plan below is broken into 161 tickets in [tickets/](tickets/README.md).
+
 ## Principles
 
 Ship vertical journeys, retire high-risk boundaries early, deliver practice before screening, include security/accessibility/observability/AI evaluation with each feature, and treat mockups as hypotheses until validated.

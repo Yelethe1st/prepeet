@@ -30,6 +30,7 @@ The [coverage manifest](COVERAGE.md) maps the earlier consolidated subjects to t
 7. Security and responsible-hiring controls under `security/`
 8. Operational requirements under `operations/`
 9. Delivery sequencing and gates under `delivery/`
+10. The implementation backlog under [delivery/tickets/](delivery/tickets/README.md)
 
 ## Source-of-truth rules
 
@@ -39,12 +40,13 @@ The [coverage manifest](COVERAGE.md) maps the earlier consolidated subjects to t
 - Security, privacy, and hiring safeguards belong in `security/`.
 - SLOs, deployment, recovery, and cost belong in `operations/`.
 - Sequencing and release evidence belong in `delivery/`.
+- The work itself belongs in `delivery/tickets/`. A ticket implements a specification; it never replaces one.
 - Approved ADRs override proposals in broader documents.
 
 ## Document map
 
 ```text
-docs-new/
+docs/
 ├── product/
 ├── architecture/
 │   └── decisions/
@@ -52,6 +54,7 @@ docs-new/
 ├── security/
 ├── operations/
 └── delivery/
+    └── tickets/
 ```
 
 The set intentionally distinguishes architecture baselines from final generated contracts, legal determinations, calibrated AI quality thresholds, and measured production SLOs. Those must be produced and approved during implementation.

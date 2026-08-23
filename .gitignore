@@ -38,3 +38,6 @@ dist/
 build/
 apps/web/coverage/
 *.log
+
+# Locally installed code generators
+.tools/

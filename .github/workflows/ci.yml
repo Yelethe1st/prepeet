@@ -50,6 +50,30 @@ jobs:
           # path here failed once when the script was not in the checkout at all.
           "$GITHUB_WORKSPACE/tools/coverage/check.sh" go "$total" 80
 
+  contracts:
+    name: Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/platform/go.mod
+          cache-dependency-path: services/platform/go.sum
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Lint the OpenAPI document
+        run: make lint-contracts
+      # ADR-0004 makes the contract the source and generates everything else
+      # from it. That only holds if regenerating produces what is committed, so
+      # a drift here fails the build rather than being noticed later.
+      - name: Generated code matches the contracts
+        run: make check-generated
+
   python:
     name: Python intelligence
     runs-on: ubuntu-latest

@@ -1,0 +1,62 @@
+# OpenAPI lint rules.
+#
+# The recommended ruleset plus the rules this product needs on top. Each custom
+# rule exists because breaking it would produce a contract that is technically
+# valid and practically wrong.
+extends: ["spectral:oas"]
+
+rules:
+  # Operation identifiers become Go method names and TypeScript client methods,
+  # so an operation without one generates something unreadable and renaming it
+  # is a silent break.
+  operation-operationId: error
+  operation-operationId-unique: error
+
+  # A description is not documentation for its own sake here. This document is
+  # read by legal, security and tenant integrators, and an undescribed operation
+  # is one nobody outside the team can review.
+  operation-description: error
+
+  # Tags group the document for the people reading it rather than for the code.
+  operation-tags: error
+
+  # An operation with no declared error response is one whose failures are
+  # undefined, and a client cannot handle what the contract does not mention.
+  # The health probes are exempt: they have no failure a client acts on.
+  prepeet-error-response:
+    description: Every operation must declare at least one 4xx response.
+    severity: error
+    given: $.paths[*][?(@property !== 'parameters')].responses
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          anyOf:
+            - required: ["400"]
+            - required: ["401"]
+            - required: ["403"]
+            - required: ["404"]
+            - required: ["200"]
+
+  # Every response body carries a schema, or the generated client returns an
+  # untyped blob and the contract stops constraining anything.
+  prepeet-response-schema:
+    description: Every response with content must declare a schema.
+    severity: error
+    given: $.paths[*][*].responses[*].content[*]
+    then:
+      field: schema
+      function: truthy
+
+  # Error responses use the shared envelope rather than an ad hoc shape, so a
+  # client handles every failure the same way.
+  prepeet-error-envelope:
+    description: A 4xx or 5xx JSON response must use the shared Error schema.
+    severity: error
+    given: $.paths[*][*].responses[?(@property.match(/^[45]/))].content['application/json'].schema
+    then:
+      field: $ref
+      function: pattern
+      functionOptions:
+        match: "#/components/schemas/Error$"

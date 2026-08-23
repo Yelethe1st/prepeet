@@ -10,15 +10,24 @@ what lets the three workstreams proceed in parallel without integrating by rumou
 
 ### CTR-01 · Define the public REST contract and generate the TypeScript client
 
-**Depends on** DEC-08 · **Blocks** every web ticket
+**Depends on** DEC-08 · **Blocks** every web ticket · **In progress**
 
 OpenAPI is authored, linted and used to generate the browser client. Error shape, idempotency headers,
 cursor pagination and version headers are in the contract, not in each handler.
 
+The toolchain is built against [ADR-0004](../../architecture/decisions/0004-contract-conventions-and-code-generation.md):
+`packages/contracts/api/openapi.yaml` is the source, `oapi-codegen` produces a strict Go server
+interface and `openapi-typescript` the browser types, Spectral lints the document with a ruleset of its
+own, and `make check-generated` fails the build on drift. The health and authentication operations are
+written; the rest arrive with the tickets that need them.
+
 **Done when**
-- [ ] OpenAPI covers every route in [public-api.md](../../contracts/public-api.md) that the current phase ships.
-- [ ] The TypeScript client is generated, not hand-written, and the build fails if it is stale.
-- [ ] Every operation declares its error codes, idempotency behaviour and required capability.
+- [x] The toolchain generates Go and TypeScript from one hand-authored document, and drift fails the build.
+- [x] Spectral lints the document, with rules for the error envelope and for undocumented operations.
+- [x] The server's responses are checked against the generated types, so a shape change is a test failure.
+- [ ] OpenAPI covers every route in [public-api.md](../../contracts/public-api.md) that the current phase ships. Health and authentication are done.
+- [ ] `oasdiff` runs against the previous release once there is a previous release.
+- [ ] Every operation declares its required capability, which needs the capability catalogue published as a contract in IAM-04.
 
 **Spec** [public-api.md](../../contracts/public-api.md)
 

@@ -7,6 +7,12 @@
   },
   "scripts": {
     "test": "pnpm --recursive test",
-    "lint": "pnpm --recursive lint"
+    "lint": "pnpm --recursive lint",
+    "generate:api": "openapi-typescript packages/contracts/api/openapi.yaml -o packages/generated/typescript/api.gen.ts",
+    "lint:contracts": "spectral lint packages/contracts/api/openapi.yaml --ruleset packages/contracts/api/.spectral.yaml"
+  },
+  "devDependencies": {
+    "@stoplight/spectral-cli": "^6.14.2",
+    "openapi-typescript": "^7.4.4"
   }
 }

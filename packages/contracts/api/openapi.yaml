@@ -1,0 +1,495 @@
+# The public API contract.
+#
+# This document is the source. The Go server interface and the TypeScript client
+# are generated from it, and a handler that does not satisfy the generated
+# interface does not compile. See ADR-0004.
+#
+# Written first rather than derived from code because much of what is here is a
+# compliance obligation rather than an implementation detail: 404 where
+# existence is sensitive, error codes that never change meaning, and idempotency
+# that cannot bill an interview twice. Those need to be readable by legal and
+# security in one artifact before a screening pilot.
+openapi: 3.1.0
+
+info:
+  title: Prepeet API
+  version: "1.0.0"
+  description: |
+    The browser talks to this API and to nothing else. It never reaches
+    PostgreSQL, Temporal, object storage or the intelligence service directly,
+    which is what keeps authorization decidable in one place.
+
+    Every request operates under exactly one explicit active tenant. Tenant is
+    never inferred from a resource identifier.
+  contact:
+    name: Prepeet engineering
+
+servers:
+  - url: /api/v1
+    description: Version in the path. A new version is a project rather than a release.
+
+tags:
+  - name: health
+    description: Deployment probes. Unauthenticated.
+  - name: authentication
+    description: Registration, login, logout and session refresh.
+
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      operationId: getLiveness
+      summary: Report whether the process is running
+      description: |
+        Deliberately ignores dependencies. If a failing database made this fail,
+        the orchestrator would restart healthy processes during an outage and
+        turn a degradation into an outage.
+      security: []
+      responses:
+        "200":
+          description: The process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Liveness"
+
+  /readyz:
+    get:
+      tags: [health]
+      operationId: getReadiness
+      summary: Report whether this process can serve traffic
+      description: |
+        503 tells a load balancer to route elsewhere without restarting
+        anything. The response never carries a dependency's error detail, which
+        routinely contains a host, a port and sometimes a credential.
+      security: []
+      responses:
+        "200":
+          description: Every dependency answered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+        "503":
+          description: At least one dependency did not answer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+
+  /auth/register:
+    post:
+      tags: [authentication]
+      operationId: register
+      summary: Register a candidate or an organisation
+      description: |
+        Answers identically whether or not the address is already registered.
+        Confirming an address here would let anyone enumerate who practises for
+        interviews, which is information a candidate has not agreed to share.
+
+        Registration never signs the user in. Verification comes first, and the
+        response says only that the next step has been sent.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "202":
+          description: |
+            Accepted. Returned whether the address was new or already known, so
+            the response cannot be used to test for an account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationAccepted"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "409": { $ref: "#/components/responses/IdempotencyConflict" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/login:
+    post:
+      tags: [authentication]
+      operationId: login
+      summary: Exchange credentials for a session
+      description: |
+        A wrong password and an unregistered address produce the same response
+        and take the same time, because timing leaks what a carefully worded
+        body does not.
+
+        On success the session and refresh tokens are set as HTTP-only,
+        SameSite cookies rather than returned in the body, so no script in the
+        page can read them.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated.
+          headers:
+            Set-Cookie:
+              description: Session and refresh cookies, HTTP-only and SameSite.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401":
+          description: |
+            The credentials did not authenticate. Identical for an unknown
+            address and a wrong password.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/logout:
+    post:
+      tags: [authentication]
+      operationId: logout
+      summary: End the current session
+      description: |
+        Revokes the session and its refresh family, so a stolen refresh token
+        cannot outlive the logout. Idempotent: logging out twice is not an error.
+      responses:
+        "204":
+          description: The session is ended.
+          headers:
+            Set-Cookie:
+              description: Expired session and refresh cookies.
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /auth/refresh:
+    post:
+      tags: [authentication]
+      operationId: refresh
+      summary: Rotate the session using a refresh token
+      description: |
+        Each refresh issues a new pair and retires the old one. Presenting a
+        retired token means either a stolen token or a client bug, and both are
+        handled the same way: the whole session family is revoked and the event
+        is audited. Being logged out is a cheap failure; an attacker keeping a
+        foothold is not.
+      security: []
+      responses:
+        "200":
+          description: A new session was issued and the old one retired.
+          headers:
+            Set-Cookie:
+              description: Rotated session and refresh cookies.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: |
+            The refresh token was missing, expired, or already used. A reused
+            token also revokes the entire family.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /me:
+    get:
+      tags: [authentication]
+      operationId: getCurrentUser
+      summary: Describe the authenticated user and their active tenant
+      description: |
+        Returns the user, whether their address is verified, their tenant
+        memberships and which tenant is currently active.
+
+        Memberships are listed because a user may belong to several tenants and
+        the interface lets them switch. Listing a membership is not a statement
+        about what it permits: that is decided per request by the capability
+        layer, and the interface never treats this list as authorization.
+      responses:
+        "200":
+          description: The current user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: prepeet_session
+      description: |
+        An opaque session token, stored hashed server side so a database read
+        yields nothing presentable. Opaque rather than a JWT because membership
+        revocation must take effect within seconds. See ADR-0003.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Scoped to tenant, endpoint and key together. A replay carrying the same
+        body returns the stored response; a replay carrying a different body is
+        409, because two different requests under one key is a client bug that
+        silently succeeding would hide.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    ValidationFailed:
+      description: The request was malformed or failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthenticated:
+      description: No valid session was presented.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    IdempotencyConflict:
+      description: The idempotency key was reused with a different request body.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: Too many requests.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    ErrorCode:
+      type: string
+      description: |
+        Stable and never reused for a different meaning. Generated into both
+        clients as an enum, so a client can handle codes exhaustively and a new
+        one is a compile-time prompt rather than a runtime surprise.
+
+        Messages are for humans and may be reworded at any time. Only the code
+        is machine logic.
+      enum:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - METHOD_NOT_ALLOWED
+        - IDEMPOTENCY_CONFLICT
+        - RATE_LIMITED
+        - CREDENTIALS_INVALID
+        - SESSION_EXPIRED
+        - REFRESH_TOKEN_REUSED
+        - INTERNAL
+
+    FieldError:
+      type: object
+      description: One field-level validation failure.
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          description: JSON pointer to the offending field.
+          examples: ["/email"]
+        code:
+          type: string
+          examples: ["REQUIRED"]
+        message:
+          type: string
+
+    Error:
+      type: object
+      description: The single error envelope every failure in this API uses.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, retryable, field_errors, request_id]
+          properties:
+            code:
+              $ref: "#/components/schemas/ErrorCode"
+            message:
+              type: string
+              description: Human readable, never machine logic.
+            retryable:
+              type: boolean
+              description: Whether retrying the same request could plausibly succeed.
+            field_errors:
+              type: array
+              items:
+                $ref: "#/components/schemas/FieldError"
+            request_id:
+              type: string
+              description: |
+                Correlation identifier, also returned in X-Request-ID. It is
+                what makes a user's support report resolvable to one trace.
+              examples: ["req_01a0301daa1070009"]
+
+    Liveness:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [alive]
+
+    HealthCheck:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          description: The dependency's name. The reason it failed is never included.
+        status:
+          type: string
+          enum: [ready, unready]
+
+    Readiness:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ready, unready]
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthCheck"
+
+    RegisterRequest:
+      type: object
+      required: [email, password, account_type]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          minLength: 12
+          maxLength: 1024
+          description: |
+            Hashed with argon2id and never logged. The maximum is not a strength
+            policy: argon2 hashes whatever it is given, so an unbounded input is
+            a denial of service.
+        account_type:
+          type: string
+          enum: [candidate, organisation]
+          description: |
+            A candidate registers for themselves. An organisation registration
+            additionally creates a tenant and an owning membership.
+        organisation_name:
+          type: string
+          maxLength: 200
+          description: Required when account_type is organisation.
+
+    RegistrationAccepted:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [verification_sent]
+          description: |
+            Returned whether or not the address was already registered. The
+            response is deliberately uninformative about which.
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          maxLength: 1024
+
+    Session:
+      type: object
+      description: |
+        Describes the session that was established. The tokens themselves are
+        in HTTP-only cookies and never appear in a response body, so no script
+        in the page can read them.
+      required: [user_id, expires_at, authenticated_at]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        active_tenant_id:
+          type: [string, "null"]
+          format: uuid
+          description: |
+            Null for a candidate who belongs to no tenant. Every request
+            operates under exactly one explicit active tenant, and it is never
+            inferred from a resource identifier.
+        expires_at:
+          type: string
+          format: date-time
+        authenticated_at:
+          type: string
+          format: date-time
+          description: |
+            When the user last proved who they are, which is not when the
+            session was issued. Destructive and evaluation-changing capabilities
+            require this to be recent.
+
+    Membership:
+      type: object
+      required: [tenant_id, tenant_name, status]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        tenant_name:
+          type: string
+        status:
+          type: string
+          enum: [invited, active, revoked]
+
+    CurrentUser:
+      type: object
+      required: [user_id, email_verified, memberships]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        active_tenant_id:
+          type: [string, "null"]
+          format: uuid
+        memberships:
+          type: array
+          description: |
+            A user may belong to several tenants. The interface lets them switch,
+            and the server decides what each membership permits.
+          items:
+            $ref: "#/components/schemas/Membership"
+
+security:
+  - sessionCookie: []

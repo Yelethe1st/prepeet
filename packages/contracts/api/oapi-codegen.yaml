@@ -1,0 +1,22 @@
+# Generation config for the Go server side.
+#
+# strict-server is the point of this: it generates an interface taking typed
+# request structs and returning typed responses, so a handler that does not
+# match the contract does not compile. A non-strict server would hand us
+# http.ResponseWriter and let any shape through.
+# Paths are relative to the working directory, not to this file, so generation
+# always runs from the repository root. `make generate` is the only supported
+# way to invoke it.
+package: prepeetapi
+output: packages/generated/go/prepeetapi/api.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+  embedded-spec: true
+output-options:
+  skip-prune: false
+  # Names come from operationId, so the contract decides what the Go method is
+  # called and renaming an operation is a compile error rather than a silent
+  # divergence.
+  name-normalizer: ToCamelCaseWithInitialisms

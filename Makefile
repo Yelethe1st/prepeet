@@ -98,10 +98,40 @@ cover-py:
 cover-web:
 	cd $(WEB_DIR) && pnpm test:coverage
 
+# ------------------------------------------------------------------ contracts
+
+TOOLS_BIN := $(CURDIR)/.tools
+
+.PHONY: tools
+tools: ## Install the pinned code generators into .tools
+	@mkdir -p $(TOOLS_BIN)
+	cd $(GO_DIR) && GOBIN=$(TOOLS_BIN) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
+
+.PHONY: generate
+generate: tools ## Regenerate every client and server type from the contracts
+	# Generation runs from the repository root, because the generator resolves
+	# output paths against the working directory rather than against its config.
+	$(TOOLS_BIN)/oapi-codegen -config packages/contracts/api/oapi-codegen.yaml packages/contracts/api/openapi.yaml
+	pnpm generate:api
+	cd packages/generated/go && go mod tidy
+
+.PHONY: check-generated
+check-generated: generate ## Fail if generated code differs from the contracts
+	@if [ -n "$$(git status --porcelain packages/generated)" ]; then \
+		echo "Generated code is out of date. Run make generate and commit the result:"; \
+		git --no-pager diff --stat packages/generated; \
+		exit 1; \
+	fi
+	@printf '\033[32mPASS\033[0m generated code matches the contracts\n'
+
+.PHONY: lint-contracts
+lint-contracts: ## Lint the OpenAPI document
+	pnpm lint:contracts
+
 # ----------------------------------------------------------------- lint / fmt
 
 .PHONY: lint
-lint: lint-go lint-py lint-web ## Lint and type check everything
+lint: lint-contracts lint-go lint-py lint-web ## Lint and type check everything
 
 .PHONY: lint-go
 lint-go:
@@ -171,4 +201,4 @@ migrate: ## Apply database migrations
 # ------------------------------------------------------------------------- ci
 
 .PHONY: ci
-ci: lint cover ## Everything CI runs, in the order CI runs it
+ci: lint check-generated cover ## Everything CI runs, in the order CI runs it

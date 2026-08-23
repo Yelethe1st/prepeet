@@ -13,6 +13,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"slices"
 )
 
@@ -41,6 +42,50 @@ type Config struct {
 	// Environment names the deployment. Behaviour that differs by environment
 	// reads this rather than sniffing hostnames.
 	Environment Environment
+	// DatabaseURL is the PostgreSQL connection string. It has no default: a
+	// default would let a process start pointed at nothing and fail later,
+	// further from the cause.
+	DatabaseURL string
+	// AppDatabasePassword is the password for the prepeet_app role, used only
+	// by cmd/migrate when creating the role. It has no default because a
+	// default would be a credential in the repository, and in a deployed
+	// environment it comes from the secret store per PLT-07.
+	AppDatabasePassword string
+}
+
+// String renders the configuration for logging with secrets redacted.
+//
+// Config is logged at startup, which is useful and is also exactly how a
+// credential ends up in a telemetry store that SEC-08 then has to scan for.
+// Redacting here rather than at each call site means a future field cannot leak
+// because someone logged the struct without thinking.
+func (c Config) String() string {
+	password := "unset"
+	if c.AppDatabasePassword != "" {
+		password = "[redacted]"
+	}
+	return fmt.Sprintf("Config{Address:%s Environment:%s DatabaseURL:%s AppDatabasePassword:%s}",
+		c.Address, c.Environment, redactURL(c.DatabaseURL), password)
+}
+
+// redactURL removes any password embedded in a connection string, which is the
+// usual place one hides.
+func redactURL(raw string) string {
+	if raw == "" {
+		return "unset"
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		// An unparseable URL may still contain a credential, so it is not
+		// echoed back.
+		return "[unparseable]"
+	}
+	if parsed.User != nil {
+		if _, hasPassword := parsed.User.Password(); hasPassword {
+			parsed.User = url.UserPassword(parsed.User.Username(), "redacted")
+		}
+	}
+	return parsed.String()
 }
 
 // Load reads and validates configuration.
@@ -53,6 +98,10 @@ func Load(lookup Lookup) (Config, error) {
 	cfg := Config{
 		Address:     value(lookup, "PREPEET_ADDRESS", ":8080"),
 		Environment: Environment(value(lookup, "PREPEET_ENVIRONMENT", string(EnvironmentLocal))),
+
+		// No defaults. See the field comments.
+		DatabaseURL:         value(lookup, "PREPEET_DATABASE_URL", ""),
+		AppDatabasePassword: value(lookup, "PREPEET_APP_DATABASE_PASSWORD", ""),
 	}
 
 	if !slices.Contains(environments, cfg.Environment) {

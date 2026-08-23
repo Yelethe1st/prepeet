@@ -108,3 +108,59 @@ func TestEmptyValueIsTreatedAsUnset(t *testing.T) {
 		t.Errorf("Environment = %q, want the default %q", got.Environment, config.EnvironmentLocal)
 	}
 }
+
+// The database URL and the application role's password have no defaults. A
+// default database URL would let a process start pointed at nothing, and a
+// default password would be a credential in the repository.
+func TestDatabaseSettingsHaveNoDefaults(t *testing.T) {
+	t.Parallel()
+
+	got, err := config.Load(func(string) (string, bool) { return "", false })
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if got.DatabaseURL != "" {
+		t.Errorf("DatabaseURL = %q, want empty: a default would point a process at nothing", got.DatabaseURL)
+	}
+	if got.AppDatabasePassword != "" {
+		t.Errorf("AppDatabasePassword = %q, want empty: a default would be a credential in the repository", got.AppDatabasePassword)
+	}
+}
+
+func TestDatabaseSettingsAreReadFromTheEnvironment(t *testing.T) {
+	t.Parallel()
+
+	env := map[string]string{
+		"PREPEET_DATABASE_URL":          "postgres://prepeet@localhost:5432/prepeet",
+		"PREPEET_APP_DATABASE_PASSWORD": "from-the-secret-store",
+	}
+
+	got, err := config.Load(func(key string) (string, bool) { v, ok := env[key]; return v, ok })
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if got.DatabaseURL != env["PREPEET_DATABASE_URL"] {
+		t.Errorf("DatabaseURL = %q, want %q", got.DatabaseURL, env["PREPEET_DATABASE_URL"])
+	}
+	if got.AppDatabasePassword != env["PREPEET_APP_DATABASE_PASSWORD"] {
+		t.Errorf("AppDatabasePassword = %q, want it read from the environment", got.AppDatabasePassword)
+	}
+}
+
+// A password that reached a log line would sit in the telemetry store, which
+// SEC-08 scans precisely to prevent.
+func TestConfigDoesNotStringifyTheDatabasePassword(t *testing.T) {
+	t.Parallel()
+
+	env := map[string]string{"PREPEET_APP_DATABASE_PASSWORD": "hunter2"}
+	got, err := config.Load(func(key string) (string, bool) { v, ok := env[key]; return v, ok })
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if strings.Contains(got.String(), "hunter2") {
+		t.Errorf("String() = %q, want the password redacted", got.String())
+	}
+}

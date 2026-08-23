@@ -42,15 +42,24 @@ check, dependency audit and container scan, on every change.
 
 ### PLT-03 · Provision PostgreSQL with row-level security and least-privilege roles
 
-**Depends on** DEC-05 · **Blocks** IAM-03, SEC-02
+**Depends on** DEC-05 · **Blocks** IAM-03, SEC-02 · **In progress**
 
 Tenant isolation defended twice: in application authorization and again in the database. The
 application's connection role must not be able to bypass RLS.
 
+Built in `services/platform/platform/database` against [ADR-0002](../../architecture/decisions/0002-postgresql-schema-rls-and-connection-roles.md),
+which is proposed and awaiting approval. The schema currently covers tenancy, identity and membership;
+later contexts add their own tables under the same rules.
+
 **Done when**
-- [ ] Every tenant-scoped table carries an RLS policy keyed to the active tenant.
-- [ ] A test proves cross-tenant `SELECT`, `INSERT`, `UPDATE` and `LIST` all fail under the app role.
-- [ ] Migration tooling runs forward from empty and from the previous release.
+- [x] Every tenant-scoped table carries an RLS policy keyed to the active tenant, forced so the owner cannot bypass it.
+- [x] A test proves cross-tenant `SELECT`, `INSERT`, `UPDATE`, `DELETE` and listing all fail under the app role.
+- [x] A test proves a query with no tenant context returns nothing rather than everything.
+- [x] A test proves tenant context does not survive the transaction on a reused connection.
+- [x] A test fails the build if any table carrying `tenant_id` lacks forced row-level security.
+- [x] Migration tooling runs forward from empty, is idempotent, and refuses an edited applied migration.
+- [ ] Migrations run forward from the previous release, which needs a previous release to exist.
+- [ ] Query plans are reviewed at volume, since every policy adds a predicate.
 
 **Spec** [data-architecture.md](../../architecture/data-architecture.md)
 

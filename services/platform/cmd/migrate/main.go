@@ -6,17 +6,21 @@
 // deployed.
 //
 // Every tenant-scoped table is created together with its row-level security
-// policy in the same migration. See services/platform/migrations/README.md.
+// policy in the same migration. See ADR-0002 and
+// services/platform/platform/database/README.md.
 //
-// Wiring lands with PLT-03. This entry point exists now so the deployable is
-// real from the first commit rather than appearing later.
+// Implements part of PLT-03.
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
 )
 
 func main() {
@@ -28,7 +32,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("migrate found no migrations to apply",
+	if cfg.DatabaseURL == "" {
+		log.Error("PREPEET_DATABASE_URL is required to migrate")
+		os.Exit(1)
+	}
+
+	// A migration that is interrupted rolls back rather than leaving a
+	// half-applied schema, so cancelling is safe and is worth wiring up: a
+	// deploy that is being rolled back should not have to wait for DDL it no
+	// longer wants.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	migrations, err := database.Migrations()
+	if err != nil {
+		log.Error("reading migrations", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	log.Info("applying migrations",
 		slog.String("environment", string(cfg.Environment)),
-		slog.String("next", "PLT-03 adds the schema, RLS policies and the migration runner"))
+		slog.Int("available", len(migrations)))
+
+	if err := database.Migrate(ctx, cfg.DatabaseURL, database.MigrateOptions{
+		AppPassword: cfg.AppDatabasePassword,
+	}); err != nil {
+		// The error names the migration that failed and, for a checksum
+		// mismatch, says that migrations are forward only. That is the whole
+		// message an operator needs at three in the morning.
+		log.Error("migration failed", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	log.Info("migrations applied", slog.Int("total", len(migrations)))
 }

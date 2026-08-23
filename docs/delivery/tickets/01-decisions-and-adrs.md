@@ -33,16 +33,20 @@ region with point-in-time recovery, and MinIO standing in for S3 in local develo
 
 ### DEC-02 · Decide whether identity is built or bought
 
-**Depends on** DEC-01 · **Blocks** IAM-01
+**Depends on** DEC-01 · **Blocks** IAM-01 · **Done** 2026-08-24
 
 Password, OAuth, magic link, OTP and recovery are required for the first release; SSO and SCIM are
 deferred but must not be designed out. Decide build versus vendor, and how multi-tenant membership maps
 onto whichever is chosen.
 
+Decided in [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md): built in Go, with
+argon2id passwords and revocable opaque sessions rather than JWTs. Enterprise federation is deferred
+behind an adapter and adopted for tenant members when a buyer requires it.
+
 **Done when**
-- [ ] ADR accepted naming the provider or the build, with the enterprise-federation path.
-- [ ] Cost and lock-in consequences recorded.
-- [ ] Account-enumeration and invitation-confusion positions stated.
+- [x] ADR accepted naming the provider or the build, with the enterprise-federation path.
+- [x] Cost and lock-in consequences recorded, including that password security becomes a standing obligation.
+- [x] Account-enumeration and invitation-confusion positions stated: identical answers for known and unknown addresses, and a dummy verification so timing does not leak what the body does not.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md) · [threat-model.md](../../security/threat-model.md)
 

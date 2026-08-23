@@ -10,14 +10,23 @@ care what the navigation chose to render.
 
 ### IAM-01 · Implement registration, login, logout and session refresh
 
-**Depends on** DEC-02, CTR-01 · **Blocks** IAM-02
+**Depends on** DEC-02, CTR-01 · **Blocks** IAM-02 · **In progress**
 
 Candidate and organisation registration, password login, logout and refresh, on secure HTTP-only
 browser sessions with CSRF defence.
 
+Built against [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md). The primitives are
+done: `platform/password` for argon2id with transparent upgrade and a dummy verification for timing,
+and `platform/token` for opaque tokens stored hashed. The identity module that uses them, and the
+routes on top, are next and need CTR-01 for the wire contract.
+
 **Done when**
+- [x] Passwords use argon2id, carry their parameters, and upgrade transparently on next login.
+- [x] Tokens are opaque, carry 256 bits of entropy, and are stored hashed rather than in plaintext.
+- [x] A dummy verification exists so login timing does not distinguish an unknown address.
 - [ ] Registration, login, logout and refresh work for both candidate and organisation sign-up.
 - [ ] Responses do not reveal whether an account exists.
+- [ ] Refresh rotates, and presenting a retired token revokes the whole session family.
 - [ ] A post-login destination is preserved without allowing an open redirect.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md) · [public-api.md](../../contracts/public-api.md)

@@ -8,11 +8,12 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 |---|---|---|
 | [0001](0001-hosting-platform-and-regional-topology.md) | Hosting platform and regional topology: AWS, `eu-west-2` London, in-region storage with disclosed AI sub-processors, single region with PITR | 2026-08-23 |
 | [0002](0002-postgresql-schema-rls-and-connection-roles.md) | PostgreSQL: one database, a schema per module, forced row-level security on every tenant-owned table, tenant context set per transaction | 2026-08-24 |
+| [0003](0003-identity-built-in-go.md) | Authentication built in Go with argon2id and revocable opaque sessions; enterprise federation deferred behind an adapter | 2026-08-24 |
 
 ## Required initial ADRs
 
 1. ~~Hosting platform and regional topology.~~ Accepted as [ADR-0001](0001-hosting-platform-and-regional-topology.md).
-2. Identity build/buy and enterprise federation.
+2. ~~Identity build/buy and enterprise federation.~~ Accepted as [ADR-0003](0003-identity-built-in-go.md).
 3. Go modular-monolith boundary and extraction criteria.
 4. Temporal hosting and workflow ownership.
 5. ~~PostgreSQL schemas, row-level security, and connection roles.~~ Accepted as [ADR-0002](0002-postgresql-schema-rls-and-connection-roles.md).

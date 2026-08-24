@@ -50,10 +50,23 @@ could not sign in at all.
 Each of these was verified by breaking it, including making dark secondary text unreadable and pointing
 the dark background at the light one.
 
-**Remaining, and stated rather than implied.** The rest of the component set. Rendered contrast, which
-catches a component putting one token on another in a way the token-level check cannot see and needs a
-browser. Rendered layout at 320px, since a component can satisfy every stylesheet rule and still overflow
-because of content. And visual regression, which nothing does yet.
+**A browser harness now covers what jsdom cannot.** Rendered contrast in both themes, layout including
+overflow at 320px and at 200% text, and appearance against committed screenshots. See
+[apps/web/e2e/README.md](../../../apps/web/e2e/README.md).
+
+It found a real WCAG 2.2 violation on its first run: the prototype's checkbox control is 18px, under the
+24px target-size minimum, and two stacked radios had their centres 19.5px apart, inside the spacing
+exception. Fixed by spacing them, which is what the exception is for, rather than by resizing a control
+the whole design system shares.
+
+Three things about the harness were wrong before they were right, and each is recorded there because each
+would silently make it useless: a reused server meant assertions ran against code no longer in the
+repository, colour transitions meant contrast was measured mid-interpolation, and unpinned text rendering
+gave a noise floor larger than the changes being looked for.
+
+**Remaining.** The rest of the component set, and an end-to-end flow through the real API in a browser,
+which is the only way the session cookie's SameSite behaviour is checked as a browser applies it rather
+than as a Go test reads a header.
 
 The standard itself is written down in [apps/web/src/README.md](../../../apps/web/src/README.md),
 including an honest record of which files were genuinely test-first and which were not.

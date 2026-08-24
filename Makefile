@@ -53,7 +53,7 @@ bootstrap-web:
 # ----------------------------------------------------------------------- test
 
 .PHONY: test
-test: test-go test-py test-web ## Run every test suite
+test: test-go test-py test-web ## Run every fast test suite
 
 .PHONY: test-go
 test-go: ## Run the Go suite with the race detector
@@ -66,6 +66,25 @@ test-py: ## Run the Python suite
 .PHONY: test-web
 test-web: ## Run the web suite
 	cd $(WEB_DIR) && pnpm test
+
+.PHONY: test-browser
+test-browser: ## Run the browser tests: accessibility, layout and appearance
+	cd $(WEB_DIR) && pnpm test:browser
+
+.PHONY: test-browser-update
+test-browser-update: ## Accept the current appearance as the new baseline
+	@echo "  This rewrites the committed screenshots. Review the image diff, not"
+	@echo "  just the test result: an accepted baseline is a decision about how"
+	@echo "  the product looks."
+	cd $(WEB_DIR) && pnpm test:browser:update
+
+.PHONY: test-browser-baselines
+test-browser-baselines: ## Regenerate Linux baselines in the container CI uses
+	@# Screenshots differ between operating systems, so Playwright names them per
+	@# platform. Baselines taken on macOS cannot be compared on a Linux runner,
+	@# and generating them there by hand is how they end up stale. This runs the
+	@# same image CI does.
+	docker run --rm --network host 		-v $(CURDIR):/work -w /work/$(WEB_DIR) 		-e CI=1 		mcr.microsoft.com/playwright:v1.62.1-noble 		sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm test:browser:update"
 
 .PHONY: test-integration
 test-integration: ## Run the integration suites against real dependencies in containers

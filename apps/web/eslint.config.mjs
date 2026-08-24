@@ -28,6 +28,19 @@ const config = [
   ...next,
   ...coreWebVitals,
   ...typescript,
+  {
+    // The browser tests are not React.
+    //
+    // Playwright fixtures take a parameter named `use`, and the react-hooks
+    // rule reads that as a call to React's `use` hook in a function whose name
+    // does not start with "use". Turning the rule off for these files is
+    // narrower than renaming a Playwright API, and these files contain no
+    // components for it to be right about.
+    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
 ]
 
 export default config

@@ -109,23 +109,35 @@ export function RegisterForm({ register, onRegistered }: RegisterFormProps) {
           What brings you here?
         </legend>
 
-        {(
-          [
-            ["candidate", "Practise interviews for myself"],
-            ["organisation", "Screen candidates for my organisation"],
-          ] as const
-        ).map(([value, label]) => (
-          <label className="check" key={value}>
-            <input
-              type="radio"
-              name="account_type"
-              value={value}
-              checked={accountType === value}
-              onChange={() => setAccountType(value)}
-            />
-            <span>{label}</span>
-          </label>
-        ))}
+        {/*
+          The stack utility is not decoration here. WCAG 2.2 requires a target
+          of at least 24px, or enough space that a 24px circle centred on each
+          does not touch the next. The prototype's control is 18px, so the
+          spacing exception is what this satisfies, and stacked with no gap the
+          centres were 19.5px apart and failed.
+
+          Found by the browser suite. Nothing in jsdom could see it, because
+          jsdom has no layout and every element measures zero.
+        */}
+        <div className="stack">
+          {(
+            [
+              ["candidate", "Practise interviews for myself"],
+              ["organisation", "Screen candidates for my organisation"],
+            ] as const
+          ).map(([value, label]) => (
+            <label className="check" key={value}>
+              <input
+                type="radio"
+                name="account_type"
+                value={value}
+                checked={accountType === value}
+                onChange={() => setAccountType(value)}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
       </fieldset>
 
       <Field label="Work or personal email" name="email" error={emailError}>

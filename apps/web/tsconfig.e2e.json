@@ -1,0 +1,20 @@
+{
+  // The browser tests, type checked separately from the application.
+  //
+  // They were inside the application's tsconfig, which meant `next build`
+  // type checked them and a mistake in a Playwright spec failed the production
+  // build. A test must be able to be wrong without stopping a deploy, and it
+  // must still be type checked, so it gets its own project rather than an
+  // exemption.
+  //
+  // The DOM lib is here rather than inherited because these run code inside a
+  // page through page.evaluate, where document and window are real.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["e2e/**/*.ts", "playwright.config.ts"],
+  "exclude": ["node_modules"]
+}

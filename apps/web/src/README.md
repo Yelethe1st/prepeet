@@ -89,16 +89,27 @@ The floor is not the standard. It passed at 88% while two files sat at zero,
 which is the shape of number to distrust: an aggregate hides a wholly untested
 file. Read the per-file column.
 
+## The browser tests
+
+The three things this file used to list as missing are covered now, in
+[`e2e/`](../e2e/README.md), because none of them can be done in jsdom: it has no
+layout engine and does not apply stylesheets, so a 900px box measures zero and a
+colour set by a class comes back as the browser default.
+
+Rendered contrast, layout including overflow at 320px and at 200% text, and
+appearance compared against committed screenshots. Run them with
+`make test-browser`.
+
+They are separate from this suite rather than folded into it because they cost
+seconds and need a built server. Keep asserting behaviour here, where it is
+milliseconds; put anything that depends on layout or colour there, because here
+it will pass whatever the answer is.
+
 ## What is still missing
 
-Stated rather than implied.
-
-**Rendered contrast.** The theme test computes ratios from tokens, which catches
-a colour edited badly and not a component that puts one token on another in a
-way nobody checked. That needs a browser.
-
-**Rendered layout.** The 320px test reads stylesheets. A component can satisfy
-every rule here and still overflow because of content.
-
-**Visual regression.** Nothing compares what a screen looks like to what it
-looked like. WEB-01 owes this.
+An end-to-end flow through the real API. The browser tests serve the built
+application and stub the network where a response is needed, which is right for
+what they assert. Nothing yet drives sign-in through the Go service in a real
+browser, which is the only way the session cookie's `SameSite` and `HttpOnly`
+behaviour is checked as a browser applies it rather than as a Go test reads a
+header. That belongs with the first flow worth testing that way.

@@ -124,6 +124,37 @@ jobs:
       - name: Build
         run: pnpm build
 
+  browser:
+    name: Web application in a browser
+    runs-on: ubuntu-latest
+    # The image Playwright's own baselines were generated in. Running the
+    # browser from the runner's own packages instead would render text
+    # differently from the committed screenshots, and every appearance test
+    # would fail for a reason that has nothing to do with the change.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+      - name: Accessibility, layout and appearance
+        run: pnpm test:browser
+      # The report is what makes a failure diagnosable without rerunning it
+      # locally: it carries the diff image for an appearance failure and a trace
+      # for anything else.
+      - name: Keep the report when something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
   docs:
     name: Documentation links
     runs-on: ubuntu-latest

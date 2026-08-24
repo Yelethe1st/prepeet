@@ -190,3 +190,88 @@ describe("SignInForm", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 });
+
+/**
+ * A failure that is not an ApiError.
+ *
+ * It happens when something inside the call throws for a reason that is not the
+ * server refusing: a bug in the client, a serialisation failure, a browser
+ * extension interfering with fetch. The person must still be told something,
+ * and must not be told the exception's own text, which is written for a
+ * developer and may name internals.
+ */
+describe("SignInForm with an unexpected failure", () => {
+  it("shows a message of its own rather than the exception's", async () => {
+    signIn.mockRejectedValue(new TypeError("Cannot read properties of undefined (reading 'x')"));
+    renderForm();
+
+    await fillAndSubmit();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/something went wrong/i);
+    expect(alert).not.toHaveTextContent(/undefined/i);
+    expect(alert).not.toHaveTextContent(/TypeError/);
+  });
+
+  it("does not hand control onward when the call threw", async () => {
+    signIn.mockRejectedValue(new TypeError("boom"));
+    renderForm();
+
+    await fillAndSubmit();
+
+    await screen.findByRole("alert");
+    expect(onSignedIn).not.toHaveBeenCalled();
+  });
+
+  it("becomes usable again, rather than staying stuck as busy", async () => {
+    signIn.mockRejectedValue(new TypeError("boom"));
+    renderForm();
+
+    await fillAndSubmit();
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeEnabled();
+  });
+});
+
+/**
+ * Keyboard use, which is how the form is used by anybody not using a mouse and
+ * by most people who type fast.
+ */
+describe("SignInForm from the keyboard", () => {
+  it("submits on Enter from within a field", async () => {
+    signIn.mockResolvedValue(undefined);
+    renderForm();
+
+    await userEvent.type(screen.getByLabelText(/email/i), "daniel.okonkwo@example.com");
+    await userEvent.type(screen.getByLabelText(/^password$/i), "a-long-password{Enter}");
+
+    await waitFor(() => expect(signIn).toHaveBeenCalledOnce());
+  });
+
+  it("reaches every control by tabbing, in the order they are read", async () => {
+    renderForm();
+
+    await userEvent.tab();
+    expect(screen.getByLabelText(/email/i)).toHaveFocus();
+
+    await userEvent.tab();
+    expect(screen.getByLabelText(/^password$/i)).toHaveFocus();
+
+    await userEvent.tab();
+    expect(screen.getByRole("button", { name: /sign in/i })).toHaveFocus();
+  });
+
+  it("does not trap focus behind a disabled button while busy", async () => {
+    let release: () => void = () => {};
+    signIn.mockReturnValue(new Promise<void>((resolve) => { release = resolve; }));
+    renderForm();
+
+    await fillAndSubmit();
+
+    // A disabled button is skipped by tabbing, which is correct, and the fields
+    // must remain reachable so somebody can correct a typo while waiting.
+    expect(screen.getByLabelText(/email/i)).toBeEnabled();
+    release();
+  });
+});

@@ -17,8 +17,8 @@ exercises — buttons, cards, tables that become cards, dialogs, drawers, banner
 
 **Done when**
 - [x] Tokens are the single source of colour, spacing, radius and motion; no component hardcodes a value.
-- [ ] Every component ships with keyboard behaviour, focus states and a documented accessible name.
-- [ ] Light and dark themes are both verified for contrast.
+- [x] Every component ships with keyboard behaviour, focus states and a documented accessible name.
+- [x] Light and dark themes are both verified for contrast.
 
 **In progress, and deliberately narrow.** Three components exist: `Field`, `Button` and `Banner`. Each
 was added because the screen being ported needed it, rather than by working through
@@ -37,8 +37,26 @@ because a form that can be submitted twice will be. Every component has an axe a
 matchers had never been registered, so the first `toHaveNoViolations` anyone wrote would have failed with
 a Chai error rather than an accessibility result.
 
-**Remaining.** The rest of the component set, keyboard behaviour for the ones that need it, and contrast
-verification across both themes, which needs a tool rather than an assertion.
+Keyboard behaviour and contrast are now asserted. Enter submits, arrow keys move within a radio group,
+and tab order matches reading order. Contrast is computed from the tokens for body and secondary text in
+both themes, following the `var()` indirection to the palette, and checked against the 4.5:1 threshold
+the AA commitment requires. Nothing had rendered dark before this existed, so a token defined only in
+light would have passed every other test and rendered as nothing.
+
+The narrowest supported viewport is checked too: no fixed width wider than 320px, no unguarded minimum,
+and the two-panel authentication layout collapsing. If it did not collapse, somebody on a small phone
+could not sign in at all.
+
+Each of these was verified by breaking it, including making dark secondary text unreadable and pointing
+the dark background at the light one.
+
+**Remaining, and stated rather than implied.** The rest of the component set. Rendered contrast, which
+catches a component putting one token on another in a way the token-level check cannot see and needs a
+browser. Rendered layout at 320px, since a component can satisfy every stylesheet rule and still overflow
+because of content. And visual regression, which nothing does yet.
+
+The standard itself is written down in [apps/web/src/README.md](../../../apps/web/src/README.md),
+including an honest record of which files were genuinely test-first and which were not.
 
 **Spec** [information-architecture.md](../../product/information-architecture.md)
 

@@ -201,3 +201,64 @@ describe("RegisterForm", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 });
+
+describe("RegisterForm with an unexpected failure", () => {
+  it("shows a message of its own rather than the exception's", async () => {
+    register.mockRejectedValue(new TypeError("Cannot read properties of undefined"));
+    renderForm();
+
+    await fill();
+    await userEvent.click(screen.getByRole("button", { name: /create/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/something went wrong/i);
+    expect(alert).not.toHaveTextContent(/TypeError|undefined/);
+  });
+
+  it("does not report success when the call threw", async () => {
+    register.mockRejectedValue(new TypeError("boom"));
+    renderForm();
+
+    await fill();
+    await userEvent.click(screen.getByRole("button", { name: /create/i }));
+
+    await screen.findByRole("alert");
+    expect(onRegistered).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("offers the correlation identifier when the server sent one", async () => {
+    register.mockRejectedValue(
+      new ApiError({ status: 500, message: "Something went wrong.", requestId: "req_01a03" }),
+    );
+    renderForm();
+
+    await fill();
+    await userEvent.click(screen.getByRole("button", { name: /create/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("req_01a03");
+  });
+});
+
+describe("RegisterForm from the keyboard", () => {
+  it("changes account type with the arrow keys, as a radio group should", async () => {
+    renderForm();
+
+    const candidate = screen.getByRole("radio", { name: /practise interviews/i });
+    candidate.focus();
+    await userEvent.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("radio", { name: /screen candidates/i })).toBeChecked();
+    expect(await screen.findByLabelText(/organisation name/i)).toBeInTheDocument();
+  });
+
+  it("submits on Enter", async () => {
+    register.mockResolvedValue(undefined);
+    renderForm();
+
+    await fill();
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(register).toHaveBeenCalledOnce());
+  });
+});

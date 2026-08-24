@@ -30,15 +30,24 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov"],
       include: ["src/**/*.{ts,tsx}"],
-      // Route files are Next.js composition points with no logic of their own,
-      // and type declarations have nothing to execute.
+      // Route files were excluded here as "composition points with no logic of
+      // their own". That was true when written and stopped being true the
+      // moment a page decided where to navigate after signing in, and because
+      // the exclusion was blanket, nothing said so. Pages are covered now.
+      //
+      // Layouts stay out: they compose a tree and choose stylesheets, and there
+      // is no behaviour in one to assert that rendering it would not.
       exclude: [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.d.ts",
         "src/app/**/layout.tsx",
-        "src/app/**/page.tsx",
+        // Barrel files re-export and do nothing.
+        "src/design-system/components/index.ts",
       ],
-      thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
+      // Raised from 80 as the suite grew. A floor well below where the suite
+      // actually sits is a floor that permits a large regression without
+      // failing, which is the opposite of what it is for.
+      thresholds: { lines: 95, functions: 95, branches: 90, statements: 95 },
     },
   },
 });

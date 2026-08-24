@@ -137,8 +137,10 @@ costs about a millisecond against the hundred argon2id already spends, and becau
 same store as the credentials it protects cannot be down while they are up.
 
 Built in `services/platform/platform/ratelimit` with migration 0005, in two implementations behind one
-interface: PostgreSQL for anything deployed, in-memory for tests and local development. What remains is
-applying it to the authentication routes, which needs the handlers in IAM-01.
+interface: PostgreSQL for anything deployed, in-memory for tests and local development. The behaviour
+every counter must have is written once as a shared contract that each implementation runs, so a third
+one, Redis or otherwise, inherits the assertions rather than copying them. What remains is applying it
+to the authentication routes, which needs the handlers in IAM-01.
 
 **Done when**
 - [x] The limiter counts per key with a moving window, and forgets keys it no longer needs.

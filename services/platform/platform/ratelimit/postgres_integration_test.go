@@ -2,10 +2,14 @@
 
 // Rate limiter tests against real PostgreSQL.
 //
-// The property that matters here cannot be tested any other way: two instances
-// of the limiter, standing in for two ECS tasks, must share one count. The
-// in-memory limiter passes every other test in this package and fails this one,
-// which is exactly why this file exists.
+// The shared contract in counter_suite_test.go covers the behaviour every
+// counter must have. This file adds only what cannot be tested any other way:
+// two instances standing in for two ECS tasks sharing one count, exact counting
+// under concurrency, sweeping, and what happens when the database is
+// unreachable.
+//
+// The in-memory counter passes the whole shared contract and fails the first of
+// those, which is the entire argument for this implementation existing.
 package ratelimit_test
 
 import (
@@ -73,53 +77,19 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func keyFor(t *testing.T) string {
-	t.Helper()
-	return t.Name() + "@example.com"
+// Postgres satisfies the same contract as every other counter.
+func TestPostgresSatisfiesTheCounterContract(t *testing.T) {
+	runCounterContract(t, func(rule ratelimit.Rule, now func() time.Time) ratelimit.Counter {
+		return ratelimit.NewPostgres(pool, rule, now)
+	})
 }
 
-func TestPostgresCounterAllowsUnderTheLimit(t *testing.T) {
-	ctx := context.Background()
-	counter := ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 5, Window: time.Minute}, time.Now)
+// What follows is specific to counting in the database.
 
-	for i := range 5 {
-		decision, err := counter.Allow(ctx, keyFor(t))
-		if err != nil {
-			t.Fatalf("Allow: %v", err)
-		}
-		if !decision.Allowed {
-			t.Errorf("request %d was refused while under the limit", i+1)
-		}
-	}
-}
-
-func TestPostgresCounterRefusesOverTheLimit(t *testing.T) {
-	ctx := context.Background()
-	counter := ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 3, Window: time.Minute}, time.Now)
-
-	for range 3 {
-		if _, err := counter.Allow(ctx, keyFor(t)); err != nil {
-			t.Fatalf("Allow: %v", err)
-		}
-	}
-
-	decision, err := counter.Allow(ctx, keyFor(t))
-	if err != nil {
-		t.Fatalf("Allow: %v", err)
-	}
-	if decision.Allowed {
-		t.Error("the fourth request was allowed under a limit of three")
-	}
-	if decision.RetryAfter <= 0 {
-		t.Error("RetryAfter is not positive, and a client needs to know when to try again")
-	}
-}
-
-// The reason this file exists. Two limiters standing in for two ECS tasks must
-// share one count, or an attacker simply gets the limit multiplied by the task
-// count and the limit means nothing.
+// The reason this implementation exists. Two counters standing in for two ECS
+// tasks must share one count, or an attacker gets the limit multiplied by the
+// task count and the limit means nothing.
 func TestTwoInstancesShareOneCount(t *testing.T) {
-	ctx := context.Background()
 	rule := ratelimit.Rule{Limit: 4, Window: time.Minute}
 
 	taskOne := ratelimit.NewPostgres(pool, rule, time.Now)
@@ -127,15 +97,11 @@ func TestTwoInstancesShareOneCount(t *testing.T) {
 
 	allowed := 0
 	for i := range 8 {
-		counter := taskOne
+		counter := ratelimit.Counter(taskOne)
 		if i%2 == 1 {
 			counter = taskTwo // alternate, as a load balancer would
 		}
-		decision, err := counter.Allow(ctx, keyFor(t))
-		if err != nil {
-			t.Fatalf("Allow: %v", err)
-		}
-		if decision.Allowed {
+		if allow(t, counter, key(t)).Allowed {
 			allowed++
 		}
 	}
@@ -147,7 +113,8 @@ func TestTwoInstancesShareOneCount(t *testing.T) {
 
 // Two requests landing at the same instant must not both read the count before
 // either writes it, or the limit is a suggestion under exactly the load that
-// matters.
+// matters. Replacing the atomic statement with a read followed by a write let
+// all thirty through, which is how this test earned its place.
 func TestConcurrentAttemptsAreCountedExactly(t *testing.T) {
 	counter := ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 10, Window: time.Minute}, time.Now)
 
@@ -160,7 +127,7 @@ func TestConcurrentAttemptsAreCountedExactly(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			decision, err := counter.Allow(context.Background(), keyFor(t))
+			decision, err := counter.Allow(context.Background(), key(t))
 			if err != nil {
 				t.Errorf("Allow: %v", err)
 				return
@@ -179,56 +146,6 @@ func TestConcurrentAttemptsAreCountedExactly(t *testing.T) {
 	}
 }
 
-func TestPostgresCounterRecoversAsTheWindowPasses(t *testing.T) {
-	ctx := context.Background()
-	now := time.Now()
-	clock := func() time.Time { return now }
-	counter := ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 2, Window: time.Minute}, clock)
-
-	for range 2 {
-		if _, err := counter.Allow(ctx, keyFor(t)); err != nil {
-			t.Fatalf("Allow: %v", err)
-		}
-	}
-	refused, err := counter.Allow(ctx, keyFor(t))
-	if err != nil {
-		t.Fatalf("Allow: %v", err)
-	}
-	if refused.Allowed {
-		t.Fatal("the third request was allowed under a limit of two")
-	}
-
-	now = now.Add(time.Minute + time.Second)
-
-	recovered, err := counter.Allow(ctx, keyFor(t))
-	if err != nil {
-		t.Fatalf("Allow: %v", err)
-	}
-	if !recovered.Allowed {
-		t.Error("the limit did not recover after the window passed")
-	}
-}
-
-// One person exhausting their attempts must not lock out everyone else.
-func TestPostgresCounterSeparatesKeys(t *testing.T) {
-	ctx := context.Background()
-	counter := ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 2, Window: time.Minute}, time.Now)
-
-	for range 2 {
-		if _, err := counter.Allow(ctx, "exhausted-"+keyFor(t)); err != nil {
-			t.Fatalf("Allow: %v", err)
-		}
-	}
-
-	decision, err := counter.Allow(ctx, "untouched-"+keyFor(t))
-	if err != nil {
-		t.Fatalf("Allow: %v", err)
-	}
-	if !decision.Allowed {
-		t.Error("one key exhausting its limit refused a different key")
-	}
-}
-
 // If this database is unreachable, authentication cannot happen at all: the
 // credential lookup uses the same store. So the limiter failing open costs
 // nothing that is not already lost, and failing closed would turn a database
@@ -237,15 +154,15 @@ func TestPostgresCounterSeparatesKeys(t *testing.T) {
 func TestTheLimiterFailsOpenWhenTheDatabaseIsUnreachable(t *testing.T) {
 	ctx := context.Background()
 
-	closed, err := pgxpool.New(ctx, "postgres://nobody:nothing@127.0.0.1:1/nowhere?sslmode=disable")
+	unreachable, err := pgxpool.New(ctx, "postgres://nobody:nothing@127.0.0.1:1/nowhere?sslmode=disable")
 	if err != nil {
 		t.Fatalf("building an unreachable pool: %v", err)
 	}
-	defer closed.Close()
+	defer unreachable.Close()
 
-	counter := ratelimit.NewPostgres(closed, ratelimit.Rule{Limit: 5, Window: time.Minute}, time.Now)
+	counter := ratelimit.NewPostgres(unreachable, ratelimit.Rule{Limit: 5, Window: time.Minute}, time.Now)
 
-	decision, err := counter.Allow(ctx, keyFor(t))
+	decision, err := counter.Allow(ctx, key(t))
 
 	if !decision.Allowed {
 		t.Error("the limiter refused the request when the database was unreachable, which would lock everyone out during a blip")
@@ -255,15 +172,17 @@ func TestTheLimiterFailsOpenWhenTheDatabaseIsUnreachable(t *testing.T) {
 	}
 }
 
-// Rows nobody will read again are only rows somebody has to store, and these
-// keys are email and network addresses, which is personal data.
+// Rows nobody will read again are only rows somebody has to store, and the keys
+// here are email and network addresses, which is personal data.
 func TestSweepRemovesOldWindows(t *testing.T) {
 	ctx := context.Background()
-	now := time.Now()
-	clock := func() time.Time { return now }
-	counter := ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 5, Window: time.Minute}, clock)
 
-	if _, err := counter.Allow(ctx, keyFor(t)); err != nil {
+	now := time.Now()
+	counter := ratelimit.NewPostgres(pool,
+		ratelimit.Rule{Limit: 5, Window: time.Minute},
+		func() time.Time { return now })
+
+	if _, err := counter.Allow(ctx, key(t)); err != nil {
 		t.Fatalf("Allow: %v", err)
 	}
 
@@ -274,26 +193,5 @@ func TestSweepRemovesOldWindows(t *testing.T) {
 	}
 	if removed == 0 {
 		t.Error("Sweep removed nothing, so old windows accumulate forever")
-	}
-}
-
-// The counter must not be able to tell a registered address from an unknown
-// one, because it runs before the credential check and a limiter that behaved
-// differently would enumerate accounts on its own.
-func TestThePostgresCounterNeverLooksAKeyUp(t *testing.T) {
-	ctx := context.Background()
-	counter := ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 2, Window: time.Minute}, time.Now)
-
-	known, err := counter.Allow(ctx, "registered-"+keyFor(t))
-	if err != nil {
-		t.Fatalf("Allow: %v", err)
-	}
-	unknown, err := counter.Allow(ctx, "never-seen-"+keyFor(t))
-	if err != nil {
-		t.Fatalf("Allow: %v", err)
-	}
-
-	if known.Allowed != unknown.Allowed || known.Remaining != unknown.Remaining {
-		t.Error("the counter treated two keys differently, and it has no way to know which is registered")
 	}
 }

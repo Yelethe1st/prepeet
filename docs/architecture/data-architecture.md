@@ -8,7 +8,7 @@
 
 - PostgreSQL is the system of record.
 - S3-compatible object storage holds CVs, audio, exports, and large immutable artifacts.
-- Redis is not provisioned. Its three proposed uses, cache, rate limiting and coordination, are each served by PostgreSQL today; see [deployment-topology.md](../operations/deployment-topology.md).
+- Redis is not provisioned. Its three proposed uses, cache, rate limiting and coordination, are each served by PostgreSQL today, with the triggers that would change that recorded in [ADR-0006](decisions/0006-postgresql-serves-cache-coordination-and-rate-limiting.md).
 - PostgreSQL full-text and `pgvector` precede dedicated search/vector infrastructure.
 - An analytics warehouse is introduced only after measured operational/reporting limits.
 

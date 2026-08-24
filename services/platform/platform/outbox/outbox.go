@@ -11,6 +11,12 @@
 // does not. Writing both together makes that impossible, and the price is
 // needing a dispatcher to carry rows onward afterwards.
 //
+// Claiming with FOR UPDATE SKIP LOCKED rather than a lock service is a
+// correctness choice rather than a cost one, and ADR-0006 records why: the lock
+// and the work share a transactional scope so they cannot disagree, there is no
+// lease to tune, and each additional dispatcher adds throughput instead of
+// idling behind a leader.
+//
 // This package is infrastructure and knows nothing about any bounded context.
 // It moves envelopes, per docs/contracts/event-catalog.md, and never inspects a
 // payload.

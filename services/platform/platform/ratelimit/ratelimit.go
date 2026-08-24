@@ -14,12 +14,16 @@
 // ADR-0001 runs more than one ECS task and a per-task counter is a limit
 // multiplied by the task count.
 //
-// PostgreSQL rather than Redis. The cost is a millisecond against the hundred
-// that argon2id already spends, and putting the counter in the same store as
-// the credentials it protects removes a choice that a separate store would
-// force: with Redis, Redis can be down while the database is up, and somebody
-// must decide between locking every user out and letting every attacker
-// through. Here there is no such state.
+// PostgreSQL rather than Redis, decided in ADR-0006. The cost is a millisecond
+// against the hundred that argon2id already spends, and putting the counter in
+// the same store as the credentials it protects removes a choice that a
+// separate store would force: Redis can be down while the database is up, and
+// somebody must then decide between locking every user out and letting every
+// attacker through. Here there is no such state.
+//
+// That ADR also names the triggers that would reverse this, and the shared
+// contract in counter_suite_test.go is what makes reversing it cheap: a Redis
+// implementation runs the existing assertions rather than copying them.
 //
 // This package never looks a key up anywhere. It cannot distinguish a
 // registered address from an unknown one, which is deliberate: it runs before

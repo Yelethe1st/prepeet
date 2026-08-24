@@ -68,26 +68,15 @@ Local development runs PostgreSQL, LocalStack and Temporal in containers. LocalS
 
 ### Redis is not provisioned
 
-Its three proposed uses are each already served, so adding it would be a fourth stateful service to
-provision, secure, monitor and fail over for no capability we lack.
+Decided in [ADR-0006](../architecture/decisions/0006-postgresql-serves-cache-coordination-and-rate-limiting.md).
+Coordination is served by `FOR UPDATE SKIP LOCKED` on the outbox, rate limiting by a counter in
+PostgreSQL, and there is nothing yet to cache. Two of those three are better answers rather than
+cheaper ones.
 
-Coordination is served by `FOR UPDATE SKIP LOCKED` on the outbox, which is better here than a lock
-service rather than merely cheaper: the lock and the work live in one transactional scope, so they
-cannot disagree, and there is no lease to tune or split-brain window.
-
-Rate limiting is served by a counter in PostgreSQL. The cost is about a millisecond against the hundred
-that argon2id already spends on the same request. It also removes a decision a separate store would
-force: Redis can be down while the database is up, and somebody would then have to choose between
-locking every user out and letting every attacker through. With one store there is no such state, since
-authentication cannot happen without the database either.
-
-Caching has nothing to cache. The one candidate is session lookup, and ADR-0003 requires that to be
-measured before it is cached. It is also the cache with the worst failure mode, since a cached session
-outliving a revocation is precisely what opaque tokens were chosen to prevent.
-
-Redis becomes the right answer when limiting is needed on every request across the whole API at rates
-where a database write per call matters, or when something needs coordination that is not about rows in
-this database. Neither is close.
+That ADR also records what Redis would genuinely bring, the four triggers that would make it necessary
+with what to measure for each, and what integrating it would actually cost. The most likely first
+trigger is fanning live interview progress out across instances, which is not one of the three uses
+Redis was originally proposed for.
 
 ## Open decisions
 

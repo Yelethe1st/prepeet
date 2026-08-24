@@ -54,6 +54,8 @@ Track cost per created, started, completed, review-ready, and insufficient-evide
 
 Define measured triggers for database partition/read replica, evaluation worker pools, search/warehouse, provider diversification, regional expansion, service extraction, and Kubernetes. Each requires an ADR and operating-cost owner.
 
+The first set of these is written down. [ADR-0006](../architecture/decisions/0006-postgresql-serves-cache-coordination-and-rate-limiting.md) names four triggers for introducing Redis, each with what to measure, an estimated threshold, and what to try before reaching for it. The estimates are arithmetic rather than measurement, which is what the instrumentation in PLT-08 and OPS-02 exists to replace.
+
 ## Open decisions
 
 Billing unit (seat/interview/minute/evaluation), insufficient/failed billing, price currency, quota messaging, provider pricing, retention tier, traffic forecast, and enterprise headroom.

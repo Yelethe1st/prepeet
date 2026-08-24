@@ -11,6 +11,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0003](0003-identity-built-in-go.md) | Authentication built in Go with argon2id and revocable opaque sessions; enterprise federation deferred behind an adapter | 2026-08-24 |
 | [0004](0004-contract-conventions-and-code-generation.md) | Contracts are hand-authored and everything else is generated from them; REST, RPC and event conventions, and what counts as a breaking change | 2026-08-24 |
 | [0005](0005-module-boundaries-and-extraction.md) | No context imports another: consumer-defined interfaces for synchronous reads, events for state changes, enforced by a test | 2026-08-24 |
+| [0006](0006-postgresql-serves-cache-coordination-and-rate-limiting.md) | PostgreSQL serves cache, coordination and rate limiting; Redis is deferred behind four named triggers | 2026-08-24 |
 
 ## Required initial ADRs
 

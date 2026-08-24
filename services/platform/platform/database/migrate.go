@@ -208,6 +208,23 @@ func appliedChecksums(ctx context.Context, conn *pgx.Conn) (map[int]string, erro
 // ErrNoTenant is returned when a tenant identifier is missing or unusable.
 var ErrNoTenant = errors.New("database: a tenant is required")
 
+// SetUser records who is asking, for the policies that scope a row to its owner
+// rather than to a tenant.
+//
+// Listing which tenants a person belongs to cannot be answered from inside one
+// tenant's scope, so tenancy.memberships carries a second policy keyed to this
+// value. SET LOCAL for the same reason as the tenant: it must not survive the
+// transaction and be inherited by the next request on this connection.
+func SetUser(ctx context.Context, tx pgx.Tx, userID string) error {
+	if strings.TrimSpace(userID) == "" {
+		return errors.New("database: a user is required")
+	}
+	if _, err := tx.Exec(ctx, `SELECT set_config('app.user_id', $1, true)`, userID); err != nil {
+		return fmt.Errorf("database: setting user context: %w", err)
+	}
+	return nil
+}
+
 // SetTenant scopes a transaction to one tenant.
 //
 // SET LOCAL rather than SET, deliberately: the value dies with the transaction

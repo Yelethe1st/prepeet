@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -378,4 +379,119 @@ func TestAnEditedAppliedMigrationIsRefused(t *testing.T) {
 	if err := database.Migrate(ctx, adminURL, database.MigrateOptions{AppPassword: "app-password"}); err == nil {
 		t.Error("Migrate accepted a changed checksum, want it refused")
 	}
+}
+
+// A person must be able to see which tenants they belong to, and that question
+// cannot be answered from inside one tenant's scope. Policy 0003 adds a second
+// way to see a membership row without widening the first.
+func TestAUserCanReadTheirOwnMembershipsAcrossTenants(t *testing.T) {
+	ctx := context.Background()
+
+	userID := seedUserInBothTenants(t)
+
+	tx, err := appPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// No tenant is active. This is the tenant switcher's question, asked before
+	// a tenant has been chosen.
+	if err := database.SetUser(ctx, tx, userID); err != nil {
+		t.Fatalf("SetUser: %v", err)
+	}
+
+	var count int
+	if err := tx.QueryRow(ctx,
+		`SELECT count(*) FROM tenancy.memberships WHERE user_id = $1`, userID).Scan(&count); err != nil {
+		t.Fatalf("counting memberships: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("count = %d, want 2: a person must see every tenant they belong to", count)
+	}
+}
+
+// The self-read policy is SELECT only. Discovering your own memberships must
+// not become a way to create or revoke one.
+func TestTheSelfReadPolicyDoesNotAllowWriting(t *testing.T) {
+	ctx := context.Background()
+
+	userID := seedUserInBothTenants(t)
+
+	tx, err := appPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := database.SetUser(ctx, tx, userID); err != nil {
+		t.Fatalf("SetUser: %v", err)
+	}
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE tenancy.memberships SET status = 'revoked' WHERE user_id = $1`, userID)
+	if err != nil {
+		return // refused outright is also correct
+	}
+	if tag.RowsAffected() != 0 {
+		t.Errorf("the self-read policy allowed updating %d membership rows", tag.RowsAffected())
+	}
+}
+
+// A user must not see somebody else's memberships just because no tenant is set.
+func TestTheSelfReadPolicyShowsOnlyYourOwnMemberships(t *testing.T) {
+	ctx := context.Background()
+
+	mine := seedUserInBothTenants(t)
+	theirs := seedUserInBothTenants(t)
+
+	tx, err := appPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := database.SetUser(ctx, tx, mine); err != nil {
+		t.Fatalf("SetUser: %v", err)
+	}
+
+	var count int
+	if err := tx.QueryRow(ctx,
+		`SELECT count(*) FROM tenancy.memberships WHERE user_id = $1`, theirs).Scan(&count); err != nil {
+		t.Fatalf("counting: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("count = %d, want 0: one person must not see another's memberships", count)
+	}
+}
+
+// seedUserInBothTenants creates a user belonging to tenant A and tenant B.
+func seedUserInBothTenants(t *testing.T) string {
+	t.Helper()
+	ctx := context.Background()
+
+	conn, err := pgx.Connect(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	// The address is unique per call rather than per test: one test seeds two
+	// users, and deriving the address from the test name alone collided.
+	var userID string
+	if err := conn.QueryRow(ctx,
+		`INSERT INTO identity.users (id, email)
+		 VALUES (gen_random_uuid(), $1 || gen_random_uuid()::text || '@example.com')
+		 RETURNING id::text`,
+		strings.ToLower(t.Name())+"-").Scan(&userID); err != nil {
+		t.Fatalf("seeding user: %v", err)
+	}
+	for _, tenant := range []string{tenantA, tenantB} {
+		if _, err := conn.Exec(ctx,
+			`INSERT INTO tenancy.memberships (id, tenant_id, user_id) VALUES (gen_random_uuid(), $1, $2)`,
+			tenant, userID); err != nil {
+			t.Fatalf("seeding membership: %v", err)
+		}
+	}
+	return userID
 }

@@ -60,6 +60,7 @@ tables under the same rules.
 - [x] A test fails the build if any table carrying `tenant_id` lacks forced row-level security.
 - [x] Migration tooling runs forward from empty, is idempotent, and refuses an edited applied migration.
 - [ ] Migrations run forward from the previous release, which needs a previous release to exist.
+- [x] A person can read their own memberships across tenants, which no single tenant's scope can answer, without that read becoming a way to write one.
 - [ ] Query plans are reviewed at volume, since every policy adds a predicate.
 
 **Spec** [data-architecture.md](../../architecture/data-architecture.md)

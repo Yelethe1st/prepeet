@@ -29,9 +29,10 @@ organisation registration does not yet create the tenant and owning membership.
 - [x] A wrong password and an unknown address return the same error and cost comparable time.
 - [x] Refresh rotates, and presenting a retired token revokes the whole session family while leaving other families alone.
 - [x] Logout revokes the family and is idempotent.
+- [x] A post-login destination is preserved without allowing an open redirect, refusing anything that could be read as a scheme, an authority or a header break.
+- [x] Session tokens travel in HTTP-only, SameSite cookies and never in a response body, with the refresh cookie scoped to the refresh endpoint.
 - [ ] The four operations are served over HTTP against the generated interface.
 - [ ] Organisation registration creates the tenant and the owning membership.
-- [ ] A post-login destination is preserved without allowing an open redirect.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md) · [public-api.md](../../contracts/public-api.md)
 

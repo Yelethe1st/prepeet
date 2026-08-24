@@ -16,9 +16,29 @@ Tokens, typography, colour with light and dark themes, and the component set the
 exercises — buttons, cards, tables that become cards, dialogs, drawers, banners, badges, evidence spans.
 
 **Done when**
-- [ ] Tokens are the single source of colour, spacing, radius and motion; no component hardcodes a value.
+- [x] Tokens are the single source of colour, spacing, radius and motion; no component hardcodes a value.
 - [ ] Every component ships with keyboard behaviour, focus states and a documented accessible name.
 - [ ] Light and dark themes are both verified for contrast.
+
+**In progress, and deliberately narrow.** Three components exist: `Field`, `Button` and `Banner`. Each
+was added because the screen being ported needed it, rather than by working through
+`screens/design-system.html` up front. A component library built ahead of any screen using it is wrong
+in ways nobody finds until the first screen, and this one is 3,643 lines of prototype.
+
+The stylesheets are ported whole from `screens/assets/css`, so the class names, the cascade and the
+values are the prototype's. A test asserts that they reference only properties something defines, which
+catches the failure that renders as an unstyled element rather than as an error, and pins the count of
+hard-coded colours so that adding one is a decision rather than a side effect.
+
+What the components add beyond styling is the part markup repeats and gets wrong: `Field` owns the id,
+the label association, `aria-describedby` and `aria-invalid`, and keeps the hint visible when an error
+appears, because an error usually means somebody did not follow the hint. `Button` owns the busy state,
+because a form that can be submitted twice will be. Every component has an axe assertion, and the axe
+matchers had never been registered, so the first `toHaveNoViolations` anyone wrote would have failed with
+a Chai error rather than an accessibility result.
+
+**Remaining.** The rest of the component set, keyboard behaviour for the ones that need it, and contrast
+verification across both themes, which needs a tool rather than an assertion.
 
 **Spec** [information-architecture.md](../../product/information-architecture.md)
 

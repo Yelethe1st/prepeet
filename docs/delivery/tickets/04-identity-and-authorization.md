@@ -68,6 +68,12 @@ choices made without its analysis or a migration to undo them.
 - [x] The four operations are served over HTTP against the generated interface.
 - [x] Organisation registration creates the tenant and the owning membership.
 
+The browser reaches these endpoints on its own origin, which is what the contract means by declaring its
+server as `/api/v1` rather than an absolute URL. Locally a Next rewrite arranges it; in a deployed
+environment the load balancer does. Pointing the client at the API's own port instead would need CORS
+configuration that the local arrangement would not exercise, and would make the session cookie's
+`SameSite` behaviour something that happens to work rather than something that was decided.
+
 **Spec** [product-requirements.md](../../product/product-requirements.md) · [public-api.md](../../contracts/public-api.md)
 
 ---

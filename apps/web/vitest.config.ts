@@ -11,7 +11,15 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // The generated contract types, aliased rather than made a workspace
+      // package: openapi-typescript emits interfaces and nothing else, so a
+      // package would ship no runtime and exist only to be resolved.
+      "@contracts": fileURLToPath(
+        new URL("../../packages/generated/typescript/api.gen.ts", import.meta.url),
+      ),
+    },
   },
   test: {
     environment: "jsdom",

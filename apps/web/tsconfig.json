@@ -27,6 +27,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@contracts": [
+        "../../packages/generated/typescript/api.gen.ts"
       ]
     }
   },
@@ -35,7 +38,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    "../../packages/generated/typescript/api.gen.ts"
   ],
   "exclude": [
     "node_modules"

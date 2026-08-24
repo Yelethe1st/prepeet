@@ -164,6 +164,7 @@ TOOLS_BIN := $(CURDIR)/.tools
 # Everything a generator owns. Listed once, because a path that is generated but
 # missing from here is one nobody would notice going stale.
 GENERATED_PATHS := packages/generated \
+	packages/generated/typescript/events.gen.ts \
 	services/platform/platform/authz/catalogue.gen.go \
 	services/platform/internal/identity/db \
 	services/platform/platform/outbox/db \
@@ -186,6 +187,12 @@ generate: tools ## Regenerate every client and server type from the contracts
 	cd tools/authzgen && go build -o $(TOOLS_BIN)/authzgen .
 	$(TOOLS_BIN)/authzgen
 	cd $(GO_DIR) && gofmt -w platform/authz
+	# The durable event catalogue, from its own contracts. Own module for the
+	# same reason authzgen is: the service ships the registry and parses no
+	# schema at startup.
+	cd tools/eventgen && go build -o $(TOOLS_BIN)/eventgen .
+	$(TOOLS_BIN)/eventgen
+	gofmt -w packages/generated/go/prepeetevents
 	# The repositories' SQL, checked against the real migrations rather than
 	# against a description of them. See ADR-0008.
 	cd $(GO_DIR) && $(TOOLS_BIN)/sqlc generate
@@ -199,6 +206,24 @@ check-generated: generate ## Fail if generated code differs from the contracts
 		exit 1; \
 	fi
 	@printf '\033[32mPASS\033[0m generated code matches the contracts\n'
+
+.PHONY: check-events
+check-events: ## Fail if the event contracts would break a consumer
+	@# Against the previous release rather than the previous commit, per
+	@# ADR-0004, so a contract can be revised while in progress without the
+	@# gate firing on every intermediate state.
+	@set -e; \
+	tag=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
+	if [ -z "$$tag" ]; then \
+		printf 'no release tag yet, so there is no baseline to compare against.\n'; \
+		printf 'This becomes a real gate at the first tagged release.\n'; \
+		exit 0; \
+	fi; \
+	baseline=$$(mktemp -d); \
+	trap 'rm -rf "$$baseline"' EXIT; \
+	git archive "$$tag" packages/contracts/events | tar -x -C "$$baseline"; \
+	cd tools/eventgen && go build -o $(TOOLS_BIN)/eventgen . && cd $(CURDIR); \
+	$(TOOLS_BIN)/eventgen -baseline "$$baseline/packages/contracts/events"
 
 .PHONY: lint-contracts
 lint-contracts: ## Lint the OpenAPI document

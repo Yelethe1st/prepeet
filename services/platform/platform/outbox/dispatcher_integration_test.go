@@ -56,7 +56,7 @@ func TestTwoDispatchersNeverDeliverTheSameEvent(t *testing.T) {
 	const events = 40
 	published := make(map[string]bool, events)
 	for range events {
-		published[publishCommitted(t, "session.started.v1")] = true
+		published[publishCommitted(t, string(probeE))] = true
 	}
 
 	var mu sync.Mutex
@@ -154,7 +154,7 @@ func TestTheWakeupArrivesOnlyOnCommit(t *testing.T) {
 		t.Fatalf("begin: %v", err)
 	}
 
-	if _, err := outbox.New(pool).Publish(ctx, tx, event(t, "session.started.v1")); err != nil {
+	if _, err := outbox.New(pool).Publish(ctx, tx, event(t, string(probeE))); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
 
@@ -200,7 +200,7 @@ func TestARolledBackPublishSendsNoWakeup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin: %v", err)
 	}
-	if _, err := outbox.New(pool).Publish(ctx, tx, event(t, "session.started.v1")); err != nil {
+	if _, err := outbox.New(pool).Publish(ctx, tx, event(t, string(probeE))); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
 	if err := tx.Rollback(ctx); err != nil {
@@ -247,7 +247,7 @@ func TestAnEventIsDeliveredPromptlyByTheWakeup(t *testing.T) {
 	// since a signal sent before the subscription exists is legitimately lost.
 	time.Sleep(500 * time.Millisecond)
 
-	want := publishCommitted(t, "session.started.v1")
+	want := publishCommitted(t, string(probeE))
 
 	deadline := time.After(15 * time.Second)
 	for {
@@ -272,7 +272,7 @@ func TestABacklogPublishedBeforeStartupIsDrained(t *testing.T) {
 	const backlog = 12
 	want := make(map[string]bool, backlog)
 	for range backlog {
-		want[publishCommitted(t, "session.started.v1")] = true
+		want[publishCommitted(t, string(probeE))] = true
 	}
 
 	var mu sync.Mutex

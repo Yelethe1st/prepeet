@@ -80,9 +80,9 @@ Events are the record of what happened, consumed by integrations, analytics and 
 carries tenant, actor, correlation, version and occurrence time.
 
 **Done when**
-- [ ] Every event in [event-catalog.md](../../contracts/event-catalog.md) has a schema and an owner.
-- [ ] Envelope fields are mandatory and validated at publication.
-- [ ] Compatibility rules prevent a consumer being broken by an additive change.
+- [x] Every event in [event-catalog.md](../../contracts/event-catalog.md) has a schema and an owner.
+- [x] Envelope fields are mandatory and validated at publication.
+- [x] Compatibility rules prevent a consumer being broken by an additive change.
 
 **Spec** [event-catalog.md](../../contracts/event-catalog.md)
 

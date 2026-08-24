@@ -11,7 +11,6 @@ package outbox_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
@@ -24,6 +23,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	"github.com/Yelethe1st/prepeet/packages/generated/go/prepeetevents"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 )
@@ -88,16 +88,18 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// event builds a publishable event of the given type.
+//
+// It delegates to the catalogue-derived fixture rather than hard-coding a
+// producer and payload, because the outbox now refuses an event whose producer
+// is not the owning context or whose payload is missing a declared field. A
+// fixture written by hand would be one edit to a schema away from failing every
+// test in this file for a reason none of them is about.
 func event(t *testing.T, eventType string) outbox.Event {
 	t.Helper()
-	return outbox.Event{
-		Type:          eventType,
-		SchemaVersion: "1.0",
-		OccurredAt:    time.Now().UTC(),
-		Producer:      "identity",
-		Actor:         outbox.Actor{Type: "service", ID: "test"},
-		Payload:       json.RawMessage(`{"user_id":"usr_1"}`),
-	}
+	built := catalogueEvent(t, prepeetevents.Type(eventType))
+	built.OccurredAt = time.Now().UTC()
+	return built
 }
 
 // The property the outbox exists for. Publishing takes the transaction, so an
@@ -179,7 +181,7 @@ func TestTwoDispatchersNeverClaimTheSameEvent(t *testing.T) {
 		t.Fatalf("begin: %v", err)
 	}
 	for range events {
-		if _, err := store.Publish(ctx, tx, event(t, "concurrency.probe.v1")); err != nil {
+		if _, err := store.Publish(ctx, tx, event(t, string(probeA))); err != nil {
 			t.Fatalf("Publish: %v", err)
 		}
 	}
@@ -225,7 +227,7 @@ func TestADeliveredEventIsNotClaimedAgain(t *testing.T) {
 	ctx := context.Background()
 	store := outbox.New(pool)
 
-	published := publishOne(t, store, "delivery.probe.v1")
+	published := publishOne(t, store, string(probeC))
 
 	if err := store.MarkDelivered(ctx, published); err != nil {
 		t.Fatalf("MarkDelivered: %v", err)
@@ -250,7 +252,7 @@ func TestAFailedDeliveryIsRetriedLater(t *testing.T) {
 	ctx := context.Background()
 	store := outbox.New(pool)
 
-	published := publishOne(t, store, "retry.probe.v1")
+	published := publishOne(t, store, string(probeD))
 
 	if err := store.MarkFailed(ctx, published, "the endpoint returned 503"); err != nil {
 		t.Fatalf("MarkFailed: %v", err)
@@ -298,7 +300,7 @@ func TestAnEventIsDeadLetteredAfterEnoughFailures(t *testing.T) {
 	ctx := context.Background()
 	store := outbox.New(pool)
 
-	published := publishOne(t, store, "deadletter.probe.v1")
+	published := publishOne(t, store, string(probeB))
 
 	for range outbox.MaxAttempts {
 		if err := store.MarkFailed(ctx, published, "the endpoint is gone"); err != nil {
@@ -365,7 +367,13 @@ func TestPublishRequiresAVersionedEventType(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	unversioned := event(t, "identity.user_registered")
+	// Built directly rather than through the fixture helper, which resolves its
+	// producer and payload from the catalogue and so cannot construct a type
+	// that is not in it. That is the helper being right, not an obstacle: the
+	// type under test here is one the catalogue could never contain.
+	unversioned := catalogueEvent(t, prepeetevents.IdentityUserRegisteredV1)
+	unversioned.Type = "identity.user_registered"
+
 	if _, err := store.Publish(ctx, tx, unversioned); err == nil {
 		t.Error("Publish accepted an event type with no version suffix")
 	}

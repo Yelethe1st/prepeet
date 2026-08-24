@@ -86,6 +86,12 @@ jobs:
       # a drift here fails the build rather than being noticed later.
       - name: Generated code matches the contracts
         run: make check-generated
+      # Tags are needed to find the previous release, and actions/checkout
+      # fetches none by default, which would make this silently skip.
+      - name: Fetch tags for the compatibility baseline
+        run: git fetch --tags --depth=1
+      - name: Refuse a breaking change to the event contracts
+        run: make check-events
 
   python:
     name: Python intelligence

@@ -31,11 +31,13 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Yelethe1st/prepeet/packages/generated/go/prepeetevents"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 	db "github.com/Yelethe1st/prepeet/services/platform/platform/outbox/db"
@@ -99,9 +101,89 @@ func (e Event) validate() error {
 		return fmt.Errorf("%w: producer is required", ErrInvalidEvent)
 	case e.Actor.Type == "" || e.Actor.ID == "":
 		return fmt.Errorf("%w: actor type and id are required", ErrInvalidEvent)
-	default:
-		return nil
 	}
+	return e.validateAgainstCatalogue()
+}
+
+// validateAgainstCatalogue checks the event against the generated contract.
+//
+// Here rather than in the producing context, because the outbox is the only way
+// a fact leaves this system and so the only place the check can be made once
+// for everybody. A producer that got it wrong is caught before the row is
+// written, rather than by somebody else's consumer days later.
+//
+// The registry is generated from packages/contracts/events and compiled in. The
+// service reads no schema at startup, so this costs a map lookup rather than a
+// parse. See ADR-0004 and CTR-03.
+func (e Event) validateAgainstCatalogue() error {
+	definition, declared := prepeetevents.Catalogue[prepeetevents.Type(e.Type)]
+	if !declared {
+		return fmt.Errorf("%w: %q is not in the event catalogue; add a schema in packages/contracts/events and run make generate",
+			ErrInvalidEvent, e.Type)
+	}
+
+	// Only the context owning the authoritative state emits its event, per
+	// ADR-0004. A context publishing another's event is publishing a fact it
+	// cannot be sure of, and a consumer has no way to tell.
+	if e.Producer != definition.Owner {
+		return fmt.Errorf("%w: %q is owned by %q and was published by %q",
+			ErrInvalidEvent, e.Type, definition.Owner, e.Producer)
+	}
+
+	// The registry is compiled into this binary, so a mismatch is not a
+	// rollout: somebody set the field by hand, and a schema_version that lies
+	// is one a consumer's compatibility logic will act on.
+	if e.SchemaVersion != definition.SchemaVersion {
+		return fmt.Errorf("%w: %q declares schema version %q, not %q",
+			ErrInvalidEvent, e.Type, definition.SchemaVersion, e.SchemaVersion)
+	}
+
+	return validatePayload(e.Type, e.Payload, definition)
+}
+
+// validatePayload checks the payload's fields against the event's contract.
+//
+// Decoded into a map rather than validated by a JSON Schema library. The only
+// constraints a payload contract expresses are the ones checked here, and a
+// full validator would be a runtime dependency, a startup parse and a second
+// place for the rules to live.
+func validatePayload(eventType string, payload json.RawMessage, definition prepeetevents.Definition) error {
+	// An absent payload is treated as an empty object, matching Publish, which
+	// writes {} for one. An event whose contract requires nothing is then valid
+	// without the caller constructing an empty object by hand.
+	if len(payload) == 0 {
+		payload = json.RawMessage(`{}`)
+	}
+
+	// A bare array, string or null would pass the required-field check
+	// vacuously, because there are no fields in which to find one missing.
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		return fmt.Errorf("%w: the payload for %q is not a JSON object: %w", ErrInvalidEvent, eventType, err)
+	}
+	if fields == nil {
+		return fmt.Errorf("%w: the payload for %q is null rather than an object", ErrInvalidEvent, eventType)
+	}
+
+	for _, required := range definition.Required {
+		if _, present := fields[required]; !present {
+			return fmt.Errorf("%w: %q requires payload field %q", ErrInvalidEvent, eventType, required)
+		}
+	}
+
+	// The asymmetry with consumers is deliberate. A consumer tolerates an
+	// unknown field, because refusing one turns an additive change into a
+	// breaking one. A producer does not: a field nobody declared is one no
+	// consumer was told to expect, and in practice it is a misspelling of the
+	// field that was meant.
+	for name := range fields {
+		if !slices.Contains(definition.Known, name) {
+			return fmt.Errorf("%w: %q declares no payload field %q; add it to the contract if it belongs",
+				ErrInvalidEvent, eventType, name)
+		}
+	}
+
+	return nil
 }
 
 // Store reads and writes the outbox.

@@ -81,6 +81,9 @@ func (a identityAdapter) Revoke(ctx context.Context, sessionToken, reason string
 	return a.translate(a.service.Revoke(ctx, sessionToken, reason))
 }
 
+// Describe reports the person. Capabilities are not here, because they belong
+// to the session rather than to the person: the same person holds different
+// authority in each workspace. See DescribeSession.
 func (a identityAdapter) Describe(ctx context.Context, userID string) (api.User, error) {
 	user, err := a.service.Describe(ctx, userID)
 	if err != nil {
@@ -158,6 +161,32 @@ func (a identityAdapter) translate(err error) error {
 	default:
 		return err
 	}
+}
+
+// DescribeSession reports the person together with what this session may do.
+//
+// Two calls rather than one, because the two answers have different subjects: a
+// person has memberships, and a session has authority under whichever workspace
+// it is acting in. Deriving capabilities from the person would produce the union
+// of everywhere they belong.
+func (a identityAdapter) DescribeSession(ctx context.Context, sessionToken, userID string) (api.User, error) {
+	user, err := a.Describe(ctx, userID)
+	if err != nil {
+		return api.User{}, err
+	}
+
+	granted, err := a.service.Capabilities(ctx, sessionToken)
+	if err != nil {
+		return api.User{}, a.translate(err)
+	}
+
+	capabilities := make([]string, 0, len(granted))
+	for _, capability := range granted {
+		capabilities = append(capabilities, string(capability))
+	}
+	user.Capabilities = capabilities
+
+	return user, nil
 }
 
 var _ api.Identity = identityAdapter{}

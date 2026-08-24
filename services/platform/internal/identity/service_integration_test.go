@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/authz"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/password"
 )
@@ -1275,5 +1277,152 @@ func TestTheAuditTrailCannotBeChangedByTheApplication(t *testing.T) {
 
 	if _, err := tx.Exec(ctx, `DELETE FROM audit.events`); err == nil {
 		t.Error("the application role can delete audit events")
+	}
+}
+
+// ────────────────────────────────────────── what a session may do
+
+/*
+Capabilities follow the active tenant, not the person.
+
+The same person holds different authority in different workspaces, and none at
+all before they have chosen one. A capability set derived from the person rather
+than the session would be the union of everywhere they belong, which is authority
+nobody granted.
+*/
+
+func TestASessionWithNoTenantHoldsOnlyOwnDataCapabilities(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	if _, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword, AccountType: identity.AccountCandidate,
+	}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+
+	granted, err := service.Capabilities(ctx, session.SessionToken)
+	if err != nil {
+		t.Fatalf("Capabilities: %v", err)
+	}
+	if len(granted) == 0 {
+		t.Fatal("a candidate holds nothing, so they cannot practise")
+	}
+
+	for _, capability := range granted {
+		requirement, known := authz.RequirementOf(capability)
+		if !known {
+			t.Errorf("%s is not in the catalogue", capability)
+			continue
+		}
+		if !requirement.Owner {
+			t.Errorf("a session with no tenant holds %s, which is not their own data", capability)
+		}
+	}
+}
+
+func TestAnOwnerHoldsAdministrationOnceTheySelectTheirWorkspace(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	registered, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+
+	// Before choosing, they are acting under no workspace and hold none of its
+	// authority, even though they own it.
+	before, err := service.Capabilities(ctx, session.SessionToken)
+	if err != nil {
+		t.Fatalf("Capabilities: %v", err)
+	}
+	if slices.Contains(before, authz.TenantMemberManage) {
+		t.Error("an owner holds workspace administration before selecting the workspace")
+	}
+
+	if err := service.SelectTenant(ctx, session.SessionToken, registered.TenantID); err != nil {
+		t.Fatalf("SelectTenant: %v", err)
+	}
+
+	after, err := service.Capabilities(ctx, session.SessionToken)
+	if err != nil {
+		t.Fatalf("Capabilities: %v", err)
+	}
+	if !slices.Contains(after, authz.TenantMemberManage) {
+		t.Errorf("an owner acting under their own workspace cannot manage its members: %v", after)
+	}
+	if !slices.Contains(after, authz.CampaignRead) {
+		t.Error("an owner cannot read campaigns in their own workspace")
+	}
+}
+
+// Clearing the selection takes the workspace authority away with it, or somebody
+// keeps administering a workspace they have stepped out of.
+func TestClearingTheTenantRemovesItsCapabilities(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	registered, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+	if err := service.SelectTenant(ctx, session.SessionToken, registered.TenantID); err != nil {
+		t.Fatalf("SelectTenant: %v", err)
+	}
+	if err := service.SelectTenant(ctx, session.SessionToken, ""); err != nil {
+		t.Fatalf("clearing: %v", err)
+	}
+
+	granted, err := service.Capabilities(ctx, session.SessionToken)
+	if err != nil {
+		t.Fatalf("Capabilities: %v", err)
+	}
+	if slices.Contains(granted, authz.TenantMemberManage) {
+		t.Error("workspace administration survived stepping out of the workspace")
+	}
+}
+
+// A dead session holds nothing, rather than holding whatever it held before.
+func TestARevokedSessionHoldsNothing(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	if _, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword, AccountType: identity.AccountCandidate,
+	}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+	if err := service.Revoke(ctx, session.SessionToken, "test"); err != nil {
+		t.Fatalf("Revoke: %v", err)
+	}
+
+	if _, err := service.Capabilities(ctx, session.SessionToken); !errors.Is(err, identity.ErrSessionInvalid) {
+		t.Errorf("Capabilities on a revoked session returned %v, want ErrSessionInvalid", err)
 	}
 }

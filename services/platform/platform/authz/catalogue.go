@@ -142,3 +142,38 @@ func RequirementOf(capability Capability) (Requirement, bool) {
 	requirement, known := catalogue[capability]
 	return requirement, known
 }
+
+// Roles returns every role the catalogue defines, sorted.
+func Roles() []Role {
+	names := make([]Role, 0, len(bundles))
+	for role := range bundles {
+		names = append(names, role)
+	}
+	slices.Sort(names)
+	return names
+}
+
+// CapabilitiesOf returns what a role grants.
+//
+// An unknown role grants nothing. There is no branch for that, and the absence
+// is deliberate rather than an oversight: a missing key yields the zero slice,
+// so deny by default is a property of the lookup instead of a check somebody
+// could remove. An earlier version tested for the key explicitly, and deleting
+// that test left every assertion green, which is how it was noticed.
+//
+// The result is a copy. Handing out the package's own slice would let a caller
+// grant itself authority by appending to what it was given, which is a strange
+// way to be compromised and an easy one.
+func CapabilitiesOf(role Role) []Capability {
+	return slices.Clone(bundles[role])
+}
+
+// RoleRequiresMembership reports whether a role is held through belonging to a
+// tenant.
+//
+// The untenanted role is what somebody holds with no membership at all, which
+// is every candidate practising alone. It is a role rather than a special case
+// so that "what can this person do" has one answer.
+func RoleRequiresMembership(role Role) bool {
+	return role != RoleCandidate
+}

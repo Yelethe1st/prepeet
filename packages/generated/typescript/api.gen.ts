@@ -370,6 +370,22 @@ export interface components {
              *     and the server decides what each membership permits.
              */
             memberships: components["schemas"]["Membership"][];
+            /**
+             * @description What this session may do under its active tenant. The set changes
+             *     when the active tenant changes, and is empty for somebody who has
+             *     not chosen one and belongs to no workspace.
+             *
+             *     Present so an interface can avoid offering a control that will
+             *     refuse the person using it. Rendering is never what stops access:
+             *     every request is authorised on the server against the same
+             *     capabilities, and one for something not held is denied whether or
+             *     not anything was drawn.
+             *
+             *     Names come from the capability catalogue in
+             *     packages/contracts/authz/capabilities.yaml, which generates both
+             *     the server's constants and the browser's.
+             */
+            capabilities: string[];
         };
     };
     responses: {

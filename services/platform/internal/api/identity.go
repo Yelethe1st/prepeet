@@ -49,6 +49,15 @@ type Identity interface {
 	// Describe returns what /me reports about a user.
 	Describe(ctx context.Context, userID string) (User, error)
 
+	// DescribeSession returns the same, plus what this session may do.
+	//
+	// Separate from Describe because the subjects differ: a person has
+	// memberships, and a session has authority under the one workspace it is
+	// acting in. An endpoint that needs only the person should not pay for a
+	// capability lookup, and one that needs authority must not derive it from
+	// the person.
+	DescribeSession(ctx context.Context, sessionToken, userID string) (User, error)
+
 	// SelectTenant sets which tenant the session acts under, after verifying
 	// the membership. An empty tenantID clears the selection.
 	//
@@ -110,6 +119,11 @@ type User struct {
 	EmailVerified  bool
 	Memberships    []Membership
 	ActiveTenantID string
+	// Capabilities is what this session may do under its active tenant.
+	//
+	// A property of the session rather than of the person, because it depends
+	// on which workspace they are acting under and changes when they switch.
+	Capabilities []string
 }
 
 // Membership is one tenant a user belongs to.

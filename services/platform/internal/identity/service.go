@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Yelethe1st/prepeet/services/platform/platform/authz"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/password"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
@@ -128,6 +129,8 @@ type Repository interface {
 	// tenantID is empty to clear the selection.
 	SetActiveTenant(ctx context.Context, sessionID, userID, tenantID, requestID string) error
 	FindMembershipsByUser(ctx context.Context, userID string) ([]Membership, error)
+	// FindRole returns the role a user holds in one tenant, or ErrNotFound.
+	FindRole(ctx context.Context, userID, tenantID string) (string, error)
 
 	CreateSession(ctx context.Context, row SessionRow) error
 	FindSessionByToken(ctx context.Context, tokenHash string) (SessionRow, error)
@@ -435,6 +438,52 @@ func (s *Service) SelectTenant(ctx context.Context, sessionToken, tenantID strin
 	}
 
 	return s.repo.SetActiveTenant(ctx, row.ID, row.UserID, tenantID, telemetry.RequestIDFrom(ctx))
+}
+
+// Capabilities returns what a session may do, right now.
+//
+// Derived from the session rather than from the person, because the same person
+// holds different authority in different workspaces and none of it before they
+// have chosen one. A set derived from the person would be the union of
+// everywhere they belong, which is authority nobody granted.
+//
+// Recomputed on every call rather than stored on the session. A membership
+// revoked a moment ago must stop granting anything on the next request, and a
+// cached set is exactly how somebody keeps reading a workspace they were
+// removed from. ADR-0003 chose revocable sessions for the same reason.
+func (s *Service) Capabilities(ctx context.Context, sessionToken string) ([]authz.Capability, error) {
+	row, err := s.repo.FindSessionByToken(ctx, token.HashOf(sessionToken))
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrSessionInvalid
+		}
+		return nil, fmt.Errorf("identity: reading session: %w", err)
+	}
+	if row.RevokedAt != nil || !s.clock().Before(row.ExpiresAt) {
+		return nil, ErrSessionInvalid
+	}
+
+	// Everybody holds the untenanted bundle. It is their own data, and it does
+	// not depend on any workspace, so stepping into one adds authority rather
+	// than replacing it.
+	granted := authz.CapabilitiesOf(authz.RoleCandidate)
+
+	if row.ActiveTenantID == "" {
+		return granted, nil
+	}
+
+	role, err := s.repo.FindRole(ctx, row.UserID, row.ActiveTenantID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			// The membership is gone since the tenant was selected. The session
+			// keeps working and reaches nothing in that workspace, which is
+			// what revoking a membership should mean.
+			return granted, nil
+		}
+		return nil, fmt.Errorf("identity: reading role: %w", err)
+	}
+
+	return append(granted, authz.CapabilitiesOf(authz.Role(role))...), nil
 }
 
 // User is what GET /me reports about a person.

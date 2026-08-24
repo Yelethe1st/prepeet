@@ -187,6 +187,39 @@ func writeAudit(ctx context.Context, tx pgx.Tx, event auditEvent) error {
 	return nil
 }
 
+// FindRole returns the role a person holds in one tenant.
+//
+// Scoped by the acting user rather than by tenant, using the policy from
+// migration 0007, because this is asked while establishing what the session may
+// do and there is no tenant context to set yet. A revoked membership is not
+// found, so revoking one takes effect on the next request rather than whenever a
+// session happens to end.
+func (r *PostgresRepository) FindRole(ctx context.Context, userID, tenantID string) (string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("identity: beginning role read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := database.SetUser(ctx, tx, userID); err != nil {
+		return "", err
+	}
+
+	var role string
+	err = tx.QueryRow(ctx, `
+		SELECT role FROM tenancy.memberships
+		WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'`,
+		userID, tenantID).Scan(&role)
+
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return "", ErrNotFound
+	case err != nil:
+		return "", fmt.Errorf("identity: reading role: %w", err)
+	}
+	return role, nil
+}
+
 // FindMembershipsByUser lists the tenants a person belongs to.
 //
 // This is the one question that cannot be scoped by tenant, because it is asked

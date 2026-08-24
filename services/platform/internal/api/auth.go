@@ -129,10 +129,16 @@ func (a *authentication) GetCurrentUser(ctx context.Context, _ prepeetapi.GetCur
 		return a.failed(ctx, err), nil
 	}
 
-	user, err := a.identity.Describe(ctx, principal.UserID)
+	user, err := a.identity.DescribeSession(ctx, presented, principal.UserID)
 	if err != nil {
 		return a.failed(ctx, err), nil
 	}
+
+	// From the session, not from the person's record, which never carries one.
+	// Reading it from the record left this null after a successful selection
+	// while the capabilities in the same response were the workspace ones:
+	// authority without any indication of which workspace it applied to.
+	user.ActiveTenantID = principal.ActiveTenantID
 
 	body, err := currentUserBody(user)
 	if err != nil {
@@ -234,10 +240,18 @@ func currentUserBody(user User) (prepeetapi.CurrentUser, error) {
 		})
 	}
 
+	// Empty rather than nil, so the field serialises as [] and no client has to
+	// handle two shapes for "may do nothing here".
+	capabilities := user.Capabilities
+	if capabilities == nil {
+		capabilities = []string{}
+	}
+
 	body := prepeetapi.CurrentUser{
 		UserID:        id,
 		EmailVerified: user.EmailVerified,
 		Memberships:   memberships,
+		Capabilities:  capabilities,
 	}
 	if user.Email != "" {
 		email := openapi_types.Email(user.Email)

@@ -133,3 +133,18 @@ export const CAPABILITIES = [
 
 /** Every capability name the catalogue defines. */
 export type Capability = (typeof CAPABILITIES)[number];
+
+/**
+ * The roles the server bundles capabilities into.
+ *
+ * Exported so the browser can name one, never so it can decide from one. What
+ * somebody may do arrives as a capability list on the session; a role is how
+ * the server built that list.
+ */
+export const ROLES = [
+  "candidate",
+  "member",
+  "owner",
+] as const;
+
+export type Role = (typeof ROLES)[number];

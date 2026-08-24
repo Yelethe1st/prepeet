@@ -36,11 +36,35 @@ func contract(t *testing.T) string {
 
 var contractEntry = regexp.MustCompile(`(?m)^  - name: (\S+)`)
 
+/**
+ * capabilitiesSection returns the part of the document that lists capabilities.
+ *
+ * Scoped rather than matched across the whole file, because roles use the same
+ * `- name:` shape at the same indentation. Reading both as capabilities is
+ * exactly what happened when roles were added, and it reported three roles as
+ * capabilities that existed in the contract and not in code.
+ */
+func capabilitiesSection(t *testing.T) string {
+	t.Helper()
+
+	document := contract(t)
+	start := strings.Index(document, "\ncapabilities:")
+	if start == -1 {
+		t.Fatal("the contract has no capabilities section")
+	}
+
+	rest := document[start+len("\ncapabilities:"):]
+	if end := strings.Index(rest, "\nroles:"); end != -1 {
+		return rest[:end]
+	}
+	return rest
+}
+
 func contractNames(t *testing.T) map[string]bool {
 	t.Helper()
 
 	names := map[string]bool{}
-	for _, match := range contractEntry.FindAllStringSubmatch(contract(t), -1) {
+	for _, match := range contractEntry.FindAllStringSubmatch(capabilitiesSection(t), -1) {
 		names[match[1]] = true
 	}
 	if len(names) == 0 {
@@ -82,8 +106,7 @@ would otherwise be quite happy.
 func TestEveryCapabilityInTheContractCarriesAReason(t *testing.T) {
 	t.Parallel()
 
-	document := contract(t)
-	blocks := strings.Split(document, "  - name: ")[1:]
+	blocks := strings.Split(capabilitiesSection(t), "  - name: ")[1:]
 
 	if len(blocks) == 0 {
 		t.Fatal("no capability blocks were found")

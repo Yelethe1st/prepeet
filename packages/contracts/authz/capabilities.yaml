@@ -255,3 +255,101 @@ capabilities:
     step_up: true
     reason: >-
       Changing a tenant's quota.
+
+# ─────────────────────────────────────────────────────────────── roles
+#
+# A role is a bundle of capabilities, never a check of its own. Nothing in the
+# product asks "is this person an owner"; it asks whether they hold a capability,
+# and a role is only how they came to hold it. That is the difference that lets
+# the role model change without every call site changing with it.
+#
+# Two roles, matching the two values migration 0006 allows. The full matrix is
+# TEN-02's, and these are deliberately the minimum that makes the interface
+# possible: somebody who created a workspace must be able to administer it, and
+# somebody invited to one must be able to do the work.
+#
+# `candidate` is not a membership. It is what somebody holds when they belong to
+# no tenant at all, which is every candidate practising alone, and it is listed
+# here so that "what can this person do" has one answer rather than a special
+# case.
+#
+# Holding a capability is not the same as being able to exercise it. A scoped
+# capability still needs an assignment covering the resource, so campaign.manage
+# in a bundle grants nothing until somebody is assigned to a campaign. That is
+# why the bundles can be generous without being permissive.
+
+roles:
+  - name: candidate
+    membership: false
+    reason: >-
+      What somebody holds with no tenant membership. Every capability here is
+      owner-scoped, so it reaches that person's own data and nothing else. No
+      tenant authority can satisfy any of them, which is what keeps practice
+      private from employers.
+    capabilities:
+      - candidate.profile.read_own
+      - candidate.profile.write_own
+      - candidate.practice.read_own
+      - candidate.practice.delete_own
+      - session.create_practice
+      - session.accept_invitation
+      - session.participate
+      - session.read_own_practice
+      - session.read_screen_confirmation
+
+  - name: member
+    membership: true
+    reason: >-
+      Somebody invited to a workspace to do the recruiting work. They can see
+      what exists and act on the campaigns they are assigned to, and they cannot
+      change how the workspace itself is configured.
+    capabilities:
+      - campaign.read
+      - campaign.manage
+      - invitation.read
+      - invitation.manage
+      - evaluation.read_screen
+      - evaluation.review
+      - appeal.manage
+      - rubric.read
+
+  - name: owner
+    membership: true
+    reason: >-
+      Whoever created the workspace, and anybody they make an owner. Everything
+      a member holds, plus configuring the workspace itself: who belongs to it,
+      what it retains, what it is billed for, and which rubrics are published.
+    capabilities:
+      - campaign.read
+      - campaign.manage
+      - invitation.read
+      - invitation.manage
+      - evaluation.read_screen
+      - evaluation.review
+      - appeal.manage
+      - rubric.read
+      - rubric.draft
+      - rubric.publish
+      - tenant.member_manage
+      - tenant.settings_manage
+      - tenant.retention_manage
+      - tenant.billing_read
+      - tenant.integration_manage
+
+# Deliberately in no bundle, each for its own reason.
+#
+# evaluation.compare is off by default under responsible-hiring.md and whether it
+# ships at all is DEC-17. Putting it in a bundle would turn it on for every
+# workspace by default, which is the opposite of what that decision says.
+#
+# Every platform.* capability, because platform authority is separate from tenant
+# authority rather than a senior form of it. A tenant role that granted one would
+# make the owner of any workspace a member of platform staff.
+unbundled:
+  - evaluation.compare
+  - platform.analytics_read
+  - platform.audit_read
+  - platform.operations_read
+  - platform.operations_execute
+  - platform.quota_manage
+  - platform.privileged_elevate

@@ -22,10 +22,21 @@ import (
 
 // contract is the shape of capabilities.yaml.
 type contract struct {
-	Version      int                `yaml:"version"`
-	Requirements map[string]string  `yaml:"requirements"`
-	Scopes       []string           `yaml:"scopes"`
-	Capabilities []capabilityEntry  `yaml:"capabilities"`
+	Version      int               `yaml:"version"`
+	Requirements map[string]string `yaml:"requirements"`
+	Scopes       []string          `yaml:"scopes"`
+	Capabilities []capabilityEntry `yaml:"capabilities"`
+	Roles        []roleEntry       `yaml:"roles"`
+	Unbundled    []string          `yaml:"unbundled"`
+}
+
+// roleEntry is one bundle of capabilities.
+type roleEntry struct {
+	Name string `yaml:"name"`
+	// Membership is false for the bundle somebody holds with no tenant at all.
+	Membership   bool     `yaml:"membership"`
+	Reason       string   `yaml:"reason"`
+	Capabilities []string `yaml:"capabilities"`
 }
 
 type capabilityEntry struct {
@@ -83,12 +94,97 @@ func run() error {
 		}
 	}
 
+	if err := checkRoles(doc); err != nil {
+		return err
+	}
+
+	sort.Slice(doc.Roles, func(i, j int) bool { return doc.Roles[i].Name < doc.Roles[j].Name })
+
 	if err := os.WriteFile(goOut, []byte(generateGo(doc)), 0o644); err != nil {
 		return fmt.Errorf("writing %s: %w", goOut, err)
 	}
 	if err := os.WriteFile(tsOut, []byte(generateTypeScript(doc)), 0o644); err != nil {
 		return fmt.Errorf("writing %s: %w", tsOut, err)
 	}
+	return nil
+}
+
+// checkRoles refuses a role model that cannot be correct.
+//
+// These fail the build rather than a test, because a generated catalogue is
+// what every other check runs against: a bundle naming a capability that does
+// not exist would generate code that does not compile, and one granting
+// platform authority through a tenant role would generate code that compiles
+// and is wrong.
+func checkRoles(doc contract) error {
+	known := map[string]capabilityEntry{}
+	for _, entry := range doc.Capabilities {
+		known[entry.Name] = entry
+	}
+
+	bundled := map[string]bool{}
+
+	for _, role := range doc.Roles {
+		if strings.TrimSpace(role.Reason) == "" {
+			return fmt.Errorf("role %q has no reason", role.Name)
+		}
+		if len(role.Capabilities) == 0 {
+			// A role granting nothing is either a mistake or a role that should
+			// not exist, and both are worth stopping for.
+			return fmt.Errorf("role %q grants no capabilities", role.Name)
+		}
+
+		for _, name := range role.Capabilities {
+			entry, exists := known[name]
+			if !exists {
+				return fmt.Errorf("role %q names capability %q, which is not in the catalogue", role.Name, name)
+			}
+			bundled[name] = true
+
+			if entry.Platform {
+				// Platform authority is separate from tenant authority rather
+				// than a senior form of it. A tenant role granting one would
+				// make the owner of any workspace a member of platform staff.
+				return fmt.Errorf("role %q grants platform capability %q", role.Name, name)
+			}
+
+			// A role with no membership is what somebody holds outside any
+			// tenant, so it can only grant capabilities that reach their own
+			// data.
+			if !role.Membership && !entry.Owner {
+				return fmt.Errorf("role %q has no membership and grants %q, which is not owner-scoped",
+					role.Name, name)
+			}
+			// And the reverse: a membership role granting an owner capability
+			// would be tenant authority reaching a candidate's own data, which
+			// is the failure this product cannot have.
+			if role.Membership && entry.Owner {
+				return fmt.Errorf("role %q is a membership role and grants owner capability %q",
+					role.Name, name)
+			}
+		}
+	}
+
+	// Everything is either in a bundle or listed as deliberately not, so a new
+	// capability cannot be added and quietly reach nobody.
+	unbundled := map[string]bool{}
+	for _, name := range doc.Unbundled {
+		if _, exists := known[name]; !exists {
+			return fmt.Errorf("unbundled names %q, which is not in the catalogue", name)
+		}
+		unbundled[name] = true
+	}
+
+	for name := range known {
+		if !bundled[name] && !unbundled[name] {
+			return fmt.Errorf("capability %q is in no role and is not listed as unbundled, "+
+				"so nobody can hold it and nobody decided that", name)
+		}
+		if bundled[name] && unbundled[name] {
+			return fmt.Errorf("capability %q is both bundled and listed as unbundled", name)
+		}
+	}
+
 	return nil
 }
 
@@ -175,6 +271,35 @@ const (
 		}
 		fmt.Fprintf(&out, "\t%s: {%s},\n", identifier(entry.Name), strings.Join(parts, ", "))
 	}
+	out.WriteString("}\n\n")
+
+	// Roles.
+	out.WriteString(`// Role is a bundle of capabilities.
+//
+// Never a check of its own. Nothing asks whether somebody is an owner; it asks
+// whether they hold a capability, and a role is only how they came to hold it.
+type Role string
+
+const (
+`)
+	for _, role := range doc.Roles {
+		fmt.Fprintf(&out, "%s\n\tRole%s Role = %q\n\n",
+			comment(role.Reason, "\t"), strings.ToUpper(role.Name[:1])+role.Name[1:], role.Name)
+	}
+	out.WriteString(")\n\n")
+
+	out.WriteString(`// bundles maps a role to what it grants.
+var bundles = map[Role][]Capability{
+`)
+	for _, role := range doc.Roles {
+		fmt.Fprintf(&out, "\tRole%s: {\n", strings.ToUpper(role.Name[:1])+role.Name[1:])
+		granted := append([]string(nil), role.Capabilities...)
+		sort.Strings(granted)
+		for _, name := range granted {
+			fmt.Fprintf(&out, "\t\t%s,\n", identifier(name))
+		}
+		out.WriteString("\t},\n")
+	}
 	out.WriteString("}\n")
 
 	return out.String()
@@ -208,6 +333,22 @@ export const CAPABILITIES = [
 
 /** Every capability name the catalogue defines. */
 export type Capability = (typeof CAPABILITIES)[number];
+
+/**
+ * The roles the server bundles capabilities into.
+ *
+ * Exported so the browser can name one, never so it can decide from one. What
+ * somebody may do arrives as a capability list on the session; a role is how
+ * the server built that list.
+ */
+export const ROLES = [
+`)
+	for _, role := range doc.Roles {
+		fmt.Fprintf(&out, "  %q,\n", role.Name)
+	}
+	out.WriteString(`] as const;
+
+export type Role = (typeof ROLES)[number];
 `)
 
 	return out.String()

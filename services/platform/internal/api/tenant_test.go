@@ -218,3 +218,109 @@ func TestSelectingWithADeadSessionIsUnauthenticated(t *testing.T) {
 		t.Errorf("status = %d, want 401", response.Code)
 	}
 }
+
+// ─────────────────────────────────────────────────────── what a session may do
+
+/*
+Capabilities on /me.
+
+They exist so an interface can avoid offering somebody a control that will
+refuse them. They are never what stops access: the server authorises every
+request against the same set, and one for something not held is denied whether
+or not anything was rendered.
+
+The set is a property of the session, not of the person, because it depends on
+which workspace they are acting under.
+*/
+
+func TestCurrentUserReportsWhatTheSessionMayDo(t *testing.T) {
+	t.Parallel()
+
+	identity := workingIdentity()
+	identity.user.Capabilities = []string{"campaign.read", "invitation.read"}
+
+	response := get(t, serve(t, identity), "/api/v1/me",
+		&http.Cookie{Name: api.SessionCookieName, Value: "ses_live"})
+
+	var body struct {
+		Capabilities []string `json:"capabilities"`
+	}
+	decodeInto(t, response, &body)
+
+	if len(body.Capabilities) != 2 {
+		t.Fatalf("capabilities = %v", body.Capabilities)
+	}
+}
+
+// Empty rather than null, for the same reason memberships are: a client should
+// not have to handle two shapes for "may do nothing here".
+func TestCapabilitiesAreAnEmptyArrayRatherThanNull(t *testing.T) {
+	t.Parallel()
+
+	identity := workingIdentity()
+	identity.user.Capabilities = nil
+
+	response := get(t, serve(t, identity), "/api/v1/me",
+		&http.Cookie{Name: api.SessionCookieName, Value: "ses_live"})
+
+	var body struct {
+		Capabilities []string `json:"capabilities"`
+	}
+	decodeInto(t, response, &body)
+
+	if body.Capabilities == nil {
+		t.Error("capabilities is null rather than an empty array")
+	}
+}
+
+/*
+The active tenant on /me comes from the session, not from the person's record.
+
+It was null after a successful selection, while the capabilities in the same
+response were the workspace ones. An interface reading that would show somebody
+recruiter controls and no indication of which workspace they were in, which is
+the worst combination: authority without context.
+
+Found on the wire rather than by any test, because both halves were individually
+correct and only the response was wrong.
+*/
+func TestCurrentUserReportsTheSessionsActiveTenant(t *testing.T) {
+	t.Parallel()
+
+	identity := workingIdentity()
+	identity.principal.ActiveTenantID = tenantID
+	// Deliberately absent from the person's record, which is where it was being
+	// read from and where it never is.
+	identity.user.ActiveTenantID = ""
+
+	response := get(t, serve(t, identity), "/api/v1/me",
+		&http.Cookie{Name: api.SessionCookieName, Value: "ses_live"})
+
+	var body struct {
+		ActiveTenantID *string `json:"active_tenant_id"`
+	}
+	decodeInto(t, response, &body)
+
+	if body.ActiveTenantID == nil || *body.ActiveTenantID != tenantID {
+		t.Errorf("active_tenant_id = %v, want %q", body.ActiveTenantID, tenantID)
+	}
+}
+
+func TestCurrentUserReportsNoTenantWhenNoneIsChosen(t *testing.T) {
+	t.Parallel()
+
+	identity := workingIdentity()
+	identity.principal.ActiveTenantID = ""
+
+	response := get(t, serve(t, identity), "/api/v1/me",
+		&http.Cookie{Name: api.SessionCookieName, Value: "ses_live"})
+
+	var body struct {
+		ActiveTenantID *string `json:"active_tenant_id"`
+	}
+	decodeInto(t, response, &body)
+
+	if body.ActiveTenantID != nil {
+		t.Errorf("active_tenant_id = %q for a session that has chosen nothing", *body.ActiveTenantID)
+	}
+}

@@ -162,3 +162,70 @@ var catalogue = map[Capability]Requirement{
 	TenantRetentionManage:         {Tenant: true, StepUp: true},
 	TenantSettingsManage:          {Tenant: true},
 }
+
+// Role is a bundle of capabilities.
+//
+// Never a check of its own. Nothing asks whether somebody is an owner; it asks
+// whether they hold a capability, and a role is only how they came to hold it.
+type Role string
+
+const (
+	// What somebody holds with no tenant membership. Every capability here
+	// is owner-scoped, so it reaches that person's own data and nothing
+	// else. No tenant authority can satisfy any of them, which is what
+	// keeps practice private from employers.
+	RoleCandidate Role = "candidate"
+
+	// Somebody invited to a workspace to do the recruiting work. They can
+	// see what exists and act on the campaigns they are assigned to, and
+	// they cannot change how the workspace itself is configured.
+	RoleMember Role = "member"
+
+	// Whoever created the workspace, and anybody they make an owner.
+	// Everything a member holds, plus configuring the workspace itself:
+	// who belongs to it, what it retains, what it is billed for, and which
+	// rubrics are published.
+	RoleOwner Role = "owner"
+)
+
+// bundles maps a role to what it grants.
+var bundles = map[Role][]Capability{
+	RoleCandidate: {
+		CandidatePracticeDeleteOwn,
+		CandidatePracticeReadOwn,
+		CandidateProfileReadOwn,
+		CandidateProfileWriteOwn,
+		SessionAcceptInvitation,
+		SessionCreatePractice,
+		SessionParticipate,
+		SessionReadOwnPractice,
+		SessionReadScreenConfirmation,
+	},
+	RoleMember: {
+		AppealManage,
+		CampaignManage,
+		CampaignRead,
+		EvaluationReadScreen,
+		EvaluationReview,
+		InvitationManage,
+		InvitationRead,
+		RubricRead,
+	},
+	RoleOwner: {
+		AppealManage,
+		CampaignManage,
+		CampaignRead,
+		EvaluationReadScreen,
+		EvaluationReview,
+		InvitationManage,
+		InvitationRead,
+		RubricDraft,
+		RubricPublish,
+		RubricRead,
+		TenantBillingRead,
+		TenantIntegrationManage,
+		TenantMemberManage,
+		TenantRetentionManage,
+		TenantSettingsManage,
+	},
+}

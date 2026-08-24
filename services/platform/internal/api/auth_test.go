@@ -100,6 +100,13 @@ func (f *fakeIdentity) Describe(_ context.Context, _ string) (api.User, error) {
 	return f.user, nil
 }
 
+func (f *fakeIdentity) DescribeSession(_ context.Context, _, _ string) (api.User, error) {
+	if f.describeErr != nil {
+		return api.User{}, f.describeErr
+	}
+	return f.user, nil
+}
+
 // ───────────────────────────────────────────────────────────────── harness
 
 const (
@@ -195,6 +202,16 @@ func cookiesOf(t *testing.T, response *httptest.ResponseRecorder) map[string]*ht
 		found[cookie.Name] = cookie
 	}
 	return found
+}
+
+// decodeInto decodes without rejecting unknown fields, for a test that cares
+// about one part of a response rather than its whole shape.
+func decodeInto(t *testing.T, response *httptest.ResponseRecorder, into any) {
+	t.Helper()
+
+	if err := json.Unmarshal(response.Body.Bytes(), into); err != nil {
+		t.Fatalf("decoding %s: %v", response.Body, err)
+	}
 }
 
 func decode(t *testing.T, response *httptest.ResponseRecorder, into any) {
@@ -647,9 +664,10 @@ func TestCurrentUserDescribesTheAuthenticatedUser(t *testing.T) {
 	}
 
 	var user struct {
-		ActiveTenantID *string `json:"active_tenant_id"`
-		Email          *string `json:"email"`
-		EmailVerified  bool    `json:"email_verified"`
+		ActiveTenantID *string  `json:"active_tenant_id"`
+		Email          *string  `json:"email"`
+		EmailVerified  bool     `json:"email_verified"`
+		Capabilities   []string `json:"capabilities"`
 		Memberships    []struct {
 			TenantID   string `json:"tenant_id"`
 			TenantName string `json:"tenant_name"`

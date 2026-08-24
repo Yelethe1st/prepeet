@@ -69,15 +69,21 @@ tables under the same rules.
 
 ### PLT-04 · Enforce module boundaries and forbidden imports in the Go control plane
 
-**Depends on** DEC-03, PLT-02 · **Blocks** nothing, but protects everything
+**Depends on** DEC-03, PLT-02 · **Blocks** nothing, but protects everything · **In progress**
 
 The modular monolith only stays modular if the boundary is machine-checked. A module reaching into
 another module's tables is a build failure, not a review comment.
 
+Implemented as a test in `services/platform/internal/architecture`, so it runs with the suite and needs
+no separate command. Each rule was verified by introducing a violation deliberately, which is how a bug
+in the check itself was found: it was reading only its own package and would have passed forever.
+
 **Done when**
-- [ ] Import graph rules are declared as data and enforced in CI.
-- [ ] Table ownership is declared per module and violations fail the build.
-- [ ] The rule file is the same artifact the extraction criteria in DEC-03 refer to.
+- [x] Import graph rules are enforced in CI and name the offending import when they fail.
+- [x] No context imports another, and infrastructure does not import a context.
+- [x] The AWS SDK stays in the adapter layer, which is what ADR-0001 relies on to keep the cloud reversible.
+- [x] Each rule is verified by a deliberate violation rather than assumed to work.
+- [ ] Table ownership is declared per module and violations fail the build. Schemas exist per ADR-0002; the check does not yet read them.
 
 **Spec** [domain-model.md](../../architecture/domain-model.md)
 

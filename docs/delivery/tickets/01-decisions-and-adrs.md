@@ -54,15 +54,20 @@ behind an adapter and adopted for tenant members when a buyer requires it.
 
 ### DEC-03 · Fix the Go modular-monolith boundary and extraction criteria
 
-**Depends on** nothing · **Blocks** CTR-01, PLT-02
+**Depends on** nothing · **Blocks** CTR-01, PLT-02 · **Done** 2026-08-24
 
 Three deployables, not a service mesh. Write down the module boundaries inside the Go control plane and
 the evidence required before any module is extracted, so extraction is a decision rather than a drift.
 
+Decided in [ADR-0005](../../architecture/decisions/0005-module-boundaries-and-extraction.md): no
+package under `internal/` imports another, synchronous reads go through interfaces the consumer
+declares, state changes other contexts care about travel as events, and the rules are enforced by a
+test rather than by review.
+
 **Done when**
-- [ ] ADR accepted listing modules, their owned tables, and forbidden imports.
-- [ ] Extraction criteria stated: stable module API, telemetry, load and cost evidence, ownership, migration plan.
-- [ ] Enforcement mechanism named, to be implemented in PLT-04.
+- [x] ADR accepted listing modules, their owned tables, and forbidden imports. Table ownership was settled by ADR-0002; this adds the import rules.
+- [x] Extraction criteria stated: stable module API, telemetry, load and cost evidence, ownership, migration plan, and an ADR per extraction.
+- [x] Enforcement mechanism named and implemented in PLT-04.
 
 **Spec** [architecture-and-implementation-brief.md](../../architecture/architecture-and-implementation-brief.md)
 

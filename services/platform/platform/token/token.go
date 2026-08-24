@@ -28,6 +28,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 )
 
@@ -47,6 +48,7 @@ const (
 	PurposeEmailVerify   Purpose = "email_verify"
 	PurposePasswordReset Purpose = "password_reset"
 	PurposeMagicLink     Purpose = "magic_link"
+	PurposeOTP           Purpose = "otp"
 	PurposeInvitation    Purpose = "invitation"
 )
 
@@ -57,6 +59,7 @@ var prefixes = map[Purpose]string{
 	PurposeEmailVerify:   "vrf",
 	PurposePasswordReset: "rst",
 	PurposeMagicLink:     "mgc",
+	PurposeOTP:           "otp",
 	PurposeInvitation:    "inv",
 }
 
@@ -64,7 +67,7 @@ var prefixes = map[Purpose]string{
 func Purposes() []Purpose {
 	return []Purpose{
 		PurposeSession, PurposeRefresh, PurposeEmailVerify,
-		PurposePasswordReset, PurposeMagicLink, PurposeInvitation,
+		PurposePasswordReset, PurposeMagicLink, PurposeOTP, PurposeInvitation,
 	}
 }
 
@@ -103,6 +106,33 @@ func New(purpose Purpose) (Issued, error) {
 
 	plaintext := prefix + "_" + base64.RawURLEncoding.EncodeToString(secret)
 	return Issued{Purpose: purpose, Plaintext: plaintext, Hash: HashOf(plaintext)}, nil
+}
+
+// OTPDigits is how long a one-time code is.
+//
+// Six digits is what people expect from every other service, short enough to
+// type from a phone screen. It survives being guessable only because the
+// store caps wrong attempts per token; the length is usability, the cap is
+// the security.
+const OTPDigits = 6
+
+// NewOTP mints a one-time code.
+//
+// A code rather than a link, for the person reading it on one device and
+// typing it on another. It hashes into the same store as every other token;
+// the code carries no prefix because a person types it.
+func NewOTP() (Issued, error) {
+	code := make([]byte, 0, OTPDigits)
+	for range OTPDigits {
+		digit, err := rand.Int(rand.Reader, big.NewInt(10))
+		if err != nil {
+			return Issued{}, fmt.Errorf("token: reading entropy: %w", err)
+		}
+		code = append(code, byte('0')+byte(digit.Int64()))
+	}
+
+	plaintext := string(code)
+	return Issued{Purpose: PurposeOTP, Plaintext: plaintext, Hash: HashOf(plaintext)}, nil
 }
 
 // HashOf returns the stored form of a token.

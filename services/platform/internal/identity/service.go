@@ -2,8 +2,10 @@ package identity
 
 import (
 	"context"
+
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"time"
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/authz"
@@ -84,14 +86,13 @@ type RegisterInput struct {
 
 // RegisterOutcome is what registration produced.
 //
-// UserID and VerificationToken are populated only when an account was actually
+// UserID is populated only when an account was actually
 // created. For an address that already exists the outcome is deliberately
 // empty, so a caller cannot turn it into an existence check by inspecting what
 // came back.
 type RegisterOutcome struct {
-	Created           bool
-	UserID            string
-	VerificationToken string
+	Created bool
+	UserID  string
 	// TenantID is populated only for an organisation registration that created
 	// an account. Empty for a candidate, who belongs to no tenant, and empty for
 	// an address that already existed, for the same reason every other field is.
@@ -137,6 +138,17 @@ type Repository interface {
 	FindSessionByRefresh(ctx context.Context, tokenHash string) (SessionRow, error)
 	RetireSession(ctx context.Context, sessionID string, at time.Time) error
 	RevokeFamily(ctx context.Context, familyID, reason string, at time.Time) error
+
+	// The action-token half, for IAM-02's flows. Each Consume method pairs
+	// the single-use mark with the effect it grants in one transaction, which
+	// is what makes replaying a link repeat nothing.
+	IssueActionToken(ctx context.Context, row ActionTokenRow, enqueue func(tx pgx.Tx) error) error
+	FindActionToken(ctx context.Context, tokenHash string) (TokenState, error)
+	FindLiveOTP(ctx context.Context, userID string) (LiveOTP, error)
+	ConsumeForEmailVerification(ctx context.Context, tokenID, userID string) (bool, error)
+	ConsumeForPasswordReset(ctx context.Context, tokenID, userID, passwordHash string, at time.Time) (bool, error)
+	ConsumeForSignIn(ctx context.Context, tokenID, userID string) (bool, error)
+	RecordTokenAttempt(ctx context.Context, tokenID string) (int, error)
 }
 
 // OrganisationAccount is everything an organisation registration writes.
@@ -187,6 +199,9 @@ type SessionRow struct {
 type Service struct {
 	repo Repository
 	now  func() time.Time
+	// flows is nil until WithTokenFlows: the processes that never send email
+	// do not construct a mailer to satisfy a constructor.
+	flows *TokenFlows
 	// region is stamped onto every tenant this service creates. ADR-0001 makes
 	// residency a property of the tenant, so it is recorded rather than
 	// inferred, and a process misconfigured with the wrong region produces
@@ -281,16 +296,24 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (RegisterOu
 		return RegisterOutcome{}, fmt.Errorf("identity: creating user: %w", err)
 	}
 
-	verification, err := token.New(token.PurposeEmailVerify)
-	if err != nil {
-		return RegisterOutcome{}, fmt.Errorf("identity: issuing verification token: %w", err)
+	// The verification email, through the same path a resend takes. After the
+	// account committed rather than inside its transaction: a crash between
+	// the two costs one resend click, while a combined transaction would
+	// couple three tables to the mail queue for that one click. Failure to
+	// send does not fail the registration for the same reason.
+	if s.flows != nil {
+		if err := s.RequestEmailVerification(ctx, email); err != nil {
+			var cooldown *CooldownError
+			if !errors.As(err, &cooldown) {
+				return RegisterOutcome{}, fmt.Errorf("identity: sending verification: %w", err)
+			}
+		}
 	}
 
 	return RegisterOutcome{
-		Created:           true,
-		UserID:            userID,
-		VerificationToken: verification.Plaintext,
-		TenantID:          tenantID,
+		Created:  true,
+		UserID:   userID,
+		TenantID: tenantID,
 	}, nil
 }
 

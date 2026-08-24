@@ -45,8 +45,39 @@ type fakeIdentity struct {
 	user        api.User
 	describeErr error
 
+	tokenRequests   []string
+	tokenRequestErr error
+	confirmedTokens []string
+	confirmErr      error
+
 	selected  []string
 	selectErr error
+}
+
+// The token flows, recorded and scripted like everything else on the fake.
+func (f *fakeIdentity) RequestTokenEmail(_ context.Context, kind, email string) error {
+	f.tokenRequests = append(f.tokenRequests, kind+":"+email)
+	return f.tokenRequestErr
+}
+
+func (f *fakeIdentity) ConfirmEmailVerification(_ context.Context, token string) error {
+	f.confirmedTokens = append(f.confirmedTokens, token)
+	return f.confirmErr
+}
+
+func (f *fakeIdentity) ConfirmPasswordReset(_ context.Context, token, _ string) error {
+	f.confirmedTokens = append(f.confirmedTokens, token)
+	return f.confirmErr
+}
+
+func (f *fakeIdentity) ConsumeMagicLink(_ context.Context, token string) (api.Session, error) {
+	f.confirmedTokens = append(f.confirmedTokens, token)
+	return f.session, f.confirmErr
+}
+
+func (f *fakeIdentity) ConsumeOTP(_ context.Context, email, code string) (api.Session, error) {
+	f.confirmedTokens = append(f.confirmedTokens, email+":"+code)
+	return f.session, f.confirmErr
 }
 
 func (f *fakeIdentity) Register(_ context.Context, input api.Registration) error {

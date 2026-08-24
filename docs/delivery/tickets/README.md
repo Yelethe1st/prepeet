@@ -2,9 +2,9 @@
 
 **Status:** Proposed backlog  
 **Owner:** Principal Engineer and delivery leads  
-**Last updated:** 2026-08-23
+**Last updated:** 2026-08-24
 
-Every piece of work the specification implies, broken into 165 tickets across 22 epics. This is the
+Every piece of work the specification implies, broken into 166 tickets across 22 epics. This is the
 delivery view of the same system [implementation-roadmap.md](../implementation-roadmap.md) describes in
 phases and [dependency-map.md](../dependency-map.md) describes as a critical path.
 
@@ -65,7 +65,7 @@ satisfies its checklist but not these is not finished.
 | [EVL](10-evaluation-system.md) | Evaluation and evidence | 3 | 7 |
 | [ART](11-articulation.md) | Delivery and articulation | 3–4 | 7 |
 | [PRC](12-practice-experience.md) | Practice results, review and coaching | 3 | 6 |
-| [PRG](13-progression-and-goals.md) | Skills, progression, goals and readiness | 3 | 5 |
+| [PRG](13-progression-and-goals.md) | Skills, progression, goals and readiness | 3 | 6 |
 | [SCR](14-screening-and-invitations.md) | Screening, campaigns and invitations | 5 | 9 |
 | [REV](15-recruiter-review-and-appeals.md) | Recruiter review, decisions and appeals | 5–6 | 8 |
 | [TEN](16-tenant-administration.md) | Tenant administration | 5 | 8 |
@@ -76,7 +76,7 @@ satisfies its checklist but not these is not finished.
 | [QUA](21-ai-quality.md) | AI quality, datasets and monitoring | 2–6, continuous | 6 |
 | [REL](22-release-readiness.md) | Release readiness and operational proof | 3, 5 and 6 gates | 7 |
 
-**165 tickets** in total.
+**166 tickets** in total.
 
 ## Suggested order
 
@@ -222,6 +222,7 @@ after them, and REL turns each gate into evidence.
 - **[PRG-03](13-progression-and-goals.md#prg-03--build-goals-milestones-and-practice-cadence)** · Build goals, milestones and practice cadence
 - **[PRG-04](13-progression-and-goals.md#prg-04--build-the-skills-and-progression-screens-with-evidence-freshness)** · Build the skills and progression screens with evidence freshness
 - **[PRG-05](13-progression-and-goals.md#prg-05--use-prior-gaps-to-inform-future-session-composition)** · Use prior gaps to inform future session composition
+- **[PRG-06](13-progression-and-goals.md#prg-06--let-candidates-define-and-measure-personal-interview-requirements)** · Let candidates define and measure personal interview requirements
 
 ### SCR — Screening, campaigns and invitations
 
@@ -317,4 +318,3 @@ after them, and REL turns each gate into evidence.
 - **[REL-05](22-release-readiness.md#rel-05--write-and-exercise-the-operational-runbooks)** · Write and exercise the operational runbooks
 - **[REL-06](22-release-readiness.md#rel-06--exercise-the-integrity-freeze-and-re-review-procedure)** · Exercise the integrity freeze and re-review procedure
 - **[REL-07](22-release-readiness.md#rel-07--produce-the-release-record-for-each-gated-milestone)** · Produce the release record for each gated milestone
-

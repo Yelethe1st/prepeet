@@ -2,7 +2,7 @@
 
 **Status:** Proposed baseline  
 **Owner:** Product  
-**Last updated:** 2026-08-23
+**Last updated:** 2026-08-24
 
 ## Product definition
 
@@ -23,6 +23,7 @@ Prepeet is a multi-tenant, AI-powered, voice-first interview platform serving ca
 8. Accessibility and accommodations are correctness requirements.
 9. Confidence and coverage are visible without false precision.
 10. Consent, recording, retention, and employer access use plain language.
+11. Practice candidates control the personal requirements used to guide their interviews and learning.
 
 ## Actors
 
@@ -55,6 +56,7 @@ Prepeet is a multi-tenant, AI-powered, voice-first interview platform serving ca
 ### Interview creation and preparation
 
 - Discipline, role, seniority, shape, duration, persona/style, pressure, CV/JD, and accommodations.
+- Candidate-selected personal assessment requirements with measurable, versioned criteria.
 - Server-provided catalogs rather than hardcoded technology roles.
 - Immutable session composition before start.
 - Consent, microphone, speaker, network, captions, push-to-talk, and device checks.
@@ -70,10 +72,13 @@ Prepeet is a multi-tenant, AI-powered, voice-first interview platform serving ca
 ### Evaluation and learning
 
 - Per-turn and whole-session evidence-linked evaluation.
+- Evidence-linked assessment of candidate-selected requirements, using achieved, partially achieved,
+  not demonstrated, and not assessable as distinct outcomes.
 - Competency coverage, sufficiency, claims, contradictions, and job-requirement evidence.
 - Articulation profile for structure, conciseness, fluency, pace, pausing, precision, signposting, intelligibility, delivery, and responsiveness.
 - Fact-preserving coaching, drills, redos, and original-versus-redo comparison.
-- Role-specific readiness, skills, goals, and longitudinal progression.
+- Role-specific readiness, skills, goals, longitudinal progression, and personalized next-session
+  recommendations derived from private prior practice evidence.
 
 ### Recruiting
 
@@ -103,7 +108,7 @@ Each document and extracted fact retains content digest, version, provenance, co
 
 ### Interview creation
 
-Practice creation collects discipline, role family, role, seniority, interview shape, duration, interviewer style where permitted, optional CV/JD, pressure preference, accommodations, recording preference, and consent. Available combinations come from server metadata with explicit validation and duration limits.
+Practice creation collects discipline, role family, role, seniority, interview shape, duration, interviewer style where permitted, optional CV/JD, pressure preference, accommodations, recording preference, consent, and optional personal assessment requirements. A candidate may select catalogued requirements or define their own observable goal, such as delivering an appropriate greeting and concise introduction. Each selected requirement resolves to versioned criteria before session start and is pinned in the session bundle. Available combinations come from server metadata with explicit validation and duration limits.
 
 Screen creation lets an authorized recruiter choose a campaign/role, published configuration, job context, candidate disclosure, accommodation policy, invitation expiry, and communication template. Recruiters preview consequences before issue or revocation.
 
@@ -127,13 +132,17 @@ Screen candidates receive confirmation/status only unless an approved disclosure
 
 ### Practice results and review
 
-Practice shall expose overall evidence summary, coverage, competencies, sufficiency, per-turn feedback, transcript, authorized audio, claims, contradictions, stronger structures, articulation, drills, redo, next-session recommendations, and readiness/progression updates.
+Practice shall expose overall evidence summary, coverage, competencies, sufficiency, per-turn feedback, transcript, authorized audio, claims, contradictions, stronger structures, articulation, drills, redo, personal-requirement outcomes, next-session recommendations, and readiness/progression updates. Each personal-requirement outcome names the criteria applied, reports achieved, partially achieved, not demonstrated, or not assessable, cites supporting evidence, and provides a concrete next action when useful.
 
 `results` is proposed to answer what happened and what evidence supports it; `review` is proposed to answer what to improve. Usability research decides whether they remain separate.
 
 ### Skills, progression, and goals
 
-Candidates can inspect competency evidence, assessed/unassessed status, trend, evidence freshness, target-role readiness, goals, milestones, and practice cadence. They can start a session targeting a gap. Streaks may encourage practice but must not become punitive gamification.
+Candidates can create, edit, pause, and retire personal interview goals; select which goals a practice session should test; and inspect competency evidence, assessed/unassessed status, trend, evidence freshness, target-role readiness, milestones, and practice cadence. Personal requirements may cover observable content or behaviour such as greeting, introduction, answer structure, technical reasoning, evidence, questions, and closing. The system must reject or reframe requirements that ask it to infer prohibited traits.
+
+Progression is cumulative and candidate-controlled. Append-only observations from prior practice sessions inform recurring-strength and recurring-gap summaries, targeted drills, and explainable next-session recommendations. The candidate can inspect, correct where appropriate, stop using, export, or delete this history. Personalization must degrade safely when history is sparse and must never expose practice history to an employer.
+
+Quantitative progress uses behaviourally anchored, versioned measures such as criteria demonstrated, goal-completion rate, answer-structure completeness, evidence use, or answer duration. A number is shown only with its definition, evidence, sufficiency, applicable version, and comparison basis. Trends compare compatible role, format, criterion, and rubric versions; incompatible results are separated rather than normalized into a misleading trend. Confidence is an optional pre/post-session self-assessment and is never inferred from voice, face, accent, personality, emotion, or delivery. Streaks may encourage practice but must not become punitive gamification.
 
 ### Recruiter review and comparison
 
@@ -166,7 +175,9 @@ Operators require privacy-controlled aggregate analytics, realtime/session healt
 
 ## Success measures
 
-Practice: completion, review usage, redo/drill use, targeted improvement, usefulness, and retention from learning value.
+Practice: completion, review usage, redo/drill use, personal-goal completion, repeated-gap resolution,
+targeted improvement across comparable sessions, recommendation usefulness, and retention from learning
+value.
 
 Screen: invitation completion, insufficiency rate, evidence inspection, time to human decision, override/re-review patterns, accommodation parity, incidents, and webhook reliability.
 

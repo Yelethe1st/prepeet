@@ -2,7 +2,7 @@
 
 **Status:** Proposed from product requirements and mockups  
 **Owner:** Product and design  
-**Last updated:** 2026-08-23
+**Last updated:** 2026-08-24
 
 ## First practice interview
 
@@ -18,11 +18,14 @@ Recovery branches: invalid document, composition failure, device failure, consen
 ## Returning practice candidate
 
 ```text
-Login → Dashboard → Choose target/gap → Configure or reuse defaults
-→ Prepare → Interview → Review → Progression update
+Login → Dashboard → Choose target/gap and personal requirements
+→ Configure or reuse defaults → Prepare → Interview
+→ Review requirement evidence and actions → Progression update
 ```
 
-The dashboard must distinguish roles/disciplines and never average incomparable readiness.
+The dashboard must distinguish roles, disciplines, formats, rubrics, and criterion versions and never
+average incomparable readiness or personal progress. Each recommendation identifies the prior private
+practice observations that caused it.
 
 ## Screening candidate
 
@@ -86,4 +89,3 @@ Every error explains what failed, what remains safe, the permitted next action, 
 - Real mobile network/media behavior.
 - Assistive-technology and disabled-user testing.
 - Multiple tenant and mixed-mode navigation.
-

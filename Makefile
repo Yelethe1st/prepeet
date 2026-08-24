@@ -400,9 +400,12 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 	@$(LOCAL_ENV); \
 	trap 'kill 0' INT TERM EXIT; \
 	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" \
+		PREPEET_WEB_BASE_URL="http://localhost:3000" \
 		go run ./cmd/api 2>&1 | awk '{ print "[api]    " $$0; fflush() }' ) & \
 	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" \
 		PREPEET_TEMPORAL_ADDRESS="localhost:$${PREPEET_TEMPORAL_PORT:-7233}" \
+		PREPEET_SMTP_ADDRESS="localhost:$${PREPEET_SMTP_PORT:-1025}" \
+		PREPEET_EMAIL_FROM="noreply@prepeet.local" \
 		go run ./cmd/worker 2>&1 | awk '{ print "[worker] " $$0; fflush() }' ) & \
 	( cd $(WEB_DIR) && pnpm dev 2>&1 | awk '{ print "[web]    " $$0; fflush() }' ) & \
 	wait
@@ -410,12 +413,15 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 .PHONY: dev-api
 dev-api: ## Run the Go API alone
 	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" \
-		PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" go run ./cmd/api
+		PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" \
+		PREPEET_WEB_BASE_URL="http://localhost:3000" go run ./cmd/api
 
 .PHONY: dev-worker
 dev-worker: ## Run the worker alone
 	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" \
-		PREPEET_TEMPORAL_ADDRESS="localhost:$${PREPEET_TEMPORAL_PORT:-7233}" go run ./cmd/worker
+		PREPEET_TEMPORAL_ADDRESS="localhost:$${PREPEET_TEMPORAL_PORT:-7233}" \
+		PREPEET_SMTP_ADDRESS="localhost:$${PREPEET_SMTP_PORT:-1025}" \
+		PREPEET_EMAIL_FROM="noreply@prepeet.local" go run ./cmd/worker
 
 .PHONY: dev-web
 dev-web: ## Run the Next.js application alone

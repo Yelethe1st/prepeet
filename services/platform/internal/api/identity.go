@@ -58,6 +58,27 @@ type Identity interface {
 	// the person.
 	DescribeSession(ctx context.Context, sessionToken, userID string) (User, error)
 
+	// RequestTokenEmail sends one of the four token emails. It reports
+	// success for an unknown address, because the response must not say which
+	// addresses hold accounts, and a CooldownError when a recent email for
+	// the same flow is still fresh.
+	RequestTokenEmail(ctx context.Context, kind, email string) error
+
+	// ConfirmEmailVerification consumes a verification token. Replay-safe:
+	// a consumed token earns ErrTokenUsed and repeats nothing.
+	ConfirmEmailVerification(ctx context.Context, token string) error
+
+	// ConfirmPasswordReset consumes a recovery token, replaces the password
+	// and revokes every session in one transaction.
+	ConfirmPasswordReset(ctx context.Context, token, password string) error
+
+	// ConsumeMagicLink exchanges a sign-in token for a session.
+	ConsumeMagicLink(ctx context.Context, token string) (Session, error)
+
+	// ConsumeOTP exchanges an emailed code for a session. A wrong code and an
+	// unknown address answer identically with ErrCodeIncorrect.
+	ConsumeOTP(ctx context.Context, email, code string) (Session, error)
+
 	// SelectTenant sets which tenant the session acts under, after verifying
 	// the membership. An empty tenantID clears the selection.
 	//
@@ -144,6 +165,17 @@ var (
 	// ErrCredentialsRejected means the credentials did not authenticate, for
 	// any reason.
 	ErrCredentialsRejected = errors.New("api: those credentials did not authenticate")
+
+	// ErrTokenInvalid through ErrCodeExhausted are the token outcomes. Each
+	// is distinct because the prototype gives each its own screen, and they
+	// are safe to distinguish: everyone the difference is visible to is
+	// already holding the link.
+	ErrTokenInvalid    = errors.New("api: that link is not valid")
+	ErrTokenExpired    = errors.New("api: that link has expired")
+	ErrTokenUsed       = errors.New("api: that link has already been used")
+	ErrTokenSuperseded = errors.New("api: a newer link has replaced that one")
+	ErrCodeIncorrect   = errors.New("api: that code is not right")
+	ErrCodeExhausted   = errors.New("api: too many wrong codes")
 
 	// ErrSessionRejected means the session or refresh token is not usable, for
 	// any reason.

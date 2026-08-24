@@ -226,6 +226,158 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /auth/email/request:
+    post:
+      tags: [authentication]
+      operationId: requestTokenEmail
+      summary: Send a verification, recovery, sign-in or code email
+      description: |
+        One request surface for the four token flows, distinguished by kind.
+        Answers 202 identically for a known and an unknown address, because
+        confirming which addresses hold accounts is the enumeration every
+        response in this contract refuses.
+
+        Resending is rate limited per address with a visible cooldown: the 429
+        carries Retry-After and the same value in the body, so the interface
+        can show a countdown rather than a bare refusal.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenEmailRequest"
+      responses:
+        "202":
+          description: |
+            Accepted. If the address holds an account, an email is on its way;
+            the response does not say whether it does.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenEmailAccepted"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "429": { $ref: "#/components/responses/ResendCoolingDown" }
+
+  /auth/email/verify:
+    post:
+      tags: [authentication]
+      operationId: confirmEmailVerification
+      summary: Confirm an email address with a verification token
+      description: |
+        Consumes the single-use token from the verification email. Replaying a
+        consumed token repeats nothing and earns TOKEN_USED, which the
+        interface shows as "already done" rather than as a failure.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenConfirmRequest"
+      responses:
+        "204":
+          description: The address is verified.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "422": { $ref: "#/components/responses/TokenRefused" }
+
+  /auth/password/reset:
+    post:
+      tags: [authentication]
+      operationId: confirmPasswordReset
+      summary: Set a new password with a recovery token
+      description: |
+        Consumes the single-use token from the recovery email and replaces the
+        password. Every existing session is revoked in the same transaction,
+        because the reset exists precisely when the old password may be in
+        somebody else's hands.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequest"
+      responses:
+        "204":
+          description: The password is changed and every session revoked.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "422": { $ref: "#/components/responses/TokenRefused" }
+
+  /auth/magic/consume:
+    post:
+      tags: [authentication]
+      operationId: consumeMagicLink
+      summary: Sign in with a magic link token
+      description: |
+        Consumes the single-use token and issues a session in the same cookies
+        login sets. Arriving here proves control of the address, so it is also
+        marked verified.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenConfirmRequest"
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+            Set-Cookie:
+              description: Session and refresh cookies, HTTP-only and SameSite.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "422": { $ref: "#/components/responses/TokenRefused" }
+
+  /auth/otp/consume:
+    post:
+      tags: [authentication]
+      operationId: consumeOTP
+      summary: Sign in with a one-time code
+      description: |
+        Exchanges the emailed six-digit code for a session. A wrong code and an
+        unknown address answer identically, and the fifth wrong code kills the
+        token: six digits survive guessing only because of the cap, and the
+        person who asked for the code loses nothing but a resend.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OTPConsumeRequest"
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+            Set-Cookie:
+              description: Session and refresh cookies, HTTP-only and SameSite.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "422": { $ref: "#/components/responses/TokenRefused" }
+
   /me:
     get:
       tags: [authentication]
@@ -405,6 +557,36 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
 
+    ResendCoolingDown:
+      description: |
+        A recent email for this flow is on its way. The refusal carries the
+        cooldown twice, in Retry-After and in the body, so the interface shows
+        a countdown rather than a bare error.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+        Retry-After:
+          description: Seconds until the next email may be requested.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    TokenRefused:
+      description: |
+        The token was not consumed, and the code says exactly why: invalid,
+        expired, already used, superseded by a newer email, incorrect, or
+        exhausted by wrong guesses. The prototype gives each its own screen,
+        which only works if the response distinguishes them.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
   schemas:
     ErrorCode:
       type: string
@@ -426,6 +608,13 @@ components:
         - CREDENTIALS_INVALID
         - SESSION_EXPIRED
         - REFRESH_TOKEN_REUSED
+        - TOKEN_INVALID
+        - TOKEN_EXPIRED
+        - TOKEN_USED
+        - TOKEN_SUPERSEDED
+        - CODE_INCORRECT
+        - CODE_ATTEMPTS_EXHAUSTED
+        - RESEND_COOLING_DOWN
         - INTERNAL
 
     FieldError:
@@ -501,6 +690,74 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/HealthCheck"
+
+    TokenEmailKind:
+      type: string
+      description: Which of the four token flows an email is requested for.
+      enum: [verify_email, password_reset, magic_link, otp]
+
+    TokenEmailRequest:
+      type: object
+      description: Asks for one token email.
+      required: [kind, email]
+      properties:
+        kind:
+          $ref: "#/components/schemas/TokenEmailKind"
+        email:
+          type: string
+          format: email
+          maxLength: 254
+
+    TokenEmailAccepted:
+      type: object
+      description: The identical answer for a known and an unknown address.
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [email_sent]
+          description: Sent if the address holds an account; the response does not say.
+
+    TokenConfirmRequest:
+      type: object
+      description: Presents one single-use token.
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: The token from the email link, exactly as received.
+
+    PasswordResetRequest:
+      type: object
+      description: Presents a recovery token and the replacement password.
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          minLength: 8
+          maxLength: 128
+        password:
+          type: string
+          minLength: 12
+          maxLength: 512
+          description: The new password. The same rules as registration.
+
+    OTPConsumeRequest:
+      type: object
+      description: Presents an emailed one-time code for the address it went to.
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: "^[0-9]{6}$"
 
     RegisterRequest:
       type: object

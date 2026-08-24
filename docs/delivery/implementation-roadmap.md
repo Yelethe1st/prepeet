@@ -2,9 +2,9 @@
 
 **Status:** Proposed  
 **Owner:** Principal Engineer and product leadership  
-**Last updated:** 2026-08-23
+**Last updated:** 2026-08-24
 
-The phase-by-phase plan below is broken into 161 tickets in [tickets/](tickets/README.md).
+The phase-by-phase plan below is broken into 166 tickets in [tickets/](tickets/README.md).
 
 ## Principles
 

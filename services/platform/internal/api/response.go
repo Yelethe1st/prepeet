@@ -2,7 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/Yelethe1st/prepeet/packages/generated/go/prepeetapi"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
@@ -56,6 +59,12 @@ func (r sessionIssued) write(w http.ResponseWriter) error {
 func (r sessionIssued) VisitLoginResponse(w http.ResponseWriter) error   { return r.write(w) }
 func (r sessionIssued) VisitRefreshResponse(w http.ResponseWriter) error { return r.write(w) }
 
+// A magic link and a one-time code end in exactly the session login issues,
+// same cookies and same body, which is the point: the flows differ in proof,
+// never in what a session is.
+func (r sessionIssued) VisitConsumeMagicLinkResponse(w http.ResponseWriter) error { return r.write(w) }
+func (r sessionIssued) VisitConsumeOTPResponse(w http.ResponseWriter) error       { return r.write(w) }
+
 // sessionCleared is the 204 for logout and the cookie-clearing half of a
 // rejected refresh.
 type sessionCleared struct {
@@ -87,6 +96,9 @@ type failure struct {
 	// being broken rather than as being logged out.
 	clearCookies bool
 	environment  config.Environment
+	// retryAfter, when set, becomes the Retry-After header. The same number
+	// the body carries in the message, so the interface can show a countdown.
+	retryAfter time.Duration
 	// requestID is carried on the value rather than read from the writer,
 	// because a ResponseWriter has no way back to the request that produced it.
 	// The handler has both, so it puts the identifier here.
@@ -133,17 +145,27 @@ func (f failure) write(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", NoStore)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if f.retryAfter > 0 {
+		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(f.retryAfter.Seconds()))))
+	}
 	w.WriteHeader(f.status)
 	return json.NewEncoder(w).Encode(body)
 }
 
-func (f failure) VisitRegisterResponse(w http.ResponseWriter) error        { return f.write(w) }
-func (f failure) VisitLoginResponse(w http.ResponseWriter) error           { return f.write(w) }
-func (f failure) VisitLogoutResponse(w http.ResponseWriter) error          { return f.write(w) }
-func (f failure) VisitRefreshResponse(w http.ResponseWriter) error         { return f.write(w) }
-func (f failure) VisitGetCurrentUserResponse(w http.ResponseWriter) error  { return f.write(w) }
-func (f failure) VisitListMembershipsResponse(w http.ResponseWriter) error { return f.write(w) }
-func (f failure) VisitSetActiveTenantResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitRegisterResponse(w http.ResponseWriter) error          { return f.write(w) }
+func (f failure) VisitLoginResponse(w http.ResponseWriter) error             { return f.write(w) }
+func (f failure) VisitLogoutResponse(w http.ResponseWriter) error            { return f.write(w) }
+func (f failure) VisitRefreshResponse(w http.ResponseWriter) error           { return f.write(w) }
+func (f failure) VisitGetCurrentUserResponse(w http.ResponseWriter) error    { return f.write(w) }
+func (f failure) VisitListMembershipsResponse(w http.ResponseWriter) error   { return f.write(w) }
+func (f failure) VisitSetActiveTenantResponse(w http.ResponseWriter) error   { return f.write(w) }
+func (f failure) VisitRequestTokenEmailResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitConfirmEmailVerificationResponse(w http.ResponseWriter) error {
+	return f.write(w)
+}
+func (f failure) VisitConfirmPasswordResetResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitConsumeMagicLinkResponse(w http.ResponseWriter) error     { return f.write(w) }
+func (f failure) VisitConsumeOTPResponse(w http.ResponseWriter) error           { return f.write(w) }
 
 // Compile-time proof that the hand-written responses satisfy the generated
 // interfaces. Without these, a contract change that altered a Visit signature

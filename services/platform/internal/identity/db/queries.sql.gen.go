@@ -10,6 +10,41 @@ import (
 	"time"
 )
 
+const findActionTokenByHash = `-- name: FindActionTokenByHash :one
+SELECT id::text AS id, user_id::text AS user_id, purpose,
+       expires_at, used_at, superseded_at, attempts
+FROM identity.action_tokens
+WHERE token_hash = $1::text
+`
+
+type FindActionTokenByHashRow struct {
+	ID           string
+	UserID       string
+	Purpose      string
+	ExpiresAt    time.Time
+	UsedAt       *time.Time
+	SupersededAt *time.Time
+	Attempts     int32
+}
+
+// Reads the token whatever its state, because the states are the outcomes:
+// expired, used and superseded each earn their own explanation, and a query
+// that filtered them out would collapse all three into "invalid".
+func (q *Queries) FindActionTokenByHash(ctx context.Context, tokenHash string) (FindActionTokenByHashRow, error) {
+	row := q.db.QueryRow(ctx, findActionTokenByHash, tokenHash)
+	var i FindActionTokenByHashRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Purpose,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.SupersededAt,
+		&i.Attempts,
+	)
+	return i, err
+}
+
 const findCredentialsByEmail = `-- name: FindCredentialsByEmail :one
 
 SELECT u.id::text AS user_id, c.password_hash
@@ -39,6 +74,39 @@ func (q *Queries) FindCredentialsByEmail(ctx context.Context, email string) (Fin
 	row := q.db.QueryRow(ctx, findCredentialsByEmail, email)
 	var i FindCredentialsByEmailRow
 	err := row.Scan(&i.UserID, &i.PasswordHash)
+	return i, err
+}
+
+const findLiveOTP = `-- name: FindLiveOTP :one
+SELECT id::text AS id, token_hash, expires_at, attempts
+FROM identity.action_tokens
+WHERE user_id = $1::uuid
+  AND purpose = 'otp'
+  AND used_at IS NULL
+  AND superseded_at IS NULL
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type FindLiveOTPRow struct {
+	ID        string
+	TokenHash string
+	ExpiresAt time.Time
+	Attempts  int32
+}
+
+// A code is looked up by who it was issued to rather than by hash, because
+// six digits are not unique enough to be an address. Newest first: after a
+// resend the person may still have both emails open.
+func (q *Queries) FindLiveOTP(ctx context.Context, userID string) (FindLiveOTPRow, error) {
+	row := q.db.QueryRow(ctx, findLiveOTP, userID)
+	var i FindLiveOTPRow
+	err := row.Scan(
+		&i.ID,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.Attempts,
+	)
 	return i, err
 }
 
@@ -172,6 +240,31 @@ func (q *Queries) FindUserByID(ctx context.Context, id string) (FindUserByIDRow,
 	var i FindUserByIDRow
 	err := row.Scan(&i.ID, &i.Email, &i.EmailVerified)
 	return i, err
+}
+
+const insertActionToken = `-- name: InsertActionToken :exec
+INSERT INTO identity.action_tokens (id, user_id, purpose, token_hash, expires_at)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::text, $5::timestamptz)
+`
+
+type InsertActionTokenParams struct {
+	ID        string
+	UserID    string
+	Purpose   string
+	TokenHash string
+	ExpiresAt time.Time
+}
+
+func (q *Queries) InsertActionToken(ctx context.Context, arg InsertActionTokenParams) error {
+	_, err := q.db.Exec(ctx, insertActionToken,
+		arg.ID,
+		arg.UserID,
+		arg.Purpose,
+		arg.TokenHash,
+		arg.ExpiresAt,
+	)
+	return err
 }
 
 const insertAuditEvent = `-- name: InsertAuditEvent :exec
@@ -356,6 +449,35 @@ func (q *Queries) ListMembershipsByUser(ctx context.Context, userID string) ([]L
 	return items, nil
 }
 
+const markActionTokenUsed = `-- name: MarkActionTokenUsed :execrows
+UPDATE identity.action_tokens
+SET used_at = now()
+WHERE id = $1::uuid
+  AND used_at IS NULL
+  AND superseded_at IS NULL
+`
+
+// The guard columns repeat the liveness check so that two concurrent
+// presentations of one token race on the row update rather than both
+// succeeding: the loser sees zero rows and reports the token used.
+func (q *Queries) MarkActionTokenUsed(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, markActionTokenUsed, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markEmailVerified = `-- name: MarkEmailVerified :exec
+UPDATE identity.users SET email_verified = true, updated_at = now()
+WHERE id = $1::uuid
+`
+
+func (q *Queries) MarkEmailVerified(ctx context.Context, userID string) error {
+	_, err := q.db.Exec(ctx, markEmailVerified, userID)
+	return err
+}
+
 const membershipExists = `-- name: MembershipExists :one
 SELECT EXISTS (
     SELECT 1 FROM tenancy.memberships
@@ -378,6 +500,23 @@ func (q *Queries) MembershipExists(ctx context.Context, arg MembershipExistsPara
 	return permitted, err
 }
 
+const recordTokenAttempt = `-- name: RecordTokenAttempt :one
+UPDATE identity.action_tokens
+SET attempts = attempts + 1
+WHERE id = $1::uuid
+RETURNING attempts
+`
+
+// Counts a wrong guess and reports the total, so the caller can kill the
+// token at the cap. Only the OTP path calls this: a 32-byte token is not
+// guessable, a six-digit code is.
+func (q *Queries) RecordTokenAttempt(ctx context.Context, id string) (int32, error) {
+	row := q.db.QueryRow(ctx, recordTokenAttempt, id)
+	var attempts int32
+	err := row.Scan(&attempts)
+	return attempts, err
+}
+
 const retireSession = `-- name: RetireSession :exec
 UPDATE identity.sessions SET retired_at = $2 WHERE id = $1 AND retired_at IS NULL
 `
@@ -391,6 +530,27 @@ type RetireSessionParams struct {
 // that presenting its refresh token can be recognised as reuse.
 func (q *Queries) RetireSession(ctx context.Context, arg RetireSessionParams) error {
 	_, err := q.db.Exec(ctx, retireSession, arg.ID, arg.RetiredAt)
+	return err
+}
+
+const revokeAllSessions = `-- name: RevokeAllSessions :exec
+UPDATE identity.sessions
+SET revoked_at = $1::timestamptz,
+    revoked_reason = $2::text
+WHERE user_id = $3::uuid AND revoked_at IS NULL
+`
+
+type RevokeAllSessionsParams struct {
+	RevokedAt time.Time
+	Reason    string
+	UserID    string
+}
+
+// Every family, not one: after a password reset the old sessions may be the
+// attacker's, and after a recovery the person expects to be the only one
+// signed in.
+func (q *Queries) RevokeAllSessions(ctx context.Context, arg RevokeAllSessionsParams) error {
+	_, err := q.db.Exec(ctx, revokeAllSessions, arg.RevokedAt, arg.Reason, arg.UserID)
 	return err
 }
 
@@ -429,6 +589,29 @@ type SetSessionActiveTenantParams struct {
 // leaving a workspace means.
 func (q *Queries) SetSessionActiveTenant(ctx context.Context, arg SetSessionActiveTenantParams) error {
 	_, err := q.db.Exec(ctx, setSessionActiveTenant, arg.TenantID, arg.SessionID)
+	return err
+}
+
+const supersedeActionTokens = `-- name: SupersedeActionTokens :exec
+UPDATE identity.action_tokens
+SET superseded_at = now()
+WHERE user_id = $1::uuid
+  AND purpose = $2::text
+  AND used_at IS NULL
+  AND superseded_at IS NULL
+`
+
+type SupersedeActionTokensParams struct {
+	UserID  string
+	Purpose string
+}
+
+// Requesting a new token invalidates every live one of the same purpose, so
+// only the newest email works. Run in the same transaction as the insert that
+// replaces them: a supersede that commits without its successor would leave
+// the person with no working token at all.
+func (q *Queries) SupersedeActionTokens(ctx context.Context, arg SupersedeActionTokensParams) error {
+	_, err := q.db.Exec(ctx, supersedeActionTokens, arg.UserID, arg.Purpose)
 	return err
 }
 

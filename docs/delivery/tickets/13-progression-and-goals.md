@@ -2,9 +2,9 @@
 
 **Phase 3** · **Workstream** Go, Python, Web
 
-Longitudinal candidate value. Observations are append-only and carry the rubric version that produced
-them, so a rubric change never silently rewrites a candidate's history. Roles are not averaged together
-just because both produced a number.
+Longitudinal candidate value. Observations are append-only and carry the rubric or personal-criterion
+version that produced them, so a change never silently rewrites a candidate's history. Roles, formats,
+rubrics, and criteria are not averaged together just because they produced numbers.
 
 ---
 
@@ -83,5 +83,30 @@ practice into a narrow loop.
 - [ ] Composition can accept a targeted gap and demonstrably covers it.
 - [ ] Targeting never becomes the only thing asked about.
 - [ ] The recommendation explains why it was made.
+- [ ] Sparse, stale or incompatible history produces a cautious recommendation rather than an invented trend.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md)
+
+---
+
+### PRG-06 · Let candidates define and measure personal interview requirements
+
+**Depends on** CAT-02, EVL-05, PRG-01, WEB-04 · **Blocks** nothing
+
+A practice candidate chooses what they want a session to test — for example greeting, introduction,
+answer structure, technical trade-offs, questions or closing — and sees cumulative, actionable progress
+without inviting the system to infer confidence or another prohibited trait.
+
+**Done when**
+- [ ] A candidate can create, edit, pause and retire a personal requirement and select it for a practice session.
+- [ ] Candidate-authored intent resolves to candidate-visible, versioned, observable criteria that are pinned before session start.
+- [ ] The system rejects or safely reframes a requirement that asks for personality, emotion, accent quality, inferred confidence or another prohibited inference.
+- [ ] Evaluation reports achieved, partially achieved, not demonstrated or not assessable for every selected requirement, with resolving evidence and criterion version.
+- [ ] A session that offered no fair opportunity to demonstrate a criterion returns not assessable and never a zero or failure.
+- [ ] Results state which criteria were demonstrated, what was missing and one or two concrete next actions where useful.
+- [ ] Progress metrics expose their definition, evidence, sufficiency, version and comparison basis; incompatible sessions remain separate.
+- [ ] Optional pre/post confidence is candidate self-report stored separately from evaluated observations.
+- [ ] Prior observations produce explainable next-session suggestions and drills, and the candidate can inspect, stop using, export or delete the private history.
+- [ ] No personal requirement, observation, metric or recommendation is reachable through employer authority.
+
+**Spec** [practice-mode.md](../../product/practice-mode.md) · [product-requirements.md](../../product/product-requirements.md) · [domain-model.md](../../architecture/domain-model.md)

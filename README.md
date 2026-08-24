@@ -4,7 +4,7 @@ A multi-tenant, voice-first interview platform with two modes. **Practice** is c
 preparation with evidence-linked coaching. **Screen** is employer-configured interviewing that produces
 evidence for a named human reviewer, and never decides an outcome itself.
 
-The specification lives in [docs/](docs/README.md). The work is broken into 164 tickets in
+The specification lives in [docs/](docs/README.md). The work is broken into 166 tickets in
 [docs/delivery/tickets/](docs/delivery/tickets/README.md). The interface design is the high-fidelity
 prototype in [screens/](screens/README.md), which the production frontend is ported from.
 

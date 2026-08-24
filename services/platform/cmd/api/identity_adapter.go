@@ -128,14 +128,78 @@ func sessionFrom(session identity.Session) api.Session {
 // failure becomes a 500 rather than being silently reclassified as a client
 // error. Mapping the other way, defaulting to a 4xx, would hide outages as
 // validation failures.
+// RequestTokenEmail fans one endpoint out to the four request flows.
+//
+// The switch lives here rather than in the service so that each flow keeps
+// its own named method and its own tests, and here rather than in the handler
+// so the HTTP layer never learns the flows differ.
+func (a identityAdapter) RequestTokenEmail(ctx context.Context, kind, email string) error {
+	switch kind {
+	case "verify_email":
+		return a.translate(a.service.RequestEmailVerification(ctx, email))
+	case "password_reset":
+		return a.translate(a.service.RequestPasswordReset(ctx, email))
+	case "magic_link":
+		return a.translate(a.service.RequestMagicLink(ctx, email))
+	case "otp":
+		return a.translate(a.service.RequestOTP(ctx, email))
+	default:
+		// The contract's enum makes this unreachable from outside; reaching it
+		// means the enum and this switch have drifted.
+		return api.Invalid("kind", "KIND_INVALID", "that is not a token email kind")
+	}
+}
+
+func (a identityAdapter) ConfirmEmailVerification(ctx context.Context, token string) error {
+	return a.translate(a.service.ConfirmEmailVerification(ctx, token))
+}
+
+func (a identityAdapter) ConfirmPasswordReset(ctx context.Context, token, password string) error {
+	return a.translate(a.service.ConfirmPasswordReset(ctx, token, password))
+}
+
+func (a identityAdapter) ConsumeMagicLink(ctx context.Context, token string) (api.Session, error) {
+	session, err := a.service.ConsumeMagicLink(ctx, token)
+	if err != nil {
+		return api.Session{}, a.translate(err)
+	}
+	return sessionFrom(session), nil
+}
+
+func (a identityAdapter) ConsumeOTP(ctx context.Context, email, code string) (api.Session, error) {
+	session, err := a.service.ConfirmOTP(ctx, email, code)
+	if err != nil {
+		return api.Session{}, a.translate(err)
+	}
+	return sessionFrom(session), nil
+}
+
 func (a identityAdapter) translate(err error) error {
 	if err == nil {
 		return nil
 	}
 
+	var cooldown *identity.CooldownError
+	if errors.As(err, &cooldown) {
+		return &api.CooldownError{RetryAfter: cooldown.RetryAfter}
+	}
+
 	switch {
 	case errors.Is(err, identity.ErrCredentialsInvalid):
 		return api.ErrCredentialsRejected
+
+	case errors.Is(err, identity.ErrTokenInvalid):
+		return api.ErrTokenInvalid
+	case errors.Is(err, identity.ErrTokenExpired):
+		return api.ErrTokenExpired
+	case errors.Is(err, identity.ErrTokenUsed):
+		return api.ErrTokenUsed
+	case errors.Is(err, identity.ErrTokenSuperseded):
+		return api.ErrTokenSuperseded
+	case errors.Is(err, identity.ErrCodeIncorrect):
+		return api.ErrCodeIncorrect
+	case errors.Is(err, identity.ErrTooManyAttempts):
+		return api.ErrCodeExhausted
 
 	case errors.Is(err, identity.ErrNoMembership):
 		return api.ErrForbidden

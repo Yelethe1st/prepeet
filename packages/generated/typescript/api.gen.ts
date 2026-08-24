@@ -144,6 +144,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/email/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a verification, recovery, sign-in or code email
+         * @description One request surface for the four token flows, distinguished by kind.
+         *     Answers 202 identically for a known and an unknown address, because
+         *     confirming which addresses hold accounts is the enumeration every
+         *     response in this contract refuses.
+         *
+         *     Resending is rate limited per address with a visible cooldown: the 429
+         *     carries Retry-After and the same value in the body, so the interface
+         *     can show a countdown rather than a bare refusal.
+         */
+        post: operations["requestTokenEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/email/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm an email address with a verification token
+         * @description Consumes the single-use token from the verification email. Replaying a
+         *     consumed token repeats nothing and earns TOKEN_USED, which the
+         *     interface shows as "already done" rather than as a failure.
+         */
+        post: operations["confirmEmailVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password with a recovery token
+         * @description Consumes the single-use token from the recovery email and replaces the
+         *     password. Every existing session is revoked in the same transaction,
+         *     because the reset exists precisely when the old password may be in
+         *     somebody else's hands.
+         */
+        post: operations["confirmPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/magic/consume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with a magic link token
+         * @description Consumes the single-use token and issues a session in the same cookies
+         *     login sets. Arriving here proves control of the address, so it is also
+         *     marked verified.
+         */
+        post: operations["consumeMagicLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/otp/consume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with a one-time code
+         * @description Exchanges the emailed six-digit code for a session. A wrong code and an
+         *     unknown address answer identically, and the fifth wrong code kills the
+         *     token: six digits survive guessing only because of the cap, and the
+         *     person who asked for the code loses nothing but a resend.
+         */
+        post: operations["consumeOTP"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -240,7 +357,7 @@ export interface components {
          *     is machine logic.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_FAILED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "IDEMPOTENCY_CONFLICT" | "RATE_LIMITED" | "CREDENTIALS_INVALID" | "SESSION_EXPIRED" | "REFRESH_TOKEN_REUSED" | "INTERNAL";
+        ErrorCode: "VALIDATION_FAILED" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "IDEMPOTENCY_CONFLICT" | "RATE_LIMITED" | "CREDENTIALS_INVALID" | "SESSION_EXPIRED" | "REFRESH_TOKEN_REUSED" | "TOKEN_INVALID" | "TOKEN_EXPIRED" | "TOKEN_USED" | "TOKEN_SUPERSEDED" | "CODE_INCORRECT" | "CODE_ATTEMPTS_EXHAUSTED" | "RESEND_COOLING_DOWN" | "INTERNAL";
         /** @description One field-level validation failure. */
         FieldError: {
             /**
@@ -283,6 +400,42 @@ export interface components {
             /** @enum {string} */
             status: "ready" | "unready";
             checks: components["schemas"]["HealthCheck"][];
+        };
+        /**
+         * @description Which of the four token flows an email is requested for.
+         * @enum {string}
+         */
+        TokenEmailKind: "verify_email" | "password_reset" | "magic_link" | "otp";
+        /** @description Asks for one token email. */
+        TokenEmailRequest: {
+            kind: components["schemas"]["TokenEmailKind"];
+            /** Format: email */
+            email: string;
+        };
+        /** @description The identical answer for a known and an unknown address. */
+        TokenEmailAccepted: {
+            /**
+             * @description Sent if the address holds an account; the response does not say.
+             * @enum {string}
+             */
+            status: "email_sent";
+        };
+        /** @description Presents one single-use token. */
+        TokenConfirmRequest: {
+            /** @description The token from the email link, exactly as received. */
+            token: string;
+        };
+        /** @description Presents a recovery token and the replacement password. */
+        PasswordResetRequest: {
+            token: string;
+            /** @description The new password. The same rules as registration. */
+            password: string;
+        };
+        /** @description Presents an emailed one-time code for the address it went to. */
+        OTPConsumeRequest: {
+            /** Format: email */
+            email: string;
+            code: string;
         };
         RegisterRequest: {
             /** Format: email */
@@ -425,6 +578,37 @@ export interface components {
                 "Cache-Control": components["headers"]["CacheControl"];
                 /** @description Seconds to wait before retrying. */
                 "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description A recent email for this flow is on its way. The refusal carries the
+         *     cooldown twice, in Retry-After and in the body, so the interface shows
+         *     a countdown rather than a bare error.
+         */
+        ResendCoolingDown: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                /** @description Seconds until the next email may be requested. */
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description The token was not consumed, and the code says exactly why: invalid,
+         *     expired, already used, superseded by a newer email, incorrect, or
+         *     exhausted by wrong guesses. The prototype gives each its own screen,
+         *     which only works if the response distinguishes them.
+         */
+        TokenRefused: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
                 [name: string]: unknown;
             };
             content: {
@@ -647,6 +831,144 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    requestTokenEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenEmailRequest"];
+            };
+        };
+        responses: {
+            /**
+             * @description Accepted. If the address holds an account, an email is on its way;
+             *     the response does not say whether it does.
+             */
+            202: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenEmailAccepted"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            429: components["responses"]["ResendCoolingDown"];
+        };
+    };
+    confirmEmailVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description The address is verified. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            422: components["responses"]["TokenRefused"];
+        };
+    };
+    confirmPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description The password is changed and every session revoked. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            422: components["responses"]["TokenRefused"];
+        };
+    };
+    consumeMagicLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    /** @description Session and refresh cookies, HTTP-only and SameSite. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            422: components["responses"]["TokenRefused"];
+        };
+    };
+    consumeOTP: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OTPConsumeRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    /** @description Session and refresh cookies, HTTP-only and SameSite. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            422: components["responses"]["TokenRefused"];
         };
     };
     getCurrentUser: {

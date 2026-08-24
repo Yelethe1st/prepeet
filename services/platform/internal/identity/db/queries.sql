@@ -127,3 +127,74 @@ UPDATE identity.sessions
 SET revoked_at = sqlc.arg(revoked_at)::timestamptz,
     revoked_reason = sqlc.arg(reason)::text
 WHERE family_id = sqlc.arg(family_id)::uuid AND revoked_at IS NULL;
+
+-- name: SupersedeActionTokens :exec
+-- Requesting a new token invalidates every live one of the same purpose, so
+-- only the newest email works. Run in the same transaction as the insert that
+-- replaces them: a supersede that commits without its successor would leave
+-- the person with no working token at all.
+UPDATE identity.action_tokens
+SET superseded_at = now()
+WHERE user_id = sqlc.arg(user_id)::uuid
+  AND purpose = sqlc.arg(purpose)::text
+  AND used_at IS NULL
+  AND superseded_at IS NULL;
+
+-- name: InsertActionToken :exec
+INSERT INTO identity.action_tokens (id, user_id, purpose, token_hash, expires_at)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(user_id)::uuid, sqlc.arg(purpose)::text,
+        sqlc.arg(token_hash)::text, sqlc.arg(expires_at)::timestamptz);
+
+-- name: FindActionTokenByHash :one
+-- Reads the token whatever its state, because the states are the outcomes:
+-- expired, used and superseded each earn their own explanation, and a query
+-- that filtered them out would collapse all three into "invalid".
+SELECT id::text AS id, user_id::text AS user_id, purpose,
+       expires_at, used_at, superseded_at, attempts
+FROM identity.action_tokens
+WHERE token_hash = sqlc.arg(token_hash)::text;
+
+-- name: FindLiveOTP :one
+-- A code is looked up by who it was issued to rather than by hash, because
+-- six digits are not unique enough to be an address. Newest first: after a
+-- resend the person may still have both emails open.
+SELECT id::text AS id, token_hash, expires_at, attempts
+FROM identity.action_tokens
+WHERE user_id = sqlc.arg(user_id)::uuid
+  AND purpose = 'otp'
+  AND used_at IS NULL
+  AND superseded_at IS NULL
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: MarkActionTokenUsed :execrows
+-- The guard columns repeat the liveness check so that two concurrent
+-- presentations of one token race on the row update rather than both
+-- succeeding: the loser sees zero rows and reports the token used.
+UPDATE identity.action_tokens
+SET used_at = now()
+WHERE id = sqlc.arg(id)::uuid
+  AND used_at IS NULL
+  AND superseded_at IS NULL;
+
+-- name: RecordTokenAttempt :one
+-- Counts a wrong guess and reports the total, so the caller can kill the
+-- token at the cap. Only the OTP path calls this: a 32-byte token is not
+-- guessable, a six-digit code is.
+UPDATE identity.action_tokens
+SET attempts = attempts + 1
+WHERE id = sqlc.arg(id)::uuid
+RETURNING attempts;
+
+-- name: MarkEmailVerified :exec
+UPDATE identity.users SET email_verified = true, updated_at = now()
+WHERE id = sqlc.arg(user_id)::uuid;
+
+-- name: RevokeAllSessions :exec
+-- Every family, not one: after a password reset the old sessions may be the
+-- attacker's, and after a recovery the person expects to be the only one
+-- signed in.
+UPDATE identity.sessions
+SET revoked_at = sqlc.arg(revoked_at)::timestamptz,
+    revoked_reason = sqlc.arg(reason)::text
+WHERE user_id = sqlc.arg(user_id)::uuid AND revoked_at IS NULL;

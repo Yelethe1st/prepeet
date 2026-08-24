@@ -86,9 +86,24 @@ Four token-bearing flows with different expiry, single-use and device-binding ch
 prototype already distinguishes their states — signing in, already used, wrong device, expired.
 
 **Done when**
-- [ ] Every token is single-use, expiring, and safe to replay without side effects.
-- [ ] Resend is rate-limited with a visible cooldown.
-- [ ] Expired and already-used cases have their own outcomes rather than one generic failure.
+- [x] Every token is single-use, expiring, and safe to replay without side effects.
+- [x] Resend is rate-limited with a visible cooldown.
+- [x] Expired and already-used cases have their own outcomes rather than one generic failure.
+
+**Backend complete.** One `identity.action_tokens` table carries all four flows, because they are the
+same shape with different expiries: a secret sent somewhere that proves control of that somewhere,
+exactly once, for a while. Single-use is transactional rather than checked: the mark and the effect
+share one transaction and a guarded update decides races, so exactly one of two concurrent
+presentations wins, which a repository-level test proves because no sequential test can. Requesting
+a new token supersedes the old immediately, as the prototype promises, and the superseded link earns
+its own outcome. Recovery revokes every session in the same transaction that changes the password.
+The cooldown is charged before the address is looked up, so it cannot become the enumeration oracle
+the identical 202s exist to prevent, and the 429 carries Retry-After plus the same number in the
+body for the countdown. Six-digit codes die on the fifth wrong guess.
+
+The web screens (check-email, verify-email, forgot/reset-password, magic-link, otp, auth-expired)
+port with the auth feature work; the contract they need is published and the error codes are
+distinct per state.
 
 **Spec** [user-journeys.md](../../product/user-journeys.md) · [threat-model.md](../../security/threat-model.md)
 

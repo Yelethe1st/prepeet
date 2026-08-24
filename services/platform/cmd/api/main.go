@@ -21,8 +21,10 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/ratelimit"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
 
@@ -92,7 +94,15 @@ func main() {
 	})
 
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity:    identityAdapter{service: identity.NewService(identity.NewRepository(pool), time.Now)},
+		Identity: identityAdapter{service: identity.NewService(identity.NewRepository(pool), time.Now).
+			WithTokenFlows(identity.TokenFlows{
+				Mailer: queueMailer{queue: notification.NewQueue(pool)},
+				// One email per address per flow per minute. The Postgres
+				// counter, so every task shares the count and the cooldown a
+				// person sees is the cooldown that holds.
+				Resend:  ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 1, Window: time.Minute}, time.Now),
+				BaseURL: cfg.WebBaseURL,
+			})},
 		Environment: cfg.Environment,
 		Health:      checks,
 	})

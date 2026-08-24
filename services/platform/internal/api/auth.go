@@ -323,6 +323,23 @@ func (a *authentication) issued(session Session) (sessionIssued, error) {
 func (a *authentication) failed(ctx context.Context, err error) failure {
 	base := failure{environment: a.environment, requestID: httpserver.RequestIDFrom(ctx)}
 
+	if status, code, message, ok := tokenFailure(err); ok {
+		base.status = status
+		base.code = code
+		base.message = message
+		return base
+	}
+
+	var cooldown *CooldownError
+	if errors.As(err, &cooldown) {
+		base.status = http.StatusTooManyRequests
+		base.code = string(prepeetapi.RESENDCOOLINGDOWN)
+		base.message = fmt.Sprintf("Another email was sent moments ago. You can request a new one in %d seconds.",
+			int(cooldown.RetryAfter.Seconds()))
+		base.retryAfter = cooldown.RetryAfter
+		return base
+	}
+
 	var invalid *ValidationError
 	switch {
 	case errors.As(err, &invalid):

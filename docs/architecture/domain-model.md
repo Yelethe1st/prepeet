@@ -2,7 +2,7 @@
 
 **Status:** Proposed  
 **Owner:** Go/domain architecture  
-**Last updated:** 2026-08-23
+**Last updated:** 2026-08-24
 
 ## Bounded contexts
 
@@ -10,11 +10,11 @@
 |---|---|---|
 | Identity | User, LoginSession, ServiceIdentity | Go identity |
 | Tenancy | Tenant, Membership, RoleBinding, TenantPolicy | Go tenancy |
-| Candidate | CandidateProfile, Document, Consent, Goal | Go candidate |
+| Candidate | CandidateProfile, Document, Consent, Goal, PersonalRequirement | Go candidate |
 | Content | Artifact, Publication, Calibration | Go publication control; Python validates content |
 | Interview | Invitation, Session, SessionBundle, Transcript | Go interview |
 | Media | Upload, MediaManifest | Go media |
-| Evaluation | Evaluation, TurnEvaluation, ArticulationResult, Observation | Go persistence; Python produces result |
+| Evaluation | Evaluation, TurnEvaluation, ArticulationResult, Observation, RequirementObservation | Go persistence; Python produces result |
 | Recruiting | Campaign, ReviewCase, Decision, Appeal | Go recruiting |
 | Progression | CompetencyHistory, ReadinessSnapshot | Go projection |
 | Billing | Entitlement, UsageEntry, Quota | Go billing |
@@ -29,6 +29,7 @@ erDiagram
     TENANT ||--o{ MEMBERSHIP : grants
     USER ||--o| CANDIDATE_PROFILE : owns
     CANDIDATE_PROFILE ||--o{ DOCUMENT : supplies
+    CANDIDATE_PROFILE ||--o{ PERSONAL_REQUIREMENT : defines
     TENANT ||--o{ CAMPAIGN : configures
     CAMPAIGN ||--o{ INVITATION : issues
     INVITATION ||--o| SESSION : creates
@@ -41,6 +42,7 @@ erDiagram
     EVALUATION ||--o{ TURN_EVALUATION : contains
     EVALUATION ||--o{ EVIDENCE_REFERENCE : cites
     EVALUATION ||--o{ COMPETENCY_OBSERVATION : records
+    EVALUATION ||--o{ REQUIREMENT_OBSERVATION : records
     EVALUATION ||--o| REVIEW_CASE : enters
     REVIEW_CASE ||--o{ REVIEW_DECISION : records
     REVIEW_CASE ||--o{ APPEAL : receives
@@ -66,7 +68,11 @@ Membership connects one identity to a tenant. Role bindings attach capabilities 
 - Extracted facts retain source, confidence, extractor version, and correction history.
 - Tenant screening references a candidate without absorbing private practice data.
 
-Child records include documents, extracted facts, target roles, goals, accessibility preferences voluntarily stored, private evidence, and purpose-partitioned competency/articulation projections.
+Child records include documents, extracted facts, target roles, goals, personal requirements,
+accessibility preferences voluntarily stored, private evidence, and purpose-partitioned
+competency/articulation projections. A personal requirement is candidate-owned, has lifecycle state, and
+resolves candidate-authored intent into immutable versioned observable criteria. Prohibited inference
+requests cannot become criteria.
 
 ### Consent
 
@@ -117,7 +123,13 @@ Decisions are append-only. The current decision is a projection. Override requir
 
 ### Progression
 
-Competency observations are append-only and evidence-linked. Readiness is reproducible against a pinned standard. Unknown is not zero; incomparable roles/rubrics are not averaged.
+Competency and personal-requirement observations are append-only and evidence-linked. Requirement
+observations carry the criterion version and one of achieved, partially achieved, not demonstrated, or
+not assessable; a missing opportunity is not poor performance. Readiness is reproducible against a
+pinned standard. Unknown is not zero; incomparable roles, formats, rubrics, or criteria are not averaged.
+Personalized recommendations cite the observations that caused them and are removable with the
+candidate's private practice history. Self-reported confidence is stored separately from evaluated
+observations and is never inferred.
 
 ### Usage, integration, and audit
 

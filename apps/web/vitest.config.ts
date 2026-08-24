@@ -16,6 +16,9 @@ export default defineConfig({
       // The generated contract types, aliased rather than made a workspace
       // package: openapi-typescript emits interfaces and nothing else, so a
       // package would ship no runtime and exist only to be resolved.
+      "@contracts/capabilities": fileURLToPath(
+        new URL("../../packages/generated/typescript/capabilities.gen.ts", import.meta.url),
+      ),
       "@contracts": fileURLToPath(
         new URL("../../packages/generated/typescript/api.gen.ts", import.meta.url),
       ),

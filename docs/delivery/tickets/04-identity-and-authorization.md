@@ -190,6 +190,9 @@ declare a required capability per operation and what WEB-02 needs to render navi
 
 ### IAM-05 · Implement the tenant and workspace switcher in the web application
 
+**Built into the application shell** rather than as a screen of its own, because switching workspace is
+something somebody does while doing something else. See [WEB-02](05-web-foundation.md).
+
 **Depends on** IAM-03, WEB-02 · **Blocks** nothing
 
 *Gap found against the prototype: no switcher exists, so multi-tenant membership is unreachable in the

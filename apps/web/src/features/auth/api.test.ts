@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { currentUser, register, signIn, signOut } from "./api";
+import { currentUser, listMemberships, register, setActiveTenant, signIn, signOut } from "./api";
 
 /**
  * The authentication calls.
@@ -93,5 +93,44 @@ describe("auth api", () => {
 
     expect(session.user_id).toBe("usr_1");
     expect(JSON.stringify(session)).not.toMatch(/token/i);
+  });
+});
+
+/**
+ * The two calls the workspace switcher makes.
+ *
+ * Added because they were the only functions in this file nothing exercised,
+ * and the aggregate hid it: the suite was well above its floor while these sat
+ * at zero. What they check is what a typo breaks, which is the path and the
+ * method.
+ */
+describe("workspace selection", () => {
+  it("chooses a workspace with a PUT, since it replaces the selection", async () => {
+    await setActiveTenant("t-northwind");
+
+    const [url, init] = lastCall();
+    expect(url).toContain("/api/v1/me/active-tenant");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({ tenant_id: "t-northwind" });
+  });
+
+  /**
+   * Null clears the selection, which is how somebody leaves a workspace without
+   * signing out. It must reach the server as null rather than as an omitted
+   * field, which the server would read as no change.
+   */
+  it("clears the selection with an explicit null", async () => {
+    await setActiveTenant(null);
+
+    const [, init] = lastCall();
+    expect(JSON.parse(init.body as string)).toEqual({ tenant_id: null });
+  });
+
+  it("lists memberships with a GET", async () => {
+    await listMemberships();
+
+    const [url, init] = lastCall();
+    expect(url).toContain("/api/v1/me/memberships");
+    expect(init.method).toBeUndefined();
   });
 });

@@ -41,3 +41,6 @@ apps/web/coverage/
 
 # Locally installed code generators
 .tools/
+
+# The pnpm store, if a containerised run puts one here.
+.pnpm-store/

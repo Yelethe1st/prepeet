@@ -83,9 +83,32 @@ Sidebar, topbar, mobile navigation and breadcrumbs, rendered from one navigation
 capabilities — with the server remaining authoritative.
 
 **Done when**
-- [ ] Navigation renders from capabilities, and hiding an item is never the only thing stopping access.
-- [ ] Skip link, landmarks and a logical heading order are present on every page.
-- [ ] The shell works at 320px without horizontal scrolling.
+- [x] Navigation renders from capabilities, and hiding an item is never the only thing stopping access.
+- [x] Skip link, landmarks and a logical heading order are present on every page.
+- [x] The shell works at 320px without horizontal scrolling.
+
+**Navigation comes from the capabilities the session holds**, which arrive on `/me` and are derived from
+role bundles on the server. Capability names come from the generated catalogue, so renaming one breaks
+this at compile time rather than silently hiding a menu item forever.
+
+The second half of that box is the part worth being explicit about: filtering here is a courtesy and not
+a boundary. The server authorises every request against the same capabilities, so somebody typing an
+address they cannot use is refused there. The tests assert what is offered and never assert that hiding
+protects anything, because it does not, and a test claiming otherwise would be the beginning of an
+unguarded endpoint behind a hidden button.
+
+**The 320px box is checked in a real browser**, which is why the harness came first. The stylesheet-level
+check cannot see overflow, and the shell is where overflow actually happens: a sidebar that fails to go
+off-canvas pushes the content off the right of a small screen and every page becomes unusable rather than
+cramped. Verified by breaking it, along with a long workspace name and text at 200%.
+
+**IAM-05's switcher is inside it.** A select rather than a menu, because it is a choice between mutually
+exclusive options with one in force, and it comes with keyboard behaviour and a mobile picker a custom
+menu would have to reimplement. It refuses a second change while one is in flight, since two overlapping
+switches can settle in either order and the interface would then show one workspace's authority while the
+session is in another. A refused switch returns to what the session actually is.
+
+**Remaining.** The rest of the component set, and the screens themselves.
 
 **Spec** [information-architecture.md](../../product/information-architecture.md)
 

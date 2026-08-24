@@ -82,9 +82,28 @@ test-browser-update: ## Accept the current appearance as the new baseline
 test-browser-baselines: ## Regenerate Linux baselines in the container CI uses
 	@# Screenshots differ between operating systems, so Playwright names them per
 	@# platform. Baselines taken on macOS cannot be compared on a Linux runner,
-	@# and generating them there by hand is how they end up stale. This runs the
-	@# same image CI does.
-	docker run --rm --network host 		-v $(CURDIR):/work -w /work/$(WEB_DIR) 		-e CI=1 		mcr.microsoft.com/playwright:v1.62.1-noble 		sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm test:browser:update"
+	@# and generating them there by hand is how they end up stale.
+	@#
+	@# This exports a clean copy of the tree and runs the container against that,
+	@# copying only the resulting images back. Mounting the working tree was
+	@# tried twice and broke the host both times: the container installs Linux
+	@# binaries, and every local command then fails with a native module error
+	@# until somebody reinstalls. Shadowing node_modules with volumes was not
+	@# enough. A container that cannot reach the working tree cannot damage it,
+	@# which is a shorter argument than getting the mounts right.
+	@set -e; \
+	export_dir=$$(mktemp -d); \
+	trap 'rm -rf "$$export_dir"' EXIT; \
+	git archive HEAD | tar -x -C "$$export_dir"; \
+	cp -R $(WEB_DIR)/e2e "$$export_dir/$(WEB_DIR)/" 2>/dev/null || true; \
+	docker run --rm --network host \
+		-v "$$export_dir":/work -w /work/$(WEB_DIR) \
+		-e CI=1 \
+		mcr.microsoft.com/playwright:v1.62.1-noble \
+		sh -c "corepack enable && cd /work && pnpm install --frozen-lockfile && cd $(WEB_DIR) && pnpm test:browser:update"; \
+	cp "$$export_dir/$(WEB_DIR)/e2e/visual.spec.ts-snapshots"/*linux.png \
+		$(WEB_DIR)/e2e/visual.spec.ts-snapshots/; \
+	echo "  Linux baselines copied. Review the images before committing."
 
 .PHONY: test-integration
 test-integration: ## Run the integration suites against real dependencies in containers

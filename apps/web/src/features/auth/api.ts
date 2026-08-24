@@ -43,6 +43,29 @@ export async function currentUser(): Promise<CurrentUser> {
   return apiFetch<CurrentUser>("/me");
 }
 
+/** Membership list, for the workspace switcher. */
+export type MembershipList = components["schemas"]["MembershipList"];
+
+/**
+ * setActiveTenant chooses which workspace the session acts under.
+ *
+ * null clears the selection. The server verifies the membership and refuses
+ * with 403 when there is none, which is deliberately not 404: the workspace may
+ * well exist, and saying otherwise would be a way to test which identifiers are
+ * real.
+ */
+export async function setActiveTenant(tenantId: string | null): Promise<Session> {
+  return apiFetch<Session>("/me/active-tenant", {
+    method: "PUT",
+    body: { tenant_id: tenantId },
+  });
+}
+
+/** listMemberships returns the workspaces this person belongs to. */
+export async function listMemberships(): Promise<MembershipList> {
+  return apiFetch<MembershipList>("/me/memberships");
+}
+
 /** signOut ends the session and its refresh family. */
 export async function signOut(): Promise<void> {
   await apiFetch("/auth/logout", { method: "POST" });

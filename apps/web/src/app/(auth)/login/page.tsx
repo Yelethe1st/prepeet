@@ -34,7 +34,7 @@ export default function LoginPage() {
           signIn={async (credentials) => {
             await signIn(credentials);
           }}
-          onSignedIn={() => router.push("/")}
+          onSignedIn={() => router.push("/practice")}
         />
 
         <p className="hint" style={{ marginTop: 22 }}>

@@ -30,6 +30,9 @@
       ],
       "@contracts": [
         "../../packages/generated/typescript/api.gen.ts"
+      ],
+      "@contracts/capabilities": [
+        "../../packages/generated/typescript/capabilities.gen.ts"
       ]
     }
   },
@@ -39,7 +42,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "../../packages/generated/typescript/api.gen.ts"
+    "../../packages/generated/typescript/api.gen.ts",
+    "../../packages/generated/typescript/capabilities.gen.ts"
   ],
   "exclude": [
     "node_modules",

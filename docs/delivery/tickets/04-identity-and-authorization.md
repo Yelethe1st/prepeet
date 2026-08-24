@@ -15,18 +15,22 @@ care what the navigation chose to render.
 Candidate and organisation registration, password login, logout and refresh, on secure HTTP-only
 browser sessions with CSRF defence.
 
-Built against [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md). The primitives are
-done: `platform/password` for argon2id with transparent upgrade and a dummy verification for timing,
-and `platform/token` for opaque tokens stored hashed. The identity module that uses them, and the
-routes on top, are next and need CTR-01 for the wire contract.
+Built against [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md). The service is in
+`services/platform/internal/identity` with migration 0002 behind it, 27 tests including the
+reuse-detection behaviour verified by breaking the implementation on purpose. What remains is the HTTP
+layer: the four operations are declared in the OpenAPI contract but no handler serves them yet, and
+organisation registration does not yet create the tenant and owning membership.
 
 **Done when**
 - [x] Passwords use argon2id, carry their parameters, and upgrade transparently on next login.
 - [x] Tokens are opaque, carry 256 bits of entropy, and are stored hashed rather than in plaintext.
 - [x] A dummy verification exists so login timing does not distinguish an unknown address.
-- [ ] Registration, login, logout and refresh work for both candidate and organisation sign-up.
-- [ ] Responses do not reveal whether an account exists.
-- [ ] Refresh rotates, and presenting a retired token revokes the whole session family.
+- [x] Registration answers identically for a new and an existing address, and re-registering does not overwrite the password.
+- [x] A wrong password and an unknown address return the same error and cost comparable time.
+- [x] Refresh rotates, and presenting a retired token revokes the whole session family while leaving other families alone.
+- [x] Logout revokes the family and is idempotent.
+- [ ] The four operations are served over HTTP against the generated interface.
+- [ ] Organisation registration creates the tenant and the owning membership.
 - [ ] A post-login destination is preserved without allowing an open redirect.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md) · [public-api.md](../../contracts/public-api.md)

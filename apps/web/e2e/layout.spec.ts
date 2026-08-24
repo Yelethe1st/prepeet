@@ -4,11 +4,11 @@ import { expect, test } from "./fixtures";
  * Layout at the sizes the product supports.
  *
  * jsdom cannot do any of this. It has no layout engine, so every element
- * measures zero and no test there can tell whether something overflows. The
- * stylesheet check in design-system/responsive.test.ts finds a fixed width
- * somebody typed; it cannot find a long word with no break opportunity, a
- * nowrap, or a flex child that refuses to shrink, and those are how a page
- * actually ends up with a horizontal scrollbar.
+ * measures zero and no test there can tell whether something overflows. No
+ * static check covers this either: a fixed width, a long word with no break
+ * opportunity, a nowrap or a flex child that refuses to shrink all read as
+ * ordinary utilities, and those are how a page actually ends up with a
+ * horizontal scrollbar.
  */
 
 const routes = ["/login", "/register"] as const;

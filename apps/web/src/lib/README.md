@@ -2,16 +2,29 @@
 
 ## What this owns
 
-Things every feature needs and none of them owns: the API client, and later
-browser observability and the realtime transport.
+What every feature needs and none of them owns, in the four areas the
+architecture brief names:
+
+- `api` — the client for the Prepeet API, typed from the contract.
+- `auth` — the session: who is signed in, what they may do, and the calls that
+  change it.
+- `observability` — browser telemetry, when it lands.
+- `realtime` — the interview transport, when it lands.
 
 ## What this must never do
 
-Nothing here renders. If it renders it belongs in a feature or the design
-system.
+**Nothing here presents.** A provider is fine: it renders its children and
+nothing of its own, and a session is plumbing whichever way it is expressed. But
+nothing in lib may import the design system, because something reaching for a
+Button is something that should have been a feature.
 
-That rule is why the session provider is not here, although an earlier version
-of this file claimed it was. Knowing who is signed in is the auth feature's
-concern and it renders a provider, so it lives in `features/auth/session.tsx`.
-Anything else that needs the session is given what it needs by the route, rather
-than reaching into that feature for it.
+**Nothing here imports a feature or a route.** lib is what features are built
+on, so it cannot be built on them.
+
+The request shapes here come from the generated contract rather than from the
+components that send them. An earlier version imported them from the forms,
+which made the network layer describe itself in terms of a screen.
+
+## Where the boundary is enforced
+
+`src/architecture.test.ts`.

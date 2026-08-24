@@ -91,11 +91,15 @@ test-browser-baselines: ## Regenerate Linux baselines in the container CI uses
 	@# until somebody reinstalls. Shadowing node_modules with volumes was not
 	@# enough. A container that cannot reach the working tree cannot damage it,
 	@# which is a shorter argument than getting the mounts right.
+	@# The working tree, not HEAD. An earlier version archived the last commit,
+	@# which produced baselines of the committed interface using the current
+	@# specs: a mixture that matches nothing, and silently, because a baseline
+	@# has no way to say which code it came from.
 	@set -e; \
 	export_dir=$$(mktemp -d); \
 	trap 'rm -rf "$$export_dir"' EXIT; \
-	git archive HEAD | tar -x -C "$$export_dir"; \
-	cp -R $(WEB_DIR)/e2e "$$export_dir/$(WEB_DIR)/" 2>/dev/null || true; \
+	tar -c --exclude=node_modules --exclude=.next --exclude=test-results \
+		--exclude=playwright-report --exclude=.git . | tar -x -C "$$export_dir"; \
 	docker run --rm --network host \
 		-v "$$export_dir":/work -w /work/$(WEB_DIR) \
 		-e CI=1 \

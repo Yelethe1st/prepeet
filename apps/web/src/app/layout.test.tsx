@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_THEME, themeScript } from "@/design-system/themePreference";
+import { DEFAULT_THEME, themeScript } from "@/shared/themePreference";
 
 /**
  * The document shell.

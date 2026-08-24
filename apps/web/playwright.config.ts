@@ -9,11 +9,11 @@ import { defineConfig, devices } from "@playwright/test";
  * things therefore cannot be checked without a real browser, and all three are
  * requirements rather than nice to have:
  *
- *   Contrast as rendered. The token-level check in design-system/theme.test.ts
+ *   Contrast as rendered. The token-level check in src/test/theme.test.ts
  *   computes ratios for the pairs somebody thought of. A component putting quiet
  *   text on a raised surface is a pair nobody thought of.
  *
- *   Layout at 320px. The stylesheet check in design-system/responsive.test.ts
+ *   Layout at 320px. The stylesheet check in src/test/tailwind.test.ts
  *   catches a fixed width somebody typed. It cannot catch a long email address
  *   with no break opportunity, which overflows without any width being declared.
  *

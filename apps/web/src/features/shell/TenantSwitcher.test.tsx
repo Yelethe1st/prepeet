@@ -25,6 +25,17 @@ const memberships = [
   { tenantId: "t-orbital", tenantName: "Orbital Labs", status: "active" },
 ];
 
+/** Opens the listbox. Radix renders the options only while it is open. */
+async function open() {
+  await userEvent.click(screen.getByRole("combobox"));
+}
+
+/** Opens the listbox and picks a workspace by its name. */
+async function choose(name: string) {
+  await open();
+  await userEvent.click(await screen.findByRole("option", { name }));
+}
+
 function renderSwitcher(overrides: Partial<Parameters<typeof TenantSwitcher>[0]> = {}) {
   return render(
     <TenantSwitcher
@@ -56,20 +67,22 @@ describe("TenantSwitcher", () => {
   it("names the workspace currently being acted under", () => {
     renderSwitcher();
 
-    expect(screen.getByRole("combobox")).toHaveValue("t-northwind");
+    expect(screen.getByRole("combobox")).toHaveTextContent("Northwind Recruiting");
   });
 
-  it("lists every workspace the person belongs to", () => {
+  it("lists every workspace the person belongs to once opened", async () => {
     renderSwitcher();
 
-    expect(screen.getByRole("option", { name: "Northwind Recruiting" })).toBeInTheDocument();
+    await open();
+
+    expect(await screen.findByRole("option", { name: "Northwind Recruiting" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Orbital Labs" })).toBeInTheDocument();
   });
 
   it("asks the server to switch when another is chosen", async () => {
     renderSwitcher();
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "t-orbital");
+    await choose("Orbital Labs");
 
     await waitFor(() => expect(onSwitch).toHaveBeenCalledWith("t-orbital"));
   });
@@ -85,7 +98,7 @@ describe("TenantSwitcher", () => {
     onSwitch.mockReturnValue(new Promise<void>((resolve) => { release = resolve; }));
     renderSwitcher();
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "t-orbital");
+    await choose("Orbital Labs");
 
     expect(screen.getByRole("combobox")).toBeDisabled();
     release();
@@ -100,16 +113,18 @@ describe("TenantSwitcher", () => {
     onSwitch.mockRejectedValue(new Error("forbidden"));
     renderSwitcher();
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "t-orbital");
+    await choose("Orbital Labs");
 
-    await waitFor(() => expect(screen.getByRole("combobox")).toHaveValue("t-northwind"));
+    // The trigger still names the workspace the session is actually in, because
+    // the value is the session's rather than whatever was clicked.
+    await waitFor(() => expect(screen.getByRole("combobox")).toHaveTextContent("Northwind"));
   });
 
   it("says so when a switch is refused, rather than failing silently", async () => {
     onSwitch.mockRejectedValue(new Error("forbidden"));
     renderSwitcher();
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "t-orbital");
+    await choose("Orbital Labs");
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
@@ -118,11 +133,14 @@ describe("TenantSwitcher", () => {
    * A revoked membership is listed by the server so the interface can explain
    * where a workspace went, and must not be offered as somewhere to act.
    */
-  it("does not offer a workspace whose membership was revoked", () => {
+  it("does not offer a workspace whose membership was revoked", async () => {
     renderSwitcher({
       memberships: [...memberships, { tenantId: "t-gone", tenantName: "Former Ltd", status: "revoked" }],
     });
 
+    await open();
+
+    await screen.findByRole("option", { name: "Northwind Recruiting" });
     expect(screen.queryByRole("option", { name: "Former Ltd" })).not.toBeInTheDocument();
   });
 

@@ -9,7 +9,7 @@ check.
 
 Recorded honestly, because a claim about process is worth less than the record.
 
-Test-first: `lib/api/client.ts`, `design-system/components/Field.tsx`,
+Test-first: `lib/api/client.ts`, `shared/components/Field.tsx`,
 `features/auth/SignInForm.tsx`, `features/auth/RegisterForm.tsx`. The test was
 written, run red, and then satisfied.
 
@@ -54,6 +54,11 @@ matches reading order. Most people who type fast never touch the mouse.
 **Both themes.** Contrast is computed from the tokens for body and secondary
 text, in light and dark. Nothing rendered dark until this existed, so a token
 defined only in light would have passed every other test and rendered as nothing.
+
+Since the move to Tailwind that check is necessary and no longer sufficient: it
+sees the tokens, not what a component puts on what. A panel painted with a
+semantic token that inverts with the theme passes it and is unreadable, which
+happened. The browser suite is what catches that.
 
 Dark is the default, which is the one place the product departs from the
 prototype: `/screens` declares light on 53 of its 57 pages. An interview is a

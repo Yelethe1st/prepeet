@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
+import { Button } from "@/shared/components";
+
 import { TenantSwitcher } from "./TenantSwitcher";
 import { visibleNavigation } from "./navigation";
 
@@ -78,7 +80,7 @@ export function AppShell({ user, onSignOut, onSwitchTenant, children }: AppShell
   }
 
   return (
-    <div className={`app${menuOpen ? " sidebar-open" : ""}`}>
+    <div className="flex min-h-screen">
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -89,22 +91,54 @@ export function AppShell({ user, onSignOut, onSwitchTenant, children }: AppShell
         adding a destination, and announcing it would put an unnamed control in
         everybody's way.
       */}
-      <div className="sidebar-scrim" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+      {menuOpen ? (
+        <div
+          className="fixed inset-0 z-[70] bg-overlay lg:hidden"
+          onClick={() => setMenuOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
 
-      <aside className="sidebar">
-        <Link className="sidebar-brand" href="/">
-          <span className="logo-mark" aria-hidden="true" />
-          <span className="wordmark">Prepeet</span>
+      {/*
+        Off-canvas below lg, exactly as the prototype hides it below 1024px. If
+        it did not move out of the way the content would be pushed off the right
+        of a small screen and every page would be unusable rather than cramped.
+      */}
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-[80] flex w-[min(84vw,300px)] flex-col",
+          "border-r border-sidebar-border bg-sidebar-bg transition-transform",
+          menuOpen ? "translate-x-0 shadow-lg" : "-translate-x-full",
+          "lg:sticky lg:top-0 lg:h-screen lg:w-sidebar lg:translate-x-0 lg:shadow-none",
+        ].join(" ")}
+      >
+        <Link
+          className="flex h-topbar items-center gap-2.5 border-b border-sidebar-border px-4 text-fg no-underline"
+          href="/"
+        >
+          <span className="h-[30px] w-[30px] flex-none rounded-[9px] bg-primary" aria-hidden="true" />
+          <span className="text-[17px] font-bold tracking-tight">Prepeet</span>
         </Link>
 
-        <nav className="sidebar-nav" id="main-navigation" aria-label="Main">
+        <nav
+          className="flex flex-1 flex-col gap-[18px] overflow-y-auto p-3"
+          id="main-navigation"
+          aria-label="Main"
+        >
           {groups.map((group) => (
             <div key={group.label}>
-              <p className="nav-group-label">{group.label}</p>
+              <p className="px-2.5 pb-1.5 text-2xs font-bold tracking-[0.1em] text-fg-3 uppercase">
+                {group.label}
+              </p>
               {group.items.map((item) => (
                 <Link
                   key={item.href}
-                  className="nav-item"
+                  className={
+                    "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium " +
+                    "text-sidebar-fg no-underline transition-colors hover:bg-surface-3 hover:text-fg " +
+                    "aria-[current=page]:bg-sidebar-active aria-[current=page]:font-semibold " +
+                    "aria-[current=page]:text-sidebar-fg-active"
+                  }
                   href={item.href}
                   // aria-current rather than a class alone, so the current
                   // destination is announced and not only coloured.
@@ -118,31 +152,39 @@ export function AppShell({ user, onSignOut, onSwitchTenant, children }: AppShell
           ))}
         </nav>
 
-        <div className="sidebar-foot">
-          <div className="sidebar-user">
-            <div>
-              <span className="u-name">{user.email}</span>
-            </div>
-          </div>
-          <button className="btn btn-ghost btn-sm" type="button" onClick={() => void signOut()}>
+        <div className="flex flex-col gap-1 border-t border-sidebar-border p-2.5">
+          <span className="truncate px-2.5 text-sm font-semibold text-fg">{user.email}</span>
+          <Button variant="ghost" size="sm" onClick={() => void signOut()}>
             Sign out
-          </button>
+          </Button>
         </div>
       </aside>
 
-      <div className="app-main">
-        <header className="topbar">
-          <button
-            className="icon-btn menu-toggle"
-            type="button"
-            aria-expanded={menuOpen}
-            aria-controls="main-navigation"
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            {menuOpen ? "Close menu" : "Menu"}
-          </button>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header
+          className={
+            "sticky top-0 z-50 flex h-topbar items-center gap-2.5 border-b border-border " +
+            "bg-bg/90 px-4 backdrop-blur sm:px-6"
+          }
+        >
+          {/*
+            Hidden once the sidebar is permanently visible, as the prototype
+            hides it above 1024px. A button that opens something already open is
+            a control that does nothing, and it would still be in the tab order.
+          */}
+          <span className="lg:hidden">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={menuOpen}
+              aria-controls="main-navigation"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? "Close menu" : "Menu"}
+            </Button>
+          </span>
 
-          <div className="topbar-actions">
+          <div className="ml-auto flex items-center gap-1">
             <TenantSwitcher
               memberships={user.memberships}
               activeTenantId={user.activeTenantId}
@@ -151,7 +193,10 @@ export function AppShell({ user, onSignOut, onSwitchTenant, children }: AppShell
           </div>
         </header>
 
-        <main className="app-content" id="main-content">
+        <main
+          className="mx-auto w-full max-w-content flex-1 px-4 pt-6 pb-20 sm:px-6 sm:pb-12"
+          id="main-content"
+        >
           {children}
         </main>
       </div>

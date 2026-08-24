@@ -11,15 +11,16 @@ jsdom has no layout engine and does not apply stylesheets. Both are easy to
 demonstrate: a 900px box measures zero there, and a colour set by a class comes
 back as the browser default rather than the ported value. So:
 
-**Contrast as rendered.** `design-system/theme.test.ts` computes ratios from
+**Contrast as rendered.** `src/test/theme.test.ts` computes ratios from
 token values for the pairs somebody chose to check. It cannot see a component
 putting quiet text on a raised surface, which is a pair nobody chose.
 
-**Layout.** `design-system/responsive.test.ts` greps the stylesheets for a fixed
-width somebody typed. It cannot see a long email address with no break
-opportunity, a `nowrap`, or a flex child that will not shrink, and those are how
-a page actually ends up with a horizontal scrollbar. Adding `white-space: nowrap`
-to the inputs leaves that suite green and fails this one.
+**Layout.** Nothing outside this suite measures anything. `tailwind.test.ts`
+refuses an arbitrary colour, which is a different question; a fixed width, a
+`nowrap`, a long email address with no break opportunity or a flex child that
+will not shrink all pass every static check and are how a page actually ends up
+with a horizontal scrollbar. Adding `whitespace-nowrap` to the inputs leaves the
+jsdom suite green and fails this one.
 
 **Appearance.** Nothing else compares what a screen looks like to what it looked
 like.

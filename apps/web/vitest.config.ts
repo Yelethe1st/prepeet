@@ -45,9 +45,8 @@ export default defineConfig({
       exclude: [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.d.ts",
-        "src/app/(auth)/layout.tsx",
-        // Barrel files re-export and do nothing.
-        "src/design-system/components/index.ts",
+                // Barrel files re-export and do nothing.
+        "src/shared/components/index.ts",
       ],
       // Raised from 80 as the suite grew. A floor well below where the suite
       // actually sits is a floor that permits a large regression without

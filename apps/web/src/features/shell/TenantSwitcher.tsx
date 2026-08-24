@@ -1,8 +1,9 @@
 "use client";
 
+import * as Select from "@radix-ui/react-select";
 import { useState } from "react";
 
-import { Banner } from "@/design-system/components";
+import { Banner } from "@/shared/components";
 
 /** One workspace somebody belongs to. */
 export interface Membership {
@@ -26,10 +27,11 @@ export interface TenantSwitcherProps {
  * session, per ADR-0002 and IAM-03; this asks for a change and reflects the
  * answer, and is never the thing that decides.
  *
- * A select rather than a menu, deliberately. It is a choice between mutually
- * exclusive options with one currently in force, which is what a select is, and
- * it comes with keyboard behaviour, an accessible name and a mobile picker that
- * a custom menu would have to reimplement and would get partly wrong.
+ * Radix rather than a native select, per the technology baseline. What that
+ * buys is the part a styled dropdown usually loses: focus is trapped and
+ * restored, typeahead works, the trigger and the listbox are wired together for
+ * assistive technology, and it can be styled without any of that being
+ * reimplemented.
  */
 export function TenantSwitcher({ memberships, activeTenantId, onSwitch }: TenantSwitcherProps) {
   const [switching, setSwitching] = useState(false);
@@ -64,25 +66,60 @@ export function TenantSwitcher({ memberships, activeTenantId, onSwitch }: Tenant
     }
   }
 
+  const active = available.find((membership) => membership.tenantId === activeTenantId);
+
   return (
     <div>
-      <label className="sr-only" htmlFor="workspace-switcher">
-        Active workspace
-      </label>
-      <select
-        className="select"
-        id="workspace-switcher"
-        value={activeTenantId ?? ""}
+      <Select.Root
+        value={activeTenantId ?? undefined}
         disabled={switching}
-        onChange={(event) => void choose(event.target.value)}
+        onValueChange={(value) => void choose(value)}
       >
-        {activeTenantId === null ? <option value="">Choose a workspace</option> : null}
-        {available.map((membership) => (
-          <option key={membership.tenantId} value={membership.tenantId}>
-            {membership.tenantName}
-          </option>
-        ))}
-      </select>
+        <Select.Trigger
+          className={
+            // Bounded and truncating. A workspace name is user supplied and can
+            // be long, and the native select this replaced shrank on its own
+            // where a Radix trigger does not: at 320px with text at 200% the
+            // topbar was 357px wide and the page scrolled sideways. Caught by
+            // the browser suite, which is the only tier that measures.
+            "inline-flex min-h-8 max-w-[45vw] items-center gap-2 overflow-hidden rounded-md " +
+            "border border-border bg-surface px-3 text-sm whitespace-nowrap text-fg " +
+            "transition-colors hover:border-fg-muted disabled:cursor-not-allowed " +
+            "disabled:opacity-60 lg:max-w-[16rem]"
+          }
+          aria-label="Active workspace"
+        >
+          <span className="truncate">
+            <Select.Value placeholder="Choose a workspace">{active?.tenantName}</Select.Value>
+          </span>
+          <Select.Icon className="flex-none" aria-hidden="true">
+            ▾
+          </Select.Icon>
+        </Select.Trigger>
+
+        <Select.Portal>
+          <Select.Content
+            className="overflow-hidden rounded-md border border-border bg-surface shadow-lg"
+            position="popper"
+            sideOffset={4}
+          >
+            <Select.Viewport className="p-1">
+              {available.map((membership) => (
+                <Select.Item
+                  key={membership.tenantId}
+                  value={membership.tenantId}
+                  className={
+                    "cursor-pointer rounded-sm px-3 py-2 text-sm text-fg outline-none " +
+                    "data-[highlighted]:bg-surface-3 data-[state=checked]:font-semibold"
+                  }
+                >
+                  <Select.ItemText>{membership.tenantName}</Select.ItemText>
+                </Select.Item>
+              ))}
+            </Select.Viewport>
+          </Select.Content>
+        </Select.Portal>
+      </Select.Root>
 
       {failed ? (
         <Banner tone="danger">

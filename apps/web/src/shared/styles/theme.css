@@ -1,0 +1,252 @@
+/*
+ * Tailwind, configured from the prototype's tokens.
+ *
+ * The baseline in the architecture brief names Tailwind, and /screens is the
+ * design source. Both are satisfied here rather than one at the other's
+ * expense: tokens.css is still the ported token file, with the prototype's
+ * names and values and its light and dark blocks, and this maps those into
+ * Tailwind's namespace so utilities exist for them.
+ *
+ * `@theme inline` is what makes that work. It emits utilities that reference
+ * the token variable rather than copying its value, so `bg-surface` resolves
+ * through `--surface` at use time and follows the theme when `data-theme`
+ * changes. A plain `@theme` would bake the light value into every utility and
+ * dark mode would silently stop working.
+ *
+ * Nothing here invents a value. A colour, spacing step or radius that is not in
+ * tokens.css does not exist, which is the same rule the design system had
+ * before Tailwind and is now enforced by there being no utility for it.
+ */
+
+@import "tailwindcss";
+@import "./tokens.css";
+
+/*
+ * Dark is selected by an attribute rather than by the media query.
+ *
+ * The product defaults to dark and an explicit choice wins, so the browser's
+ * own preference is deliberately not consulted. Tailwind's default `dark:`
+ * variant is `prefers-color-scheme`, which would disagree with that on most
+ * machines, so it is redefined to match how the theme is actually chosen.
+ */
+@custom-variant dark ([data-theme="dark"] &);
+
+@theme inline {
+  /*
+   * ---------- Palette ----------
+   *
+   * Theme-independent by design, and exposed because a few surfaces are meant
+   * not to follow the theme. The authentication side panel is the example: the
+   * prototype paints it stone-900 in both themes, so a semantic token would be
+   * wrong there in exactly one of them.
+   *
+   * Reach for a semantic token first. These are for the places where the answer
+   * is genuinely "this colour", not "this role".
+   */
+  --color-stone-0: var(--stone-0);
+  --color-stone-25: var(--stone-25);
+  --color-stone-50: var(--stone-50);
+  --color-stone-100: var(--stone-100);
+  --color-stone-200: var(--stone-200);
+  --color-stone-300: var(--stone-300);
+  --color-stone-400: var(--stone-400);
+  --color-stone-500: var(--stone-500);
+  --color-stone-600: var(--stone-600);
+  --color-stone-700: var(--stone-700);
+  --color-stone-800: var(--stone-800);
+  --color-stone-900: var(--stone-900);
+  --color-stone-950: var(--stone-950);
+
+  --color-reef-50: var(--reef-50);
+  --color-reef-200: var(--reef-200);
+  --color-reef-300: var(--reef-300);
+  --color-reef-400: var(--reef-400);
+  --color-reef-600: var(--reef-600);
+  --color-reef-800: var(--reef-800);
+
+  /* ---------- Surfaces and text ---------- */
+  --color-bg: var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-inset: var(--surface-inset);
+  --color-overlay: var(--overlay);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-subtle: var(--border-subtle);
+
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-inverse: var(--fg-inverse);
+
+  /* ---------- Intent ---------- */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-fg: var(--primary-soft-fg);
+  --color-primary-border: var(--primary-border);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-fg: var(--success-fg);
+  --color-success-border: var(--success-border);
+
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-fg: var(--warning-fg);
+  --color-warning-border: var(--warning-border);
+
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-border: var(--danger-border);
+
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-fg: var(--info-fg);
+  --color-info-border: var(--info-border);
+
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-fg: var(--neutral-fg);
+
+  /* ---------- Application chrome ---------- */
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --color-sidebar-fg-active: var(--sidebar-fg-active);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-border: var(--sidebar-border);
+
+  /* ---------- Type ---------- */
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+
+  --text-2xs: var(--text-2xs);
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-base: var(--text-base);
+  --text-md: var(--text-md);
+  --text-lg: var(--text-lg);
+  --text-xl: var(--text-xl);
+  --text-2xl: var(--text-2xl);
+  --text-3xl: var(--text-3xl);
+  --text-4xl: var(--text-4xl);
+  --text-5xl: var(--text-5xl);
+
+  /* ---------- Radius ---------- */
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-2xl: var(--r-2xl);
+  --radius-pill: var(--r-pill);
+
+  /* ---------- Shadow ---------- */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  /* ---------- Motion ---------- */
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
+
+  /* ---------- Layout ---------- */
+  --spacing-sidebar: var(--sidebar-w);
+  --spacing-sidebar-collapsed: var(--sidebar-w-collapsed);
+  --spacing-topbar: var(--topbar-h);
+  --container-content: var(--content-max);
+  --container-content-narrow: var(--content-max-narrow);
+  --container-content-dense: var(--content-max-dense);
+}
+
+/*
+ * The base layer, ported from base.css.
+ *
+ * Only what has nowhere else to live: the document's own colours, the focus
+ * ring every control shares, and the skip link, which is invisible until
+ * focused and therefore cannot be a utility on an element nobody styles.
+ */
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * One focus ring for everything, because a focus style applied per component
+   * is a focus style missing from whichever component was added last.
+   */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--r-sm);
+  }
+
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--primary-soft-fg);
+  }
+}
+
+@layer components {
+  /*
+   * The skip link. A utility class cannot express it, because it must be
+   * visually hidden until focused and then positioned over the page, and it is
+   * the first control a keyboard user meets on every screen.
+   */
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    padding: 10px 16px;
+    background: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-md);
+    font-weight: 600;
+  }
+
+  .skip-link:focus {
+    left: 12px;
+    top: 12px;
+  }
+
+  /*
+   * Visually hidden, for text that must be announced and not shown. Tailwind
+   * ships `sr-only`; this exists because the ported markup uses the
+   * prototype's name for it and the two should not both be in circulation.
+   */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}

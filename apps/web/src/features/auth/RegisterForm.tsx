@@ -1,26 +1,29 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 
-import { Banner, Button, Field } from "@/design-system/components";
+import { Banner, Button, Field, Input } from "@/shared/components";
 import { ApiError } from "@/lib/api/client";
+import type { Registration } from "@/lib/auth/api";
 
-/** The account kinds the contract accepts. */
-export type AccountType = "candidate" | "organisation";
-
-/** What the form sends. Shaped as the API takes it, not as the form holds it. */
-export interface Registration {
-  email: string;
-  password: string;
-  account_type: AccountType;
-  organisation_name?: string;
-}
+import type { RegisterValues } from "./schemas";
+import { registerSchema } from "./schemas";
 
 export interface RegisterFormProps {
   register: (registration: Registration) => Promise<void>;
   /** Called once the request is accepted, with the address that was used. */
   onRegistered: (email: string) => void;
 }
+
+/** Where a server field name differs from the form's, mapped once. */
+const serverFields: Record<string, keyof RegisterValues> = {
+  email: "email",
+  password: "password",
+  account_type: "accountType",
+  organisation_name: "organisationName",
+};
 
 /**
  * The registration form, ported from screens/register.html.
@@ -36,41 +39,63 @@ export interface RegisterFormProps {
  * that nobody can use this to discover who practises for interviews, and a form
  * that said "welcome" only for new accounts would give that away regardless.
  */
-export function RegisterForm({ register, onRegistered }: RegisterFormProps) {
-  const [accountType, setAccountType] = useState<AccountType>("candidate");
-  const [email, setEmail] = useState("");
-  const [organisation, setOrganisation] = useState("");
-  // Uncontrolled, so the password does not appear in the serialised DOM. See
-  // the same decision in SignInForm for why that matters.
-  const password = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
+export function RegisterForm({ register: submitRegistration, onRegistered }: RegisterFormProps) {
   const [failure, setFailure] = useState<ApiError | null>(null);
   const [accepted, setAccepted] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (busy) return;
+  const {
+    register,
+    handleSubmit,
+    control,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { accountType: "candidate" },
+    mode: "onSubmit",
+  });
 
+  /**
+   * useWatch rather than watch.
+   *
+   * watch subscribes the whole component to every field, so a keystroke in the
+   * password re-renders the branch that only cares about the account type. It
+   * is also opaque to the React compiler, which skips the component entirely
+   * and says so as a warning.
+   */
+  const accountType = useWatch({ control, name: "accountType" });
+
+  async function submit(values: RegisterValues) {
     setFailure(null);
-    setBusy(true);
 
     try {
-      await register({
-        email,
-        password: password.current?.value ?? "",
-        account_type: accountType,
-        ...(accountType === "organisation" ? { organisation_name: organisation } : {}),
+      await submitRegistration({
+        email: values.email,
+        password: values.password,
+        account_type: values.accountType,
+        ...(values.accountType === "organisation"
+          ? { organisation_name: values.organisationName }
+          : {}),
       });
+      setRegisteredEmail(values.email);
       setAccepted(true);
-      onRegistered(email);
+      onRegistered(values.email);
     } catch (error) {
-      setFailure(
+      const failed =
         error instanceof ApiError
           ? error
-          : new ApiError({ status: 0, message: "Something went wrong. Please try again." }),
-      );
-    } finally {
-      setBusy(false);
+          : new ApiError({ status: 0, message: "Something went wrong. Please try again." });
+
+      // The server names its fields as the contract does; the form names them
+      // as the form does. Mapped here so a field error lands on the control it
+      // is about rather than in a banner.
+      for (const [field, message] of Object.entries(failed.fieldErrors)) {
+        const target = serverFields[field];
+        if (target) setError(target, { type: "server", message });
+      }
+
+      setFailure(failed);
     }
   }
 
@@ -78,61 +103,53 @@ export function RegisterForm({ register, onRegistered }: RegisterFormProps) {
     return (
       <Banner tone="success">
         <strong>Check your email.</strong>
-        <p style={{ marginTop: 4, lineHeight: 1.5 }}>
-          If we can reach <span className="mono">{email}</span>, a link to confirm the address is on
-          its way. The link expires in an hour.
+        <p className="mt-1 leading-relaxed">
+          If we can reach <span className="font-mono">{registeredEmail}</span>, a link to confirm the
+          address is on its way. The link expires in an hour.
         </p>
       </Banner>
     );
   }
 
-  const emailError = failure?.fieldErrors.email;
-  const passwordError = failure?.fieldErrors.password;
-  const organisationError = failure?.fieldErrors.organisation_name;
-  const hasFieldErrors = Boolean(emailError ?? passwordError ?? organisationError);
+  const hasFieldErrors = Boolean(errors.email ?? errors.password ?? errors.organisationName);
 
   return (
-    <form onSubmit={submit} noValidate>
+    <form onSubmit={(event) => void handleSubmit(submit)(event)} noValidate>
       {failure && !hasFieldErrors ? (
         <Banner tone="danger">
           <strong>{failure.message}</strong>
           {failure.requestId ? (
-            <p className="hint" style={{ marginTop: 4 }}>
-              If you contact us, quote <span className="mono">{failure.requestId}</span>.
+            <p className="mt-1 text-xs text-fg-3">
+              If you contact us, quote <span className="font-mono">{failure.requestId}</span>.
             </p>
           ) : null}
         </Banner>
       ) : null}
 
-      <fieldset style={{ border: 0, padding: 0, margin: "0 0 18px" }}>
-        <legend className="label" style={{ marginBottom: 8 }}>
-          What brings you here?
-        </legend>
+      <fieldset className="mb-[18px] border-0 p-0">
+        <legend className="mb-2 text-sm font-semibold text-fg">What brings you here?</legend>
 
         {/*
-          The stack utility is not decoration here. WCAG 2.2 requires a target
-          of at least 24px, or enough space that a 24px circle centred on each
-          does not touch the next. The prototype's control is 18px, so the
-          spacing exception is what this satisfies, and stacked with no gap the
-          centres were 19.5px apart and failed.
-
-          Found by the browser suite. Nothing in jsdom could see it, because
-          jsdom has no layout and every element measures zero.
+          Spaced rather than stacked tight. WCAG 2.2 requires a target of at
+          least 24px, or enough space that a 24px circle centred on each does
+          not touch the next. The control is 18px, so the spacing exception is
+          what this satisfies; with no gap the centres were 19.5px apart and
+          failed. Found by the browser suite, which is the only tier that can
+          measure it.
         */}
-        <div className="stack">
+        <div className="flex flex-col gap-4">
           {(
             [
               ["candidate", "Practise interviews for myself"],
               ["organisation", "Screen candidates for my organisation"],
             ] as const
           ).map(([value, label]) => (
-            <label className="check" key={value}>
+            <label className="flex cursor-pointer items-start gap-2.5 text-sm text-fg" key={value}>
               <input
                 type="radio"
-                name="account_type"
                 value={value}
-                checked={accountType === value}
-                onChange={() => setAccountType(value)}
+                className="mt-0.5 h-[18px] w-[18px] flex-none accent-primary"
+                {...register("accountType")}
               />
               <span>{label}</span>
             </label>
@@ -140,17 +157,14 @@ export function RegisterForm({ register, onRegistered }: RegisterFormProps) {
         </div>
       </fieldset>
 
-      <Field label="Work or personal email" name="email" error={emailError}>
+      <Field label="Work or personal email" name="email" error={errors.email?.message}>
         {(props) => (
-          <input
+          <Input
             {...props}
-            className="input"
+            {...register("email")}
             type="email"
             autoComplete="username"
             placeholder="daniel.okonkwo@example.com"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
           />
         )}
       </Field>
@@ -159,17 +173,10 @@ export function RegisterForm({ register, onRegistered }: RegisterFormProps) {
         label="Password"
         name="password"
         hint="At least 12 characters. Length matters more than symbols."
-        error={passwordError}
+        error={errors.password?.message}
       >
         {(props) => (
-          <input
-            {...props}
-            ref={password}
-            className="input"
-            type="password"
-            autoComplete="new-password"
-            required
-          />
+          <Input {...props} {...register("password")} type="password" autoComplete="new-password" />
         )}
       </Field>
 
@@ -178,23 +185,22 @@ export function RegisterForm({ register, onRegistered }: RegisterFormProps) {
           label="Organisation name"
           name="organisation_name"
           hint="Shown to candidates you invite, so use the name they will recognise."
-          error={organisationError}
+          error={errors.organisationName?.message}
         >
           {(props) => (
-            <input
-              {...props}
-              className="input"
-              type="text"
-              autoComplete="organization"
-              required
-              value={organisation}
-              onChange={(event) => setOrganisation(event.target.value)}
-            />
+            <Input {...props} {...register("organisationName")} type="text" autoComplete="organization" />
           )}
         </Field>
       ) : null}
 
-      <Button type="submit" variant="primary" size="lg" block busy={busy} busyLabel="Creating…">
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        block
+        busy={isSubmitting}
+        busyLabel="Creating…"
+      >
         {accountType === "organisation" ? "Create organisation workspace" : "Create account"}
       </Button>
     </form>

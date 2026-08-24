@@ -181,6 +181,57 @@ describe("AppShell", () => {
     expect(screen.getByText("daniel.okonkwo@example.com")).toBeInTheDocument();
   });
 
+  /*
+   * The menu below 1024px. The sidebar is off-canvas there, so these controls
+   * are the only way to reach any destination on a phone; untested, a menu that
+   * opens and cannot be closed is invisible to every other test in this file,
+   * because they all render wide enough for the sidebar to be present anyway.
+   */
+  describe("the small-screen menu", () => {
+    it("opens, and says so to assistive technology", async () => {
+      renderShell();
+      const toggle = screen.getByRole("button", { name: "Menu" });
+
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await userEvent.click(toggle);
+
+      expect(screen.getByRole("button", { name: "Close menu" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+
+    it("closes when the scrim outside it is tapped", async () => {
+      const { container } = renderShell();
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+
+      // The scrim is deliberately unnamed and aria-hidden, because it repeats
+      // the close button rather than adding a destination, so there is no role
+      // to query it by. Tapping outside the menu is a habit people arrive with
+      // and the reason it exists at all.
+      const scrim = container.querySelector('[aria-hidden="true"].fixed');
+      expect(scrim).not.toBeNull();
+      await userEvent.click(scrim as Element);
+
+      expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+    });
+
+    it("closes when a destination is chosen, so the page it opened is visible", async () => {
+      renderShell();
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+
+      await userEvent.click(screen.getByRole("link", { name: /practice/i }));
+
+      expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+    });
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = renderShell(recruiter);
 

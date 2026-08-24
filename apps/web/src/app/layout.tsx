@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import "@/design-system/tokens.css";
-import { DEFAULT_THEME, themeScript } from "@/design-system/themePreference";
+import "@/shared/styles/theme.css";
+
+import { DEFAULT_THEME, themeScript } from "@/shared/themePreference";
+import { QueryProvider } from "@/lib/api/QueryProvider";
 
 export const metadata: Metadata = {
   title: "Prepeet",
@@ -35,7 +37,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {/*
+          At the root so every route shares one cache. Two providers would mean
+          two caches and the same request made twice, which is the problem the
+          library is there to solve.
+        */}
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }

@@ -3,8 +3,13 @@
 ## What this owns
 
 A feature owns one journey: its components, its state, and the calls it makes.
-`auth` owns signing in, registering and knowing who is signed in. `shell` owns
-navigation, the workspace switcher and signing out.
+`auth` owns signing in and registering, including what the browser checks before
+asking the server. `shell` owns navigation, the workspace switcher and signing
+out.
+
+Knowing who is signed in is not here. The architecture brief puts auth in
+`lib/(api|auth|observability|realtime)`, and the session is what every feature
+needs and none of them owns, so it lives in `lib/auth`.
 
 ## What this must never do
 

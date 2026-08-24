@@ -15,6 +15,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0007](0007-durable-execution-with-self-hosted-temporal.md) | Durable execution on self-hosted Temporal with its own PostgreSQL, and a data converter that enforces what a payload may carry | 2026-08-24 |
 | [0008](0008-go-library-baseline-net-http-and-an-in-repo-migration-runner.md) | `net/http` routing in place of `chi`, and an in-repo checksummed migration runner in place of `goose`; `sqlc` recorded as an open deviation | 2026-08-24 |
 | [0009](0009-dark-is-the-default-theme.md) | Dark is the default theme against the prototype's light, and the operating system's preference is deliberately not consulted | 2026-08-24 |
+| [0010](0010-sqlc-generates-the-repositories-sql-access.md) | sqlc generates every query from SQL beside each module, checked against the real migrations; what stays hand-written is only what cannot be generated | 2026-08-24 |
 
 ## Required initial ADRs
 

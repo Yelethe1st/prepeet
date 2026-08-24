@@ -1,0 +1,74 @@
+# sqlc generates the repositories' SQL access from the queries beside each
+# module, checked against the real migrations. ADR-0008 records the decision.
+#
+# One block per module rather than one shared package, because a shared one
+# would let identity reach tenancy's generated types and reopen the boundary
+# ADR-0005 closes by the back door. `omit_unused_structs` keeps each package to
+# the tables its own queries touch.
+version: "2"
+
+sql:
+  - engine: postgresql
+    schema: &schema platform/database/sql
+    queries: internal/identity/db/queries.sql
+    gen:
+      go: &go
+        package: identitydb
+        out: internal/identity/db
+        sql_package: pgx/v5
+        output_files_suffix: .gen
+        output_db_file_name: db.gen.go
+        output_models_file_name: models.gen.go
+        emit_prepared_queries: false
+        emit_interface: false
+        emit_empty_slices: true
+        omit_unused_structs: true
+        # The domain types already use string identifiers and time.Time, and
+        # they are what the service and the API contract are written against.
+        # Without these overrides every call site would convert, which is churn
+        # that buys nothing: pgx encodes a Go string into uuid either way.
+        overrides: &overrides
+          - db_type: uuid
+            go_type: string
+          - db_type: uuid
+            nullable: true
+            go_type:
+              type: string
+              pointer: true
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              type: time.Time
+              pointer: true
+          - db_type: pg_catalog.interval
+            go_type: string
+          # citext is an email address here, and an address is a string. Left
+          # alone it arrives as pgtype.Text at every call site for a column that
+          # is nullable only because an account can exist before one is claimed.
+          - db_type: citext
+            go_type: string
+          - db_type: citext
+            nullable: true
+            go_type: string
+
+  - engine: postgresql
+    schema: *schema
+    queries: platform/outbox/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: outboxdb
+        out: platform/outbox/db
+        overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
+    queries: platform/ratelimit/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: ratelimitdb
+        out: platform/ratelimit/db
+        overrides: *overrides

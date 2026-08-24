@@ -9,7 +9,7 @@
 
 Records two departures from the Go row of the technology baseline in
 [architecture-and-implementation-brief.md](../architecture-and-implementation-brief.md).
-A third, `sqlc`, is **not** decided here and is listed under "Still open" below.
+A third, `sqlc`, was left open here and has since been decided in [ADR-0010](0010-sqlc-generates-the-repositories-sql-access.md).
 
 ## Context
 
@@ -83,31 +83,19 @@ production data during an incident is the worst moment to discover it is wrong.
 the second run refuses rather than reporting success. Without the checksum comparison that test
 passes silently, which is the whole point.
 
-## Still open: `sqlc`
+## Resolved: `sqlc`
 
-**Not decided here, and currently a deviation with no argument behind it.**
-
-Repositories are hand-written `pgx` calls. Nothing about row-level security, `SET LOCAL`, or the
-domain types the repositories return prevents `sqlc` from being used; it generates methods taking a
-`DBTX`, which composes with the transaction the tenant context is set on. The honest position is
-that `sqlc` was never evaluated, and an ADR that invented a case against it after the fact would be
-the same drift wearing a decision's clothes.
-
-Two ways forward, both acceptable, neither taken yet:
-
-- Adopt `sqlc` as the brief says, starting with `identity` since it has the most queries, and treat
-  the hand-written repositories as the thing to migrate.
-- Argue against it in its own ADR, on the strength of what is actually in the repositories rather
-  than on preference.
-
-Until one of those happens, this is recorded as an open deviation rather than an accepted one.
+This ADR originally left `sqlc` open, recording that it had never been evaluated and that inventing a
+case against it after the fact would be the same drift wearing a decision's clothes. It was adopted
+on 2026-08-24 and the reasoning is in
+[ADR-0010](0010-sqlc-generates-the-repositories-sql-access.md).
 
 ## Consequences
 
 - The brief's Go row now reads with a pointer to this ADR, so the baseline and the code agree.
 - Adding `chi` later is a small change, because the generated handler mounts into either.
 - Replacing the runner with `goose` would require re-opening ADR-0002's checksum requirement.
-- `sqlc` remains an open item on the risk register rather than a silent difference.
+- `sqlc` was closed by ADR-0010 rather than left as a silent difference.
 
 ## What would change this
 

@@ -125,7 +125,7 @@ The live interview, evaluation, review, replay, and audit use the same bundle. A
 | Concern | Baseline |
 |---|---|
 | Web | Next.js App Router, TypeScript, TanStack Query, React Hook Form, Zod, Radix, Tailwind |
-| Go | `net/http` routing, `pgx`, `goose` superseded by an in-repo migration runner ([ADR-0008](decisions/0008-go-library-baseline-net-http-and-an-in-repo-migration-runner.md)); `sqlc` an open deviation |
+| Go | `pgx`, `sqlc` ([ADR-0010](decisions/0010-sqlc-generates-the-repositories-sql-access.md)); `chi` and `goose` superseded by `net/http` routing and an in-repo migration runner ([ADR-0008](decisions/0008-go-library-baseline-net-http-and-an-in-repo-migration-runner.md)) |
 | Python | `uv`, Pydantic, Ruff, Pyright, gRPC |
 | Contracts | OpenAPI, Protobuf, Buf |
 | Workflow | Temporal |

@@ -38,6 +38,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
+	db "github.com/Yelethe1st/prepeet/services/platform/platform/outbox/db"
 )
 
 // MaxAttempts is how many times delivery is tried before the event is dead
@@ -104,13 +105,19 @@ func (e Event) validate() error {
 }
 
 // Store reads and writes the outbox.
+//
+// The SQL lives in db/queries.sql and the access code beside it is generated,
+// per ADR-0008. What stays here is what sqlc has nothing to say about: which
+// statements share a transaction, and the pg_notify that has to travel inside
+// the caller's.
 type Store struct {
 	pool *pgxpool.Pool
+	q    *db.Queries
 }
 
 // New builds a store.
 func New(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool}
+	return &Store{pool: pool, q: db.New(pool)}
 }
 
 // Publish writes an event inside the caller's transaction.
@@ -134,15 +141,20 @@ func (s *Store) Publish(ctx context.Context, tx pgx.Tx, event Event) (string, er
 	}
 
 	eventID := id.New().String()
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO integration.outbox
-			(id, event_type, schema_version, tenant_id, occurred_at, producer,
-			 actor_type, actor_id, purpose, correlation_id, causation_id, payload)
-		VALUES ($1, $2, $3, nullif($4, '')::uuid, $5, $6, $7, $8,
-		        nullif($9, ''), nullif($10, ''), nullif($11, ''), $12)`,
-		eventID, event.Type, event.SchemaVersion, event.TenantID, occurred, event.Producer,
-		event.Actor.Type, event.Actor.ID, event.Purpose, event.CorrelationID, event.CausationID,
-		payload); err != nil {
+	if err := db.New(tx).InsertEvent(ctx, db.InsertEventParams{
+		ID:            eventID,
+		EventType:     event.Type,
+		SchemaVersion: event.SchemaVersion,
+		TenantID:      event.TenantID,
+		OccurredAt:    occurred,
+		Producer:      event.Producer,
+		ActorType:     event.Actor.Type,
+		ActorID:       event.Actor.ID,
+		Purpose:       event.Purpose,
+		CorrelationID: event.CorrelationID,
+		CausationID:   event.CausationID,
+		Payload:       payload,
+	}); err != nil {
 		return "", fmt.Errorf("outbox: inserting event: %w", err)
 	}
 
@@ -207,49 +219,38 @@ func (s *Store) Claim(ctx context.Context, limit int) ([]Pending, error) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	rows, err := tx.Query(ctx, `
-		SELECT id::text, event_type, schema_version, coalesce(tenant_id::text, ''),
-		       occurred_at, producer, actor_type, actor_id,
-		       coalesce(purpose, ''), coalesce(correlation_id, ''), coalesce(causation_id, ''),
-		       payload, attempts
-		FROM integration.outbox
-		WHERE published_at IS NULL
-		  AND dead_at IS NULL
-		  AND next_attempt_at <= now()
-		ORDER BY next_attempt_at, id
-		LIMIT $1
-		FOR UPDATE SKIP LOCKED`, limit)
+	q := db.New(tx)
+	rows, err := q.Claim(ctx, int32(limit))
 	if err != nil {
 		return nil, fmt.Errorf("outbox: claiming events: %w", err)
 	}
 
-	var claimed []Pending
-	for rows.Next() {
-		var p Pending
-		if err := rows.Scan(&p.ID, &p.Type, &p.SchemaVersion, &p.TenantID,
-			&p.OccurredAt, &p.Producer, &p.Actor.Type, &p.Actor.ID,
-			&p.Purpose, &p.CorrelationID, &p.CausationID, &p.Payload, &p.Attempts); err != nil {
-			rows.Close()
-			return nil, fmt.Errorf("outbox: reading claimed event: %w", err)
-		}
-		claimed = append(claimed, p)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("outbox: reading claimed events: %w", err)
+	claimed := make([]Pending, 0, len(rows))
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		claimed = append(claimed, Pending{
+			ID:            row.ID,
+			Type:          row.EventType,
+			SchemaVersion: row.SchemaVersion,
+			TenantID:      row.TenantID,
+			OccurredAt:    row.OccurredAt,
+			Producer:      row.Producer,
+			Actor:         Actor{Type: row.ActorType, ID: row.ActorID},
+			Purpose:       row.Purpose,
+			CorrelationID: row.CorrelationID,
+			CausationID:   row.CausationID,
+			Payload:       row.Payload,
+			Attempts:      int(row.Attempts),
+		})
+		ids = append(ids, row.ID)
 	}
 
 	// The claim is marked inside the same transaction that locked the rows, so
 	// releasing the lock and recording the attempt happen together.
-	if len(claimed) > 0 {
-		ids := make([]string, 0, len(claimed))
-		for _, p := range claimed {
-			ids = append(ids, p.ID)
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE integration.outbox
-			SET next_attempt_at = now() + $2::interval
-			WHERE id = ANY($1::uuid[])`, ids, claimVisibility.String()); err != nil {
+	if len(ids) > 0 {
+		if err := q.HideClaimed(ctx, db.HideClaimedParams{
+			Ids: ids, Visibility: claimVisibility.String(),
+		}); err != nil {
 			return nil, fmt.Errorf("outbox: marking claim: %w", err)
 		}
 	}
@@ -267,9 +268,7 @@ const claimVisibility = 5 * time.Minute
 
 // MarkDelivered records that an event reached its consumers.
 func (s *Store) MarkDelivered(ctx context.Context, eventID string) error {
-	if _, err := s.pool.Exec(ctx,
-		`UPDATE integration.outbox SET published_at = now() WHERE id = $1 AND published_at IS NULL`,
-		eventID); err != nil {
+	if err := s.q.MarkDelivered(ctx, eventID); err != nil {
 		return fmt.Errorf("outbox: marking delivered: %w", err)
 	}
 	return nil
@@ -297,16 +296,15 @@ func (s *Store) MarkFailed(ctx context.Context, eventID, reason string) error {
 	// The attempt count is read and the wait computed in Go, so the backoff
 	// curve lives in exactly one place. Computing it in SQL as well would mean
 	// two formulas that agree until somebody changes one.
-	var attempts int
-	if err := tx.QueryRow(ctx,
-		`SELECT attempts FROM integration.outbox WHERE id = $1 FOR UPDATE`,
-		eventID).Scan(&attempts); err != nil {
+	q := db.New(tx)
+	locked, err := q.LockAttempts(ctx, eventID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil // already gone; nothing to record against
 		}
 		return fmt.Errorf("outbox: reading attempts: %w", err)
 	}
-	attempts++
+	attempts := int(locked) + 1
 
 	var deadAt *time.Time
 	if attempts >= MaxAttempts {
@@ -314,14 +312,13 @@ func (s *Store) MarkFailed(ctx context.Context, eventID, reason string) error {
 		deadAt = &now
 	}
 
-	if _, err := tx.Exec(ctx, `
-		UPDATE integration.outbox
-		SET attempts = $2,
-		    last_error = $3,
-		    next_attempt_at = now() + make_interval(secs => $4),
-		    dead_at = $5
-		WHERE id = $1`,
-		eventID, attempts, reason, Backoff(attempts).Seconds(), deadAt); err != nil {
+	if err := q.RecordFailure(ctx, db.RecordFailureParams{
+		ID:             eventID,
+		Attempts:       int32(attempts),
+		LastError:      reason,
+		BackoffSeconds: Backoff(attempts).Seconds(),
+		DeadAt:         deadAt,
+	}); err != nil {
 		return fmt.Errorf("outbox: marking failed: %w", err)
 	}
 

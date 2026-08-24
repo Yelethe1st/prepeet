@@ -144,10 +144,19 @@ cover-web:
 
 TOOLS_BIN := $(CURDIR)/.tools
 
+# Everything a generator owns. Listed once, because a path that is generated but
+# missing from here is one nobody would notice going stale.
+GENERATED_PATHS := packages/generated \
+	services/platform/platform/authz/catalogue.gen.go \
+	services/platform/internal/identity/db \
+	services/platform/platform/outbox/db \
+	services/platform/platform/ratelimit/db
+
 .PHONY: tools
 tools: ## Install the pinned code generators into .tools
 	@mkdir -p $(TOOLS_BIN)
 	cd $(GO_DIR) && GOBIN=$(TOOLS_BIN) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
+	cd $(GO_DIR) && GOBIN=$(TOOLS_BIN) go install github.com/sqlc-dev/sqlc/cmd/sqlc
 
 .PHONY: generate
 generate: tools ## Regenerate every client and server type from the contracts
@@ -160,13 +169,16 @@ generate: tools ## Regenerate every client and server type from the contracts
 	cd tools/authzgen && go build -o $(TOOLS_BIN)/authzgen .
 	$(TOOLS_BIN)/authzgen
 	cd $(GO_DIR) && gofmt -w platform/authz
+	# The repositories' SQL, checked against the real migrations rather than
+	# against a description of them. See ADR-0008.
+	cd $(GO_DIR) && $(TOOLS_BIN)/sqlc generate
 	cd packages/generated/go && go mod tidy
 
 .PHONY: check-generated
 check-generated: generate ## Fail if generated code differs from the contracts
-	@if [ -n "$$(git status --porcelain packages/generated services/platform/platform/authz/catalogue.gen.go)" ]; then \
+	@if [ -n "$$(git status --porcelain $(GENERATED_PATHS))" ]; then \
 		echo "Generated code is out of date. Run make generate and commit the result:"; \
-		git --no-pager diff --stat packages/generated services/platform/platform/authz/catalogue.gen.go; \
+		git --no-pager diff --stat $(GENERATED_PATHS); \
 		exit 1; \
 	fi
 	@printf '\033[32mPASS\033[0m generated code matches the contracts\n'

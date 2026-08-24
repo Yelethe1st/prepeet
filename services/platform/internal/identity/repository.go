@@ -10,6 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	// Aliased, because the generated package is identitydb so that no file can
+	// import two modules' generated packages and have them collide, while
+	// inside identity the only "db" there is is this one.
+	db "github.com/Yelethe1st/prepeet/services/platform/internal/identity/db"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 )
@@ -27,48 +31,40 @@ var ErrNotFound = errors.New("identity: not found")
 // by a tenant: the same candidate practises privately and may screen for several
 // employers. Membership is what connects them, and that table carries the
 // tenant and its row-level security policy. See ADR-0002.
+//
+// The SQL lives in internal/identity/db/queries.sql and the access code beside
+// it is generated, per ADR-0008. What stays here is everything sqlc cannot
+// express: which statements share a transaction, what the transaction is scoped
+// to, and how a database error becomes a domain one. That division is the point
+// rather than an accident, because those three are where the rules are.
 type PostgresRepository struct {
 	pool *pgxpool.Pool
+	// queries against the pool, for the reads that need no transaction. A
+	// transactional method builds its own with db.New(tx), because the acting
+	// user has to be set on the same connection the statement runs on.
+	q *db.Queries
 }
 
 // NewRepository builds the repository.
 func NewRepository(pool *pgxpool.Pool) *PostgresRepository {
-	return &PostgresRepository{pool: pool}
+	return &PostgresRepository{pool: pool, q: db.New(pool)}
 }
 
 // FindCredentialsByEmail returns the user and their stored password hash.
 func (r *PostgresRepository) FindCredentialsByEmail(ctx context.Context, email string) (string, string, error) {
-	var userID, hash string
-	err := r.pool.QueryRow(ctx, `
-		SELECT u.id::text, c.password_hash
-		FROM identity.users u
-		JOIN identity.credentials c ON c.user_id = u.id
-		WHERE u.email = $1 AND u.status = 'active'`, email).Scan(&userID, &hash)
-
+	row, err := r.q.FindCredentialsByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", ErrNotFound
 	}
 	if err != nil {
 		return "", "", fmt.Errorf("identity: querying credentials: %w", err)
 	}
-	return userID, hash, nil
+	return row.UserID, row.PasswordHash, nil
 }
 
-// CreateUserWithCredentials creates a user and their password in one
-// transaction, so a user can never exist without a way to authenticate.
 // FindUserByID reads the fields GET /me reports.
-//
-// Only those fields. A SELECT * here would put status and version into a struct
-// that is one refactor away from being serialised to a browser, and a user's
-// suspension status is not theirs to read from an endpoint about themselves.
 func (r *PostgresRepository) FindUserByID(ctx context.Context, userID string) (User, error) {
-	var user User
-	err := r.pool.QueryRow(ctx, `
-		SELECT id::text, coalesce(email::text, ''), email_verified
-		FROM identity.users
-		WHERE id = $1 AND status <> 'deleted'`, userID).
-		Scan(&user.ID, &user.Email, &user.EmailVerified)
-
+	row, err := r.q.FindUserByID(ctx, userID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		// A deleted user is reported as absent rather than as deleted, so an
@@ -77,7 +73,7 @@ func (r *PostgresRepository) FindUserByID(ctx context.Context, userID string) (U
 	case err != nil:
 		return User{}, fmt.Errorf("identity: reading user: %w", err)
 	}
-	return user, nil
+	return User{ID: row.ID, Email: row.Email, EmailVerified: row.EmailVerified}, nil
 }
 
 // SetActiveTenant verifies the membership, records the selection and writes the
@@ -104,17 +100,11 @@ func (r *PostgresRepository) SetActiveTenant(ctx context.Context, sessionID, use
 	if err := database.SetUser(ctx, tx, userID); err != nil {
 		return err
 	}
+	q := db.New(tx)
 
 	if tenantID != "" {
-		// The one membership check in the system. Everything downstream reads
-		// the selection from the session rather than re-deriving it, so this is
-		// the only place it can be got wrong.
-		var permitted bool
-		if err := tx.QueryRow(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM tenancy.memberships
-				WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'
-			)`, userID, tenantID).Scan(&permitted); err != nil {
+		permitted, err := q.MembershipExists(ctx, db.MembershipExistsParams{UserID: userID, TenantID: tenantID})
+		if err != nil {
 			return fmt.Errorf("identity: checking membership: %w", err)
 		}
 
@@ -122,7 +112,7 @@ func (r *PostgresRepository) SetActiveTenant(ctx context.Context, sessionID, use
 			// The refusal is committed. Rolling back would discard the audit
 			// event along with the rejected write, which loses the record of
 			// somebody attempting a workspace they do not belong to.
-			if err := writeAudit(ctx, tx, auditEvent{
+			if err := writeAudit(ctx, q, auditEvent{
 				actorID: userID, action: "identity.tenant_selected", outcome: "denied",
 				subjectType: "tenant", subjectID: tenantID, requestID: requestID,
 			}); err != nil {
@@ -135,9 +125,9 @@ func (r *PostgresRepository) SetActiveTenant(ctx context.Context, sessionID, use
 		}
 	}
 
-	if _, err := tx.Exec(ctx,
-		`UPDATE identity.sessions SET active_tenant_id = nullif($2, '')::uuid WHERE id = $1`,
-		sessionID, tenantID); err != nil {
+	if err := q.SetSessionActiveTenant(ctx, db.SetSessionActiveTenantParams{
+		SessionID: sessionID, TenantID: tenantID,
+	}); err != nil {
 		return fmt.Errorf("identity: recording tenant selection: %w", err)
 	}
 
@@ -145,7 +135,7 @@ func (r *PostgresRepository) SetActiveTenant(ctx context.Context, sessionID, use
 	if tenantID == "" {
 		action = "identity.tenant_cleared"
 	}
-	if err := writeAudit(ctx, tx, auditEvent{
+	if err := writeAudit(ctx, q, auditEvent{
 		actorID: userID, action: action, outcome: "allowed",
 		subjectType: "tenant", subjectID: tenantID, requestID: requestID,
 	}); err != nil {
@@ -167,21 +157,20 @@ type auditEvent struct {
 
 // writeAudit appends to the audit trail inside the caller's transaction.
 //
-// Inside it deliberately: an audit row that commits when the act it describes
-// does not is a record of something that never happened, and one that is
-// written afterwards is a record that is missing whenever the process dies in
-// between. Neither is worth having.
-//
-// tenant_id is left NULL because tenant selection happens before a tenant is
-// chosen. The audit policy makes such a row writable and readable by its own
-// actor, which is the only meaningful scope it has.
-func writeAudit(ctx context.Context, tx pgx.Tx, event auditEvent) error {
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO audit.events
-			(id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, request_id)
-		VALUES ($1, NULL, $2, 'user', $3, nullif($4, ''), nullif($5, ''), $6, nullif($7, ''))`,
-		id.New().String(), event.actorID, event.action,
-		event.subjectType, event.subjectID, event.outcome, event.requestID); err != nil {
+// It takes the caller's *db.Queries rather than the pool, which is the whole
+// point: an audit row that commits when the act it describes does not is a
+// record of something that never happened, and one written afterwards is
+// missing whenever the process dies in between. Neither is worth having.
+func writeAudit(ctx context.Context, q *db.Queries, event auditEvent) error {
+	if err := q.InsertAuditEvent(ctx, db.InsertAuditEventParams{
+		ID:          id.New().String(),
+		ActorID:     event.actorID,
+		Action:      event.action,
+		SubjectType: event.subjectType,
+		SubjectID:   event.subjectID,
+		Outcome:     event.outcome,
+		RequestID:   event.requestID,
+	}); err != nil {
 		return fmt.Errorf("identity: writing audit event: %w", err)
 	}
 	return nil
@@ -191,9 +180,7 @@ func writeAudit(ctx context.Context, tx pgx.Tx, event auditEvent) error {
 //
 // Scoped by the acting user rather than by tenant, using the policy from
 // migration 0007, because this is asked while establishing what the session may
-// do and there is no tenant context to set yet. A revoked membership is not
-// found, so revoking one takes effect on the next request rather than whenever a
-// session happens to end.
+// do and there is no tenant context to set yet.
 func (r *PostgresRepository) FindRole(ctx context.Context, userID, tenantID string) (string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -205,12 +192,7 @@ func (r *PostgresRepository) FindRole(ctx context.Context, userID, tenantID stri
 		return "", err
 	}
 
-	var role string
-	err = tx.QueryRow(ctx, `
-		SELECT role FROM tenancy.memberships
-		WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'`,
-		userID, tenantID).Scan(&role)
-
+	role, err := db.New(tx).FindRole(ctx, db.FindRoleParams{UserID: userID, TenantID: tenantID})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return "", ErrNotFound
@@ -227,8 +209,8 @@ func (r *PostgresRepository) FindRole(ctx context.Context, userID, tenantID stri
 // policy rather than a WHERE clause: the transaction says who it is acting as,
 // and row-level security decides which rows that person may see.
 //
-// The WHERE on user_id below is therefore not the security boundary. It is a
-// filter for the query planner, and the policy would refuse the rows even if it
+// The WHERE on user_id in the query is therefore not the security boundary. It
+// is a filter for the planner, and the policy would refuse the rows even if it
 // were removed, which is the property that makes forgetting it survivable.
 func (r *PostgresRepository) FindMembershipsByUser(ctx context.Context, userID string) ([]Membership, error) {
 	tx, err := r.pool.Begin(ctx)
@@ -241,56 +223,46 @@ func (r *PostgresRepository) FindMembershipsByUser(ctx context.Context, userID s
 		return nil, err
 	}
 
-	rows, err := tx.Query(ctx, `
-		SELECT m.tenant_id::text, t.name, m.status, m.role
-		FROM tenancy.memberships m
-		JOIN tenancy.tenants t ON t.id = m.tenant_id
-		WHERE m.user_id = $1 AND m.status <> 'revoked'
-		ORDER BY t.name`, userID)
+	rows, err := db.New(tx).ListMembershipsByUser(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("identity: listing memberships: %w", err)
 	}
-	defer rows.Close()
 
 	// Empty rather than nil, so a caller serialising this gets [] rather than
 	// null and nothing downstream has to handle two shapes for "no tenants".
-	memberships := []Membership{}
-	for rows.Next() {
-		var membership Membership
-		if err := rows.Scan(&membership.TenantID, &membership.TenantName,
-			&membership.Status, &membership.Role); err != nil {
-			return nil, fmt.Errorf("identity: reading membership: %w", err)
-		}
-		memberships = append(memberships, membership)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("identity: reading memberships: %w", err)
+	memberships := make([]Membership, 0, len(rows))
+	for _, row := range rows {
+		memberships = append(memberships, Membership{
+			TenantID:   row.TenantID,
+			TenantName: row.TenantName,
+			Status:     row.Status,
+			Role:       row.Role,
+		})
 	}
 	return memberships, nil
 }
 
+// CreateUserWithCredentials creates a user and their password in one
+// transaction, so a user can never exist without a way to authenticate.
 func (r *PostgresRepository) CreateUserWithCredentials(ctx context.Context, userID, email, passwordHash string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("identity: beginning transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	q := db.New(tx)
 
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO identity.users (id, email, email_verified) VALUES ($1, $2, false)`,
-		userID, email); err != nil {
+	if err := q.InsertUser(ctx, db.InsertUserParams{ID: userID, Email: email}); err != nil {
 		return fmt.Errorf("identity: inserting user: %w", err)
 	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO identity.credentials (user_id, password_hash) VALUES ($1, $2)`,
-		userID, passwordHash); err != nil {
+	if err := q.InsertCredentials(ctx, db.InsertCredentialsParams{
+		UserID: userID, PasswordHash: passwordHash,
+	}); err != nil {
 		return fmt.Errorf("identity: inserting credentials: %w", err)
 	}
 	return tx.Commit(ctx)
 }
 
-// UpdatePasswordHash replaces a stored hash, used when a successful login
-// verified against outdated argon2 parameters.
 // maxSlugAttempts bounds the search for a free slug.
 //
 // Retry rather than a uniqueness check first, because checking then inserting
@@ -331,30 +303,28 @@ func (r *PostgresRepository) CreateOrganisationAccount(ctx context.Context, acco
 	if err := database.SetTenant(ctx, tx, account.TenantID); err != nil {
 		return "", err
 	}
+	q := db.New(tx)
 
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO identity.users (id, email) VALUES ($1, $2)`,
-		account.UserID, account.Email); err != nil {
+	if err := q.InsertUser(ctx, db.InsertUserParams{ID: account.UserID, Email: account.Email}); err != nil {
 		return "", fmt.Errorf("identity: creating user: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO identity.credentials (user_id, password_hash) VALUES ($1, $2)`,
-		account.UserID, account.PasswordHash); err != nil {
+	if err := q.InsertCredentials(ctx, db.InsertCredentialsParams{
+		UserID: account.UserID, PasswordHash: account.PasswordHash,
+	}); err != nil {
 		return "", fmt.Errorf("identity: creating credentials: %w", err)
 	}
 
-	slug, err := insertTenant(ctx, tx, account)
+	slug, err := insertTenant(ctx, tx, q, account)
 	if err != nil {
 		return "", err
 	}
 
 	// The membership is what makes the workspace administrable. A tenant
 	// without one is a row nobody can reach, including support.
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
-		 VALUES ($1, $2, $3, 'active', 'owner')`,
-		account.MembershipID, account.TenantID, account.UserID); err != nil {
+	if err := q.InsertOwningMembership(ctx, db.InsertOwningMembershipParams{
+		ID: account.MembershipID, TenantID: account.TenantID, UserID: account.UserID,
+	}); err != nil {
 		return "", fmt.Errorf("identity: creating owning membership: %w", err)
 	}
 
@@ -370,7 +340,11 @@ func (r *PostgresRepository) CreateOrganisationAccount(ctx context.Context, acco
 // PostgreSQL and every later statement then fails with "current transaction is
 // aborted". Without this the retry would appear to work and the commit would
 // not.
-func insertTenant(ctx context.Context, tx pgx.Tx, account OrganisationAccount) (string, error) {
+//
+// The savepoints are the one thing here that stays raw. They are transaction
+// control rather than a query, take no parameters, and sqlc has nothing to say
+// about them; pgx's nested Begin emits the same statements.
+func insertTenant(ctx context.Context, tx pgx.Tx, q *db.Queries, account OrganisationAccount) (string, error) {
 	slug := account.Slug
 
 	for attempt := range maxSlugAttempts {
@@ -385,9 +359,12 @@ func insertTenant(ctx context.Context, tx pgx.Tx, account OrganisationAccount) (
 			return "", fmt.Errorf("identity: opening savepoint: %w", err)
 		}
 
-		_, err := tx.Exec(ctx,
-			`INSERT INTO tenancy.tenants (id, name, slug, region) VALUES ($1, $2, $3, $4)`,
-			account.TenantID, account.OrganisationName, slug, account.Region)
+		err := q.InsertTenant(ctx, db.InsertTenantParams{
+			ID:     account.TenantID,
+			Name:   account.OrganisationName,
+			Slug:   slug,
+			Region: account.Region,
+		})
 		if err == nil {
 			if _, err := tx.Exec(ctx, "RELEASE SAVEPOINT tenant_insert"); err != nil {
 				return "", fmt.Errorf("identity: releasing savepoint: %w", err)
@@ -411,10 +388,12 @@ func insertTenant(ctx context.Context, tx pgx.Tx, account OrganisationAccount) (
 // uniqueViolation is PostgreSQL's SQLSTATE for a duplicate key.
 const uniqueViolation = "23505"
 
+// UpdatePasswordHash replaces a stored hash, used when a successful login
+// verified against outdated argon2 parameters.
 func (r *PostgresRepository) UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error {
-	if _, err := r.pool.Exec(ctx,
-		`UPDATE identity.credentials SET password_hash = $2, updated_at = now() WHERE user_id = $1`,
-		userID, passwordHash); err != nil {
+	if err := r.q.UpdatePasswordHash(ctx, db.UpdatePasswordHashParams{
+		UserID: userID, PasswordHash: passwordHash,
+	}); err != nil {
 		return fmt.Errorf("identity: updating password hash: %w", err)
 	}
 	return nil
@@ -422,52 +401,58 @@ func (r *PostgresRepository) UpdatePasswordHash(ctx context.Context, userID, pas
 
 // CreateSession records an issued token pair.
 func (r *PostgresRepository) CreateSession(ctx context.Context, row SessionRow) error {
-	if _, err := r.pool.Exec(ctx, `
-		INSERT INTO identity.sessions
-			(id, user_id, family_id, session_token_hash, refresh_token_hash,
-			 issued_at, expires_at, refresh_expires_at, authenticated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		row.ID, row.UserID, row.FamilyID, row.SessionTokenHash, row.RefreshTokenHash,
-		row.IssuedAt, row.ExpiresAt, row.RefreshExpiresAt, row.AuthenticatedAt); err != nil {
+	if err := r.q.InsertSession(ctx, db.InsertSessionParams{
+		ID:               row.ID,
+		UserID:           row.UserID,
+		FamilyID:         row.FamilyID,
+		SessionTokenHash: row.SessionTokenHash,
+		RefreshTokenHash: row.RefreshTokenHash,
+		IssuedAt:         row.IssuedAt,
+		ExpiresAt:        row.ExpiresAt,
+		RefreshExpiresAt: row.RefreshExpiresAt,
+		AuthenticatedAt:  row.AuthenticatedAt,
+	}); err != nil {
 		return fmt.Errorf("identity: inserting session: %w", err)
 	}
 	return nil
 }
 
 // FindSessionByToken finds a session by its session token hash.
+//
+// The conversion from the generated row is direct rather than field by field,
+// which Go permits only while the two structs agree exactly. That is deliberate:
+// a column added, reordered or retyped in the query stops the build here rather
+// than being silently dropped on the way to the service.
 func (r *PostgresRepository) FindSessionByToken(ctx context.Context, tokenHash string) (SessionRow, error) {
-	return r.findSession(ctx, `session_token_hash = $1`, tokenHash)
+	row, err := r.q.FindSessionByToken(ctx, tokenHash)
+	if err != nil {
+		return SessionRow{}, sessionError(err)
+	}
+	return SessionRow(row), nil
 }
 
 // FindSessionByRefresh finds a session by its refresh token hash.
 //
 // This deliberately finds retired rows too. Finding one is exactly how reuse is
 // detected, so excluding them would remove the signal.
+//
+// Two named queries rather than one with an interpolated predicate. The old
+// shape built its WHERE clause from a string, which sqlc cannot check and which
+// is one careless caller away from being the place SQL is injected.
 func (r *PostgresRepository) FindSessionByRefresh(ctx context.Context, tokenHash string) (SessionRow, error) {
-	return r.findSession(ctx, `refresh_token_hash = $1`, tokenHash)
+	row, err := r.q.FindSessionByRefresh(ctx, tokenHash)
+	if err != nil {
+		return SessionRow{}, sessionError(err)
+	}
+	return SessionRow(row), nil
 }
 
-func (r *PostgresRepository) findSession(ctx context.Context, predicate, tokenHash string) (SessionRow, error) {
-	var row SessionRow
-	err := r.pool.QueryRow(ctx, `
-		SELECT id::text, user_id::text, family_id::text,
-		       session_token_hash, refresh_token_hash,
-		       issued_at, expires_at, refresh_expires_at, authenticated_at,
-		       retired_at, revoked_at, coalesce(active_tenant_id::text, '')
-		FROM identity.sessions
-		WHERE `+predicate, tokenHash).Scan(
-		&row.ID, &row.UserID, &row.FamilyID,
-		&row.SessionTokenHash, &row.RefreshTokenHash,
-		&row.IssuedAt, &row.ExpiresAt, &row.RefreshExpiresAt, &row.AuthenticatedAt,
-		&row.RetiredAt, &row.RevokedAt, &row.ActiveTenantID)
-
+// sessionError maps a session read failure onto the domain error.
+func sessionError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
-		return SessionRow{}, ErrNotFound
+		return ErrNotFound
 	}
-	if err != nil {
-		return SessionRow{}, fmt.Errorf("identity: querying session: %w", err)
-	}
-	return row, nil
+	return fmt.Errorf("identity: querying session: %w", err)
 }
 
 // RetireSession marks a session superseded by a rotation.
@@ -475,9 +460,7 @@ func (r *PostgresRepository) findSession(ctx context.Context, predicate, tokenHa
 // Retired is not revoked. A retired row stays valid to look up precisely so
 // that presenting its refresh token can be recognised as reuse.
 func (r *PostgresRepository) RetireSession(ctx context.Context, sessionID string, at time.Time) error {
-	if _, err := r.pool.Exec(ctx,
-		`UPDATE identity.sessions SET retired_at = $2 WHERE id = $1 AND retired_at IS NULL`,
-		sessionID, at); err != nil {
+	if err := r.q.RetireSession(ctx, db.RetireSessionParams{ID: sessionID, RetiredAt: &at}); err != nil {
 		return fmt.Errorf("identity: retiring session: %w", err)
 	}
 	return nil
@@ -489,11 +472,9 @@ func (r *PostgresRepository) RetireSession(ctx context.Context, sessionID string
 // cannot tell the legitimate client from the attacker, and revoking only the
 // row that was reused would leave whichever of them holds the current pair.
 func (r *PostgresRepository) RevokeFamily(ctx context.Context, familyID, reason string, at time.Time) error {
-	if _, err := r.pool.Exec(ctx, `
-		UPDATE identity.sessions
-		SET revoked_at = $2, revoked_reason = $3
-		WHERE family_id = $1 AND revoked_at IS NULL`,
-		familyID, at, reason); err != nil {
+	if err := r.q.RevokeFamily(ctx, db.RevokeFamilyParams{
+		FamilyID: familyID, RevokedAt: at, Reason: reason,
+	}); err != nil {
 		return fmt.Errorf("identity: revoking family: %w", err)
 	}
 	return nil

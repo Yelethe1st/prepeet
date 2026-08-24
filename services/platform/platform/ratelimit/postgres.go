@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	db "github.com/Yelethe1st/prepeet/services/platform/platform/ratelimit/db"
 )
 
 // Counter counts requests against a key and decides whether one may proceed.
@@ -26,8 +28,12 @@ type Counter interface {
 // locking every user out and letting every attacker through. Here there is no
 // such state: if this database is unreachable then authentication cannot happen
 // at all, so failing open costs nothing that is not already lost.
+//
+// The SQL lives in db/queries.sql and the access code beside it is generated,
+// per ADR-0008.
 type Postgres struct {
 	pool *pgxpool.Pool
+	q    *db.Queries
 	rule Rule
 	now  func() time.Time
 }
@@ -44,7 +50,7 @@ func NewPostgres(pool *pgxpool.Pool, rule Rule, now func() time.Time) *Postgres 
 	if rule.Window <= 0 {
 		panic(fmt.Sprintf("ratelimit: window is %s, which counts over no time at all", rule.Window))
 	}
-	return &Postgres{pool: pool, rule: rule, now: now}
+	return &Postgres{pool: pool, q: db.New(pool), rule: rule, now: now}
 }
 
 // Allow counts one request against key and reports whether it may proceed.
@@ -71,16 +77,11 @@ func (p *Postgres) Allow(ctx context.Context, key string) (Decision, error) {
 	windowStart := now.Truncate(p.rule.Window)
 	windowEnd := windowStart.Add(p.rule.Window)
 
-	var count int
-	err := p.pool.QueryRow(ctx, `
-		INSERT INTO security_rate_limit_counters (key, window_start, count)
-		VALUES ($1, $2, 1)
-		ON CONFLICT (key, window_start)
-		DO UPDATE SET count = security_rate_limit_counters.count + 1
-		RETURNING count`, key, windowStart).Scan(&count)
+	counted, err := p.q.Increment(ctx, db.IncrementParams{Key: key, WindowStart: windowStart})
 	if err != nil {
 		return Decision{Allowed: true}, fmt.Errorf("ratelimit: counting %q: %w", key, err)
 	}
+	count := int(counted)
 
 	if count > p.rule.Limit {
 		return Decision{
@@ -108,12 +109,11 @@ func (p *Postgres) Allow(ctx context.Context, key string) (Decision, error) {
 func (p *Postgres) Sweep(ctx context.Context) (int64, error) {
 	cutoff := p.now().Add(-2 * p.rule.Window)
 
-	tag, err := p.pool.Exec(ctx,
-		`DELETE FROM security_rate_limit_counters WHERE window_start < $1`, cutoff)
+	removed, err := p.q.Sweep(ctx, cutoff)
 	if err != nil {
 		return 0, fmt.Errorf("ratelimit: sweeping counters: %w", err)
 	}
-	return tag.RowsAffected(), nil
+	return removed, nil
 }
 
 // Both implementations satisfy Counter. Checked here so a signature change

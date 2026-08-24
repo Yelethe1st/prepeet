@@ -30,6 +30,8 @@
 // Implements part of IAM-04.
 package authz
 
+import "slices"
+
 // Capability is one unit of authority.
 //
 // The catalogue is a versioned contract. Names describe authority over a
@@ -74,97 +76,19 @@ type Scope struct {
 	Value string
 }
 
-// The catalogue. Adding a capability here without a requirement is impossible:
-// the map is the catalogue, so every entry declares what it needs.
-const (
-	// Candidate. These are the candidate's own practice data, which no tenant
-	// authority reaches.
-	CandidateProfileReadOwn    Capability = "candidate.profile.read_own"
-	CandidateProfileWriteOwn   Capability = "candidate.profile.write_own"
-	CandidatePracticeReadOwn   Capability = "candidate.practice.read_own"
-	CandidatePracticeDeleteOwn Capability = "candidate.practice.delete_own"
-
-	// Session participation.
-	SessionCreatePractice         Capability = "session.create_practice"
-	SessionAcceptInvitation       Capability = "session.accept_invitation"
-	SessionParticipate            Capability = "session.participate"
-	SessionReadOwnPractice        Capability = "session.read_own_practice"
-	SessionReadScreenConfirmation Capability = "session.read_screen_confirmation"
-
-	// Recruiting, inside one tenant.
-	CampaignRead         Capability = "campaign.read"
-	CampaignManage       Capability = "campaign.manage"
-	InvitationRead       Capability = "invitation.read"
-	InvitationManage     Capability = "invitation.manage"
-	EvaluationReadScreen Capability = "evaluation.read_screen"
-	EvaluationReview     Capability = "evaluation.review"
-	EvaluationCompare    Capability = "evaluation.compare"
-	AppealManage         Capability = "appeal.manage"
-
-	// Tenant configuration.
-	RubricRead              Capability = "rubric.read"
-	RubricDraft             Capability = "rubric.draft"
-	RubricPublish           Capability = "rubric.publish"
-	TenantMemberManage      Capability = "tenant.member_manage"
-	TenantSettingsManage    Capability = "tenant.settings_manage"
-	TenantRetentionManage   Capability = "tenant.retention_manage"
-	TenantBillingRead       Capability = "tenant.billing_read"
-	TenantIntegrationManage Capability = "tenant.integration_manage"
-
-	// Platform. Separate authority, not a superset of tenant authority.
-	PlatformAnalyticsRead     Capability = "platform.analytics_read"
-	PlatformOperationsRead    Capability = "platform.operations_read"
-	PlatformOperationsExecute Capability = "platform.operations_execute"
-	PlatformQuotaManage       Capability = "platform.quota_manage"
-	PlatformAuditRead         Capability = "platform.audit_read"
-	PlatformPrivilegedElevate Capability = "platform.privileged_elevate"
-)
-
-// catalogue maps every capability to what it requires.
-var catalogue = map[Capability]Requirement{
-	CandidateProfileReadOwn:    {Owner: true},
-	CandidateProfileWriteOwn:   {Owner: true},
-	CandidatePracticeReadOwn:   {Owner: true},
-	CandidatePracticeDeleteOwn: {Owner: true, StepUp: true},
-
-	SessionCreatePractice:         {Owner: true},
-	SessionAcceptInvitation:       {Owner: true},
-	SessionParticipate:            {Owner: true},
-	SessionReadOwnPractice:        {Owner: true},
-	SessionReadScreenConfirmation: {Owner: true},
-
-	CampaignRead:         {Tenant: true},
-	CampaignManage:       {Tenant: true, Scope: ScopeCampaign},
-	InvitationRead:       {Tenant: true},
-	InvitationManage:     {Tenant: true},
-	EvaluationReadScreen: {Tenant: true, Scope: ScopeCampaign},
-	EvaluationReview:     {Tenant: true, Scope: ScopeCampaign},
-	// Comparison additionally requires feature approval, which is a tenant
-	// policy check rather than a capability check. See DEC-17.
-	EvaluationCompare: {Tenant: true, Scope: ScopeCampaign},
-	AppealManage:      {Tenant: true, Scope: ScopeCampaign},
-
-	RubricRead:  {Tenant: true},
-	RubricDraft: {Tenant: true},
-	// Publishing changes how candidates are evaluated from that moment on.
-	RubricPublish:        {Tenant: true, StepUp: true},
-	TenantMemberManage:   {Tenant: true, StepUp: true},
-	TenantSettingsManage: {Tenant: true},
-	// Reducing retention destroys evidence, including evidence an appeal may
-	// depend on.
-	TenantRetentionManage:   {Tenant: true, StepUp: true},
-	TenantBillingRead:       {Tenant: true},
-	TenantIntegrationManage: {Tenant: true, StepUp: true},
-
-	PlatformAnalyticsRead:  {Platform: true},
-	PlatformOperationsRead: {Platform: true},
-	// Executing an operation against tenant data is exceptional, so it is
-	// reason-bound, ticket-bound and time-bound.
-	PlatformOperationsExecute: {Platform: true, Privileged: true},
-	PlatformQuotaManage:       {Platform: true, Privileged: true, StepUp: true},
-	PlatformAuditRead:         {Platform: true, Privileged: true},
-	PlatformPrivilegedElevate: {Platform: true, StepUp: true},
-}
+// The capabilities themselves and their requirements are generated from
+// packages/contracts/authz/capabilities.yaml into catalogue.gen.go.
+//
+// The contract is the source rather than this file, per ADR-0004, and for the
+// reason that ADR gives for the API contract: which authority reaches a
+// candidate's practice history, what needs recent authentication, and what needs
+// an elevation with a ticket are questions legal and security must be able to
+// answer from one artifact without reading Go.
+//
+// What stays here is the vocabulary the generated file is written in, and the
+// prose explaining why the vocabulary is shaped this way. A generator cannot
+// produce that, and a contract carrying it would be describing an
+// implementation.
 
 // All returns every capability in the catalogue, in a stable order.
 func All() []Capability {
@@ -192,4 +116,29 @@ func sortCapabilities(capabilities []Capability) {
 			capabilities[j], capabilities[j-1] = capabilities[j-1], capabilities[j]
 		}
 	}
+}
+
+// Catalogue returns every capability the system defines.
+//
+// Sorted, so a caller iterating it produces stable output. Exported because a
+// capability that exists and cannot be enumerated is one that cannot be
+// reviewed, published to a client, or checked against its contract.
+func Catalogue() []Capability {
+	names := make([]Capability, 0, len(catalogue))
+	for capability := range catalogue {
+		names = append(names, capability)
+	}
+	slices.Sort(names)
+	return names
+}
+
+// RequirementOf returns what a capability requires, and whether it is known.
+//
+// The second result is false for an unknown capability rather than the zero
+// Requirement being returned alone, because a zero Requirement requires nothing
+// and a caller that ignored the boolean would read a typo as an unrestricted
+// capability.
+func RequirementOf(capability Capability) (Requirement, bool) {
+	requirement, known := catalogue[capability]
+	return requirement, known
 }

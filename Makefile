@@ -113,13 +113,18 @@ generate: tools ## Regenerate every client and server type from the contracts
 	# output paths against the working directory rather than against its config.
 	$(TOOLS_BIN)/oapi-codegen -config packages/contracts/api/oapi-codegen.yaml packages/contracts/api/openapi.yaml
 	pnpm generate:api
+	# The capability catalogue, from its own contract. Its own module, so a
+	# build-time YAML parser does not become a runtime dependency of the service.
+	cd tools/authzgen && go build -o $(TOOLS_BIN)/authzgen .
+	$(TOOLS_BIN)/authzgen
+	cd $(GO_DIR) && gofmt -w platform/authz
 	cd packages/generated/go && go mod tidy
 
 .PHONY: check-generated
 check-generated: generate ## Fail if generated code differs from the contracts
-	@if [ -n "$$(git status --porcelain packages/generated)" ]; then \
+	@if [ -n "$$(git status --porcelain packages/generated services/platform/platform/authz/catalogue.gen.go)" ]; then \
 		echo "Generated code is out of date. Run make generate and commit the result:"; \
-		git --no-pager diff --stat packages/generated; \
+		git --no-pager diff --stat packages/generated services/platform/platform/authz/catalogue.gen.go; \
 		exit 1; \
 	fi
 	@printf '\033[32mPASS\033[0m generated code matches the contracts\n'

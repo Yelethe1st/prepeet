@@ -159,7 +159,30 @@ and the role bundles themselves, which need the tenant role model.
 - [x] Destructive and evaluation-changing capabilities require recent authentication.
 - [x] A subject cannot grant authority it does not hold.
 - [ ] Roles are defined as capability bundles, which needs the tenant role model in TEN-02.
-- [ ] The catalogue is published as a versioned machine-readable contract alongside the API.
+- [x] The catalogue is published as a versioned machine-readable contract alongside the API.
+
+**The contract is now the source, and the Go is generated from it.** Which authority reaches a
+candidate's practice history, what needs recent authentication, and what needs an elevation carrying a
+ticket are questions legal and security have to answer from one artifact without reading Go. That is the
+same argument ADR-0004 makes for the API contract, and it applies here more strongly: this document is
+the authorization model.
+
+Every entry carries the reason for its requirements, and the generator refuses to emit one without a
+reason. A requirement with no reason is a rule nobody can argue against when somebody proposes changing
+it.
+
+Three properties are asserted across the whole catalogue rather than in the entries somebody thought to
+test: a candidate capability requires owner and never tenant, so practice data stays unreachable from an
+employer; a platform capability is never also a tenant one, so platform staff are not members of every
+workspace; and no name contains an interface element. All three were checked by introducing a violation.
+
+That last check was wrong first time and the correction is worth keeping. It matched substrings, so
+`evaluation.review` was reported as named after a view. It matches whole segments now, and `screen` is
+deliberately not forbidden: in this product a screening interview is a mode rather than a page, so
+forbidding it would forbid the vocabulary the product is written in.
+
+TypeScript names are generated alongside, which is what [CTR-01](03-contracts-and-codegen.md) needs to
+declare a required capability per operation and what WEB-02 needs to render navigation.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md)
 

@@ -1,0 +1,257 @@
+# The capability catalogue.
+#
+# This document is the source. The Go constants and the TypeScript names are
+# generated from it, so a capability cannot exist in one language and not
+# another, and a requirement cannot be changed in code without changing the
+# contract that describes it.
+#
+# It is published rather than kept in code for the reason ADR-0004 gives for the
+# API contract: much of what is here is a compliance obligation rather than an
+# implementation detail. Which authority reaches a candidate's practice history,
+# what needs recent authentication, and what needs an elevation with a ticket
+# are questions legal and security have to be able to answer from one artifact
+# without reading Go.
+#
+# Every entry carries the reason for its requirements. A requirement without one
+# is a rule nobody can review, and the reason is what a future change has to
+# argue against.
+#
+# Names describe authority over a resource, never an interface element. A
+# capability named after a screen would have to change when the screen is
+# renamed, and the two have no reason to move together.
+
+version: 1
+
+# What a capability can require beyond being held.
+requirements:
+  tenant: Exercised inside one tenant. The request must name the tenant the subject is active in.
+  scope: >-
+    Tenant membership is not enough. The subject needs an explicit assignment
+    covering the resource, and a scoped capability asked without a scope is
+    denied, so a list endpoint cannot return everything by declining to mention
+    one.
+  owner: Applies to the subject's own data only, and is never satisfied by tenant authority.
+  platform: Belongs to platform authority, which is separate from tenant authority rather than above it.
+  privileged: Requires an active elevation carrying a reason and a ticket.
+  step_up: >-
+    Destructive, or changes how a candidate is evaluated. Requires recent
+    authentication rather than a session opened this morning.
+
+# The scope dimensions a capability can be scoped along.
+scopes:
+  - campaign
+  - role
+
+capabilities:
+
+  # ── A candidate's own data
+  # Owner capabilities. No tenant authority satisfies any of these,
+  # structurally rather than by filtering: an employer seeing rehearsals a
+  # candidate believed were private is the failure this product cannot have.
+
+  - name: candidate.practice.delete_own
+    owner: true
+    step_up: true
+    reason: >-
+      Deleting practice history is irreversible, so it needs recent
+      authentication rather than a session opened this morning.
+
+  - name: candidate.practice.read_own
+    owner: true
+    reason: >-
+      Practice history is the candidate's alone. This is the capability that
+      makes practice private, and no tenant authority satisfies it.
+
+  - name: candidate.profile.read_own
+    owner: true
+    reason: >-
+      A candidate's own profile. Owner rather than tenant, because an
+      employer must never reach it.
+
+  - name: candidate.profile.write_own
+    owner: true
+    reason: >-
+      Only the candidate edits their own profile. Nobody edits it on their
+      behalf.
+
+  # ── Taking part in an interview
+  # Held by the person in the interview.
+
+  - name: session.accept_invitation
+    owner: true
+    reason: >-
+      Accepting a screening invitation is the candidate's decision and
+      nobody else's.
+
+  - name: session.create_practice
+    owner: true
+    reason: >-
+      A candidate starts their own practice session. Owner, because a
+      recruiter starting one on somebody's behalf would be practice data an
+      employer produced.
+
+  - name: session.participate
+    owner: true
+    reason: >-
+      Being in the interview. Owner, because participation is by the person
+      invited.
+
+  - name: session.read_own_practice
+    owner: true
+    reason: >-
+      Reading one's own practice session.
+
+  - name: session.read_screen_confirmation
+    owner: true
+    reason: >-
+      A candidate may see that their screening interview completed. What the
+      employer saw is a different capability.
+
+  # ── Recruiting inside one tenant
+  # Tenant capabilities. Membership of a tenant is not authority over every
+  # campaign in it, so the ones that change something are scoped.
+
+  - name: campaign.manage
+    tenant: true
+    scope: campaign
+    reason: >-
+      Changing a campaign needs an explicit assignment to it. Tenant
+      membership is not authority over every campaign in the tenant.
+
+  - name: campaign.read
+    tenant: true
+    reason: >-
+      Reading campaigns inside one tenant. Unscoped, because a recruiter may
+      see which campaigns exist before being assigned to one.
+
+  - name: invitation.manage
+    tenant: true
+    reason: >-
+      Issuing or revoking an invitation affects a candidate's access, so it
+      is scoped to the campaign rather than to the tenant.
+
+  - name: invitation.read
+    tenant: true
+    reason: >-
+      Reading invitations for a campaign the recruiter is assigned to.
+
+  - name: evaluation.compare
+    tenant: true
+    scope: campaign
+    reason: >-
+      Comparing candidates. Scoped and step-up: comparison is off by default
+      under responsible-hiring.md and is the most consequential thing a
+      recruiter can do.
+
+  - name: evaluation.read_screen
+    tenant: true
+    scope: campaign
+    reason: >-
+      Reading a screening evaluation. Scoped, because an evaluation belongs
+      to a campaign and not to everyone in the tenant.
+
+  - name: evaluation.review
+    tenant: true
+    scope: campaign
+    reason: >-
+      Recording a human review of an evaluation. Step-up, because it changes
+      how a candidate is assessed.
+
+  - name: appeal.manage
+    tenant: true
+    scope: campaign
+    reason: >-
+      Handling a candidate's appeal against an evaluation.
+
+  # ── Tenant configuration
+  # Held by a tenant administrator.
+
+  - name: rubric.draft
+    tenant: true
+    reason: >-
+      Drafting a rubric. Unpublished drafts change nothing.
+
+  - name: rubric.publish
+    tenant: true
+    step_up: true
+    reason: >-
+      Publishing a rubric changes how every future candidate is evaluated,
+      so it needs recent authentication.
+
+  - name: rubric.read
+    tenant: true
+    reason: >-
+      Reading the tenant's rubric library.
+
+  - name: tenant.billing_read
+    tenant: true
+    reason: >-
+      Reading billing and usage.
+
+  - name: tenant.integration_manage
+    tenant: true
+    step_up: true
+    reason: >-
+      Integrations move candidate data to systems outside Prepeet, so this
+      needs recent authentication.
+
+  - name: tenant.member_manage
+    tenant: true
+    step_up: true
+    reason: >-
+      Adding or removing members changes who can see candidate evidence, so
+      it needs recent authentication.
+
+  - name: tenant.retention_manage
+    tenant: true
+    step_up: true
+    reason: >-
+      Retention determines when candidate data is destroyed, which is
+      irreversible.
+
+  - name: tenant.settings_manage
+    tenant: true
+    reason: >-
+      Tenant configuration.
+
+  # ── Platform authority
+  # Separate authority, never a superset of tenant authority. Holding a
+  # platform capability grants nothing inside any tenant.
+
+  - name: platform.analytics_read
+    platform: true
+    reason: >-
+      Aggregate platform analytics. Platform authority, which is separate
+      from tenant authority rather than a superset of it.
+
+  - name: platform.audit_read
+    platform: true
+    privileged: true
+    reason: >-
+      Reading the audit trail, which is itself an auditable act.
+
+  - name: platform.operations_execute
+    platform: true
+    privileged: true
+    reason: >-
+      Running an operational action. Privileged: it needs an active
+      elevation carrying a reason and a ticket.
+
+  - name: platform.operations_read
+    platform: true
+    reason: >-
+      Reading operational state across the platform.
+
+  - name: platform.privileged_elevate
+    platform: true
+    step_up: true
+    reason: >-
+      Requesting elevation. Privileged and step-up, because it is the gate
+      every other privileged action passes through.
+
+  - name: platform.quota_manage
+    platform: true
+    privileged: true
+    step_up: true
+    reason: >-
+      Changing a tenant's quota.

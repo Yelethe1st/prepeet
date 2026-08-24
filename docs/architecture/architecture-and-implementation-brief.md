@@ -125,7 +125,7 @@ The live interview, evaluation, review, replay, and audit use the same bundle. A
 | Concern | Baseline |
 |---|---|
 | Web | Next.js App Router, TypeScript, TanStack Query, React Hook Form, Zod, Radix, Tailwind |
-| Go | `chi`, `pgx`, `sqlc`, `goose` |
+| Go | `net/http` routing, `pgx`, `goose` superseded by an in-repo migration runner ([ADR-0008](decisions/0008-go-library-baseline-net-http-and-an-in-repo-migration-runner.md)); `sqlc` an open deviation |
 | Python | `uv`, Pydantic, Ruff, Pyright, gRPC |
 | Contracts | OpenAPI, Protobuf, Buf |
 | Workflow | Temporal |
@@ -141,14 +141,15 @@ prepeet/
 │   └── src/
 │       ├── app/(public|candidate|recruiter|platform)/
 │       ├── features/
-│       ├── design-system/
+│       ├── shared/(components|styles)/
+│       ├── test/
 │       └── lib/(api|auth|observability|realtime)/
 ├── services/
 │   ├── platform/               # Go
 │   │   ├── cmd/(api|worker|migrate)/
 │   │   ├── internal/(identity|tenancy|candidate|interview|evaluation|recruiting|media|billing|notification|integration|audit)/
-│   │   ├── platform/(database|temporal|observability|objectstore|email|cryptography)/
-│   │   └── migrations/
+│   │   └── platform/            # database, temporal, observability, objectstore, email, cryptography
+│   │       └── database/sql/    # numbered migrations, embedded in the binary
 │   └── intelligence/           # Python
 │       ├── src/prepeet_ai/(composition|runtime|extraction|evaluation|articulation|coaching|readiness|providers|workflows|transport)/
 │       ├── artifacts/(personas|plans|rules|rubrics|role-standards|prompts)/
@@ -162,7 +163,7 @@ prepeet/
 └── docs/
 ```
 
-Go modules are organized by bounded context with domain, application, repository, transport, and composition. Frontend code is organized by feature/journey. Python is organized by capability: composition, runtime, extraction, evaluation, articulation, coaching, providers, workflows, and transport.
+Go modules are organized by bounded context with domain, application, repository, transport, and composition. Frontend code is organized by feature/journey. `shared/` holds the ported tokens, the Tailwind theme built from them, and the components every feature uses; it was `design-system/` while it was a stylesheet port, and is named for what it holds now that the styling is Tailwind. `test/` holds only the tests with no single subject to sit beside, such as boundary and theme checks; a test for a component or page lives next to it. Python is organized by capability: composition, runtime, extraction, evaluation, articulation, coaching, providers, workflows, and transport.
 
 ## Quality attributes
 

@@ -1,6 +1,6 @@
 # ADR-0007: Durable execution runs on self-hosted Temporal, on its own database
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Owner:** olabode omoyele  
 **Decision date:** 2026-08-24  
 **Review date:** 2027-02-24  

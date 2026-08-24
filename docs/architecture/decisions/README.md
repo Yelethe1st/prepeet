@@ -12,13 +12,16 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0004](0004-contract-conventions-and-code-generation.md) | Contracts are hand-authored and everything else is generated from them; REST, RPC and event conventions, and what counts as a breaking change | 2026-08-24 |
 | [0005](0005-module-boundaries-and-extraction.md) | No context imports another: consumer-defined interfaces for synchronous reads, events for state changes, enforced by a test | 2026-08-24 |
 | [0006](0006-postgresql-serves-cache-coordination-and-rate-limiting.md) | PostgreSQL serves cache, coordination and rate limiting; Redis is deferred behind four named triggers | 2026-08-24 |
+| [0007](0007-durable-execution-with-self-hosted-temporal.md) | Durable execution on self-hosted Temporal with its own PostgreSQL, and a data converter that enforces what a payload may carry | 2026-08-24 |
+| [0008](0008-go-library-baseline-net-http-and-an-in-repo-migration-runner.md) | `net/http` routing in place of `chi`, and an in-repo checksummed migration runner in place of `goose`; `sqlc` recorded as an open deviation | 2026-08-24 |
+| [0009](0009-dark-is-the-default-theme.md) | Dark is the default theme against the prototype's light, and the operating system's preference is deliberately not consulted | 2026-08-24 |
 
 ## Required initial ADRs
 
 1. ~~Hosting platform and regional topology.~~ Accepted as [ADR-0001](0001-hosting-platform-and-regional-topology.md).
 2. ~~Identity build/buy and enterprise federation.~~ Accepted as [ADR-0003](0003-identity-built-in-go.md).
 3. ~~Go modular-monolith boundary and extraction criteria.~~ Accepted as [ADR-0005](0005-module-boundaries-and-extraction.md).
-4. Temporal hosting and workflow ownership.
+4. ~~Temporal hosting and workflow ownership.~~ Accepted as [ADR-0007](0007-durable-execution-with-self-hosted-temporal.md).
 5. ~~PostgreSQL schemas, row-level security, and connection roles.~~ Accepted as [ADR-0002](0002-postgresql-schema-rls-and-connection-roles.md).
 6. Realtime provider, media topology, and outage fallback.
 7. Recording source, format, alignment, and retention.

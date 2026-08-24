@@ -5,13 +5,31 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import type { SessionUser } from "@/features/auth/session";
-
 import { TenantSwitcher } from "./TenantSwitcher";
 import { visibleNavigation } from "./navigation";
 
+/**
+ * What the shell needs to know about who is signed in.
+ *
+ * Declared here rather than imported from the auth feature, because a feature
+ * importing another feature's types is how two features become one. The route
+ * layout supplies it, which is the composition root's job: `app/` is allowed to
+ * see everything, in the way `cmd/` is on the server.
+ *
+ * It is also less than the session carries. The shell needs an address to show,
+ * workspaces to switch between and capabilities to render from, and nothing
+ * else, so anything added to a session does not become something the shell can
+ * quietly start depending on.
+ */
+export interface ShellUser {
+  email: string;
+  activeTenantId: string | null;
+  memberships: { tenantId: string; tenantName: string; status: string }[];
+  capabilities: string[];
+}
+
 export interface AppShellProps {
-  user: SessionUser;
+  user: ShellUser;
   onSignOut: () => Promise<void>;
   onSwitchTenant: (tenantId: string) => Promise<void>;
   children: ReactNode;

@@ -3,8 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
-import type { SessionUser } from "@/features/auth/session";
-
+import type { ShellUser } from "./AppShell";
 import { AppShell } from "./AppShell";
 
 /**
@@ -33,16 +32,14 @@ beforeEach(() => {
   push.mockReset();
 });
 
-const candidate: SessionUser = {
-  id: "usr_1",
+const candidate: ShellUser = {
   email: "daniel.okonkwo@example.com",
-  emailVerified: true,
   activeTenantId: null,
   memberships: [],
   capabilities: ["candidate.practice.read_own", "session.create_practice"],
 };
 
-const recruiter: SessionUser = {
+const recruiter: ShellUser = {
   ...candidate,
   activeTenantId: "t-northwind",
   memberships: [
@@ -57,7 +54,7 @@ const recruiter: SessionUser = {
   ],
 };
 
-function renderShell(user: SessionUser = candidate) {
+function renderShell(user: ShellUser = candidate) {
   return render(
     <AppShell user={user} onSignOut={signOut} onSwitchTenant={switchTenant}>
       <h1>Practice</h1>

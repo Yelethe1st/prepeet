@@ -57,8 +57,14 @@ const MaxAttempts = 10
 // against, per ADR-0004.
 var versionedType = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\.v[0-9]+$`)
 
-// ErrInvalidEvent means the envelope is incomplete.
-var ErrInvalidEvent = errors.New("outbox: event envelope is incomplete")
+// ErrInvalidEvent means the event was refused before it was written.
+//
+// One sentinel for every refusal, because a caller's response is the same
+// whichever it was: fix the event, since none of them is retryable. The wrapped
+// message says which, and it has to, because the prefix cannot: this used to
+// read "event envelope is incomplete" and reported an undeclared event type as
+// an incomplete envelope, which sends somebody to check fields that were fine.
+var ErrInvalidEvent = errors.New("outbox: event refused")
 
 // Actor is who or what caused the event.
 type Actor struct {

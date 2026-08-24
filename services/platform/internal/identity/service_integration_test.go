@@ -30,6 +30,12 @@ import (
 var (
 	adminURL string
 	pool     *pgxpool.Pool
+	// adminPool connects as the migrator, which is not subject to row-level
+	// security. Tenant-scoped tables are unreadable from the application role
+	// without SET LOCAL app.tenant_id, so an assertion that a tenant row exists
+	// has to be made from outside that policy. Using the app pool would make
+	// these tests pass or fail on RLS rather than on what they are about.
+	adminPool *pgxpool.Pool
 )
 
 func TestMain(m *testing.M) {
@@ -82,7 +88,14 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	adminPool, err = pgxpool.New(ctx, adminURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "admin pool: %v\n", err)
+		os.Exit(1)
+	}
+
 	code := m.Run()
+	adminPool.Close()
 	pool.Close()
 	if err := container.Terminate(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "terminating PostgreSQL: %v\n", err)
@@ -99,6 +112,16 @@ func newService(t *testing.T) *identity.Service {
 func emailFor(t *testing.T) string {
 	t.Helper()
 	return strings.ToLower(strings.ReplaceAll(t.Name(), "/", "-")) + "@example.com"
+}
+
+// nthEmailFor is for a test that registers more than once. emailFor derives one
+// address from the test name, so a second call returns the same address and the
+// second registration quietly takes the already-exists path, which looks like
+// success and reports nothing.
+func nthEmailFor(t *testing.T, n int) string {
+	t.Helper()
+	return fmt.Sprintf("%s-%d@example.com",
+		strings.ToLower(strings.ReplaceAll(t.Name(), "/", "-")), n)
 }
 
 const goodPassword = "correct horse battery staple"
@@ -675,6 +698,295 @@ func TestTimestampsAreUTCWhateverClockIsInjected(t *testing.T) {
 		if _, offset := stamp.Zone(); offset != 0 {
 			t.Errorf("%s = %s, which carries a %d second offset rather than being UTC",
 				name, stamp.Format(time.RFC3339), offset)
+		}
+	}
+}
+
+// ─────────────────────────────────────────────── organisation registration
+
+// An organisation registration creates three things: the person, the workspace,
+// and the membership that says the person administers it. All three or none.
+//
+// The atomicity is the point rather than a nicety. A half-created registration
+// gives somebody who can verify their address, sign in, and find no workspace,
+// with nothing having visibly failed. That is a support ticket the product
+// cannot resolve from the inside.
+func TestOrganisationRegistrationCreatesTheTenantAndOwningMembership(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	outcome, err := service.Register(ctx, identity.RegisterInput{
+		Email:            emailFor(t),
+		Password:         goodPassword,
+		AccountType:      identity.AccountOrganisation,
+		OrganisationName: "Northwind Recruiting",
+	})
+	if err != nil {
+		t.Fatalf("Register returned error: %v", err)
+	}
+	if !outcome.Created {
+		t.Fatal("Created is false for a new organisation")
+	}
+	if outcome.TenantID == "" {
+		t.Fatal("no tenant was reported, so the caller cannot know which workspace was made")
+	}
+
+	var (
+		name   string
+		slug   string
+		region string
+	)
+	if err := adminPool.QueryRow(ctx,
+		`SELECT name, slug, region FROM tenancy.tenants WHERE id = $1`,
+		outcome.TenantID).Scan(&name, &slug, &region); err != nil {
+		t.Fatalf("reading the tenant: %v", err)
+	}
+	if name != "Northwind Recruiting" {
+		t.Errorf("tenant name = %q, want the organisation name as given", name)
+	}
+	if slug == "" {
+		t.Error("the tenant has no slug, so it can never be addressed by one")
+	}
+	// Residency is a property of the tenant rather than of the deployment, per
+	// ADR-0001, so it is recorded at creation rather than inferred later.
+	if region == "" {
+		t.Error("the tenant records no region, so its residency is undecidable")
+	}
+
+	var role string
+	if err := adminPool.QueryRow(ctx,
+		`SELECT role FROM tenancy.memberships WHERE tenant_id = $1 AND user_id = $2`,
+		outcome.TenantID, outcome.UserID).Scan(&role); err != nil {
+		t.Fatalf("reading the membership: %v", err)
+	}
+	if role != "owner" {
+		t.Errorf("role = %q, want owner: a tenant nobody administers cannot be administered", role)
+	}
+}
+
+// A candidate registration creates no workspace. Creating one would give every
+// person practising alone an employer workspace they never asked for, which is
+// a tenant in the billing and retention inventories for no reason.
+func TestCandidateRegistrationCreatesNoTenant(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	outcome, err := service.Register(ctx, identity.RegisterInput{
+		Email: emailFor(t), Password: goodPassword, AccountType: identity.AccountCandidate,
+	})
+	if err != nil {
+		t.Fatalf("Register returned error: %v", err)
+	}
+	if outcome.TenantID != "" {
+		t.Errorf("a candidate registration created tenant %s", outcome.TenantID)
+	}
+
+	var memberships int
+	if err := adminPool.QueryRow(ctx,
+		`SELECT count(*) FROM tenancy.memberships WHERE user_id = $1`, outcome.UserID).
+		Scan(&memberships); err != nil {
+		t.Fatalf("counting memberships: %v", err)
+	}
+	if memberships != 0 {
+		t.Errorf("a candidate has %d memberships, want none", memberships)
+	}
+}
+
+// Two organisations may legitimately share a name. The slug is what has to be
+// unique, and a collision must not fail the second signup.
+func TestTwoOrganisationsWithTheSameNameBothRegister(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	const name = "Acme"
+
+	first, err := service.Register(ctx, identity.RegisterInput{
+		Email: nthEmailFor(t, 1), Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: name,
+	})
+	if err != nil {
+		t.Fatalf("the first registration failed: %v", err)
+	}
+
+	second, err := service.Register(ctx, identity.RegisterInput{
+		Email: nthEmailFor(t, 2), Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: name,
+	})
+	if err != nil {
+		t.Fatalf("the second organisation of the same name could not register: %v", err)
+	}
+
+	if !first.Created || !second.Created {
+		t.Fatal("one of the registrations took the already-exists path, so this proves nothing about slugs")
+	}
+	if first.TenantID == second.TenantID {
+		t.Fatal("both registrations produced the same tenant")
+	}
+
+	slugs := map[string]string{}
+	for _, tenantID := range []string{first.TenantID, second.TenantID} {
+		var slug string
+		if err := adminPool.QueryRow(ctx,
+			`SELECT slug FROM tenancy.tenants WHERE id = $1`, tenantID).Scan(&slug); err != nil {
+			t.Fatalf("reading slug: %v", err)
+		}
+		if previous, clash := slugs[slug]; clash {
+			t.Errorf("tenants %s and %s share the slug %q", previous, tenantID, slug)
+		}
+		slugs[slug] = tenantID
+	}
+}
+
+// The transaction, asserted by failing inside it. If the membership cannot be
+// written, the user must not exist either, or the address is now taken by an
+// account that cannot be completed and the person can never register again.
+func TestAFailedOrganisationRegistrationLeavesNothingBehind(t *testing.T) {
+	ctx := context.Background()
+
+	email := emailFor(t)
+
+	// The failure is provoked at the last of the four writes, so the assertion
+	// is about the first three being undone rather than about nothing having
+	// started.
+	//
+	// NOT VALID matters. Without it PostgreSQL checks every existing row when
+	// the constraint is added, and the memberships written by earlier tests in
+	// this package make that fail before the test has begun. NOT VALID skips
+	// the existing rows and still enforces on new ones, which is exactly the
+	// scope wanted.
+	if _, err := adminPool.Exec(ctx,
+		`ALTER TABLE tenancy.memberships
+		 ADD CONSTRAINT temporarily_impossible CHECK (role = 'nothing') NOT VALID`); err != nil {
+		t.Fatalf("installing the failure: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := adminPool.Exec(context.Background(),
+			`ALTER TABLE tenancy.memberships DROP CONSTRAINT IF EXISTS temporarily_impossible`); err != nil {
+			t.Fatalf("removing the failure: %v", err)
+		}
+	})
+
+	service := newService(t)
+	if _, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Doomed Limited",
+	}); err == nil {
+		t.Fatal("registration succeeded while the membership insert was impossible")
+	}
+
+	var users int
+	if err := adminPool.QueryRow(ctx,
+		`SELECT count(*) FROM identity.users WHERE email = $1`, email).Scan(&users); err != nil {
+		t.Fatalf("counting users: %v", err)
+	}
+	if users != 0 {
+		t.Errorf("the user survived a failed registration, so the address is taken by an account "+
+			"that cannot be completed (%d rows)", users)
+	}
+
+	var tenants int
+	if err := adminPool.QueryRow(ctx,
+		`SELECT count(*) FROM tenancy.tenants WHERE name = 'Doomed Limited'`).Scan(&tenants); err != nil {
+		t.Fatalf("counting tenants: %v", err)
+	}
+	if tenants != 0 {
+		t.Errorf("%d orphaned tenants survived a failed registration", tenants)
+	}
+}
+
+// After registering an organisation, the person's own description says which
+// workspace they belong to. This is what GET /me answers, and it is the first
+// point where a tenant becomes visible to the interface.
+func TestDescribeReportsTheOrganisationMembership(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	outcome, err := service.Register(ctx, identity.RegisterInput{
+		Email: emailFor(t), Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind Recruiting",
+	})
+	if err != nil {
+		t.Fatalf("Register returned error: %v", err)
+	}
+
+	user, err := service.Describe(ctx, outcome.UserID)
+	if err != nil {
+		t.Fatalf("Describe returned error: %v", err)
+	}
+	if len(user.Memberships) != 1 {
+		t.Fatalf("the owner has %d memberships, want 1", len(user.Memberships))
+	}
+
+	membership := user.Memberships[0]
+	if membership.TenantID != outcome.TenantID {
+		t.Errorf("TenantID = %q, want %q", membership.TenantID, outcome.TenantID)
+	}
+	if membership.TenantName != "Northwind Recruiting" {
+		t.Errorf("TenantName = %q", membership.TenantName)
+	}
+	if membership.Status != "active" {
+		t.Errorf("Status = %q, want active", membership.Status)
+	}
+	if membership.Role != "owner" {
+		t.Errorf("Role = %q, want owner", membership.Role)
+	}
+}
+
+// A candidate belongs to nothing, and that must be an empty list rather than a
+// nil one: the difference reaches a browser as [] versus null, and a client
+// should not have to handle two shapes for the same fact.
+func TestDescribeReportsNoMembershipsAsAnEmptyList(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	outcome, err := service.Register(ctx, identity.RegisterInput{
+		Email: emailFor(t), Password: goodPassword, AccountType: identity.AccountCandidate,
+	})
+	if err != nil {
+		t.Fatalf("Register returned error: %v", err)
+	}
+
+	user, err := service.Describe(ctx, outcome.UserID)
+	if err != nil {
+		t.Fatalf("Describe returned error: %v", err)
+	}
+	if user.Memberships == nil {
+		t.Error("Memberships is nil rather than an empty list")
+	}
+	if len(user.Memberships) != 0 {
+		t.Errorf("a candidate has %d memberships, want none", len(user.Memberships))
+	}
+}
+
+// Listing which workspaces somebody belongs to is asked before any workspace is
+// chosen, so it cannot be scoped by tenant. It must still be scoped by person:
+// one user's memberships must never appear in another's.
+func TestMembershipsOfOneUserAreNotVisibleToAnother(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	owner, err := service.Register(ctx, identity.RegisterInput{
+		Email: nthEmailFor(t, 1), Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("registering the owner: %v", err)
+	}
+
+	stranger, err := service.Register(ctx, identity.RegisterInput{
+		Email: nthEmailFor(t, 2), Password: goodPassword, AccountType: identity.AccountCandidate,
+	})
+	if err != nil {
+		t.Fatalf("registering the stranger: %v", err)
+	}
+
+	described, err := service.Describe(ctx, stranger.UserID)
+	if err != nil {
+		t.Fatalf("Describe returned error: %v", err)
+	}
+	for _, membership := range described.Memberships {
+		if membership.TenantID == owner.TenantID {
+			t.Errorf("a candidate can see the workspace of user %s", owner.UserID)
 		}
 	}
 }

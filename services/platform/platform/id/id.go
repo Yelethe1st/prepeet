@@ -144,3 +144,41 @@ func Parse(s string) (UUID, error) {
 	}
 	return u, nil
 }
+
+// suffixAlphabet is lower case letters and digits.
+//
+// The full set rather than an unambiguous subset. A suffix here is generated
+// and copied, never read aloud or typed from a screen, so excluding letters
+// that look like digits would cost entropy for a problem this does not have.
+const suffixAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+// suffixLength is six characters, about 31 bits over the alphabet above.
+//
+// Enough that collisions are rare among the handful of organisations that share
+// a name, and short enough that a slug stays readable. Uniqueness is not its
+// job: the caller retries on collision, because the database index is the only
+// thing that can decide it.
+const suffixLength = 6
+
+// Suffix returns a short random string for disambiguating a human-chosen name.
+//
+// Random rather than sequential on purpose. A counter would make slugs
+// enumerable, so acme-2 existing would tell anyone that two organisations
+// called Acme registered, which is not theirs to learn.
+//
+// It panics if the system random source fails, which is the same position
+// platform/token takes and for the same reason: there is no safe way to
+// continue without randomness, and returning a predictable value would be worse
+// than stopping.
+func Suffix() string {
+	raw := make([]byte, suffixLength)
+	if _, err := rand.Read(raw); err != nil {
+		panic("id: the system random source failed: " + err.Error())
+	}
+
+	out := make([]byte, suffixLength)
+	for i, b := range raw {
+		out[i] = suffixAlphabet[int(b)%len(suffixAlphabet)]
+	}
+	return string(out)
+}

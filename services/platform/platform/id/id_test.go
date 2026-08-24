@@ -134,3 +134,46 @@ func TestParseRejectsMalformedInput(t *testing.T) {
 		})
 	}
 }
+
+// ─────────────────────────────────────────────────────────────── suffix
+
+// Suffix disambiguates a human-chosen name that collided, such as two
+// organisations both called Acme.
+func TestSuffixIsShortAndUrlSafe(t *testing.T) {
+	t.Parallel()
+
+	for range 200 {
+		suffix := id.Suffix()
+
+		if len(suffix) < 4 || len(suffix) > 8 {
+			t.Fatalf("Suffix() = %q, which is %d characters; it appears in URLs beside a name",
+				suffix, len(suffix))
+		}
+		for _, r := range suffix {
+			isLower := r >= 'a' && r <= 'z'
+			isDigit := r >= '0' && r <= '9'
+			if !isLower && !isDigit {
+				t.Fatalf("Suffix() = %q, which contains %q; a slug is lower case letters and digits",
+					suffix, r)
+			}
+		}
+	}
+}
+
+// A counter would make slugs enumerable: acme-2 existing tells anyone that two
+// organisations called Acme registered, which is not theirs to learn.
+func TestSuffixIsNotSequential(t *testing.T) {
+	t.Parallel()
+
+	seen := make(map[string]struct{}, 1000)
+	for range 1000 {
+		seen[id.Suffix()] = struct{}{}
+	}
+
+	// Collisions are possible and fine, since the caller retries. What must not
+	// happen is a small or predictable range.
+	if len(seen) < 900 {
+		t.Errorf("1000 suffixes produced only %d distinct values, so they are predictable enough "+
+			"to enumerate", len(seen))
+	}
+}

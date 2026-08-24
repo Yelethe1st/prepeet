@@ -530,3 +530,185 @@ func seedUserInBothTenants(t *testing.T) string {
 	}
 	return userID
 }
+
+// ────────────────────────────────────── reading your own memberships
+
+// Two policies added in migration 0007 answer the question that cannot be
+// scoped by tenant: which workspaces a person belongs to, asked before any
+// workspace has been chosen.
+//
+// They are asserted here, directly, rather than only through the endpoint that
+// uses them. Through that endpoint the two compose, so weakening either one
+// alone leaves the observable behaviour unchanged and a test there cannot tell
+// which is working. That is not hypothetical: the endpoint test passed with the
+// membership policy replaced by USING (true), because the tenant policy was
+// still filtering the join.
+
+const (
+	memberOfA       = "01a03000-0000-7000-8000-00000000aaaa"
+	memberOfB       = "01a03000-0000-7000-8000-00000000bbbb"
+	memberOfNothing = "01a03000-0000-7000-8000-00000000cccc"
+)
+
+// seedMemberships gives one person a membership in A, another in B, and a third
+// none at all.
+func seedMemberships(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+
+	conn, err := pgx.Connect(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer func() { _ = conn.Close(ctx) }()
+
+	for _, person := range []struct{ userID, tenantID string }{
+		{memberOfA, tenantA},
+		{memberOfB, tenantB},
+		{memberOfNothing, ""},
+	} {
+		if _, err := conn.Exec(ctx,
+			`INSERT INTO identity.users (id) VALUES ($1) ON CONFLICT DO NOTHING`,
+			person.userID); err != nil {
+			t.Fatalf("seeding user: %v", err)
+		}
+		if person.tenantID == "" {
+			continue
+		}
+		if _, err := conn.Exec(ctx,
+			`INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
+			 VALUES (gen_random_uuid(), $1, $2, 'active', 'member')
+			 ON CONFLICT (tenant_id, user_id) DO NOTHING`,
+			person.tenantID, person.userID); err != nil {
+			t.Fatalf("seeding membership: %v", err)
+		}
+	}
+}
+
+// withUser runs fn scoped to a person rather than to a tenant, which is the
+// state a request is in between authenticating and choosing a workspace.
+func withUser(t *testing.T, userID string, fn func(pgx.Tx)) {
+	t.Helper()
+	ctx := context.Background()
+
+	tx, err := appPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := database.SetUser(ctx, tx, userID); err != nil {
+		t.Fatalf("SetUser: %v", err)
+	}
+	fn(tx)
+}
+
+// The membership policy, on its own. No tenant is set, and the query has no
+// WHERE clause, so anything returned came from the policy.
+func TestAPersonSeesOnlyTheirOwnMembershipsWithNoTenantSet(t *testing.T) {
+	seedMemberships(t)
+	ctx := context.Background()
+
+	withUser(t, memberOfA, func(tx pgx.Tx) {
+		rows, err := tx.Query(ctx, `SELECT user_id::text, tenant_id::text FROM tenancy.memberships`)
+		if err != nil {
+			t.Fatalf("query: %v", err)
+		}
+		defer rows.Close()
+
+		count := 0
+		for rows.Next() {
+			var userID, tenantID string
+			if err := rows.Scan(&userID, &tenantID); err != nil {
+				t.Fatalf("scan: %v", err)
+			}
+			count++
+			if userID != memberOfA {
+				t.Errorf("saw a membership belonging to %s", userID)
+			}
+			if tenantID != tenantA {
+				t.Errorf("saw a membership in tenant %s", tenantID)
+			}
+		}
+		if count != 1 {
+			t.Errorf("saw %d memberships, want exactly this person's 1", count)
+		}
+	})
+}
+
+// The tenants policy, on its own, for the same reason.
+func TestAPersonSeesOnlyTheirOwnTenantsWithNoTenantSet(t *testing.T) {
+	seedMemberships(t)
+	ctx := context.Background()
+
+	withUser(t, memberOfB, func(tx pgx.Tx) {
+		rows, err := tx.Query(ctx, `SELECT id::text FROM tenancy.tenants`)
+		if err != nil {
+			t.Fatalf("query: %v", err)
+		}
+		defer rows.Close()
+
+		count := 0
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				t.Fatalf("scan: %v", err)
+			}
+			count++
+			if id != tenantB {
+				t.Errorf("saw tenant %s, which this person is not a member of", id)
+			}
+		}
+		if count != 1 {
+			t.Errorf("saw %d tenants, want exactly the 1 this person belongs to", count)
+		}
+	})
+}
+
+// Somebody who belongs to nothing sees nothing. This is the state every
+// candidate is in, and it is the one where a policy that failed open would be
+// least noticeable, because a candidate has no workspace to compare against.
+func TestAPersonWithNoMembershipsSeesNoTenants(t *testing.T) {
+	seedMemberships(t)
+	ctx := context.Background()
+
+	withUser(t, memberOfNothing, func(tx pgx.Tx) {
+		for _, table := range []string{"tenancy.tenants", "tenancy.memberships"} {
+			var count int
+			if err := tx.QueryRow(ctx, `SELECT count(*) FROM `+table).Scan(&count); err != nil {
+				t.Fatalf("counting %s: %v", table, err)
+			}
+			if count != 0 {
+				t.Errorf("a person with no memberships sees %d rows in %s", count, table)
+			}
+		}
+	})
+}
+
+// Reading your own memberships must not become a way to grant yourself one.
+// Both policies added in 0007 are SELECT only, so a write still falls to the
+// tenant-scoped policy from 0001 and fails without a tenant context.
+func TestReadingOwnMembershipsDoesNotPermitWritingOne(t *testing.T) {
+	seedMemberships(t)
+	ctx := context.Background()
+
+	withUser(t, memberOfNothing, func(tx pgx.Tx) {
+		_, err := tx.Exec(ctx,
+			`INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
+			 VALUES (gen_random_uuid(), $1, $2, 'active', 'owner')`,
+			tenantA, memberOfNothing)
+		if err == nil {
+			t.Fatal("a person granted themselves membership of a tenant they do not belong to")
+		}
+	})
+
+	// And the same person still cannot promote an existing membership.
+	withUser(t, memberOfA, func(tx pgx.Tx) {
+		tag, err := tx.Exec(ctx,
+			`UPDATE tenancy.memberships SET role = 'owner' WHERE user_id = $1`, memberOfA)
+		if err == nil && tag.RowsAffected() > 0 {
+			t.Errorf("a member promoted themselves to owner without a tenant context (%d rows)",
+				tag.RowsAffected())
+		}
+	})
+}

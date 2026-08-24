@@ -7,7 +7,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 )
 
 // ErrNotFound means the row does not exist.
@@ -76,6 +80,55 @@ func (r *PostgresRepository) FindUserByID(ctx context.Context, userID string) (U
 	return user, nil
 }
 
+// FindMembershipsByUser lists the tenants a person belongs to.
+//
+// This is the one question that cannot be scoped by tenant, because it is asked
+// before a tenant has been chosen. Migration 0007 answers it with a second
+// policy rather than a WHERE clause: the transaction says who it is acting as,
+// and row-level security decides which rows that person may see.
+//
+// The WHERE on user_id below is therefore not the security boundary. It is a
+// filter for the query planner, and the policy would refuse the rows even if it
+// were removed, which is the property that makes forgetting it survivable.
+func (r *PostgresRepository) FindMembershipsByUser(ctx context.Context, userID string) ([]Membership, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("identity: beginning membership read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := database.SetUser(ctx, tx, userID); err != nil {
+		return nil, err
+	}
+
+	rows, err := tx.Query(ctx, `
+		SELECT m.tenant_id::text, t.name, m.status, m.role
+		FROM tenancy.memberships m
+		JOIN tenancy.tenants t ON t.id = m.tenant_id
+		WHERE m.user_id = $1 AND m.status <> 'revoked'
+		ORDER BY t.name`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("identity: listing memberships: %w", err)
+	}
+	defer rows.Close()
+
+	// Empty rather than nil, so a caller serialising this gets [] rather than
+	// null and nothing downstream has to handle two shapes for "no tenants".
+	memberships := []Membership{}
+	for rows.Next() {
+		var membership Membership
+		if err := rows.Scan(&membership.TenantID, &membership.TenantName,
+			&membership.Status, &membership.Role); err != nil {
+			return nil, fmt.Errorf("identity: reading membership: %w", err)
+		}
+		memberships = append(memberships, membership)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("identity: reading memberships: %w", err)
+	}
+	return memberships, nil
+}
+
 func (r *PostgresRepository) CreateUserWithCredentials(ctx context.Context, userID, email, passwordHash string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -98,6 +151,126 @@ func (r *PostgresRepository) CreateUserWithCredentials(ctx context.Context, user
 
 // UpdatePasswordHash replaces a stored hash, used when a successful login
 // verified against outdated argon2 parameters.
+// maxSlugAttempts bounds the search for a free slug.
+//
+// Retry rather than a uniqueness check first, because checking then inserting
+// is a race: two organisations of the same name registering at the same moment
+// both see the slug free. The unique index is the arbiter, and this loop reacts
+// to it.
+//
+// Eight attempts with a growing random suffix is far past what any realistic
+// collision needs. Failing after that is better than looping forever on a bug.
+const maxSlugAttempts = 8
+
+// CreateOrganisationAccount writes the person, the workspace and the owning
+// membership in one transaction.
+//
+// The transaction is the whole reason this is one method. Written separately, a
+// failure between them leaves somebody who can verify their address, sign in,
+// and find no workspace, with the address now taken by an account nobody can
+// complete.
+func (r *PostgresRepository) CreateOrganisationAccount(ctx context.Context, account OrganisationAccount) (string, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("identity: beginning organisation account: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Creating a tenant is an act performed as that tenant.
+	//
+	// This is not a workaround. The policy on tenancy.tenants is written against
+	// the primary key, since a tenants table carrying a tenant_id would be
+	// circular, so a row can only be inserted by a transaction already scoped to
+	// the identifier it is inserting. Nothing can create the first tenant from
+	// outside, which is exactly the property wanted: there is no unscoped path
+	// that writes tenant data.
+	//
+	// The scope covers the membership below too, whose policy needs the same
+	// setting. identity.users and identity.credentials are global and carry no
+	// policy, so the setting is inert for them.
+	if err := database.SetTenant(ctx, tx, account.TenantID); err != nil {
+		return "", err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO identity.users (id, email) VALUES ($1, $2)`,
+		account.UserID, account.Email); err != nil {
+		return "", fmt.Errorf("identity: creating user: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO identity.credentials (user_id, password_hash) VALUES ($1, $2)`,
+		account.UserID, account.PasswordHash); err != nil {
+		return "", fmt.Errorf("identity: creating credentials: %w", err)
+	}
+
+	slug, err := insertTenant(ctx, tx, account)
+	if err != nil {
+		return "", err
+	}
+
+	// The membership is what makes the workspace administrable. A tenant
+	// without one is a row nobody can reach, including support.
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
+		 VALUES ($1, $2, $3, 'active', 'owner')`,
+		account.MembershipID, account.TenantID, account.UserID); err != nil {
+		return "", fmt.Errorf("identity: creating owning membership: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("identity: committing organisation account: %w", err)
+	}
+	return slug, nil
+}
+
+// insertTenant writes the workspace, finding a free slug.
+//
+// A savepoint per attempt, because a unique violation aborts the transaction in
+// PostgreSQL and every later statement then fails with "current transaction is
+// aborted". Without this the retry would appear to work and the commit would
+// not.
+func insertTenant(ctx context.Context, tx pgx.Tx, account OrganisationAccount) (string, error) {
+	slug := account.Slug
+
+	for attempt := range maxSlugAttempts {
+		if attempt > 0 {
+			// The suffix is random rather than a counter. A counter makes slugs
+			// enumerable, so acme-2 existing tells anyone that two Acmes
+			// registered, which is not theirs to learn.
+			slug = fmt.Sprintf("%s-%s", account.Slug, id.Suffix())
+		}
+
+		if _, err := tx.Exec(ctx, "SAVEPOINT tenant_insert"); err != nil {
+			return "", fmt.Errorf("identity: opening savepoint: %w", err)
+		}
+
+		_, err := tx.Exec(ctx,
+			`INSERT INTO tenancy.tenants (id, name, slug, region) VALUES ($1, $2, $3, $4)`,
+			account.TenantID, account.OrganisationName, slug, account.Region)
+		if err == nil {
+			if _, err := tx.Exec(ctx, "RELEASE SAVEPOINT tenant_insert"); err != nil {
+				return "", fmt.Errorf("identity: releasing savepoint: %w", err)
+			}
+			return slug, nil
+		}
+
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != uniqueViolation {
+			return "", fmt.Errorf("identity: creating tenant: %w", err)
+		}
+
+		if _, err := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT tenant_insert"); err != nil {
+			return "", fmt.Errorf("identity: rolling back to savepoint: %w", err)
+		}
+	}
+
+	return "", fmt.Errorf("identity: no free slug for %q after %d attempts", account.Slug, maxSlugAttempts)
+}
+
+// uniqueViolation is PostgreSQL's SQLSTATE for a duplicate key.
+const uniqueViolation = "23505"
+
 func (r *PostgresRepository) UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error {
 	if _, err := r.pool.Exec(ctx,
 		`UPDATE identity.credentials SET password_hash = $2, updated_at = now() WHERE user_id = $1`,

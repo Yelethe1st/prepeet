@@ -75,6 +75,10 @@ type RegisterOutcome struct {
 	Created           bool
 	UserID            string
 	VerificationToken string
+	// TenantID is populated only for an organisation registration that created
+	// an account. Empty for a candidate, who belongs to no tenant, and empty for
+	// an address that already existed, for the same reason every other field is.
+	TenantID string
 }
 
 // Repository is the persistence this service needs.
@@ -85,15 +89,52 @@ type RegisterOutcome struct {
 type Repository interface {
 	FindCredentialsByEmail(ctx context.Context, email string) (userID, passwordHash string, err error)
 	CreateUserWithCredentials(ctx context.Context, userID, email, passwordHash string) error
+	// CreateOrganisationAccount creates the person, the workspace and the
+	// membership that says the person administers it, in one transaction.
+	//
+	// One method rather than three, because the atomicity is the requirement.
+	// A half-created registration gives somebody who can verify their address,
+	// sign in, and find no workspace, with nothing having visibly failed, and
+	// the address is now taken by an account that cannot be completed.
+	//
+	// It returns the slug actually used, which may differ from the one offered
+	// because slugs collide and two organisations may share a name.
+	CreateOrganisationAccount(ctx context.Context, account OrganisationAccount) (slug string, err error)
 	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
 
 	FindUserByID(ctx context.Context, userID string) (User, error)
+	FindMembershipsByUser(ctx context.Context, userID string) ([]Membership, error)
 
 	CreateSession(ctx context.Context, row SessionRow) error
 	FindSessionByToken(ctx context.Context, tokenHash string) (SessionRow, error)
 	FindSessionByRefresh(ctx context.Context, tokenHash string) (SessionRow, error)
 	RetireSession(ctx context.Context, sessionID string, at time.Time) error
 	RevokeFamily(ctx context.Context, familyID, reason string, at time.Time) error
+}
+
+// OrganisationAccount is everything an organisation registration writes.
+//
+// Assembled by the service and written by the repository in one transaction.
+// The identifiers are generated here rather than in SQL so that a caller knows
+// them before the write, which is what lets the outcome name the tenant without
+// a second query.
+type OrganisationAccount struct {
+	UserID       string
+	Email        string
+	PasswordHash string
+
+	TenantID         string
+	OrganisationName string
+	// Slug is a suggestion. The repository appends to it on collision and
+	// reports what it used.
+	Slug string
+	// Region records residency at creation. ADR-0001 makes this a property of
+	// the tenant rather than of the deployment, so it is decidable per tenant
+	// from the first row rather than inferred from where the process happened
+	// to be running.
+	Region string
+
+	MembershipID string
 }
 
 // SessionRow is the stored form of a session. Only hashes, never tokens.
@@ -115,13 +156,26 @@ type SessionRow struct {
 type Service struct {
 	repo Repository
 	now  func() time.Time
+	// region is stamped onto every tenant this service creates. ADR-0001 makes
+	// residency a property of the tenant, so it is recorded rather than
+	// inferred, and a process misconfigured with the wrong region produces
+	// tenants that say so rather than tenants that say nothing.
+	region string
 }
 
 // NewService builds the service. The clock is injected so tests do not depend
 // on the wall clock and so expiry can be exercised without waiting.
 func NewService(repo Repository, now func() time.Time) *Service {
-	return &Service{repo: repo, now: now}
+	return &Service{repo: repo, now: now, region: DefaultRegion}
 }
+
+// DefaultRegion is where a tenant is created unless told otherwise.
+//
+// eu-west-2 per ADR-0001. A constant rather than configuration because a second
+// region is a project rather than a setting, and a configurable value here would
+// let a misconfigured process silently create tenants outside the residency
+// commitment candidates were shown.
+const DefaultRegion = "eu-west-2"
 
 // clock is the only way this service reads the time.
 //
@@ -170,7 +224,29 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (RegisterOu
 	}
 
 	userID := id.New().String()
-	if err := s.repo.CreateUserWithCredentials(ctx, userID, email, hash); err != nil {
+
+	// An organisation registration is one transaction covering three tables.
+	// A candidate registration touches only identity, so it takes the narrower
+	// path rather than a workspace-shaped one with the workspace left empty:
+	// every person practising alone would otherwise own an employer tenant they
+	// never asked for, and that tenant would be in the billing and retention
+	// inventories for no reason.
+	tenantID := ""
+	if input.AccountType == AccountOrganisation {
+		tenantID = id.New().String()
+		if _, err := s.repo.CreateOrganisationAccount(ctx, OrganisationAccount{
+			UserID:           userID,
+			Email:            email,
+			PasswordHash:     hash,
+			TenantID:         tenantID,
+			OrganisationName: input.OrganisationName,
+			Slug:             Slugify(input.OrganisationName),
+			Region:           s.region,
+			MembershipID:     id.New().String(),
+		}); err != nil {
+			return RegisterOutcome{}, fmt.Errorf("identity: creating organisation account: %w", err)
+		}
+	} else if err := s.repo.CreateUserWithCredentials(ctx, userID, email, hash); err != nil {
 		return RegisterOutcome{}, fmt.Errorf("identity: creating user: %w", err)
 	}
 
@@ -183,6 +259,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (RegisterOu
 		Created:           true,
 		UserID:            userID,
 		VerificationToken: verification.Plaintext,
+		TenantID:          tenantID,
 	}, nil
 }
 
@@ -314,6 +391,18 @@ type User struct {
 	ID            string
 	Email         string
 	EmailVerified bool
+	// Memberships are every tenant this person belongs to. A person may belong
+	// to several, which is why the interface offers a switcher, and listing one
+	// is not a statement that they may currently act under it: status says that.
+	Memberships []Membership
+}
+
+// Membership is one tenant a person belongs to, as GET /me reports it.
+type Membership struct {
+	TenantID   string
+	TenantName string
+	Status     string
+	Role       string
 }
 
 // Describe returns a user by id.
@@ -328,6 +417,12 @@ func (s *Service) Describe(ctx context.Context, userID string) (User, error) {
 	if err != nil {
 		return User{}, err
 	}
+
+	memberships, err := s.repo.FindMembershipsByUser(ctx, userID)
+	if err != nil {
+		return User{}, fmt.Errorf("identity: reading memberships: %w", err)
+	}
+	user.Memberships = memberships
 	return user, nil
 }
 

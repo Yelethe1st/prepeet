@@ -36,8 +36,24 @@ translates. That translation earns its cost in one specific place: identity dist
 from `ErrCredentialsInvalid` because its own logic needs to, and the API must not, since a response that
 could tell them apart is an account-existence oracle. The collapse happens once, in the adapter.
 
-What remains is organisation registration creating the tenant and the owning membership, which needs a
-role column that `tenancy.memberships` does not have yet.
+Organisation registration creates the person, the workspace and the owning membership in one
+transaction. The atomicity is the requirement rather than a nicety: a half-created registration gives
+somebody who can verify their address, sign in, and find no workspace, with the address now taken by an
+account nobody can complete. Verified by committing the user early and watching the assertion fail.
+
+Two things about row-level security surfaced here and are recorded in
+[ADR-0002](../../architecture/decisions/0002-postgresql-schema-rls-and-connection-roles.md). Creating a
+tenant is an act performed as that tenant, because the policy is written against the primary key. And
+"which workspaces do I belong to" cannot be scoped by tenant, so migration 0007 answers it with two
+`SELECT`-only policies keyed on the acting user rather than with a `WHERE` clause somebody can forget.
+
+Slugs are generated from the organisation name and retried on collision, because two organisations may
+legitimately be called Acme and refusing the second signup would be absurd. The suffix is random rather
+than a counter: `acme-2` existing would tell anyone that two organisations of that name registered.
+
+The role vocabulary is deliberately two values, `owner` and `member`. The full matrix is
+[TEN-02](16-tenant-administration.md), and inventing names here would mean either that ticket inherits
+choices made without its analysis or a migration to undo them.
 
 **Done when**
 - [x] Passwords use argon2id, carry their parameters, and upgrade transparently on next login.
@@ -50,7 +66,7 @@ role column that `tenancy.memberships` does not have yet.
 - [x] A post-login destination is preserved without allowing an open redirect, refusing anything that could be read as a scheme, an authority or a header break.
 - [x] Session tokens travel in HTTP-only, SameSite cookies and never in a response body, with the refresh cookie scoped to the refresh endpoint.
 - [x] The four operations are served over HTTP against the generated interface.
-- [ ] Organisation registration creates the tenant and the owning membership.
+- [x] Organisation registration creates the tenant and the owning membership.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md) · [public-api.md](../../contracts/public-api.md)
 

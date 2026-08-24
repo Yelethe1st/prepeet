@@ -99,6 +99,34 @@ an employer's hands.
 **Session-level `SET` rather than `SET LOCAL`.** Marginally fewer statements per request, and it leaks
 tenant context across pooled connections. Rejected outright.
 
+## Two things creating a tenant taught us
+
+Both surfaced when something first created a tenant rather than reading one, and both are recorded here
+because neither is obvious from the policy text.
+
+**Creating a tenant is an act performed as that tenant.** The policy on `tenancy.tenants` is written
+against the primary key, since a tenants table carrying a `tenant_id` would be circular. That means a row
+can only be inserted by a transaction already scoped to the identifier it is inserting, so the
+registration transaction sets `app.tenant_id` to the tenant it is about to create. This reads like a
+workaround and is the opposite: it means there is no unscoped path that writes tenant data, including the
+first one.
+
+**One question cannot be scoped by tenant, and it needed a policy rather than a query.** "Which
+workspaces do I belong to" is asked before a workspace has been chosen, which is exactly the state a
+request is in between authenticating and selecting a tenant. Migration 0007 answers it with two
+`SELECT`-only policies keyed on `app.user_id`: one making a person's own memberships readable, and one
+making the tenants they are a member of readable, because naming a workspace requires reading it and the
+join found nothing without the second.
+
+The alternatives were both rejected for the same reason this ADR exists. Reading it as the migrator would
+put a `BYPASSRLS` path into the request path. Scoping by `user_id` in the query alone would move the
+isolation into a `WHERE` clause somebody can forget, and the whole argument for forced row-level security
+is that a forgotten clause should be a missing filter rather than a cross-tenant leak. That property is
+asserted directly: the membership read still isolates correctly with its `WHERE` clause removed.
+
+They are `SELECT` only. Reading your own memberships must never become a way to grant yourself one, and a
+test widens the policy to `ALL` to confirm that it would then be possible.
+
 ## Consequences
 
 Positive. A forgotten `WHERE tenant_id = ?` returns nothing instead of another tenant's rows.

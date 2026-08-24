@@ -75,14 +75,25 @@ func (a identityAdapter) Describe(ctx context.Context, userID string) (api.User,
 	if err != nil {
 		return api.User{}, a.translate(err)
 	}
-	// Memberships are empty until IAM-03 builds tenancy. Reported as an empty
-	// slice rather than omitted, so /me has the same shape now as it will then
-	// and the web app is not written against a field that later appears.
+	memberships := make([]api.Membership, 0, len(user.Memberships))
+	for _, membership := range user.Memberships {
+		memberships = append(memberships, api.Membership{
+			TenantID:   membership.TenantID,
+			TenantName: membership.TenantName,
+			Status:     membership.Status,
+		})
+	}
+
+	// Role is deliberately not carried across. The contract's Membership says
+	// which tenants a person belongs to and whether each is active; what they
+	// may do there is an authorization answer, and putting a role in the
+	// response invites a client to decide from it. IAM-04 already owns that
+	// decision and answers it server side.
 	return api.User{
 		ID:            user.ID,
 		Email:         user.Email,
 		EmailVerified: user.EmailVerified,
-		Memberships:   nil,
+		Memberships:   memberships,
 	}, nil
 }
 

@@ -1,6 +1,7 @@
 package ratelimit_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -9,10 +10,21 @@ import (
 
 var start = time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 
-func newLimiter(rule ratelimit.Rule) (*ratelimit.Limiter, *time.Time) {
+func newLimiter(rule ratelimit.Rule) (*ratelimit.Memory, *time.Time) {
 	now := start
-	limiter := ratelimit.New(rule, func() time.Time { return now })
+	limiter := ratelimit.NewMemory(rule, func() time.Time { return now })
 	return limiter, &now
+}
+
+// allow drops the error, which the in-memory counter never returns, so the
+// tests below read as decisions rather than as error handling.
+func allow(t *testing.T, limiter *ratelimit.Memory, key string) ratelimit.Decision {
+	t.Helper()
+	decision, err := limiter.Allow(context.Background(), key)
+	if err != nil {
+		t.Fatalf("Allow: %v", err)
+	}
+	return decision
 }
 
 func TestRequestsUnderTheLimitAreAllowed(t *testing.T) {
@@ -21,7 +33,7 @@ func TestRequestsUnderTheLimitAreAllowed(t *testing.T) {
 	limiter, _ := newLimiter(ratelimit.Rule{Limit: 5, Window: time.Minute})
 
 	for i := range 5 {
-		if decision := limiter.Allow("daniel@example.com"); !decision.Allowed {
+		if decision := allow(t, limiter, "daniel@example.com"); !decision.Allowed {
 			t.Errorf("request %d was refused while under the limit", i+1)
 		}
 	}
@@ -33,10 +45,10 @@ func TestTheRequestOverTheLimitIsRefused(t *testing.T) {
 	limiter, _ := newLimiter(ratelimit.Rule{Limit: 3, Window: time.Minute})
 
 	for range 3 {
-		limiter.Allow("daniel@example.com")
+		allow(t, limiter, "daniel@example.com")
 	}
 
-	decision := limiter.Allow("daniel@example.com")
+	decision := allow(t, limiter, "daniel@example.com")
 	if decision.Allowed {
 		t.Error("the fourth request was allowed under a limit of three")
 	}
@@ -53,15 +65,15 @@ func TestTheLimitRecoversAsTheWindowPasses(t *testing.T) {
 
 	limiter, now := newLimiter(ratelimit.Rule{Limit: 2, Window: time.Minute})
 
-	limiter.Allow("daniel@example.com")
-	limiter.Allow("daniel@example.com")
-	if limiter.Allow("daniel@example.com").Allowed {
+	allow(t, limiter, "daniel@example.com")
+	allow(t, limiter, "daniel@example.com")
+	if allow(t, limiter, "daniel@example.com").Allowed {
 		t.Fatal("the third request was allowed under a limit of two")
 	}
 
 	*now = now.Add(time.Minute + time.Second)
 
-	if !limiter.Allow("daniel@example.com").Allowed {
+	if !allow(t, limiter, "daniel@example.com").Allowed {
 		t.Error("the limit did not recover after the window passed")
 	}
 }
@@ -73,10 +85,10 @@ func TestKeysAreCountedSeparately(t *testing.T) {
 
 	limiter, _ := newLimiter(ratelimit.Rule{Limit: 2, Window: time.Minute})
 
-	limiter.Allow("daniel@example.com")
-	limiter.Allow("daniel@example.com")
+	allow(t, limiter, "daniel@example.com")
+	allow(t, limiter, "daniel@example.com")
 
-	if !limiter.Allow("amara@example.com").Allowed {
+	if !allow(t, limiter, "amara@example.com").Allowed {
 		t.Error("one key exhausting its limit refused a different key")
 	}
 }
@@ -95,8 +107,8 @@ func TestTheStricterOfTwoLimitsDecides(t *testing.T) {
 		address := string(rune('a'+i)) + "@example.com"
 		// Every attempt is a different address from the same network, which is
 		// exactly what credential stuffing looks like.
-		a := byAddress.Allow(address)
-		n := byNetwork.Allow("203.0.113.7")
+		a := allow(t, byAddress, address)
+		n := allow(t, byNetwork, "203.0.113.7")
 		if a.Allowed && n.Allowed {
 			allowed++
 		}
@@ -115,8 +127,8 @@ func TestTheLimiterCannotDistinguishAKnownAddress(t *testing.T) {
 
 	limiter, _ := newLimiter(ratelimit.Rule{Limit: 2, Window: time.Minute})
 
-	known := limiter.Allow("registered@example.com")
-	unknown := limiter.Allow("never-seen@example.com")
+	known := allow(t, limiter, "registered@example.com")
+	unknown := allow(t, limiter, "never-seen@example.com")
 
 	if known.Allowed != unknown.Allowed || known.RetryAfter != unknown.RetryAfter {
 		t.Error("the limiter treated two keys differently, and it has no way to know which is registered")
@@ -131,7 +143,7 @@ func TestExpiredEntriesAreForgotten(t *testing.T) {
 	limiter, now := newLimiter(ratelimit.Rule{Limit: 5, Window: time.Minute})
 
 	for i := range 100 {
-		limiter.Allow(string(rune('a'+i%26)) + "@example.com")
+		allow(t, limiter, string(rune('a'+i%26))+"@example.com")
 	}
 	if size := limiter.Size(); size == 0 {
 		t.Fatal("the limiter recorded nothing")
@@ -152,7 +164,7 @@ func TestAnEmptyKeyIsRefused(t *testing.T) {
 
 	limiter, _ := newLimiter(ratelimit.Rule{Limit: 5, Window: time.Minute})
 
-	if limiter.Allow("").Allowed {
+	if allow(t, limiter, "").Allowed {
 		t.Error("an empty key was allowed, which would share one bucket between everyone")
 	}
 }
@@ -175,7 +187,7 @@ func TestAnUnusableRuleIsRejected(t *testing.T) {
 					t.Errorf("a rule with %s was accepted", name)
 				}
 			}()
-			ratelimit.New(rule, time.Now)
+			ratelimit.NewMemory(rule, time.Now)
 		})
 	}
 }
@@ -184,13 +196,13 @@ func TestAnUnusableRuleIsRejected(t *testing.T) {
 func TestConcurrentUseIsSafe(t *testing.T) {
 	t.Parallel()
 
-	limiter := ratelimit.New(ratelimit.Rule{Limit: 1000, Window: time.Minute}, time.Now)
+	limiter := ratelimit.NewMemory(ratelimit.Rule{Limit: 1000, Window: time.Minute}, time.Now)
 
 	done := make(chan struct{})
 	for range 8 {
 		go func() {
 			for i := range 100 {
-				limiter.Allow(string(rune('a' + i%26)))
+				allow(t, limiter, string(rune('a'+i%26)))
 			}
 			done <- struct{}{}
 		}()

@@ -130,12 +130,15 @@ Login, registration, password recovery, magic link and OTP are all endpoints whe
 unlimited attempts unless something stops them. Rate limiting is also the only defence that works
 before a breached-password check exists.
 
-Counting starts in memory, which is correct while there is one instance and wrong the moment there are
-two: each would enforce its own share of the limit. Redis is the upgrade, and it is not worth
-provisioning before the second instance exists.
+Counting is in PostgreSQL rather than in memory. ADR-0001 runs more than one ECS task as the normal
+shape for availability, so an in-memory counter is not a smaller version of this: it is wrong, and an
+attacker gets the limit multiplied by the task count. PostgreSQL rather than Redis because the write
+costs about a millisecond against the hundred argon2id already spends, and because a counter in the
+same store as the credentials it protects cannot be down while they are up.
 
-The counter is built in `services/platform/platform/ratelimit`. What remains is applying it to the
-authentication routes, which needs the handlers in IAM-01.
+Built in `services/platform/platform/ratelimit` with migration 0005, in two implementations behind one
+interface: PostgreSQL for anything deployed, in-memory for tests and local development. What remains is
+applying it to the authentication routes, which needs the handlers in IAM-01.
 
 **Done when**
 - [x] The limiter counts per key with a moving window, and forgets keys it no longer needs.
@@ -145,7 +148,10 @@ authentication routes, which needs the handlers in IAM-01.
 - [ ] Authentication endpoints are limited per address and per network, not per address alone, since one attacker with many addresses is the ordinary case.
 - [ ] A limited response is `429` with `Retry-After`, per ADR-0004.
 - [ ] Limits are configuration rather than constants, so they can be tightened during an incident.
-- [ ] The counter moves to Redis before a second instance runs, and the ticket that adds the instance is what triggers it.
+- [x] Two instances share one count, so the limit does not multiply by the task count.
+- [x] Concurrent attempts are counted exactly, using one atomic statement rather than a read followed by a write.
+- [x] The limiter fails open when the database is unreachable, and says so, because authentication cannot happen without that database anyway.
+- [x] Old windows are swept, since the keys are email and network addresses and a counter nobody will read again is only personal data somebody has to store.
 
 **Spec** [threat-model.md](../../security/threat-model.md)
 

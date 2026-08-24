@@ -8,11 +8,18 @@
 // it does not care whether the password is any good, only how many times it has
 // been guessed.
 //
-// The counting is in memory. That is correct while one instance runs and wrong
-// the moment two do: each would enforce its own share of the limit, so an
-// attacker gets the limit multiplied by the instance count. Moving the counter
-// to Redis is SEC-10's last item, and the ticket that adds a second instance is
-// what should trigger it.
+// Two implementations behind one interface. Memory counts in this process,
+// which is correct while one instance runs and wrong the moment two do.
+// Postgres counts in the database, which is what a deployment uses, because
+// ADR-0001 runs more than one ECS task and a per-task counter is a limit
+// multiplied by the task count.
+//
+// PostgreSQL rather than Redis. The cost is a millisecond against the hundred
+// that argon2id already spends, and putting the counter in the same store as
+// the credentials it protects removes a choice that a separate store would
+// force: with Redis, Redis can be down while the database is up, and somebody
+// must decide between locking every user out and letting every attacker
+// through. Here there is no such state.
 //
 // This package never looks a key up anywhere. It cannot distinguish a
 // registered address from an unknown one, which is deliberate: it runs before
@@ -23,6 +30,7 @@
 package ratelimit
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -45,14 +53,20 @@ type Decision struct {
 	Remaining int
 }
 
-// Limiter counts requests per key using a fixed window.
+// Memory counts requests per key in this process, using a fixed window.
+//
+// Correct while one instance runs and wrong the moment two do: each would
+// enforce its own share, so an attacker gets the limit multiplied by the task
+// count. Use Postgres in anything deployed. This exists for tests and for
+// local development, where a database round trip per request is noise nobody
+// needs.
 //
 // A fixed window rather than a sliding one or a token bucket. It permits a
 // burst at a window boundary, up to twice the limit across two adjacent
 // windows, and that is an acceptable trade here: the limits protect against
 // thousands of attempts, not against six instead of five. A sliding window
 // costs a timestamp list per key, and this runs on every login.
-type Limiter struct {
+type Memory struct {
 	rule Rule
 	now  func() time.Time
 
@@ -71,14 +85,14 @@ type bucket struct {
 // a window of zero would divide time into nothing, and both are configuration
 // mistakes that lock out every user. Failing at construction is better than
 // discovering it at three in the morning.
-func New(rule Rule, now func() time.Time) *Limiter {
+func NewMemory(rule Rule, now func() time.Time) *Memory {
 	if rule.Limit <= 0 {
 		panic(fmt.Sprintf("ratelimit: limit is %d, which would refuse every request", rule.Limit))
 	}
 	if rule.Window <= 0 {
 		panic(fmt.Sprintf("ratelimit: window is %s, which counts over no time at all", rule.Window))
 	}
-	return &Limiter{rule: rule, now: now, buckets: make(map[string]*bucket)}
+	return &Memory{rule: rule, now: now, buckets: make(map[string]*bucket)}
 }
 
 // Allow counts one request against key and reports whether it may proceed.
@@ -86,9 +100,9 @@ func New(rule Rule, now func() time.Time) *Limiter {
 // An empty key is refused rather than counted. Counting it would collapse every
 // caller without one into a single bucket, so the first of them would exhaust
 // the limit for all the rest.
-func (l *Limiter) Allow(key string) Decision {
+func (l *Memory) Allow(_ context.Context, key string) (Decision, error) {
 	if key == "" {
-		return Decision{Allowed: false, RetryAfter: l.rule.Window}
+		return Decision{Allowed: false, RetryAfter: l.rule.Window}, nil
 	}
 
 	now := l.now()
@@ -107,14 +121,14 @@ func (l *Limiter) Allow(key string) Decision {
 			Allowed:    false,
 			RetryAfter: roundUpToSecond(b.expiresAt.Sub(now)),
 			Remaining:  0,
-		}
+		}, nil
 	}
 
 	b.count++
 	return Decision{
 		Allowed:   true,
 		Remaining: l.rule.Limit - b.count,
-	}
+	}, nil
 }
 
 // Sweep removes expired buckets.
@@ -122,7 +136,7 @@ func (l *Limiter) Allow(key string) Decision {
 // Without it the map holds one entry per key ever seen, which is a memory leak
 // with a long fuse: every address anyone has ever tried to log in with, held
 // until the process restarts. The caller runs this periodically.
-func (l *Limiter) Sweep() {
+func (l *Memory) Sweep() {
 	now := l.now()
 
 	l.mu.Lock()
@@ -136,7 +150,7 @@ func (l *Limiter) Sweep() {
 }
 
 // Size reports how many keys are currently tracked, for tests and for a gauge.
-func (l *Limiter) Size() int {
+func (l *Memory) Size() int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return len(l.buckets)

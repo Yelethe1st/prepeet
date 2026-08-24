@@ -66,7 +66,30 @@ Cloud, first region, managed container product, PostgreSQL topology and region-l
 
 Local development runs PostgreSQL, LocalStack and Temporal in containers. LocalStack provides S3, Secrets Manager and KMS, so adapters are written once against the AWS APIs and differ only by endpoint and credentials between local and deployed environments. LocalStack was chosen over MinIO by measurement; see [ADR-0001](../architecture/decisions/0001-hosting-platform-and-regional-topology.md).
 
+### Redis is not provisioned
+
+Its three proposed uses are each already served, so adding it would be a fourth stateful service to
+provision, secure, monitor and fail over for no capability we lack.
+
+Coordination is served by `FOR UPDATE SKIP LOCKED` on the outbox, which is better here than a lock
+service rather than merely cheaper: the lock and the work live in one transactional scope, so they
+cannot disagree, and there is no lease to tune or split-brain window.
+
+Rate limiting is served by a counter in PostgreSQL. The cost is about a millisecond against the hundred
+that argon2id already spends on the same request. It also removes a decision a separate store would
+force: Redis can be down while the database is up, and somebody would then have to choose between
+locking every user out and letting every attacker through. With one store there is no such state, since
+authentication cannot happen without the database either.
+
+Caching has nothing to cache. The one candidate is session lookup, and ADR-0003 requires that to be
+measured before it is cached. It is also the cache with the worst failure mode, since a cached session
+outliving a revocation is precisely what opaque tokens were chosen to prevent.
+
+Redis becomes the right answer when limiting is needed on every request across the whole API at rates
+where a database write per call matters, or when something needs coordination that is not about rows in
+this database. Neither is close.
+
 ## Open decisions
 
-Managed Temporal, Redis need, observability vendor, and provider egress.
+Managed Temporal, observability vendor, and provider egress.
 

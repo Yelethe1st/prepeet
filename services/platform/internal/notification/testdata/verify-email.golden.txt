@@ -1,0 +1,9 @@
+Subject: Verify your email address
+
+Confirm your email address to finish setting up your Prepeet account:
+
+https://app.example.test/verify?token=TOKEN
+
+The link works once and expires in 30 minutes.
+
+If you did not create a Prepeet account, ignore this email and nothing will happen.

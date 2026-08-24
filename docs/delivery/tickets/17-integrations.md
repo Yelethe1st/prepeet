@@ -16,8 +16,24 @@ delivery status fed back into the product.
 
 **Done when**
 - [ ] Delivery, bounce and complaint status is recorded and visible where it matters.
-- [ ] Templates are versioned and previewable before send.
-- [ ] No transcript or evaluation content appears in an email body.
+- [x] Templates are versioned and previewable before send.
+- [x] No transcript or evaluation content appears in an email body.
+
+**In progress.** `internal/notification` owns the queue, the versioned templates and the sender;
+`platform/email` speaks SMTP, which every provider and the local Mailpit accept, so the vendor
+question ADR-0001 confines never arises. Emails are enqueued in the caller's transaction for the
+outbox's reason and drained by `cmd/worker`; the rendered content is erased by the same statement
+that records the send, because a delivered verification link is a secret with no reason to stay
+readable at rest. Previews are the golden files in `internal/notification/testdata`, so a wording
+change is a reviewable diff rather than a surprise in an inbox. The content rule is structural:
+a template accepts only its declared typed variables and rendering fails on anything undeclared.
+
+The first box is half done: delivery and dead-letter status are recorded and queryable, but bounce
+and complaint ingestion needs provider feedback and lands with the production provider decision.
+The columns already exist so the status has one home.
+
+The dependency on PLT-06 is unused: delivery rides the queue-and-drain shape INT-02 established,
+which deliberately does not run in a workflow, so nothing here waits on Temporal.
 
 **Spec** [data-classification.md](../../security/data-classification.md)
 

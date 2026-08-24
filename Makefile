@@ -167,6 +167,7 @@ GENERATED_PATHS := packages/generated \
 	packages/generated/typescript/events.gen.ts \
 	services/platform/platform/authz/catalogue.gen.go \
 	services/platform/internal/identity/db \
+	services/platform/internal/notification/db \
 	services/platform/platform/outbox/db \
 	services/platform/platform/ratelimit/db
 

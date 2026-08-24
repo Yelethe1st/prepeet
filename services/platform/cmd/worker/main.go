@@ -17,13 +17,16 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/email"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/temporal"
@@ -129,11 +132,40 @@ func main() {
 		slog.Int("outbox_routes", len(router.Routes())),
 		slog.String("next", "PLT-06 registers the Temporal client and workers"))
 
+	// The email sender drains notification.emails beside the dispatcher. Not
+	// starting is loud rather than fatal: a worker that refused to run would
+	// also stop draining the outbox, but a worker silently without mail is
+	// verification emails silently not arriving, so the warning names exactly
+	// what is off.
+	var group sync.WaitGroup
+	if cfg.SMTPAddress == "" {
+		log.Warn("no SMTP address is configured; enqueued email will wait in notification.emails unsent")
+	} else {
+		transport, err := email.New(email.Config{
+			Address:  cfg.SMTPAddress,
+			From:     cfg.EmailFrom,
+			Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword,
+		})
+		if err != nil {
+			log.Error("the email transport is not usable", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		sender := notification.NewSender(notification.NewQueue(pool), transport, log)
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			_ = sender.Run(ctx)
+		}()
+		log.Info("email sender started", slog.String("smtp", cfg.SMTPAddress))
+	}
+
 	// Run returns only when the context is cancelled, so this is the process
 	// lifetime.
 	if err := dispatcher.Run(ctx); err != nil {
 		log.Error("the outbox dispatcher stopped", slog.String("error", telemetry.Scrub(err.Error())))
 	}
+	group.Wait()
 
 	log.Info("worker shutting down")
 

@@ -156,6 +156,16 @@ services:
   # whole point of running one here. It is not a vendor decision: the
   # application speaks OTLP and knows nothing about what receives it, which is
   # exactly why ADR-0007 and telemetry-conventions.md chose OTLP over a vendor
+  # Every email the worker sends locally lands here instead of a real inbox,
+  # which is the difference between testing the recovery flow and spamming a
+  # teammate. The UI shows exactly what a recipient would see, headers and
+  # all. Point PREPEET_SMTP_ADDRESS at localhost:1025 and browse :8025.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - "${PREPEET_SMTP_PORT:-1025}:1025"
+      - "${PREPEET_MAILPIT_UI_PORT:-8025}:8025"
+
   # SDK. Deployed environments point PREPEET_OTLP_ENDPOINT somewhere else and
   # nothing in the application changes.
   #

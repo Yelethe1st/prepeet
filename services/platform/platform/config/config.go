@@ -60,6 +60,19 @@ type Config struct {
 	// process does not use Temporal, which is how cmd/api and cmd/migrate start
 	// without it.
 	TemporalAddress string
+	// SMTPAddress is the mail relay, as host:port. Empty means this process
+	// sends no email, which is how cmd/api and cmd/migrate start without one;
+	// the worker warns loudly, because a silent worker is verification emails
+	// silently not arriving.
+	SMTPAddress string
+	// SMTPUsername and SMTPPassword authenticate to the relay. Both empty is
+	// unauthenticated, which the transport accepts only alongside a relay that
+	// does not offer STARTTLS-with-credentials; see platform/email.
+	SMTPUsername string
+	SMTPPassword string
+	// EmailFrom is the sender address on every message.
+	EmailFrom string
+
 	// TemporalNamespace is derived from Environment rather than configured
 	// independently. ADR-0007 separates environments by namespace, and a
 	// namespace that could name any environment makes that a matter of getting
@@ -128,6 +141,10 @@ func Load(lookup Lookup) (Config, error) {
 		OTLPEndpoint: value(lookup, "PREPEET_OTLP_ENDPOINT", ""),
 
 		TemporalAddress:     value(lookup, "PREPEET_TEMPORAL_ADDRESS", ""),
+		SMTPAddress:         value(lookup, "PREPEET_SMTP_ADDRESS", ""),
+		SMTPUsername:        value(lookup, "PREPEET_SMTP_USERNAME", ""),
+		SMTPPassword:        value(lookup, "PREPEET_SMTP_PASSWORD", ""),
+		EmailFrom:           value(lookup, "PREPEET_EMAIL_FROM", ""),
 		TemporalTLSCertFile: value(lookup, "PREPEET_TEMPORAL_TLS_CERT_FILE", ""),
 		TemporalTLSKeyFile:  value(lookup, "PREPEET_TEMPORAL_TLS_KEY_FILE", ""),
 

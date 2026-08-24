@@ -55,6 +55,16 @@ sql:
 
   - engine: postgresql
     schema: *schema
+    queries: internal/notification/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: notificationdb
+        out: internal/notification/db
+        overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
     queries: platform/outbox/db/queries.sql
     gen:
       go:

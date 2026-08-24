@@ -16,10 +16,28 @@ Candidate and organisation registration, password login, logout and refresh, on 
 browser sessions with CSRF defence.
 
 Built against [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md). The service is in
-`services/platform/internal/identity` with migration 0002 behind it, 27 tests including the
-reuse-detection behaviour verified by breaking the implementation on purpose. What remains is the HTTP
-layer: the four operations are declared in the OpenAPI contract but no handler serves them yet, and
-organisation registration does not yet create the tenant and owning membership.
+`services/platform/internal/identity` with migration 0002 behind it, and the HTTP layer is in
+`internal/api`, served by `cmd/api` against a real database. Register, login, refresh, logout and `/me`
+were exercised end to end: two cookies on login and refresh, identical responses for a new and a known
+address, and a session that a still-valid cookie cannot reach once logout has revoked it.
+
+Two things were settled while building it.
+
+**The generated response types cannot express two cookies.** oapi-codegen models a response header as one
+field and writes it with `Header().Set`, which replaces rather than appends, so whichever cookie is
+written second is the only one the browser receives. The responses for login, refresh and logout are
+therefore written by hand. They still satisfy the generated interfaces, so the contract remains the
+source and a handler returning the wrong shape still fails to compile. Changing the contract to describe
+one cookie was rejected: that would make the document lie about the wire to suit a generator.
+
+**The API layer declares what it needs from identity.** `internal/api` cannot import `internal/identity`
+under ADR-0005, and the boundary test enforces it, so the port is declared by the consumer and `cmd/api`
+translates. That translation earns its cost in one specific place: identity distinguishes `ErrNotFound`
+from `ErrCredentialsInvalid` because its own logic needs to, and the API must not, since a response that
+could tell them apart is an account-existence oracle. The collapse happens once, in the adapter.
+
+What remains is organisation registration creating the tenant and the owning membership, which needs a
+role column that `tenancy.memberships` does not have yet.
 
 **Done when**
 - [x] Passwords use argon2id, carry their parameters, and upgrade transparently on next login.
@@ -31,7 +49,7 @@ organisation registration does not yet create the tenant and owning membership.
 - [x] Logout revokes the family and is idempotent.
 - [x] A post-login destination is preserved without allowing an open redirect, refusing anything that could be read as a scheme, an authority or a header break.
 - [x] Session tokens travel in HTTP-only, SameSite cookies and never in a response body, with the refresh cookie scoped to the refresh endpoint.
-- [ ] The four operations are served over HTTP against the generated interface.
+- [x] The four operations are served over HTTP against the generated interface.
 - [ ] Organisation registration creates the tenant and the owning membership.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md) · [public-api.md](../../contracts/public-api.md)

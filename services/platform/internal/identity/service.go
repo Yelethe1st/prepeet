@@ -87,6 +87,8 @@ type Repository interface {
 	CreateUserWithCredentials(ctx context.Context, userID, email, passwordHash string) error
 	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
 
+	FindUserByID(ctx context.Context, userID string) (User, error)
+
 	CreateSession(ctx context.Context, row SessionRow) error
 	FindSessionByToken(ctx context.Context, tokenHash string) (SessionRow, error)
 	FindSessionByRefresh(ctx context.Context, tokenHash string) (SessionRow, error)
@@ -119,6 +121,17 @@ type Service struct {
 // on the wall clock and so expiry can be exercised without waiting.
 func NewService(repo Repository, now func() time.Time) *Service {
 	return &Service{repo: repo, now: now}
+}
+
+// clock is the only way this service reads the time.
+//
+// It normalises to UTC rather than trusting the injected clock to. Timestamps
+// here are stored, compared across processes and serialised to browsers, and a
+// process running with a local timezone would otherwise emit offsets that
+// differ from every other process in the system. Normalising at the single
+// point of use makes that independent of how the service was wired.
+func (s *Service) clock() time.Time {
+	return s.now().UTC()
 }
 
 // Register creates an account, or does nothing and says the same thing.
@@ -210,7 +223,7 @@ func (s *Service) Authenticate(ctx context.Context, rawEmail, plaintext string) 
 		}
 	}
 
-	now := s.now()
+	now := s.clock()
 	return s.issue(ctx, userID, id.New().String(), now, now)
 }
 
@@ -221,7 +234,7 @@ func (s *Service) Authenticate(ctx context.Context, rawEmail, plaintext string) 
 // them apart and the cost of being wrong is asymmetric: being logged out is a
 // cheap failure, and an attacker keeping a foothold is not.
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (Session, error) {
-	now := s.now()
+	now := s.clock()
 
 	row, err := s.repo.FindSessionByRefresh(ctx, token.HashOf(refreshToken))
 	if err != nil {
@@ -263,7 +276,7 @@ func (s *Service) Lookup(ctx context.Context, sessionToken string) (SessionRow, 
 		return SessionRow{}, fmt.Errorf("identity: looking up session: %w", err)
 	}
 
-	if row.RevokedAt != nil || !s.now().Before(row.ExpiresAt) {
+	if row.RevokedAt != nil || !s.clock().Before(row.ExpiresAt) {
 		return SessionRow{}, ErrSessionInvalid
 	}
 	return row, nil
@@ -285,13 +298,39 @@ func (s *Service) Revoke(ctx context.Context, sessionToken, reason string) error
 	if row.RevokedAt != nil {
 		return nil
 	}
-	if err := s.repo.RevokeFamily(ctx, row.FamilyID, reason, s.now()); err != nil {
+	if err := s.repo.RevokeFamily(ctx, row.FamilyID, reason, s.clock()); err != nil {
 		return fmt.Errorf("identity: revoking family: %w", err)
 	}
 	return nil
 }
 
 // issue mints a token pair and records it.
+// User is what GET /me reports about a person.
+//
+// Deliberately not the whole row. Status and version are operational fields the
+// interface has no use for, and a struct that carried them would eventually be
+// serialised somewhere that did not want them.
+type User struct {
+	ID            string
+	Email         string
+	EmailVerified bool
+}
+
+// Describe returns a user by id.
+//
+// By id rather than by session token, because the caller has already resolved
+// the session and re-deriving who is acting would be a second opportunity to
+// get it wrong. It reports ErrNotFound rather than an empty User: an empty User
+// has an empty id, and a caller that ignored the error would act as somebody who
+// does not exist.
+func (s *Service) Describe(ctx context.Context, userID string) (User, error) {
+	user, err := s.repo.FindUserByID(ctx, userID)
+	if err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
+
 func (s *Service) issue(ctx context.Context, userID, familyID string, now, authenticatedAt time.Time) (Session, error) {
 	sessionToken, err := token.New(token.PurposeSession)
 	if err != nil {

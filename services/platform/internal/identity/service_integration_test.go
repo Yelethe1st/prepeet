@@ -9,6 +9,7 @@ package identity_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -38,7 +39,20 @@ func TestMain(m *testing.M) {
 		tcpostgres.WithDatabase("prepeet"),
 		tcpostgres.WithUsername("prepeet_migrator"),
 		tcpostgres.WithPassword("migrator-password"),
-		testcontainers.WithWaitStrategy(wait.ForListeningPort("5432/tcp")),
+		// Not ForListeningPort. PostgreSQL accepts TCP connections before it
+		// will answer them, so that strategy returns while the server is still
+		// replying "the database system is starting up" and the first
+		// connection fails. It made this suite flaky rather than broken, which
+		// is worse: a failure that looks like the code under test.
+		//
+		// The occurrence matters as much as the log line. The official image
+		// starts a temporary server to run its initialisation scripts and logs
+		// readiness for that one too, so waiting for the first occurrence waits
+		// for a server that is about to be shut down.
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).
+				WithStartupTimeout(2*time.Minute)),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "starting PostgreSQL: %v\n", err)
@@ -575,4 +589,92 @@ func storedHash(t *testing.T, userID string) string {
 		t.Fatalf("reading credentials: %v", err)
 	}
 	return hash
+}
+
+// ───────────────────────────────────────────────────────────────── describe
+
+// Describe backs GET /me. It reads by user id rather than by session token,
+// because the session lookup has already established who is acting and
+// re-deriving it from the token would be a second chance to get it wrong.
+func TestDescribeReturnsTheUser(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	outcome, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword, AccountType: identity.AccountCandidate,
+	})
+	if err != nil {
+		t.Fatalf("Register returned error: %v", err)
+	}
+
+	user, err := service.Describe(ctx, outcome.UserID)
+	if err != nil {
+		t.Fatalf("Describe returned error: %v", err)
+	}
+	if user.ID != outcome.UserID {
+		t.Errorf("ID = %q, want %q", user.ID, outcome.UserID)
+	}
+	if !strings.EqualFold(user.Email, email) {
+		t.Errorf("Email = %q, want %q", user.Email, email)
+	}
+	// A newly registered address is not verified. Reporting otherwise would let
+	// the interface offer actions that verification is supposed to gate.
+	if user.EmailVerified {
+		t.Error("a newly registered user is reported as verified")
+	}
+}
+
+// An unknown id is ErrNotFound rather than an empty user, because an empty user
+// has an empty id, and a caller that forgot to check the error would then act
+// as a user who does not exist.
+func TestDescribeReportsNotFoundForAnUnknownUser(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	if _, err := service.Describe(ctx, "01a0301d-aa10-7000-8f3e-000000000000"); !errors.Is(err, identity.ErrNotFound) {
+		t.Errorf("Describe of an unknown user returned %v, want ErrNotFound", err)
+	}
+}
+
+// Timestamps leave this system in a browser, a log line and a database column,
+// and are compared across processes. A service wired with a local clock would
+// emit offsets that differ from everything else, so the normalisation is at the
+// single point of use rather than in the wiring.
+func TestTimestampsAreUTCWhateverClockIsInjected(t *testing.T) {
+	ctx := context.Background()
+
+	sydney, err := time.LoadLocation("Australia/Sydney")
+	if err != nil {
+		t.Skipf("timezone data unavailable: %v", err)
+	}
+
+	// Deliberately not UTC, standing in for a process running with a local
+	// timezone set.
+	service := identity.NewService(identity.NewRepository(pool), func() time.Time {
+		return time.Now().In(sydney)
+	})
+
+	email := emailFor(t)
+	if _, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword, AccountType: identity.AccountCandidate,
+	}); err != nil {
+		t.Fatalf("Register returned error: %v", err)
+	}
+
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate returned error: %v", err)
+	}
+
+	for name, stamp := range map[string]time.Time{
+		"ExpiresAt":       session.ExpiresAt,
+		"RefreshExpires":  session.RefreshExpires,
+		"AuthenticatedAt": session.AuthenticatedAt,
+	} {
+		if _, offset := stamp.Zone(); offset != 0 {
+			t.Errorf("%s = %s, which carries a %d second offset rather than being UTC",
+				name, stamp.Format(time.RFC3339), offset)
+		}
+	}
 }

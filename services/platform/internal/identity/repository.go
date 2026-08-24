@@ -52,6 +52,30 @@ func (r *PostgresRepository) FindCredentialsByEmail(ctx context.Context, email s
 
 // CreateUserWithCredentials creates a user and their password in one
 // transaction, so a user can never exist without a way to authenticate.
+// FindUserByID reads the fields GET /me reports.
+//
+// Only those fields. A SELECT * here would put status and version into a struct
+// that is one refactor away from being serialised to a browser, and a user's
+// suspension status is not theirs to read from an endpoint about themselves.
+func (r *PostgresRepository) FindUserByID(ctx context.Context, userID string) (User, error) {
+	var user User
+	err := r.pool.QueryRow(ctx, `
+		SELECT id::text, coalesce(email::text, ''), email_verified
+		FROM identity.users
+		WHERE id = $1 AND status <> 'deleted'`, userID).
+		Scan(&user.ID, &user.Email, &user.EmailVerified)
+
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		// A deleted user is reported as absent rather than as deleted, so an
+		// endpoint cannot become a way to confirm that an account once existed.
+		return User{}, ErrNotFound
+	case err != nil:
+		return User{}, fmt.Errorf("identity: reading user: %w", err)
+	}
+	return user, nil
+}
+
 func (r *PostgresRepository) CreateUserWithCredentials(ctx context.Context, userID, email, passwordHash string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {

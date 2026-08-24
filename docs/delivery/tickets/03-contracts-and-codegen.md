@@ -26,6 +26,12 @@ written; the rest arrive with the tickets that need them.
 - [x] Spectral lints the document, with rules for the error envelope and for undocumented operations.
 - [x] The server's responses are checked against the generated types, so a shape change is a test failure.
 - [ ] OpenAPI covers every route in [public-api.md](../../contracts/public-api.md) that the current phase ships. Health and authentication are done.
+
+A limitation of the Go generator is recorded here rather than left to be rediscovered. A response header
+is generated as a single field written with `Header().Set`, so an operation setting two cookies cannot be
+served by the generated response type. IAM-01 writes those three responses by hand against the generated
+interfaces. The contract is not adjusted to suit the generator: it describes the wire, and the wire has
+two cookies.
 - [ ] `oasdiff` runs against the previous release once there is a previous release.
 - [ ] Every operation declares its required capability, which needs the capability catalogue published as a contract in IAM-04.
 - [ ] Every operation declares its cacheability, per the conventions added to ADR-0004: `no-store` for anything derived from a candidate's own data, `ETag` with a short `max-age` for the catalogue, and indefinite for anything addressed by an immutable version.

@@ -17,9 +17,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
-	"github.com/Yelethe1st/prepeet/services/platform/platform/httpserver"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
 
@@ -61,20 +64,51 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Dependency checks are registered here as each adapter lands. Readiness
-	// with no registered dependencies reports ready, which is correct for a
-	// process that has none yet.
-	checks := health.NewRegistry()
-
-	server := &http.Server{
-		Addr:              cfg.Address,
-		Handler:           httpserver.New(httpserver.Config{Health: checks}),
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       120 * time.Second,
+	if cfg.DatabaseURL == "" {
+		log.Error("PREPEET_DATABASE_URL is required: every request this process serves reads or writes it")
+		os.Exit(1)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Error("the database is not reachable", slog.String("error", telemetry.Scrub(err.Error())))
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	checks := health.NewRegistry()
+	// Readiness reports whether this process can serve traffic, so it checks the
+	// dependency every request needs. The check returns a bare error rather than
+	// a description: readiness output is public, and a message naming what failed
+	// is an invitation to map the deployment.
+	checks.Register("database", func(ctx context.Context) error {
+		if err := pool.Ping(ctx); err != nil {
+			return errors.New("unavailable")
+		}
+		return nil
+	})
+
+	handler, err := api.NewServer(api.ServerConfig{
+		Identity:    identityAdapter{service: identity.NewService(identity.NewRepository(pool), time.Now)},
+		Environment: cfg.Environment,
+		Health:      checks,
+	})
+	if err != nil {
+		// A wiring mistake is a startup failure rather than a nil dereference on
+		// whichever request first needs the missing piece.
+		log.Error("the API could not be built", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	server := &http.Server{
+		Addr:              cfg.Address,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 
 	go func() {
 		log.Info("api listening",

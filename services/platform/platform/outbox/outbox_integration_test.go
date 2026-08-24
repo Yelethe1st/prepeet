@@ -37,7 +37,20 @@ func TestMain(m *testing.M) {
 		tcpostgres.WithDatabase("prepeet"),
 		tcpostgres.WithUsername("prepeet_migrator"),
 		tcpostgres.WithPassword("migrator-password"),
-		testcontainers.WithWaitStrategy(wait.ForListeningPort("5432/tcp")),
+		// Not ForListeningPort. PostgreSQL accepts TCP connections before it
+		// will answer them, so that strategy returns while the server is still
+		// replying "the database system is starting up" and the first
+		// connection fails. It made this suite flaky rather than broken, which
+		// is worse: a failure that looks like the code under test.
+		//
+		// The occurrence matters as much as the log line. The official image
+		// starts a temporary server to run its initialisation scripts and logs
+		// readiness for that one too, so waiting for the first occurrence waits
+		// for a server that is about to be shut down.
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).
+				WithStartupTimeout(2*time.Minute)),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "starting PostgreSQL: %v\n", err)

@@ -28,6 +28,7 @@ written; the rest arrive with the tickets that need them.
 - [ ] OpenAPI covers every route in [public-api.md](../../contracts/public-api.md) that the current phase ships. Health and authentication are done.
 - [ ] `oasdiff` runs against the previous release once there is a previous release.
 - [ ] Every operation declares its required capability, which needs the capability catalogue published as a contract in IAM-04.
+- [ ] Every operation declares its cacheability, per the conventions added to ADR-0004: `no-store` for anything derived from a candidate's own data, `ETag` with a short `max-age` for the catalogue, and indefinite for anything addressed by an immutable version.
 
 **Spec** [public-api.md](../../contracts/public-api.md)
 

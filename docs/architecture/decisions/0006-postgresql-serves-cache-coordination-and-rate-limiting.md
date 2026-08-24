@@ -60,12 +60,46 @@ have to choose between locking every user out and letting every attacker through
 exist, because authentication cannot happen without this database either, so the limiter fails open and
 reports, and costs nothing that is not already lost.
 
-### Cache: nothing to cache
+### Cache: real candidates, and none of them want Redis first
 
-The only candidate is session lookup, and [ADR-0003](0003-identity-built-in-go.md) requires that to be
-measured before it is cached. It is also the cache with the worst failure mode in this product: a cached
-session outliving a revocation is precisely what opaque tokens were chosen to prevent, so any session
-cache needs cross-instance invalidation, which is a harder problem than the caching.
+An earlier draft of this ADR said there was nothing to cache. That was wrong, and it is corrected here
+rather than quietly removed. There are four candidates, and they split cleanly by whether they need
+invalidating.
+
+**Immutable and versioned, so cacheable in process with no invalidation at all.** Published artifacts,
+meaning rubrics, calibrations, personas, plans and prompts, are immutable once published under
+[ADR-0004](0004-contract-conventions-and-code-generation.md) and pinned by version into every session
+bundle. Rubric v4 is rubric v4 forever, so the cache key carries the version and a stale entry cannot
+exist. The catalogue of disciplines, roles, shapes and personas behaves the same way.
+
+For this class an in-process cache is not the cheap option, it is the better one. It has no network hop,
+no serialisation, and no invalidation problem to get wrong. Redis would add a round trip to data that
+never changes. This is the largest and easiest win available, and it needs no new infrastructure.
+
+**Mutable and shared, so needing cross-instance invalidation.** Tenant policy, meaning retention,
+disclosure version and feature approval such as whether comparison is enabled. The authorization context
+behind every request, meaning capabilities and scopes for a membership. And session lookup.
+
+Here an in-process cache with a time to live is a correctness problem rather than a performance choice.
+A revoked membership that stays cached for sixty seconds is sixty seconds of a removed recruiter reading
+candidate evidence, which is exactly what [ADR-0003](0003-identity-built-in-go.md) chose revocable
+sessions to prevent. Caching these correctly means invalidating across instances, which is the fan-out
+problem in the trigger table below, so this class collapses into that trigger rather than standing as
+its own reason for Redis.
+
+**Some of it should not be cached at all, but not requested.** The catalogue endpoints are read
+repeatedly by a wizard that mostly does not change between steps. `ETag` and `Cache-Control` remove the
+request entirely, which beats serving it from anywhere. That is a gap in ADR-0004, which covers
+versioning, errors, idempotency and pagination but says nothing about caching, and it is now recorded on
+[CTR-01](../../delivery/tickets/03-contracts-and-codegen.md).
+
+**And PostgreSQL is already a cache.** A small hot table lives in `shared_buffers` and the operating
+system page cache, so a catalogue read is already a memory read plus a round trip. The marginal win from
+Redis for small hot reads is mostly that round trip, and an in-process cache removes it entirely.
+
+What is left for Redis is narrow: shared mutable data, at a volume where an in-process time to live is
+too stale to be correct and the database is too loaded to ask. That is a real place to be, and it is not
+where this system is.
 
 ## What Redis would genuinely bring
 
@@ -104,7 +138,8 @@ and [OPS-02](../../delivery/tickets/18-platform-operations.md).
 |---|---|---|---|
 | Rate limiting extended beyond authentication to every request | Lock waits on the counter table, dead tuple ratio in `pg_stat_user_tables` | Sustained 1,000 writes per second, or any visible lock wait on a hot key | Limit only what needs limiting; put volumetric protection at the edge, where it belongs |
 | Live interview progress fanned out across instances | Notification delivery latency, `NOTIFY` in wait events | A few hundred notifications per second, roughly 500 concurrent interviews | `LISTEN/NOTIFY`, which the outbox dispatcher already uses |
-| Session lookup dominating latency | Share of p99 attributable to the lookup span, connection pool saturation | Sustained 1,000 requests per second, probably later | PgBouncer. Pool exhaustion is a pooling problem before it is a caching problem |
+| Session lookup or authorization context dominating latency | Share of p99 attributable to the lookup span, connection pool saturation | Sustained 1,000 requests per second, probably later | PgBouncer first, since pool exhaustion is a pooling problem before it is a caching problem. Then an in-process cache, which needs the fan-out trigger above to invalidate correctly |
+| Immutable artifact and catalogue reads costing measurable latency | Share of p99 attributable to artifact loading | Whenever it is measurable, which may be soon | An in-process cache keyed by version, which needs no invalidation and no new infrastructure. `ETag` on the catalogue endpoints, which removes the request |
 | Provider concurrency capped across workers | In-flight model calls per provider | When the cap must span work Temporal is not orchestrating | Temporal task queue concurrency, which expresses this directly |
 
 The most likely first trigger is fan-out, not any of the three uses Redis was originally proposed for.

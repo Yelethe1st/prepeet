@@ -111,6 +111,20 @@ resource identifier as a tiebreaker, without which a cursor over equal sort keys
 repeats rows. Page size has a default and a maximum, and a request over the maximum is clamped rather
 than refused.
 
+**Caching**, added 2026-08-24 after ADR-0006 found this missing. Responses declare their cacheability
+rather than leaving it to a default, because a default that varies by proxy is not a decision.
+
+Anything derived from a candidate's own data is `Cache-Control: no-store`, which is already what
+`platform/httpserver` sends. That covers sessions, evaluations, transcripts and everything a screening
+reviewer sees: a recording cached in a shared proxy is a recording outside the residency commitment.
+
+Server-provided catalogue data, meaning disciplines, roles, shapes and personas, carries an `ETag` and a
+short `max-age`, because it is the same for everyone and is read repeatedly by a wizard that mostly does
+not change between steps. Removing the request beats serving it faster.
+
+Anything addressed by an immutable version, such as a published rubric or calibration, may be cached
+indefinitely, because a new version is a new address and a stale entry cannot exist.
+
 **Deprecation.** A deprecated operation returns the `Deprecation` and `Sunset` headers from RFC 8594,
 and stays available for at least ninety days after the announcement. Removal without a sunset date does
 not happen, including for operations we believe nobody uses, because we cannot see what a tenant's

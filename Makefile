@@ -157,10 +157,35 @@ COMPOSE := docker compose -f infrastructure/local/docker-compose.yml
 
 .PHONY: local-up
 local-up: ## Start PostgreSQL, LocalStack and Temporal locally
-	$(COMPOSE) up -d --wait
-	@echo "  postgres      localhost:5432"
-	@echo "  localstack    localhost:4566   (s3, secretsmanager, kms)"
-	@echo "  temporal      localhost:7233   ui localhost:8233   namespace prepeet-local"
+	@$(COMPOSE) up -d --wait || { \
+		echo ""; \
+		echo "  The stack did not start. Docker's reason is above; what follows is"; \
+		echo "  context, not a diagnosis."; \
+		echo ""; \
+		$(MAKE) --no-print-directory local-ports; \
+		echo ""; \
+		echo "  If a port is taken by something that is not this stack, move ours:"; \
+		echo "  cp infrastructure/local/.env.example infrastructure/local/.env and change"; \
+		echo "  it. The container side never changes, so nothing inside the stack cares."; \
+		echo ""; \
+		echo "  If the ports are fine, a service failed its healthcheck. Find which with"; \
+		echo "  $(COMPOSE) ps, then read it with make local-logs."; \
+		echo ""; \
+		exit 1; \
+	}
+	@echo
+	@echo "  ready:"
+	@# Ports are read back from Docker rather than printed from constants. The
+	@# compose file makes every host port overridable through .env, so a printed
+	@# constant is wrong for exactly the developer who needed it to be right:
+	@# the one who moved a port because something else already held it.
+	@printf '    %-12s localhost:%s\n' postgres   "$$($(COMPOSE) port postgres 5432 | cut -d: -f2)"
+	@printf '    %-12s localhost:%s   (s3, secretsmanager, kms)\n' localstack "$$($(COMPOSE) port localstack 4566 | cut -d: -f2)"
+	@printf '    %-12s localhost:%s   namespace prepeet-local\n' temporal   "$$($(COMPOSE) port temporal 7233 | cut -d: -f2)"
+	@printf '    %-12s localhost:%s\n' "temporal ui" "$$($(COMPOSE) port temporal-ui 8080 | cut -d: -f2)"
+	@echo
+	@echo "  Temporal has its own PostgreSQL, per ADR-0007. It is not published on a"
+	@echo "  host port, because nothing outside the stack should be reaching it."
 
 .PHONY: local-down
 local-down: ## Stop the local stack, keeping its data
@@ -174,31 +199,38 @@ local-reset: ## Stop the local stack and delete its data
 local-logs: ## Follow the local stack logs
 	$(COMPOSE) logs -f
 
-# ------------------------------------------------------------------ run local
-
-.PHONY: dev
-dev: ## Print how to start each deployable locally
-	@echo "  make dev-api    the Go API on :8080"
-	@echo "  make dev-worker the Temporal worker"
-	@echo "  make dev-web    the Next.js application on :3000"
-
-.PHONY: dev-api
-dev-api: ## Run the Go API
-	cd $(GO_DIR) && go run ./cmd/api
-
-.PHONY: dev-worker
-dev-worker: ## Run the Temporal worker
-	cd $(GO_DIR) && go run ./cmd/worker
-
-.PHONY: dev-web
-dev-web: ## Run the Next.js application
-	cd $(WEB_DIR) && pnpm dev
-
-.PHONY: migrate
-migrate: ## Apply database migrations
-	cd $(GO_DIR) && go run ./cmd/migrate
-
-# ------------------------------------------------------------------------- ci
-
-.PHONY: ci
-ci: lint check-generated cover ## Everything CI runs, in the order CI runs it
+.PHONY: local-ports
+local-ports: ## Show which local stack host ports are free and which are taken
+	@# Whether a port is taken is decided by trying to connect to it, not by
+	@# asking lsof. lsof without elevated privileges silently omits processes
+	@# owned by other users, so a check built on it reports "free" for ports
+	@# that are not, which is worse than no check: it sends you looking
+	@# somewhere else. lsof is still used, but only to put a name to a port
+	@# that has already been shown to be busy.
+	@set -a; [ -f infrastructure/local/.env ] && . infrastructure/local/.env; set +a; \
+	for entry in "postgres:$${PREPEET_POSTGRES_PORT:-5432}" \
+	             "localstack:$${PREPEET_LOCALSTACK_PORT:-4566}" \
+	             "temporal:$${PREPEET_TEMPORAL_PORT:-7233}" \
+	             "temporal ui:$${PREPEET_TEMPORAL_UI_PORT:-8233}"; do \
+		name=$${entry%:*}; port=$${entry##*:}; \
+		if ! nc -z -G 1 127.0.0.1 "$$port" >/dev/null 2>&1 \
+		   && ! nc -z -w 1 127.0.0.1 "$$port" >/dev/null 2>&1; then \
+			printf "    %-12s %-6s free\n" "$$name" "$$port"; \
+			continue; \
+		fi; \
+		container=$$(docker ps --format '{{.Names}}\t{{.Ports}}' 2>/dev/null \
+			| awk -v p=":$$port->" 'index($$0, p) { print $$1; exit }'); \
+		if [ -n "$$container" ]; then \
+			case "$$container" in \
+				prepeet-*) printf "    %-12s %-6s this stack (%s)\n" "$$name" "$$port" "$$container" ;; \
+				*)         printf "    %-12s %-6s TAKEN by container %s\n" "$$name" "$$port" "$$container" ;; \
+			esac; \
+			continue; \
+		fi; \
+		process=$$(lsof -nP -iTCP:$$port -sTCP:LISTEN -F c 2>/dev/null | sed -n "s/^c//p" | head -1); \
+		if [ -n "$$process" ]; then \
+			printf "    %-12s %-6s TAKEN by process %s\n" "$$name" "$$port" "$$process"; \
+		else \
+			printf "    %-12s %-6s TAKEN, by something this user cannot see\n" "$$name" "$$port"; \
+		fi; \
+	done

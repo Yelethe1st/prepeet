@@ -118,11 +118,16 @@ services:
       DEFAULT_NAMESPACE_RETENTION: 168h
     ports:
       - "${PREPEET_TEMPORAL_PORT:-7233}:7233"
+    # The namespace is named explicitly. The CLI defaults to `default`, which
+    # this server does not create: DEFAULT_NAMESPACE above replaces it with
+    # prepeet-local, per ADR-0007. Without this the healthcheck asks for a
+    # namespace that does not exist and reports a working server as unhealthy.
     healthcheck:
-      test: ["CMD", "temporal", "workflow", "list", "--address", "temporal:7233"]
+      test: ["CMD", "temporal", "workflow", "list",
+             "--address", "temporal:7233", "--namespace", "prepeet-local"]
       interval: 10s
       timeout: 5s
-      retries: 12
+      retries: 18
 
   temporal-ui:
     image: temporalio/ui:2.53.3
@@ -133,6 +138,15 @@ services:
       TEMPORAL_DEFAULT_NAMESPACE: prepeet-local
     ports:
       - "${PREPEET_TEMPORAL_UI_PORT:-8233}:8080"
+    # A healthcheck so `up --wait` waits for this to answer rather than only to
+    # be running. Without it local-up returns and prints a URL that refuses the
+    # connection for the next few seconds, which reads as a broken stack rather
+    # than a slow one.
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
 volumes:
   postgres-data:

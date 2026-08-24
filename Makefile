@@ -167,7 +167,8 @@ COMPOSE := docker compose -f infrastructure/local/docker-compose.yml
 LOCAL_ENV = set -a; [ -f infrastructure/local/.env ] && . infrastructure/local/.env; set +a; \
 	PORT=$${PREPEET_POSTGRES_PORT:-5432}; \
 	export PREPEET_APP_URL="postgres://prepeet_app:app-password@localhost:$$PORT/prepeet?sslmode=disable"; \
-	export PREPEET_MIGRATOR_URL="postgres://prepeet:local-development-only@localhost:$$PORT/prepeet?sslmode=disable"
+	export PREPEET_MIGRATOR_URL="postgres://prepeet:local-development-only@localhost:$$PORT/prepeet?sslmode=disable"; \
+	export PREPEET_OTLP_ENDPOINT="localhost:$${PREPEET_OTLP_PORT:-4317}"
 
 .PHONY: local-up
 local-up: ## Start PostgreSQL, LocalStack and Temporal locally
@@ -197,6 +198,8 @@ local-up: ## Start PostgreSQL, LocalStack and Temporal locally
 	@printf '    %-12s localhost:%s   (s3, secretsmanager, kms)\n' localstack "$$($(COMPOSE) port localstack 4566 | cut -d: -f2)"
 	@printf '    %-12s localhost:%s   namespace prepeet-local\n' temporal   "$$($(COMPOSE) port temporal 7233 | cut -d: -f2)"
 	@printf '    %-12s localhost:%s\n' "temporal ui" "$$($(COMPOSE) port temporal-ui 8080 | cut -d: -f2)"
+	@printf '    %-12s localhost:%s   traces from api and worker\n' "jaeger" "$$($(COMPOSE) port jaeger 16686 | cut -d: -f2)"
+	@printf '    %-12s localhost:%s   metrics, scrapeable with curl\n' "otel metrics" "$$($(COMPOSE) port otel-collector 8889 | cut -d: -f2)"
 	@echo
 	@echo "  Temporal has its own PostgreSQL, per ADR-0007. It is not published on a"
 	@echo "  host port, because nothing outside the stack should be reaching it."
@@ -225,7 +228,10 @@ local-ports: ## Show which local stack host ports are free and which are taken
 	for entry in "postgres:$${PREPEET_POSTGRES_PORT:-5432}" \
 	             "localstack:$${PREPEET_LOCALSTACK_PORT:-4566}" \
 	             "temporal:$${PREPEET_TEMPORAL_PORT:-7233}" \
-	             "temporal ui:$${PREPEET_TEMPORAL_UI_PORT:-8233}"; do \
+	             "temporal ui:$${PREPEET_TEMPORAL_UI_PORT:-8233}" \
+	             "jaeger:$${PREPEET_JAEGER_UI_PORT:-16686}" \
+	             "otlp:$${PREPEET_OTLP_PORT:-4317}" \
+	             "otel metrics:$${PREPEET_METRICS_PORT:-8889}"; do \
 		name=$${entry%:*}; port=$${entry##*:}; \
 		if ! nc -z -G 1 127.0.0.1 "$$port" >/dev/null 2>&1 \
 		   && ! nc -z -w 1 127.0.0.1 "$$port" >/dev/null 2>&1; then \
@@ -267,8 +273,9 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 	@# and nothing after it, which reads as three processes that hung.
 	@$(LOCAL_ENV); \
 	trap 'kill 0' INT TERM EXIT; \
-	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" go run ./cmd/api 2>&1 | awk '{ print "[api]    " $$0; fflush() }' ) & \
-	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" \
+	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" \
+		go run ./cmd/api 2>&1 | awk '{ print "[api]    " $$0; fflush() }' ) & \
+	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" \
 		PREPEET_TEMPORAL_ADDRESS="localhost:$${PREPEET_TEMPORAL_PORT:-7233}" \
 		go run ./cmd/worker 2>&1 | awk '{ print "[worker] " $$0; fflush() }' ) & \
 	( cd $(WEB_DIR) && pnpm dev 2>&1 | awk '{ print "[web]    " $$0; fflush() }' ) & \
@@ -276,7 +283,8 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 
 .PHONY: dev-api
 dev-api: ## Run the Go API alone
-	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" go run ./cmd/api
+	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" \
+		PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" go run ./cmd/api
 
 .PHONY: dev-worker
 dev-worker: ## Run the worker alone

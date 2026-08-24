@@ -1,0 +1,56 @@
+# OpenTelemetry collector for local development.
+#
+# The application speaks OTLP and knows nothing about what receives it, which is
+# the point of choosing OTLP over a vendor SDK in telemetry-conventions.md. This
+# file is where "what receives it" is decided locally, and a deployed
+# environment answers the same question differently without the application
+# changing.
+#
+# It exists rather than pointing the application straight at Jaeger because
+# Jaeger takes traces and not metrics, so the direct arrangement logged
+# "failed to upload metrics" every thirty seconds. Recurring errors that are
+# expected are how people learn to ignore errors, and the metrics were invisible
+# either way.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  # Bounded, so a burst cannot make the collector the thing that runs out of
+  # memory. Local defaults; a deployed collector is sized against real volume.
+  batch:
+    timeout: 5s
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Metrics are exposed for scraping rather than pushed anywhere, so they can be
+  # read with curl. Without this the histogram in platform/httpserver is
+  # exported and then discarded, and "the metric exists" stays a claim about a
+  # unit test.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+service:
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]

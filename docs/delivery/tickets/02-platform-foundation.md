@@ -204,8 +204,19 @@ scanner running against real recorded spans and real log output. Conventions are
 [telemetry-conventions.md](../../operations/telemetry-conventions.md) for the other two languages to
 implement.
 
-**Remaining.** The first box cannot be ticked until the web and intelligence services exist, since a
-single trace has nowhere else to reach yet. Database pool and outbox instrumentation land with their
+**Verified against a running collector, not only in tests.** The local stack now receives what the
+services send, so the claims in this ticket are checkable. A request produces one span named for its
+route template rather than its resolved path; a request arriving with a `traceparent` joins that trace
+with the caller's span as its parent; the restricted-content scan finds nothing across the spans a real
+session produced; and the latency histogram arrives with route, method and status and no unbounded
+dimension, with three rejected logins aggregating into one series.
+
+That last one only became checkable because the arrangement changed. Sending straight to Jaeger meant
+metrics were exported and discarded, and logged a failure every thirty seconds while doing it.
+
+**Remaining.** The first box needs the browser and the intelligence service. The Go tier continues an
+inbound trace correctly, which is the half a browser SDK would hand to, but nothing in the browser emits
+one yet and the Python service does not exist. Database pool and outbox instrumentation land with their
 adapters. Cardinality budgets need a real series count to be set against.
 
 **Spec** [observability.md](../../operations/observability.md) · [telemetry-conventions.md](../../operations/telemetry-conventions.md)

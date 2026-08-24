@@ -148,6 +148,48 @@ services:
       timeout: 3s
       retries: 20
 
+  # Traces, so PLT-08's claim is checkable rather than asserted.
+  #
+  # Jaeger rather than the OpenTelemetry collector, for local development only.
+  # A collector forwards traces to somewhere they can be looked at, and locally
+  # there is nowhere; Jaeger receives OTLP directly and shows them, which is the
+  # whole point of running one here. It is not a vendor decision: the
+  # application speaks OTLP and knows nothing about what receives it, which is
+  # exactly why ADR-0007 and telemetry-conventions.md chose OTLP over a vendor
+  # SDK. Deployed environments point PREPEET_OTLP_ENDPOINT somewhere else and
+  # nothing in the application changes.
+  #
+  # Off by default in the sense that matters: a process with no
+  # PREPEET_OTLP_ENDPOINT exports nothing and does not need this running.
+  # The application sends here, and this decides where telemetry goes.
+  #
+  # Traces to Jaeger, metrics to a Prometheus endpoint that can be curled.
+  # Pointing the application straight at Jaeger was simpler and wrong: Jaeger
+  # takes traces and not metrics, so every process logged "failed to upload
+  # metrics" every thirty seconds, and the metrics went nowhere regardless.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    command: ["--config=/etc/otel/collector.yaml"]
+    depends_on:
+      - jaeger
+    volumes:
+      - ./otel/collector.yaml:/etc/otel/collector.yaml:ro
+    ports:
+      - "${PREPEET_OTLP_PORT:-4317}:4317"
+      - "${PREPEET_METRICS_PORT:-8889}:8889"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "${PREPEET_JAEGER_UI_PORT:-16686}:16686"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
 volumes:
   postgres-data:
   temporal-postgres-data:

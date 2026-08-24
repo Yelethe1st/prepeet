@@ -163,6 +163,17 @@ requests that went worst, which is how a latency graph stays flat through an inc
 | `PREPEET_OTLP_ENDPOINT` | unset | The collector, as `host:port`. Unset disables export |
 | `PREPEET_TRACE_SAMPLE_RATIO` | `1` | Fraction of traces recorded, 0 to 1 |
 
+`make dev` sets the endpoint to the collector in the local stack, so what this document describes can be
+looked at rather than taken on trust. Traces are at `localhost:16686`; metrics are exposed for scraping
+at `localhost:8889/metrics` and can be read with `curl`.
+
+**Send to a collector, not to a backend.** Pointing the application straight at Jaeger was tried and was
+wrong in a way worth recording: Jaeger receives traces and not metrics, so every process logged
+`failed to upload metrics` every thirty seconds while the metrics went nowhere. A recurring expected
+error is how people learn to ignore errors. The collector also puts the "where does telemetry go"
+decision in one configuration file rather than in each service's environment, which is the arrangement a
+deployed environment needs anyway.
+
 Export is off by default. An engineer running the stack should not need a collector, and a default
 endpoint would produce a steady stream of connection errors that teaches everyone to ignore telemetry
 logs.

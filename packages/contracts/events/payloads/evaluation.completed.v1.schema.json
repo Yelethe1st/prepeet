@@ -1,0 +1,50 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/evaluation.completed.v1.schema.json",
+  "title": "evaluation.completed.v1",
+  "description": "An evaluation produced a result. It carries identifiers and versions only. No score, no prose and no competency verdict, deliberately: evaluation prose is restricted content, and a numeric result in an event is a number that will be compared, ranked and retained by consumers under rules that are not ours. A reader authorised to see the result fetches it.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "evaluation",
+  "x-consumers": [
+    "review",
+    "progression",
+    "notification"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "evaluation_id",
+    "session_id",
+    "rubric_id",
+    "rubric_version",
+    "result_digest"
+  ],
+  "properties": {
+    "evaluation_id": {
+      "type": "string",
+      "description": "The evaluation.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "The session it evaluated.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "rubric_id": {
+      "type": "string",
+      "description": "The rubric applied.",
+      "x-since": "1.0"
+    },
+    "rubric_version": {
+      "type": "string",
+      "description": "Pinned, so the result can be reproduced.",
+      "x-since": "1.0"
+    },
+    "result_digest": {
+      "type": "string",
+      "description": "Digest of the stored result, so a consumer can tell a redelivery from a re-evaluation that reached a different answer.",
+      "x-since": "1.0"
+    }
+  }
+}

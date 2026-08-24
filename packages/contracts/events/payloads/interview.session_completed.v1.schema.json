@@ -1,0 +1,48 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/interview.session_completed.v1.schema.json",
+  "title": "interview.session_completed.v1",
+  "description": "The session ended and will not resume. Evaluation begins from this. It carries how it ended, because an abandoned session and a finished one produce different evaluations and conflating them would attribute silence to the candidate.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "interview",
+  "x-consumers": [
+    "finalization",
+    "evaluation"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "session_id",
+    "completion",
+    "turn_count",
+    "duration_seconds"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "The session.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "completion": {
+      "type": "string",
+      "description": "How it ended.",
+      "x-since": "1.0",
+      "enum": [
+        "completed",
+        "abandoned",
+        "expired",
+        "terminated"
+      ]
+    },
+    "turn_count": {
+      "type": "integer",
+      "description": "How many turns were taken, so a consumer can tell a session with nothing in it from a full one without fetching the transcript.",
+      "x-since": "1.0"
+    },
+    "duration_seconds": {
+      "type": "integer",
+      "description": "Wall-clock length, excluding time the session was interrupted.",
+      "x-since": "1.0"
+    }
+  }
+}

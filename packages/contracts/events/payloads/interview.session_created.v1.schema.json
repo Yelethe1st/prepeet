@@ -1,0 +1,52 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/interview.session_created.v1.schema.json",
+  "title": "interview.session_created.v1",
+  "description": "A session exists but is not yet composed. Composition begins from this; usage counts from it, because a session created and abandoned still consumed the work of composing it.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "interview",
+  "x-consumers": [
+    "composition",
+    "usage"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "session_id",
+    "mode",
+    "candidate_id"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "The session.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "Who will sit it.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "mode": {
+      "type": "string",
+      "description": "Practice and screening are separate authorities everywhere. A consumer that treats them alike has broken the separation on our behalf.",
+      "x-since": "1.0",
+      "enum": [
+        "practice",
+        "screening"
+      ]
+    },
+    "invitation_id": {
+      "type": "string",
+      "description": "The screening invitation this answers. Absent for practice, which nobody is invited to.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "blueprint_id": {
+      "type": "string",
+      "description": "The interview blueprint requested. What is actually used is fixed by the bundle at readiness, not here.",
+      "x-since": "1.0"
+    }
+  }
+}

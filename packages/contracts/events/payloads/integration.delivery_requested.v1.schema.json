@@ -1,0 +1,43 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/integration.delivery_requested.v1.schema.json",
+  "title": "integration.delivery_requested.v1",
+  "description": "An event is to be delivered to a tenant's endpoint. A separate fact from the event it carries, so that delivery can be retried, inspected and given up on without anything happening to the original.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "integration",
+  "x-consumers": [
+    "dispatcher"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "delivery_id",
+    "endpoint_id",
+    "source_event_id",
+    "source_event_type"
+  ],
+  "properties": {
+    "delivery_id": {
+      "type": "string",
+      "description": "This delivery attempt's record.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "endpoint_id": {
+      "type": "string",
+      "description": "The configured destination.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "source_event_id": {
+      "type": "string",
+      "description": "The event to deliver. The dispatcher reads it rather than being handed a copy, so a payload cannot be delivered that differs from the one that was recorded.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "source_event_type": {
+      "type": "string",
+      "description": "Its type, so a destination that subscribes to a subset can be filtered without reading the event.",
+      "x-since": "1.0"
+    }
+  }
+}

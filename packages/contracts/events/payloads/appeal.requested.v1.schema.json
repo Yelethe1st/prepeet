@@ -1,0 +1,51 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/appeal.requested.v1.schema.json",
+  "title": "appeal.requested.v1",
+  "description": "A candidate contested a decision. Emitted with no free text, because an appeal's substance is the candidate's own words about a rejection and belongs only where they can see who reads it.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "recruiting",
+  "x-consumers": [
+    "assignment",
+    "notification"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "appeal_id",
+    "review_id",
+    "candidate_id",
+    "ground"
+  ],
+  "properties": {
+    "appeal_id": {
+      "type": "string",
+      "description": "The appeal.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "review_id": {
+      "type": "string",
+      "description": "The decision contested.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "Who appealed.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "ground": {
+      "type": "string",
+      "description": "The category claimed, so an appeal can be routed without anybody reading its contents to triage it.",
+      "x-since": "1.0",
+      "enum": [
+        "technical_fault",
+        "evidence_incomplete",
+        "process",
+        "accessibility",
+        "other"
+      ]
+    }
+  }
+}

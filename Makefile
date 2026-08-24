@@ -53,11 +53,28 @@ bootstrap-web:
 # ----------------------------------------------------------------------- test
 
 .PHONY: test
-test: test-go test-py test-web ## Run every fast test suite
+test: test-go test-tools test-py test-web ## Run every fast test suite
 
 .PHONY: test-go
 test-go: ## Run the Go suite with the race detector
 	cd $(GO_DIR) && go test -race ./...
+
+# The generators are their own modules, so `go test ./...` in the service does
+# not reach them and they went untested until this existed.
+#
+# -count=1 is load bearing rather than cautious. Their tests read the contracts
+# and the documentation, which live outside the module; Go's test cache tracks
+# files under the package being tested and cannot see those change, so a cached
+# run reports a pass after the very drift the test exists to catch. Verified by
+# deleting a schema and watching a cached run say ok.
+TOOL_MODULES := tools/authzgen tools/eventgen
+
+.PHONY: test-tools
+test-tools: ## Run the generators' tests, uncached
+	@set -e; for module in $(TOOL_MODULES); do \
+		printf 'testing %s\n' "$$module"; \
+		(cd $$module && go test -count=1 ./...); \
+	done
 
 .PHONY: test-py
 test-py: ## Run the Python suite

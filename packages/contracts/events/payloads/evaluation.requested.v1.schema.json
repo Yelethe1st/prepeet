@@ -1,0 +1,48 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/evaluation.requested.v1.schema.json",
+  "title": "evaluation.requested.v1",
+  "description": "Evaluation of a completed session was asked for. Carries the pinned inputs rather than only the session, so that a replay evaluates against what was in force at the time instead of whatever is current.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "evaluation",
+  "x-consumers": [
+    "evaluation workflow"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "evaluation_id",
+    "session_id",
+    "bundle_digest",
+    "rubric_id",
+    "rubric_version"
+  ],
+  "properties": {
+    "evaluation_id": {
+      "type": "string",
+      "description": "The evaluation being produced.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "The session evaluated.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "bundle_digest": {
+      "type": "string",
+      "description": "The immutable bundle the session ran against.",
+      "x-since": "1.0"
+    },
+    "rubric_id": {
+      "type": "string",
+      "description": "The rubric to apply.",
+      "x-since": "1.0"
+    },
+    "rubric_version": {
+      "type": "string",
+      "description": "Which version of it, pinned. A rubric edited afterwards must not change what this evaluation meant.",
+      "x-since": "1.0"
+    }
+  }
+}

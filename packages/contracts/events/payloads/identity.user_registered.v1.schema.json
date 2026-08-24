@@ -1,0 +1,40 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/identity.user_registered.v1.schema.json",
+  "title": "identity.user_registered.v1",
+  "description": "A person completed registration. Carries no address: notification looks the person up rather than being handed contact details, because an email address is restricted content under data-classification.md and an event reaches analytics too.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "identity",
+  "x-consumers": [
+    "notification",
+    "analytics"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "user_id",
+    "account_type"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "The person registered.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "account_type": {
+      "type": "string",
+      "description": "Whether they registered alone to practise or created a workspace. The two have different onboarding and different retention.",
+      "x-since": "1.0",
+      "enum": [
+        "candidate",
+        "organisation"
+      ]
+    },
+    "tenant_id": {
+      "type": "string",
+      "description": "The workspace created alongside the account, for an organisation registration. Absent for a candidate, who has none.",
+      "x-since": "1.0",
+      "format": "uuid"
+    }
+  }
+}

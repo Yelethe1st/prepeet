@@ -1,0 +1,56 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/review.decision_recorded.v1.schema.json",
+  "title": "review.decision_recorded.v1",
+  "description": "A human recorded a hiring decision. Carries who decided, because a screening decision that cannot name its human is exactly what disclosure obligations exist to prevent. Carries no reasoning text, which is restricted content and is read from the record by somebody authorised.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "recruiting",
+  "x-consumers": [
+    "audit",
+    "integration"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "review_id",
+    "application_id",
+    "decision",
+    "decided_by",
+    "evaluation_id"
+  ],
+  "properties": {
+    "review_id": {
+      "type": "string",
+      "description": "The review.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "application_id": {
+      "type": "string",
+      "description": "What was decided on.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "decision": {
+      "type": "string",
+      "description": "The outcome.",
+      "x-since": "1.0",
+      "enum": [
+        "advance",
+        "reject",
+        "hold"
+      ]
+    },
+    "decided_by": {
+      "type": "string",
+      "description": "The person who decided. A user, never a service: an automated decision is not a review.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "evaluation_id": {
+      "type": "string",
+      "description": "The evaluation it was informed by, so the decision can be traced to the evidence available at the time.",
+      "x-since": "1.0",
+      "format": "uuid"
+    }
+  }
+}

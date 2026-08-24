@@ -1,0 +1,40 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/evaluation.insufficient_evidence.v1.schema.json",
+  "title": "evaluation.insufficient_evidence.v1",
+  "description": "Evaluation ran and declined to conclude. A distinct event rather than a low score, because the core invariant is that unknown evidence is never coerced into a numeric result; a consumer that received a score here would rank a candidate on silence.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "evaluation",
+  "x-consumers": [
+    "review",
+    "quality monitoring"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "evaluation_id",
+    "session_id",
+    "uncovered_competency_ids"
+  ],
+  "properties": {
+    "evaluation_id": {
+      "type": "string",
+      "description": "The evaluation.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "The session.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "uncovered_competency_ids": {
+      "type": "array",
+      "description": "Which competencies had too little evidence. Identifiers rather than names, so a consumer resolves them under its own authority.",
+      "x-since": "1.0",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

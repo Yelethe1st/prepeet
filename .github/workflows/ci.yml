@@ -50,6 +50,12 @@ jobs:
       # has Docker for.
       - name: Test with the race detector and coverage
         run: go test -tags integration -race -timeout 15m -covermode=atomic -coverprofile=coverage.out ./platform/... ./internal/...
+      # Their own modules, so the step above does not reach them. Uncached,
+      # because their inputs are the contracts and the documentation and the
+      # cache cannot see those change.
+      - name: Test the generators
+        run: make test-tools
+        working-directory: .
       - name: Enforce the coverage floor
         run: |
           total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')

@@ -1,0 +1,43 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/candidate.competency_observed.v1.schema.json",
+  "title": "candidate.competency_observed.v1",
+  "description": "Evidence for one competency was seen in a practice session. Practice only: a screening observation must never reach a candidate's practice progression, because the two authorities are separated and this is one of the paths that would join them.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "evaluation",
+  "x-consumers": [
+    "practice progression"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "candidate_id",
+    "competency_id",
+    "session_id",
+    "observation_id"
+  ],
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "description": "Whose practice history this belongs to.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "competency_id": {
+      "type": "string",
+      "description": "What was observed.",
+      "x-since": "1.0"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Where it was observed.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "observation_id": {
+      "type": "string",
+      "description": "The observation record, so a redelivery updates progression once rather than twice.",
+      "x-since": "1.0",
+      "format": "uuid"
+    }
+  }
+}

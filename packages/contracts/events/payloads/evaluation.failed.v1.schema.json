@@ -1,0 +1,50 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/evaluation.failed.v1.schema.json",
+  "title": "evaluation.failed.v1",
+  "description": "Evaluation could not run. Separate from insufficient evidence, which is an answer; this is the absence of one. Conflating them would tell a candidate their interview was inconclusive when in fact a provider was down.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "evaluation",
+  "x-consumers": [
+    "operations",
+    "notification policy"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "evaluation_id",
+    "session_id",
+    "failure",
+    "retryable"
+  ],
+  "properties": {
+    "evaluation_id": {
+      "type": "string",
+      "description": "The evaluation attempted.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "The session.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "failure": {
+      "type": "string",
+      "description": "The taxonomy an operator acts on. Budget exhaustion is separate from provider failure because one is answered by spending and the other by waiting.",
+      "x-since": "1.0",
+      "enum": [
+        "provider_unavailable",
+        "budget_exhausted",
+        "invalid_input",
+        "timeout",
+        "internal"
+      ]
+    },
+    "retryable": {
+      "type": "boolean",
+      "description": "Whether the same attempt could succeed unchanged. Stated by the producer rather than inferred from the failure, so that a consumer is not left encoding our taxonomy.",
+      "x-since": "1.0"
+    }
+  }
+}

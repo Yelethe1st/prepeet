@@ -1,0 +1,53 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/tenant.membership_changed.v1.schema.json",
+  "title": "tenant.membership_changed.v1",
+  "description": "Someone's authority in a workspace changed. Sessions are invalidated from this, so it is emitted for a revocation as well as a grant; a revocation nobody hears is authority that outlives its removal.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "tenancy",
+  "x-consumers": [
+    "audit",
+    "session invalidation"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "membership_id",
+    "user_id",
+    "change"
+  ],
+  "properties": {
+    "membership_id": {
+      "type": "string",
+      "description": "The membership row that changed.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "Whose authority changed.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "change": {
+      "type": "string",
+      "description": "What happened. Separate values rather than a role diff, because a consumer invalidating sessions cares about revocation and suspension and not about which role replaced which.",
+      "x-since": "1.0",
+      "enum": [
+        "granted",
+        "role_changed",
+        "suspended",
+        "revoked"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "description": "The role now held. Absent on revocation, where there is none.",
+      "x-since": "1.0"
+    },
+    "previous_role": {
+      "type": "string",
+      "description": "The role held before, for an audit trail that can answer what changed rather than only what it is now.",
+      "x-since": "1.0"
+    }
+  }
+}

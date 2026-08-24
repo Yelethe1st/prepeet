@@ -1,0 +1,99 @@
+{
+  "$id": "https://contracts.prepeet.com/events/envelope.schema.json",
+  "title": "Event envelope",
+  "description": "Every durable event carries these fields. They are what a consumer can rely on without knowing the event type, which is what makes generic handling, deduplication and audit possible. Restricted content never appears here or in a payload, because events reach integrations and analytics where the retention and access rules belong to somebody else. See ADR-0004.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "integration",
+  "x-since": "1.0",
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "producer",
+    "actor",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUIDv7. Consumers deduplicate on this, which is what makes at-least-once delivery safe, so it is stable across every redelivery of the same fact.",
+      "x-since": "1.0"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "The contract a consumer subscribes against, including its version. evaluation.completed.v1 and evaluation.completed.v2 are different events that may be emitted side by side during a migration.",
+      "x-since": "1.0"
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "How the payload has evolved within this contract. It bumps for additive change; a consumer tolerates a higher value rather than refusing it, because refusing one is how an additive change becomes a breaking one.",
+      "x-since": "1.0"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The tenant the fact belongs to. Absent for a fact that predates tenant selection, such as a registration, which is why it is not required.",
+      "x-since": "1.0"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the fact happened, not when it was delivered. Delivery may be much later and may be out of order, so ordering by receipt is a mistake a consumer must not be led into.",
+      "x-since": "1.0"
+    },
+    "producer": {
+      "type": "string",
+      "description": "The bounded context that owns the authoritative state. Only it emits this event.",
+      "x-since": "1.0"
+    },
+    "actor": {
+      "$ref": "#/$defs/actor",
+      "description": "Who or what caused the fact. Present on every event because an audit trail that cannot name an actor answers no question worth asking.",
+      "x-since": "1.0"
+    },
+    "purpose": {
+      "type": "string",
+      "enum": ["practice", "screening"],
+      "description": "Which authority the fact arose under. Practice and screening are separated everywhere, and a consumer that mixes them has broken the separation on our behalf.",
+      "x-since": "1.0"
+    },
+    "correlation_id": {
+      "type": "string",
+      "description": "Ties every event arising from one originating request together.",
+      "x-since": "1.0"
+    },
+    "causation_id": {
+      "type": "string",
+      "description": "The event_id of the event that caused this one, so a chain can be walked backwards without guessing from timestamps.",
+      "x-since": "1.0"
+    },
+    "payload": {
+      "type": "object",
+      "description": "The event-type-specific body, validated against that type's schema at publication.",
+      "x-since": "1.0"
+    }
+  },
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["user", "service", "system"],
+          "description": "system is for a fact nobody triggered, such as an expiry. Distinguished from service so that 'nobody did this' is not recorded as 'a worker did this'.",
+          "x-since": "1.0"
+        },
+        "id": {
+          "type": "string",
+          "description": "The user identifier, or the service name. Never an email address, which is restricted content.",
+          "x-since": "1.0"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/candidate.document_uploaded.v1.schema.json",
+  "title": "candidate.document_uploaded.v1",
+  "description": "A candidate finished uploading a document. The document itself travels as an object reference rather than as bytes, per ADR-0004: an event carrying a CV would put a CV into every consumer's retention policy.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "candidate",
+  "x-consumers": [
+    "extraction workflow"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "document_id",
+    "candidate_id",
+    "storage_key",
+    "media_type",
+    "byte_size"
+  ],
+  "properties": {
+    "document_id": {
+      "type": "string",
+      "description": "The document record.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "Whose document it is.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "storage_key": {
+      "type": "string",
+      "description": "The object key. Reading it needs a scoped, short-lived grant that this event does not confer.",
+      "x-since": "1.0"
+    },
+    "media_type": {
+      "type": "string",
+      "description": "The declared type, so extraction can refuse one it cannot read without fetching it first.",
+      "x-since": "1.0"
+    },
+    "byte_size": {
+      "type": "integer",
+      "description": "Size in bytes, so a consumer can refuse an oversized document before downloading it.",
+      "x-since": "1.0"
+    }
+  }
+}

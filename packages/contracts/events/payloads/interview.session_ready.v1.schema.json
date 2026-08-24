@@ -1,0 +1,43 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/interview.session_ready.v1.schema.json",
+  "title": "interview.session_ready.v1",
+  "description": "The session bundle is composed and immutable. Nothing about the session may change after this, which is what makes a review reproducible, so the digest is carried for anyone who needs to prove which inputs were used.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "interview",
+  "x-consumers": [
+    "notification",
+    "projection"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "session_id",
+    "bundle_id",
+    "bundle_digest",
+    "bundle_revision"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "The session.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "bundle_id": {
+      "type": "string",
+      "description": "The composed bundle.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "bundle_digest": {
+      "type": "string",
+      "description": "Digest of the bundle's content. A material pre-start change creates a new revision with a new digest rather than editing this one.",
+      "x-since": "1.0"
+    },
+    "bundle_revision": {
+      "type": "integer",
+      "description": "Which revision this is. Greater than one means the session was recomposed before it started.",
+      "x-since": "1.0"
+    }
+  }
+}

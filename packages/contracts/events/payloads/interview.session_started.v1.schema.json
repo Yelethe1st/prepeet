@@ -1,0 +1,30 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/interview.session_started.v1.schema.json",
+  "title": "interview.session_started.v1",
+  "description": "The candidate began. Billing and concurrency both count from here rather than from creation, because a session nobody sat costs neither.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "interview",
+  "x-consumers": [
+    "usage",
+    "operations"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "session_id",
+    "bundle_digest"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "The session.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "bundle_digest": {
+      "type": "string",
+      "description": "The bundle in force, repeated so that a consumer holding only this event can tell which inputs the session ran against.",
+      "x-since": "1.0"
+    }
+  }
+}

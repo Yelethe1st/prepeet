@@ -1,0 +1,49 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/interview.session_interrupted.v1.schema.json",
+  "title": "interview.session_interrupted.v1",
+  "description": "A session stopped without completing and may resume. Emitted for every interruption including recoverable ones, because the pattern across many sessions is what tells operations a provider is degrading, and that pattern is invisible if only the fatal ones are reported.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "interview",
+  "x-consumers": [
+    "operations",
+    "incident policy"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "session_id",
+    "reason",
+    "resumable",
+    "attempt"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "The session.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "reason": {
+      "type": "string",
+      "description": "What broke. A closed set so that a consumer can act on it, since prose here would be something only a human could read.",
+      "x-since": "1.0",
+      "enum": [
+        "network",
+        "provider",
+        "candidate_left",
+        "operator",
+        "internal"
+      ]
+    },
+    "resumable": {
+      "type": "boolean",
+      "description": "Whether the session may continue. A screening session's answer is a policy decision recorded elsewhere, not one a consumer should infer from the reason.",
+      "x-since": "1.0"
+    },
+    "attempt": {
+      "type": "integer",
+      "description": "Which interruption this is for the session. Repeated interruption is the operational signal, not any single one.",
+      "x-since": "1.0"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$id": "https://contracts.prepeet.com/events/payloads/media.manifest_finalized.v1.schema.json",
+  "title": "media.manifest_finalized.v1",
+  "description": "Every track for a session is uploaded, aligned and durable. Evaluation waits for this rather than for session completion, because a session ends before its media has finished arriving and evaluating from partial media is how a candidate is judged on what was recorded rather than on what they said.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-owner": "media",
+  "x-consumers": [
+    "evaluation",
+    "articulation"
+  ],
+  "x-since": "1.0",
+  "required": [
+    "manifest_id",
+    "session_id",
+    "track_count",
+    "duration_ms",
+    "checksum"
+  ],
+  "properties": {
+    "manifest_id": {
+      "type": "string",
+      "description": "The manifest.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "The session it covers.",
+      "x-since": "1.0",
+      "format": "uuid"
+    },
+    "track_count": {
+      "type": "integer",
+      "description": "How many tracks. A count below what the session expected means media is missing, which a consumer must treat as insufficient rather than as complete.",
+      "x-since": "1.0"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "description": "Aligned duration across tracks.",
+      "x-since": "1.0"
+    },
+    "checksum": {
+      "type": "string",
+      "description": "Of the manifest, so a replay can prove it read the same media.",
+      "x-since": "1.0"
+    }
+  }
+}

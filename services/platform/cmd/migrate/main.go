@@ -21,6 +21,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
 
 func main() {
@@ -31,6 +32,15 @@ func main() {
 		log.Error("configuration is not usable", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
+	// A migration runs on the deploy path, where a collector may not be
+	// reachable, so this process logs rather than traces. The scrubbing logger
+	// matters here more than anywhere: a driver error on a failed connection
+	// carries the connection string, password included.
+	log = telemetry.NewLogger(telemetry.Config{
+		ServiceName: "prepeet-migrate",
+		Environment: string(cfg.Environment),
+	}, os.Stdout)
 
 	if cfg.DatabaseURL == "" {
 		log.Error("PREPEET_DATABASE_URL is required to migrate")

@@ -7,6 +7,15 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 )
 
+// lookupFrom builds a Lookup over a fixed map, so a test states only the
+// variables it cares about and inherits the defaults for everything else.
+func lookupFrom(env map[string]string) config.Lookup {
+	return func(key string) (string, bool) {
+		value, ok := env[key]
+		return value, ok
+	}
+}
+
 func TestLoadUsesDefaultsWhenNothingIsSet(t *testing.T) {
 	t.Parallel()
 
@@ -162,5 +171,78 @@ func TestConfigDoesNotStringifyTheDatabasePassword(t *testing.T) {
 
 	if strings.Contains(got.String(), "hunter2") {
 		t.Errorf("String() = %q, want the password redacted", got.String())
+	}
+}
+
+// ─────────────────────────────────────────────────────────────── telemetry
+
+// Telemetry is off unless an endpoint is configured. A default endpoint would
+// make every local process try to reach a collector that is not there, and the
+// resulting connection errors train people to ignore telemetry logs.
+func TestTelemetryIsOffByDefault(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.OTLPEndpoint != "" {
+		t.Errorf("OTLPEndpoint = %q by default, want empty so no collector is assumed", cfg.OTLPEndpoint)
+	}
+}
+
+func TestTelemetryEndpointIsRead(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_OTLP_ENDPOINT": "collector.internal:4317",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.OTLPEndpoint != "collector.internal:4317" {
+		t.Errorf("OTLPEndpoint = %q, want collector.internal:4317", cfg.OTLPEndpoint)
+	}
+}
+
+// Sampling defaults to everything. A product with no traffic gains nothing from
+// sampling and loses the one trace it needed.
+func TestSamplingDefaultsToEverything(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TraceSampleRatio != 1 {
+		t.Errorf("TraceSampleRatio = %v, want 1", cfg.TraceSampleRatio)
+	}
+}
+
+// A ratio outside the range would silently record nothing or be rejected deep
+// inside the SDK, so it is refused at startup where the cause is visible.
+func TestAnUnusableSampleRatioIsRefused(t *testing.T) {
+	t.Parallel()
+
+	for _, ratio := range []string{"-0.5", "1.5", "many"} {
+		if _, err := config.Load(lookupFrom(map[string]string{
+			"PREPEET_TRACE_SAMPLE_RATIO": ratio,
+		})); err == nil {
+			t.Errorf("Load accepted a sample ratio of %q", ratio)
+		}
+	}
+}
+
+func TestASampleRatioIsRead(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_TRACE_SAMPLE_RATIO": "0.25",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TraceSampleRatio != 0.25 {
+		t.Errorf("TraceSampleRatio = %v, want 0.25", cfg.TraceSampleRatio)
 	}
 }

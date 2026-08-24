@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/url"
 	"slices"
+	"strconv"
 )
 
 // Lookup reads one configuration value. os.LookupEnv satisfies it.
@@ -46,6 +47,13 @@ type Config struct {
 	// default would let a process start pointed at nothing and fail later,
 	// further from the cause.
 	DatabaseURL string
+	// OTLPEndpoint is the OpenTelemetry collector, as host:port. Empty disables
+	// export, which is the local default: an engineer running the stack should
+	// not need a collector, and a default endpoint would produce a steady
+	// stream of connection errors that teaches everyone to ignore them.
+	OTLPEndpoint string
+	// TraceSampleRatio is the fraction of traces recorded, between 0 and 1.
+	TraceSampleRatio float64
 	// AppDatabasePassword is the password for the prepeet_app role, used only
 	// by cmd/migrate when creating the role. It has no default because a
 	// default would be a credential in the repository, and in a deployed
@@ -64,8 +72,9 @@ func (c Config) String() string {
 	if c.AppDatabasePassword != "" {
 		password = "[redacted]"
 	}
-	return fmt.Sprintf("Config{Address:%s Environment:%s DatabaseURL:%s AppDatabasePassword:%s}",
-		c.Address, c.Environment, redactURL(c.DatabaseURL), password)
+	return fmt.Sprintf("Config{Address:%s Environment:%s DatabaseURL:%s AppDatabasePassword:%s OTLPEndpoint:%s TraceSampleRatio:%v}",
+		c.Address, c.Environment, redactURL(c.DatabaseURL), password,
+		c.OTLPEndpoint, c.TraceSampleRatio)
 }
 
 // redactURL removes any password embedded in a connection string, which is the
@@ -99,10 +108,21 @@ func Load(lookup Lookup) (Config, error) {
 		Address:     value(lookup, "PREPEET_ADDRESS", ":8080"),
 		Environment: Environment(value(lookup, "PREPEET_ENVIRONMENT", string(EnvironmentLocal))),
 
+		OTLPEndpoint: value(lookup, "PREPEET_OTLP_ENDPOINT", ""),
+
 		// No defaults. See the field comments.
 		DatabaseURL:         value(lookup, "PREPEET_DATABASE_URL", ""),
 		AppDatabasePassword: value(lookup, "PREPEET_APP_DATABASE_PASSWORD", ""),
 	}
+
+	// Sampling defaults to everything. A product with no traffic gains nothing
+	// from sampling and loses the one trace it needed.
+	ratio, err := strconv.ParseFloat(value(lookup, "PREPEET_TRACE_SAMPLE_RATIO", "1"), 64)
+	if err != nil || ratio < 0 || ratio > 1 {
+		return Config{}, fmt.Errorf("config: PREPEET_TRACE_SAMPLE_RATIO is %q, want a number between 0 and 1",
+			value(lookup, "PREPEET_TRACE_SAMPLE_RATIO", "1"))
+	}
+	cfg.TraceSampleRatio = ratio
 
 	if !slices.Contains(environments, cfg.Environment) {
 		return Config{}, fmt.Errorf("config: PREPEET_ENVIRONMENT is %q, want one of %v",

@@ -8,6 +8,8 @@
 
 Use OpenTelemetry across browser, Next.js, Go, Python, Temporal, PostgreSQL, object storage, and approved provider calls. Preserve correlation across the complete interview journey without exporting restricted content.
 
+The concrete contract every language implements, including the attribute allowlist, span naming, scrubbing patterns and the shared assertion suite, is [telemetry-conventions.md](telemetry-conventions.md).
+
 ## Safe dimensions
 
 Environment, region, service/version, route template/capability, workflow/activity, mode, provider/model policy, outcome, retry class, and controlled tenant tier/reference where justified.

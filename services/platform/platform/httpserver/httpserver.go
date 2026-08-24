@@ -1,11 +1,12 @@
 // Package httpserver builds the HTTP handler the api binary serves.
 //
-// It owns the concerns every route shares: correlation identifiers, the single
-// error envelope from docs/contracts/public-api.md, and the deployment probes.
+// It owns the concerns every route shares: correlation identifiers, request
+// tracing, panic recovery, the single error envelope from
+// docs/contracts/public-api.md, and the deployment probes.
 // Product routes are mounted onto it by their own bounded context; this package
 // never holds a product rule.
 //
-// Implements part of PLT-01 and the correlation half of PLT-08.
+// Implements part of PLT-01 and the request path half of PLT-08.
 package httpserver
 
 import (
@@ -30,6 +31,11 @@ type Config struct {
 	// Health is consulted by the readiness probe. A nil registry is treated as
 	// one with no dependencies, which reports ready.
 	Health *health.Registry
+
+	// Routes mounts the product endpoints. A bounded context registers its own
+	// handlers here rather than this package knowing they exist, which is what
+	// keeps this package free of product rules.
+	Routes func(mux *http.ServeMux)
 }
 
 type contextKey int
@@ -73,12 +79,19 @@ func New(cfg Config) http.Handler {
 		writeJSON(w, r, status, report)
 	})
 
+	if cfg.Routes != nil {
+		cfg.Routes(mux)
+	}
+
 	// Go's ServeMux answers an unmatched path or method with a plain text body.
 	// Every failure in this API uses one envelope, so both are replaced here.
 	root := http.NewServeMux()
 	root.Handle("/", notFound(mux))
 
-	return withRequestID(root)
+	// Order matters. The correlation identifier is established first so the span
+	// can carry it, and tracing wraps the routes so a panic anywhere inside them
+	// still ends its span.
+	return withRequestID(withTracing(mux, root))
 }
 
 // notFound converts ServeMux's built in 404 and 405 responses into the API

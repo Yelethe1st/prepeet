@@ -171,7 +171,16 @@ metrics and error reports.
 - [ ] It covers third-party error reporting, not only first-party logs.
 - [ ] A finding is treated as an incident, with the same review as a leak.
 
-**Spec** [observability.md](../../operations/observability.md)
+**In progress.** The Go scanner runs in the test suite and so already fails the build: it records spans
+and log output from real requests and asserts no value matches an address, token, connection string or
+password hash. The assertions it must satisfy are listed in
+[telemetry-conventions.md](../../operations/telemetry-conventions.md) so the web and Python
+implementations inherit them rather than reimplementing them.
+
+**Remaining.** Scanning what the collector actually received, rather than what the process produced, and
+covering third-party error reporting once one is chosen.
+
+**Spec** [observability.md](../../operations/observability.md) · [telemetry-conventions.md](../../operations/telemetry-conventions.md)
 
 ---
 

@@ -153,10 +153,20 @@ carry correlation without carrying transcript content.
 
 **Done when**
 - [ ] A single trace spans the full journey with no broken links.
-- [ ] Telemetry conventions are documented and shared across the three languages.
-- [ ] SEC-07's restricted-content scanner passes against real telemetry output.
+- [x] Telemetry conventions are documented and shared across the three languages.
+- [x] SEC-08's restricted-content scanner passes against real telemetry output.
 
-**Spec** [observability.md](../../operations/observability.md)
+**In progress.** The Go half is built: `platform/telemetry` with the attribute allowlist and scrubber, a
+span and a latency histogram per request, panic recovery, trace-correlated structured logging, and the
+scanner running against real recorded spans and real log output. Conventions are written down in
+[telemetry-conventions.md](../../operations/telemetry-conventions.md) for the other two languages to
+implement.
+
+**Remaining.** The first box cannot be ticked until the web and intelligence services exist, since a
+single trace has nowhere else to reach yet. Database pool and outbox instrumentation land with their
+adapters. Cardinality budgets need a real series count to be set against.
+
+**Spec** [observability.md](../../operations/observability.md) · [telemetry-conventions.md](../../operations/telemetry-conventions.md)
 
 ---
 

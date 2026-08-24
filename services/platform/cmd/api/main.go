@@ -20,6 +20,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/httpserver"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
 
 // shutdownGrace bounds how long a terminating process waits for in-flight
@@ -28,6 +29,8 @@ import (
 const shutdownGrace = 20 * time.Second
 
 func main() {
+	// A plain logger covers the window before configuration is read, which is
+	// the window a configuration failure lands in.
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	cfg, err := config.Load(os.LookupEnv)
@@ -36,6 +39,25 @@ func main() {
 		// process that starts with configuration it cannot use fails later and
 		// further from its cause.
 		log.Error("configuration is not usable", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	telemetryConfig := telemetry.Config{
+		ServiceName: "prepeet-api",
+		Environment: string(cfg.Environment),
+		Endpoint:    cfg.OTLPEndpoint,
+		SampleRatio: cfg.TraceSampleRatio,
+	}
+
+	// From here on every log line is scrubbed and carries its trace.
+	log = telemetry.NewLogger(telemetryConfig, os.Stdout)
+
+	shutdownTelemetry, err := telemetry.Setup(context.Background(), telemetryConfig)
+	if err != nil {
+		// Telemetry that cannot start is a startup failure rather than a
+		// degradation. A process running unobserved looks identical to a
+		// healthy one until something goes wrong in it.
+		log.Error("telemetry is not usable", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
@@ -69,8 +91,18 @@ func main() {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Error("api shutdown was not clean", slog.String("error", err.Error()))
+
+	serverErr := server.Shutdown(shutdownCtx)
+
+	// Telemetry is flushed after the server stops and before the process exits,
+	// because the spans buffered at this point describe whatever caused the
+	// shutdown. Losing them loses the record of the incident.
+	if err := shutdownTelemetry(shutdownCtx); err != nil {
+		log.Error("telemetry did not flush", slog.String("error", err.Error()))
+	}
+
+	if serverErr != nil {
+		log.Error("api shutdown was not clean", slog.String("error", serverErr.Error()))
 		os.Exit(1)
 	}
 	log.Info("api stopped")

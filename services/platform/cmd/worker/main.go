@@ -16,6 +16,7 @@ import (
 	"os"
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
 
 func main() {
@@ -26,6 +27,14 @@ func main() {
 		log.Error("configuration is not usable", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
+	// Traces are not set up here yet: this process has no work to trace until
+	// PLT-06 registers workflows. The scrubbing logger is wired now regardless,
+	// because startup and configuration errors carry connection strings.
+	log = telemetry.NewLogger(telemetry.Config{
+		ServiceName: "prepeet-worker",
+		Environment: string(cfg.Environment),
+	}, os.Stdout)
 
 	log.Info("worker started with no registered workflows",
 		slog.String("environment", string(cfg.Environment)),

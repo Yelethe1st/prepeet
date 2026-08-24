@@ -48,6 +48,15 @@ type Identity interface {
 
 	// Describe returns what /me reports about a user.
 	Describe(ctx context.Context, userID string) (User, error)
+
+	// SelectTenant sets which tenant the session acts under, after verifying
+	// the membership. An empty tenantID clears the selection.
+	//
+	// It returns ErrNoMembership when the person does not belong to that
+	// tenant, which is distinct from a rejected session: one means sign in
+	// again and the other means that workspace is not yours, and answering the
+	// first for the second would sign somebody out for clicking the wrong name.
+	SelectTenant(ctx context.Context, sessionToken, tenantID string) (Principal, error)
 }
 
 // Registration is a request to create an account.
@@ -125,6 +134,9 @@ var (
 	// ErrSessionRejected means the session or refresh token is not usable, for
 	// any reason.
 	ErrSessionRejected = errors.New("api: that session is not valid")
+
+	// ErrForbidden means the session is fine and the act is not permitted.
+	ErrForbidden = errors.New("api: that is not permitted for this session")
 )
 
 // FieldError names a request field that failed validation.

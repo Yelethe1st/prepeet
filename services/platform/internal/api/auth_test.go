@@ -44,6 +44,9 @@ type fakeIdentity struct {
 
 	user        api.User
 	describeErr error
+
+	selected  []string
+	selectErr error
 }
 
 func (f *fakeIdentity) Register(_ context.Context, input api.Registration) error {
@@ -78,6 +81,16 @@ func (f *fakeIdentity) Lookup(_ context.Context, token string) (api.Principal, e
 func (f *fakeIdentity) Revoke(_ context.Context, token, _ string) error {
 	f.revoked = append(f.revoked, token)
 	return f.revokeErr
+}
+
+func (f *fakeIdentity) SelectTenant(_ context.Context, _, tenantID string) (api.Principal, error) {
+	f.selected = append(f.selected, tenantID)
+	if f.selectErr != nil {
+		return api.Principal{}, f.selectErr
+	}
+	principal := f.principal
+	principal.ActiveTenantID = tenantID
+	return principal, nil
 }
 
 func (f *fakeIdentity) Describe(_ context.Context, _ string) (api.User, error) {
@@ -139,6 +152,19 @@ func post(t *testing.T, handler http.Handler, path, body string, cookies ...*htt
 	t.Helper()
 
 	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	return response
+}
+
+func put(t *testing.T, handler http.Handler, path, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)

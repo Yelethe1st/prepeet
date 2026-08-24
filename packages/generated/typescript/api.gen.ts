@@ -170,6 +170,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the workspaces this person belongs to
+         * @description The one question that cannot be scoped by tenant, because it is asked
+         *     before a tenant has been chosen. Answered by row-level security keyed on
+         *     the acting user rather than by a filter in the query, so forgetting the
+         *     filter is a missing result rather than another person's memberships.
+         *
+         *     Listing a membership is not a statement about what it permits. That is
+         *     decided per request by the capability layer.
+         */
+        get: operations["listMemberships"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/active-tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose which workspace this session acts under
+         * @description Every request operates under exactly one explicit active tenant, and it
+         *     is never inferred from a resource identifier. This is where it is
+         *     chosen, and the only place membership is checked: the selection is
+         *     stored on the session, so later requests read it from a row the client
+         *     cannot reach rather than from something the client sent.
+         *
+         *     A null tenant clears the selection, which is how somebody leaves a
+         *     workspace without signing out.
+         *
+         *     Both the selection and its refusal are audited. The refusal is the one
+         *     worth keeping: repeated attempts on workspaces somebody does not belong
+         *     to is the shape of an account probing for access.
+         */
+        put: operations["setActiveTenant"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -282,6 +339,16 @@ export interface components {
              *     require this to be recent.
              */
             authenticated_at: string;
+        };
+        MembershipList: {
+            memberships: components["schemas"]["Membership"][];
+        };
+        ActiveTenantSelection: {
+            /**
+             * Format: uuid
+             * @description The workspace to act under, or null to act under none.
+             */
+            tenant_id: string | null;
         };
         Membership: {
             /** Format: uuid */
@@ -586,6 +653,69 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
+        };
+    };
+    listMemberships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workspaces this person belongs to, which may be none. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    setActiveTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActiveTenantSelection"];
+            };
+        };
+        responses: {
+            /** @description The session now acts under that workspace. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            /**
+             * @description No active membership of that workspace. Deliberately not 404: the
+             *     workspace may well exist, and saying otherwise to somebody who
+             *     cannot use it would be a way to test which identifiers are real.
+             */
+            403: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

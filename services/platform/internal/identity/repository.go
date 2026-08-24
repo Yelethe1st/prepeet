@@ -80,6 +80,113 @@ func (r *PostgresRepository) FindUserByID(ctx context.Context, userID string) (U
 	return user, nil
 }
 
+// SetActiveTenant verifies the membership, records the selection and writes the
+// audit event, in one transaction.
+//
+// Three things in one method because they cannot be separated. A selection
+// written without its membership check is an unauthorised scope; one written
+// without its audit event is an authorisation decision nobody can review; and a
+// refusal that is not audited loses exactly the record worth keeping, since a
+// person trying workspaces they do not belong to is the shape of an account
+// probing for access.
+//
+// The transaction is scoped to the acting user rather than to a tenant, because
+// this runs before a tenant has been chosen. The membership policy from 0007
+// makes their own memberships readable, and the audit policy makes an
+// untenanted event writable by its own actor.
+func (r *PostgresRepository) SetActiveTenant(ctx context.Context, sessionID, userID, tenantID, requestID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("identity: beginning tenant selection: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := database.SetUser(ctx, tx, userID); err != nil {
+		return err
+	}
+
+	if tenantID != "" {
+		// The one membership check in the system. Everything downstream reads
+		// the selection from the session rather than re-deriving it, so this is
+		// the only place it can be got wrong.
+		var permitted bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM tenancy.memberships
+				WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'
+			)`, userID, tenantID).Scan(&permitted); err != nil {
+			return fmt.Errorf("identity: checking membership: %w", err)
+		}
+
+		if !permitted {
+			// The refusal is committed. Rolling back would discard the audit
+			// event along with the rejected write, which loses the record of
+			// somebody attempting a workspace they do not belong to.
+			if err := writeAudit(ctx, tx, auditEvent{
+				actorID: userID, action: "identity.tenant_selected", outcome: "denied",
+				subjectType: "tenant", subjectID: tenantID, requestID: requestID,
+			}); err != nil {
+				return err
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return fmt.Errorf("identity: committing refused selection: %w", err)
+			}
+			return ErrNoMembership
+		}
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE identity.sessions SET active_tenant_id = nullif($2, '')::uuid WHERE id = $1`,
+		sessionID, tenantID); err != nil {
+		return fmt.Errorf("identity: recording tenant selection: %w", err)
+	}
+
+	action := "identity.tenant_selected"
+	if tenantID == "" {
+		action = "identity.tenant_cleared"
+	}
+	if err := writeAudit(ctx, tx, auditEvent{
+		actorID: userID, action: action, outcome: "allowed",
+		subjectType: "tenant", subjectID: tenantID, requestID: requestID,
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// auditEvent is one row of the audit trail.
+type auditEvent struct {
+	actorID     string
+	action      string
+	outcome     string
+	subjectType string
+	subjectID   string
+	requestID   string
+}
+
+// writeAudit appends to the audit trail inside the caller's transaction.
+//
+// Inside it deliberately: an audit row that commits when the act it describes
+// does not is a record of something that never happened, and one that is
+// written afterwards is a record that is missing whenever the process dies in
+// between. Neither is worth having.
+//
+// tenant_id is left NULL because tenant selection happens before a tenant is
+// chosen. The audit policy makes such a row writable and readable by its own
+// actor, which is the only meaningful scope it has.
+func writeAudit(ctx context.Context, tx pgx.Tx, event auditEvent) error {
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO audit.events
+			(id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, request_id)
+		VALUES ($1, NULL, $2, 'user', $3, nullif($4, ''), nullif($5, ''), $6, nullif($7, ''))`,
+		id.New().String(), event.actorID, event.action,
+		event.subjectType, event.subjectID, event.outcome, event.requestID); err != nil {
+		return fmt.Errorf("identity: writing audit event: %w", err)
+	}
+	return nil
+}
+
 // FindMembershipsByUser lists the tenants a person belongs to.
 //
 // This is the one question that cannot be scoped by tenant, because it is asked
@@ -313,13 +420,13 @@ func (r *PostgresRepository) findSession(ctx context.Context, predicate, tokenHa
 		SELECT id::text, user_id::text, family_id::text,
 		       session_token_hash, refresh_token_hash,
 		       issued_at, expires_at, refresh_expires_at, authenticated_at,
-		       retired_at, revoked_at
+		       retired_at, revoked_at, coalesce(active_tenant_id::text, '')
 		FROM identity.sessions
 		WHERE `+predicate, tokenHash).Scan(
 		&row.ID, &row.UserID, &row.FamilyID,
 		&row.SessionTokenHash, &row.RefreshTokenHash,
 		&row.IssuedAt, &row.ExpiresAt, &row.RefreshExpiresAt, &row.AuthenticatedAt,
-		&row.RetiredAt, &row.RevokedAt)
+		&row.RetiredAt, &row.RevokedAt, &row.ActiveTenantID)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SessionRow{}, ErrNotFound

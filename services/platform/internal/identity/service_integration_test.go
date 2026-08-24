@@ -990,3 +990,290 @@ func TestMembershipsOfOneUserAreNotVisibleToAnother(t *testing.T) {
 		}
 	}
 }
+
+// ─────────────────────────────────────────────────── selecting a tenant
+
+// Every request operates under exactly one explicit tenant, never one inferred
+// from a resource identifier. Selecting it is therefore its own act, and the
+// only place membership is checked.
+
+func TestSelectingATenantRequiresAMembership(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	// One person creates a workspace; another has nothing to do with it.
+	owner, err := service.Register(ctx, identity.RegisterInput{
+		Email: nthEmailFor(t, 1), Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("registering the owner: %v", err)
+	}
+
+	stranger, err := service.Register(ctx, identity.RegisterInput{
+		Email: nthEmailFor(t, 2), Password: goodPassword, AccountType: identity.AccountCandidate,
+	})
+	if err != nil {
+		t.Fatalf("registering the stranger: %v", err)
+	}
+	_ = stranger
+
+	session, err := service.Authenticate(ctx, nthEmailFor(t, 2), goodPassword)
+	if err != nil {
+		t.Fatalf("authenticating the stranger: %v", err)
+	}
+
+	// The whole point. A tenant identifier is not an authorisation, and the
+	// only thing stopping this is the membership check.
+	if err := service.SelectTenant(ctx, session.SessionToken, owner.TenantID); !errors.Is(err, identity.ErrNoMembership) {
+		t.Fatalf("SelectTenant for a stranger returned %v, want ErrNoMembership", err)
+	}
+
+	// And nothing was written, so a failed attempt cannot leave the session
+	// pointing at a workspace the person may not use.
+	principal, err := service.Lookup(ctx, session.SessionToken)
+	if err != nil {
+		t.Fatalf("Lookup: %v", err)
+	}
+	if principal.ActiveTenantID != "" {
+		t.Errorf("the session is scoped to %s after a refused selection", principal.ActiveTenantID)
+	}
+}
+
+func TestSelectingATenantYouBelongToSucceeds(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	registered, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+
+	if err := service.SelectTenant(ctx, session.SessionToken, registered.TenantID); err != nil {
+		t.Fatalf("SelectTenant: %v", err)
+	}
+
+	principal, err := service.Lookup(ctx, session.SessionToken)
+	if err != nil {
+		t.Fatalf("Lookup: %v", err)
+	}
+	if principal.ActiveTenantID != registered.TenantID {
+		t.Errorf("ActiveTenantID = %q, want %q", principal.ActiveTenantID, registered.TenantID)
+	}
+}
+
+// A session with no tenant is the normal state for a candidate, and must not be
+// mistaken for an error.
+func TestASessionStartsWithNoActiveTenant(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	if _, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword, AccountType: identity.AccountCandidate,
+	}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+	if session.ActiveTenantID != "" {
+		t.Errorf("a new session is already scoped to %s", session.ActiveTenantID)
+	}
+}
+
+// Even an owner registering their own workspace is not signed into it. Sign-in
+// and tenant selection are separate acts, and conflating them would mean the
+// first request after login is scoped by something nobody chose.
+func TestRegisteringAWorkspaceDoesNotSelectIt(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	if _, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+	if session.ActiveTenantID != "" {
+		t.Errorf("signing in selected tenant %s without being asked", session.ActiveTenantID)
+	}
+}
+
+// Clearing the selection is how somebody leaves a workspace context without
+// signing out, and is what the interface does when a membership is revoked
+// underneath them.
+func TestATenantSelectionCanBeCleared(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	registered, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+	if err := service.SelectTenant(ctx, session.SessionToken, registered.TenantID); err != nil {
+		t.Fatalf("SelectTenant: %v", err)
+	}
+
+	if err := service.SelectTenant(ctx, session.SessionToken, ""); err != nil {
+		t.Fatalf("clearing the selection: %v", err)
+	}
+
+	principal, err := service.Lookup(ctx, session.SessionToken)
+	if err != nil {
+		t.Fatalf("Lookup: %v", err)
+	}
+	if principal.ActiveTenantID != "" {
+		t.Errorf("the selection survived being cleared: %q", principal.ActiveTenantID)
+	}
+}
+
+// A dead session cannot select anything, or a revoked session would still be
+// able to change what it acts as.
+func TestARevokedSessionCannotSelectATenant(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	registered, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+	if err := service.Revoke(ctx, session.SessionToken, "test"); err != nil {
+		t.Fatalf("Revoke: %v", err)
+	}
+
+	if err := service.SelectTenant(ctx, session.SessionToken, registered.TenantID); !errors.Is(err, identity.ErrSessionInvalid) {
+		t.Errorf("SelectTenant on a revoked session returned %v, want ErrSessionInvalid", err)
+	}
+}
+
+// Selecting a tenant is an authorisation decision and is recorded as one. The
+// refusal matters more than the success: a person repeatedly trying workspaces
+// they do not belong to is the shape of an account probing for access.
+func TestSelectingATenantIsAudited(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	email := emailFor(t)
+	registered, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	session, err := service.Authenticate(ctx, email, goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+	if err := service.SelectTenant(ctx, session.SessionToken, registered.TenantID); err != nil {
+		t.Fatalf("SelectTenant: %v", err)
+	}
+
+	var outcome, action string
+	if err := adminPool.QueryRow(ctx, `
+		SELECT outcome, action FROM audit.events
+		WHERE actor_id = $1 AND action = 'identity.tenant_selected'
+		ORDER BY occurred_at DESC LIMIT 1`, registered.UserID).Scan(&outcome, &action); err != nil {
+		t.Fatalf("reading the audit event: %v", err)
+	}
+	if outcome != "allowed" {
+		t.Errorf("outcome = %q, want allowed", outcome)
+	}
+}
+
+func TestARefusedTenantSelectionIsAudited(t *testing.T) {
+	ctx := context.Background()
+	service := newService(t)
+
+	owner, err := service.Register(ctx, identity.RegisterInput{
+		Email: nthEmailFor(t, 1), Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind",
+	})
+	if err != nil {
+		t.Fatalf("registering the owner: %v", err)
+	}
+	stranger, err := service.Register(ctx, identity.RegisterInput{
+		Email: nthEmailFor(t, 2), Password: goodPassword, AccountType: identity.AccountCandidate,
+	})
+	if err != nil {
+		t.Fatalf("registering the stranger: %v", err)
+	}
+	session, err := service.Authenticate(ctx, nthEmailFor(t, 2), goodPassword)
+	if err != nil {
+		t.Fatalf("Authenticate: %v", err)
+	}
+
+	_ = service.SelectTenant(ctx, session.SessionToken, owner.TenantID)
+
+	var outcome string
+	if err := adminPool.QueryRow(ctx, `
+		SELECT outcome FROM audit.events
+		WHERE actor_id = $1 AND action = 'identity.tenant_selected'
+		ORDER BY occurred_at DESC LIMIT 1`, stranger.UserID).Scan(&outcome); err != nil {
+		t.Fatalf("reading the audit event: %v", err)
+	}
+	if outcome != "denied" {
+		t.Errorf("outcome = %q, want denied: a refused attempt is the one worth recording", outcome)
+	}
+}
+
+// The audit trail must not be editable, or it is not one. Enforced by the
+// grant rather than by nobody writing the UPDATE.
+func TestTheAuditTrailCannotBeChangedByTheApplication(t *testing.T) {
+	ctx := context.Background()
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `UPDATE audit.events SET outcome = 'allowed'`); err == nil {
+		t.Error("the application role can rewrite audit events")
+	}
+
+	_ = tx.Rollback(ctx)
+	tx, err = pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `DELETE FROM audit.events`); err == nil {
+		t.Error("the application role can delete audit events")
+	}
+}

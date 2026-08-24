@@ -102,9 +102,37 @@ A user may belong to several tenants. Every request operates under exactly one, 
 never inferred from a resource identifier.
 
 **Done when**
-- [ ] `GET /me/memberships` and `PUT /me/active-tenant` work and are audited.
-- [ ] No handler infers tenant from a path parameter.
+- [x] `GET /me/memberships` and `PUT /me/active-tenant` work and are audited.
+- [x] No handler infers tenant from a path parameter.
 - [ ] Switching tenant cannot expose a resource from the previous one, including through a cached read model.
+
+**The selection lives on the session**, not in a cookie or a header. A client-supplied tenant is a claim
+the server must verify on every request, and the request that forgets is a cross-tenant read. Stored
+server side it is verified once, when it is chosen, and read thereafter from a row the client cannot
+reach. Revoking a session revokes the selection with it.
+
+Signing in never selects a workspace, including for somebody who has just registered one. A session that
+chose on the user's behalf would mean the first request after login was scoped by something nobody
+picked.
+
+**Refusing a workspace is 403, and both alternatives are wrong.** 404 would let anyone test which tenant
+identifiers are real. 401 would sign somebody out for clicking a workspace that is not theirs. The
+refusal says nothing about whether the workspace exists, asserted by a test that looks for the words.
+
+**Both the selection and its refusal are audited**, in the same transaction as the write. The refusal is
+the one worth keeping: repeated attempts on workspaces somebody does not belong to is the shape of an
+account probing for access. Migration 0008 adds `audit.events` as append-only by grant rather than by
+nobody writing the `UPDATE`, which is verified by trying.
+
+**The path rule is mechanical.** Nobody breaks it deliberately; it breaks because
+`/tenants/{tenantId}/sessions` looks natural and the handler scopes itself to what is right there. A test
+walks the contract and refuses any path parameter that names a tenant, and adding such an endpoint also
+fails to compile until a handler exists. Both were checked by adding one.
+
+**Remaining.** The third box needs something to switch between. Nothing tenant-scoped is served yet, so
+there is no read model to leak through and nothing to assert. The pieces are in place and tested:
+`Principal.ActiveTenantID` carries the selection, and `database.SetTenant` scopes a transaction to it.
+The first tenant-scoped endpoint joins them, and that is where this becomes checkable.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md)
 

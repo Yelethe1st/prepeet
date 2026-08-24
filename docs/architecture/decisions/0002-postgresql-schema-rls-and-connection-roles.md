@@ -127,6 +127,20 @@ asserted directly: the membership read still isolates correctly with its `WHERE`
 They are `SELECT` only. Reading your own memberships must never become a way to grant yourself one, and a
 test widens the policy to `ALL` to confirm that it would then be possible.
 
+## The audit trail is append-only by grant
+
+Added with migration 0008, when tenant selection became the first thing that had to be audited.
+
+`REVOKE UPDATE, DELETE ON audit.events FROM prepeet_app`, so the application can write and read and can
+change nothing. An audit trail that the application could edit is not an audit trail, and "nobody writes
+that `UPDATE`" is a convention rather than a property. Verified by attempting both as the application
+role.
+
+It also carries a second policy for the same reason memberships do. Some auditable acts have no tenant:
+signing in, selecting a workspace for the first time, a platform support action. A tenant-scoped policy
+alone would make exactly those events readable by nobody, so a row with no tenant is readable and
+writable by the actor it belongs to and by nobody else.
+
 ## Consequences
 
 Positive. A forgotten `WHERE tenant_id = ?` returns nothing instead of another tenant's rows.

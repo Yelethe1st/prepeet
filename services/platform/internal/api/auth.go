@@ -144,6 +144,71 @@ func (a *authentication) GetCurrentUser(ctx context.Context, _ prepeetapi.GetCur
 	}, nil
 }
 
+// ListMemberships answers which workspaces this person belongs to.
+func (a *authentication) ListMemberships(ctx context.Context, _ prepeetapi.ListMembershipsRequestObject) (prepeetapi.ListMembershipsResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return a.rejectedSession(ctx), nil
+	}
+
+	principal, err := a.identity.Lookup(ctx, presented)
+	if err != nil {
+		return a.failed(ctx, err), nil
+	}
+
+	user, err := a.identity.Describe(ctx, principal.UserID)
+	if err != nil {
+		return a.failed(ctx, err), nil
+	}
+
+	body, err := currentUserBody(user)
+	if err != nil {
+		return a.failed(ctx, err), nil
+	}
+
+	return prepeetapi.ListMemberships200JSONResponse{
+		Body:    prepeetapi.MembershipList{Memberships: body.Memberships},
+		Headers: prepeetapi.ListMemberships200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// SetActiveTenant chooses which workspace the session acts under.
+func (a *authentication) SetActiveTenant(ctx context.Context, request prepeetapi.SetActiveTenantRequestObject) (prepeetapi.SetActiveTenantResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return a.rejectedSession(ctx), nil
+	}
+
+	// A null tenant clears the selection, which is how somebody leaves a
+	// workspace without signing out.
+	tenantID := ""
+	if request.Body.TenantID != nil {
+		tenantID = request.Body.TenantID.String()
+	}
+
+	principal, err := a.identity.SelectTenant(ctx, presented, tenantID)
+	if err != nil {
+		return a.failed(ctx, err), nil
+	}
+
+	body := prepeetapi.Session{
+		UserID:          mustUUID(principal.UserID),
+		AuthenticatedAt: principal.AuthenticatedAt,
+	}
+	if principal.ActiveTenantID != "" {
+		active, err := parseUUID(principal.ActiveTenantID, "active tenant")
+		if err != nil {
+			return a.failed(ctx, err), nil
+		}
+		body.ActiveTenantID = &active
+	}
+
+	return prepeetapi.SetActiveTenant200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.SetActiveTenant200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // currentUserBody converts what identity reports into the contract shape.
 //
 // Separate from the handler so the identifier parsing, which is the only part
@@ -186,6 +251,17 @@ func currentUserBody(user User) (prepeetapi.CurrentUser, error) {
 		body.ActiveTenantID = &active
 	}
 	return body, nil
+}
+
+// mustUUID is parseUUID where a failure has already been ruled out.
+//
+// Used only where the identifier came from a row this process just read, so a
+// parse failure is corrupt data rather than input. It returns the zero value
+// rather than panicking: one malformed row should spoil one response, not the
+// process.
+func mustUUID(value string) openapi_types.UUID {
+	parsed, _ := parseUUID(value, "identifier")
+	return parsed
 }
 
 // parseUUID converts an identifier this system produced.
@@ -248,6 +324,16 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.status = http.StatusUnauthorized
 		base.code = string(prepeetapi.UNAUTHENTICATED)
 		base.message = "Those details did not sign you in."
+
+	case errors.Is(err, ErrForbidden):
+		// Not 404. The workspace may well exist, and answering "no such thing"
+		// to somebody who cannot use it would be a way to test which
+		// identifiers are real. Not 401 either: the session is fine, and
+		// answering that would sign somebody out for clicking a workspace that
+		// is not theirs.
+		base.status = http.StatusForbidden
+		base.code = string(prepeetapi.FORBIDDEN)
+		base.message = "You do not have access to that workspace."
 
 	case errors.Is(err, ErrSessionRejected):
 		base.status = http.StatusUnauthorized

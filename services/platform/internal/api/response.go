@@ -137,22 +137,26 @@ func (f failure) write(w http.ResponseWriter) error {
 	return json.NewEncoder(w).Encode(body)
 }
 
-func (f failure) VisitRegisterResponse(w http.ResponseWriter) error       { return f.write(w) }
-func (f failure) VisitLoginResponse(w http.ResponseWriter) error          { return f.write(w) }
-func (f failure) VisitLogoutResponse(w http.ResponseWriter) error         { return f.write(w) }
-func (f failure) VisitRefreshResponse(w http.ResponseWriter) error        { return f.write(w) }
-func (f failure) VisitGetCurrentUserResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitRegisterResponse(w http.ResponseWriter) error        { return f.write(w) }
+func (f failure) VisitLoginResponse(w http.ResponseWriter) error           { return f.write(w) }
+func (f failure) VisitLogoutResponse(w http.ResponseWriter) error          { return f.write(w) }
+func (f failure) VisitRefreshResponse(w http.ResponseWriter) error         { return f.write(w) }
+func (f failure) VisitGetCurrentUserResponse(w http.ResponseWriter) error  { return f.write(w) }
+func (f failure) VisitListMembershipsResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitSetActiveTenantResponse(w http.ResponseWriter) error { return f.write(w) }
 
 // Compile-time proof that the hand-written responses satisfy the generated
 // interfaces. Without these, a contract change that altered a Visit signature
 // would surface as a confusing error at the return statement rather than here.
 var (
-	_ prepeetapi.LoginResponseObject          = sessionIssued{}
-	_ prepeetapi.RefreshResponseObject        = sessionIssued{}
-	_ prepeetapi.LogoutResponseObject         = sessionCleared{}
-	_ prepeetapi.RegisterResponseObject       = failure{}
-	_ prepeetapi.LoginResponseObject          = failure{}
-	_ prepeetapi.LogoutResponseObject         = failure{}
-	_ prepeetapi.RefreshResponseObject        = failure{}
-	_ prepeetapi.GetCurrentUserResponseObject = failure{}
+	_ prepeetapi.LoginResponseObject           = sessionIssued{}
+	_ prepeetapi.RefreshResponseObject         = sessionIssued{}
+	_ prepeetapi.LogoutResponseObject          = sessionCleared{}
+	_ prepeetapi.RegisterResponseObject        = failure{}
+	_ prepeetapi.LoginResponseObject           = failure{}
+	_ prepeetapi.LogoutResponseObject          = failure{}
+	_ prepeetapi.RefreshResponseObject         = failure{}
+	_ prepeetapi.GetCurrentUserResponseObject  = failure{}
+	_ prepeetapi.ListMembershipsResponseObject = failure{}
+	_ prepeetapi.SetActiveTenantResponseObject = failure{}
 )

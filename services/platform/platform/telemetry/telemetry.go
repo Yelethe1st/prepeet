@@ -138,6 +138,33 @@ func Setup(ctx context.Context, cfg Config) (Shutdown, error) {
 	}, nil
 }
 
+// requestIDKey carries the correlation identifier through a request.
+type requestIDKey struct{}
+
+// WithRequestID records the correlation identifier for this request.
+//
+// It lives here rather than in platform/httpserver, where it is set, because
+// everything that needs to read it is not the HTTP layer. An audit write, a
+// workflow start and a log line all want the identifier, and a bounded context
+// reaching into the transport package to get it would make a domain service
+// depend on how the request arrived.
+//
+// Correlation is what this package is for, so this is its home. httpserver puts
+// the value in; anything may read it.
+func WithRequestID(ctx context.Context, requestID string) context.Context {
+	return context.WithValue(ctx, requestIDKey{}, requestID)
+}
+
+// RequestIDFrom returns the correlation identifier, or an empty string.
+//
+// Empty rather than an error, because most callers are attaching it to
+// something they are writing anyway. A missing identifier makes that record
+// harder to correlate; it does not make the operation wrong.
+func RequestIDFrom(ctx context.Context) string {
+	requestID, _ := ctx.Value(requestIDKey{}).(string)
+	return requestID
+}
+
 // Tracer returns the tracer for a component.
 func Tracer(name string) trace.Tracer {
 	return otel.Tracer(name)

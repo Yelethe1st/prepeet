@@ -16,6 +16,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
 
 // maxRequestIDLength bounds the inbound correlation header. The value is
@@ -38,18 +39,18 @@ type Config struct {
 	Routes func(mux *http.ServeMux)
 }
 
-type contextKey int
-
-const requestIDKey contextKey = iota
-
 // RequestIDFrom returns the correlation identifier for ctx, or an empty string
 // if the request did not pass through this handler.
 //
 // Every log line and every error response carries this value, which is what
 // makes a user's support report resolvable to a single trace.
+//
+// It delegates to platform/telemetry, which owns the context key. The value is
+// read by things that are not the HTTP layer, such as an audit write, and a
+// bounded context importing this package to get it would be a domain service
+// depending on how the request arrived.
 func RequestIDFrom(ctx context.Context) string {
-	value, _ := ctx.Value(requestIDKey).(string)
-	return value
+	return telemetry.RequestIDFrom(ctx)
 }
 
 // New returns the root HTTP handler.
@@ -152,7 +153,7 @@ func withRequestID(next http.Handler) http.Handler {
 		}
 
 		w.Header().Set(requestIDHeader, requestID)
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDKey, requestID)))
+		next.ServeHTTP(w, r.WithContext(telemetry.WithRequestID(r.Context(), requestID)))
 	})
 }
 

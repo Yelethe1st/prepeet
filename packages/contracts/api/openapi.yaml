@@ -251,6 +251,80 @@ paths:
                 $ref: "#/components/schemas/CurrentUser"
         "401": { $ref: "#/components/responses/Unauthenticated" }
 
+  /me/memberships:
+    get:
+      tags: [authentication]
+      operationId: listMemberships
+      summary: List the workspaces this person belongs to
+      description: |
+        The one question that cannot be scoped by tenant, because it is asked
+        before a tenant has been chosen. Answered by row-level security keyed on
+        the acting user rather than by a filter in the query, so forgetting the
+        filter is a missing result rather than another person's memberships.
+
+        Listing a membership is not a statement about what it permits. That is
+        decided per request by the capability layer.
+      responses:
+        "200":
+          description: The workspaces this person belongs to, which may be none.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /me/active-tenant:
+    put:
+      tags: [authentication]
+      operationId: setActiveTenant
+      summary: Choose which workspace this session acts under
+      description: |
+        Every request operates under exactly one explicit active tenant, and it
+        is never inferred from a resource identifier. This is where it is
+        chosen, and the only place membership is checked: the selection is
+        stored on the session, so later requests read it from a row the client
+        cannot reach rather than from something the client sent.
+
+        A null tenant clears the selection, which is how somebody leaves a
+        workspace without signing out.
+
+        Both the selection and its refusal are audited. The refusal is the one
+        worth keeping: repeated attempts on workspaces somebody does not belong
+        to is the shape of an account probing for access.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActiveTenantSelection"
+      responses:
+        "200":
+          description: The session now acts under that workspace.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403":
+          description: |
+            No active membership of that workspace. Deliberately not 404: the
+            workspace may well exist, and saying otherwise to somebody who
+            cannot use it would be a way to test which identifiers are real.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   securitySchemes:
     sessionCookie:
@@ -506,6 +580,27 @@ components:
             When the user last proved who they are, which is not when the
             session was issued. Destructive and evaluation-changing capabilities
             require this to be recent.
+
+    MembershipList:
+      type: object
+      additionalProperties: false
+      required: [memberships]
+      properties:
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/Membership"
+
+    ActiveTenantSelection:
+      type: object
+      additionalProperties: false
+      required: [tenant_id]
+      properties:
+        tenant_id:
+          type: [string, "null"]
+          format: uuid
+          description: |
+            The workspace to act under, or null to act under none.
 
     Membership:
       type: object

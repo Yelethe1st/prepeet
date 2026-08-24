@@ -151,3 +151,68 @@ func TestFailuresAreNotCacheable(t *testing.T) {
 		}
 	}
 }
+
+/*
+Tenant is never inferred from a resource identifier.
+
+docs/architecture/authorization-model.md requires every request to operate under
+exactly one explicit active tenant, chosen deliberately and stored on the
+session. The way that rule is broken is not by somebody deciding to break it: it
+is by an endpoint like /tenants/{tenantId}/sessions looking natural, and the
+handler scoping itself to the path parameter because it is right there.
+
+Checked against the contract rather than against the handlers, because the
+contract is where such a path would be added first, and because a path that does
+not exist cannot be read from.
+*/
+func TestNoPathParameterCarriesATenant(t *testing.T) {
+	t.Parallel()
+
+	spec, err := prepeetapi.GetSwagger()
+	if err != nil {
+		t.Fatalf("reading the embedded contract: %v", err)
+	}
+
+	for path, item := range spec.Paths.Map() {
+		for method, operation := range item.Operations() {
+			for _, parameter := range operation.Parameters {
+				if parameter.Value == nil || parameter.Value.In != "path" {
+					continue
+				}
+				if looksLikeTenant(parameter.Value.Name) {
+					t.Errorf("%s %s takes tenant %q in its path\n"+
+						"    Tenant comes from the session, chosen through PUT /me/active-tenant.\n"+
+						"    A tenant in the path is a value the caller supplies, and a handler\n"+
+						"    that scopes itself to one is scoping itself to whatever it was sent.",
+						method, path, parameter.Value.Name)
+				}
+			}
+		}
+
+		// The template itself, since a path can name a parameter the operation
+		// does not declare.
+		for _, segment := range strings.Split(path, "/") {
+			if !strings.HasPrefix(segment, "{") {
+				continue
+			}
+			if looksLikeTenant(strings.Trim(segment, "{}")) {
+				t.Errorf("the path %s contains a tenant identifier", path)
+			}
+		}
+	}
+}
+
+// looksLikeTenant matches the names a tenant parameter would plausibly have.
+//
+// A list rather than an exact match, because the point is to catch the shape
+// before it becomes a habit, and the second one somebody adds will not be
+// spelled the same as the first.
+func looksLikeTenant(name string) bool {
+	lowered := strings.ToLower(strings.ReplaceAll(name, "_", ""))
+	for _, shape := range []string{"tenantid", "tenant", "workspaceid", "organisationid", "organizationid"} {
+		if lowered == shape {
+			return true
+		}
+	}
+	return false
+}

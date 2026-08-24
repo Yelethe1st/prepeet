@@ -8,6 +8,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/password"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/token"
 )
 
@@ -30,6 +31,14 @@ const (
 // rejection says what a carefully worded message will not.
 var ErrCredentialsInvalid = errors.New("identity: those credentials did not authenticate")
 
+// ErrNoMembership means the user does not belong to the tenant they asked for.
+//
+// Distinct from ErrSessionInvalid because the responses differ: a dead session
+// means sign in again, and a refused tenant means the selection was not
+// permitted while the session is fine. Collapsing them would sign somebody out
+// for clicking the wrong workspace.
+var ErrNoMembership = errors.New("identity: no active membership of that tenant")
+
 // ErrSessionInvalid is returned when a token is unknown, expired or revoked.
 // The caller cannot act differently on the three, and distinguishing them would
 // tell whoever presented it which.
@@ -48,6 +57,13 @@ type Session struct {
 	ExpiresAt       time.Time
 	RefreshExpires  time.Time
 	AuthenticatedAt time.Time
+	// ActiveTenantID is the one tenant this session acts under, or empty.
+	//
+	// Always empty on a new session, including for somebody who has just
+	// registered a workspace. Signing in and choosing a workspace are separate
+	// acts, and a session that selected one on the user's behalf would mean the
+	// first request after login was scoped by something nobody chose.
+	ActiveTenantID string
 }
 
 // String redacts both tokens, because a struct printed with %v is the ordinary
@@ -103,6 +119,14 @@ type Repository interface {
 	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
 
 	FindUserByID(ctx context.Context, userID string) (User, error)
+	// SetActiveTenant records the selection, verifies the membership and
+	// writes the audit event, in one transaction.
+	//
+	// One method because the three cannot be separated: a selection written
+	// without its membership check is an unauthorised scope, and one written
+	// without its audit event is an authorisation decision nobody can review.
+	// tenantID is empty to clear the selection.
+	SetActiveTenant(ctx context.Context, sessionID, userID, tenantID, requestID string) error
 	FindMembershipsByUser(ctx context.Context, userID string) ([]Membership, error)
 
 	CreateSession(ctx context.Context, row SessionRow) error
@@ -150,6 +174,10 @@ type SessionRow struct {
 	AuthenticatedAt  time.Time
 	RetiredAt        *time.Time
 	RevokedAt        *time.Time
+	// ActiveTenantID is the tenant this session acts under, or empty. Read on
+	// every request, which is what makes the selection explicit without the
+	// client being asked to supply it.
+	ActiveTenantID string
 }
 
 // Service is the identity use cases.
@@ -382,6 +410,33 @@ func (s *Service) Revoke(ctx context.Context, sessionToken, reason string) error
 }
 
 // issue mints a token pair and records it.
+// SelectTenant sets the tenant this session acts under.
+//
+// The only place membership is checked. Every request thereafter reads the
+// selection from the session row rather than from anything the client sent, so
+// there is no per-request check to forget: a tenant identifier in a path or a
+// header is not an authorisation and is never treated as one.
+//
+// An empty tenantID clears the selection, which is how somebody leaves a
+// workspace without signing out and what the interface does when a membership
+// is revoked underneath them.
+func (s *Service) SelectTenant(ctx context.Context, sessionToken, tenantID string) error {
+	row, err := s.repo.FindSessionByToken(ctx, token.HashOf(sessionToken))
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return ErrSessionInvalid
+		}
+		return fmt.Errorf("identity: reading session: %w", err)
+	}
+	if row.RevokedAt != nil || !s.clock().Before(row.ExpiresAt) {
+		// Checked here rather than left to the write, because a revoked session
+		// changing what it acts as is exactly what revocation is for.
+		return ErrSessionInvalid
+	}
+
+	return s.repo.SetActiveTenant(ctx, row.ID, row.UserID, tenantID, telemetry.RequestIDFrom(ctx))
+}
+
 // User is what GET /me reports about a person.
 //
 // Deliberately not the whole row. Status and version are operational fields the

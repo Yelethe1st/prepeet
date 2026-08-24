@@ -63,7 +63,18 @@ func (a identityAdapter) Lookup(ctx context.Context, sessionToken string) (api.P
 		UserID:          row.UserID,
 		SessionID:       row.ID,
 		AuthenticatedAt: row.AuthenticatedAt,
+		ActiveTenantID:  row.ActiveTenantID,
 	}, nil
+}
+
+func (a identityAdapter) SelectTenant(ctx context.Context, sessionToken, tenantID string) (api.Principal, error) {
+	if err := a.service.SelectTenant(ctx, sessionToken, tenantID); err != nil {
+		return api.Principal{}, a.translate(err)
+	}
+	// Read back rather than assume, so the response describes what was stored
+	// rather than what was asked for. They agree today; the day they do not is
+	// the day a caller would be told its request succeeded as sent.
+	return a.Lookup(ctx, sessionToken)
 }
 
 func (a identityAdapter) Revoke(ctx context.Context, sessionToken, reason string) error {
@@ -122,6 +133,9 @@ func (a identityAdapter) translate(err error) error {
 	switch {
 	case errors.Is(err, identity.ErrCredentialsInvalid):
 		return api.ErrCredentialsRejected
+
+	case errors.Is(err, identity.ErrNoMembership):
+		return api.ErrForbidden
 
 	case errors.Is(err, identity.ErrSessionInvalid), errors.Is(err, identity.ErrNotFound):
 		// ErrNotFound collapses into a rejected session on purpose. It reaches

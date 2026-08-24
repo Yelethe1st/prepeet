@@ -5,17 +5,19 @@
 // command, and a rule that requires someone to remember an extra step is a rule
 // that eventually stops being run.
 //
-// It reads the module's own import graph from `go list` and checks three things:
-// that no bounded context reaches into another, that infrastructure does not
-// depend on a context, and that the AWS SDK stays where ADR-0001 promised it
-// would.
+// It reads the module's own import graph from `go list` and checks that no
+// bounded context reaches into another, that infrastructure does not depend on a
+// context, that the AWS SDK stays where ADR-0001 promised it would, and that
+// fan-out goes through platform/broadcast as ADR-0006 assumed.
 //
 // Implements PLT-04.
 package architecture_test
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -30,6 +32,21 @@ type pkg struct {
 	Imports      []string
 	TestImports  []string
 	XTestImports []string
+
+	// Dir and GoFiles support the one rule that has to read source rather than
+	// imports: a package can call pg_notify through pgx without importing
+	// anything that names it.
+	Dir     string
+	GoFiles []string
+}
+
+// goFilesOf returns the absolute path of every non-test Go file in a package.
+func goFilesOf(p pkg) []string {
+	paths := make([]string, 0, len(p.GoFiles))
+	for _, name := range p.GoFiles {
+		paths = append(paths, filepath.Join(p.Dir, name))
+	}
+	return paths
 }
 
 // packages runs `go list` over the module and returns every package with its
@@ -158,6 +175,47 @@ func TestCloudSDKStaysInTheAdapterLayer(t *testing.T) {
 					"    The AWS SDK belongs in platform/ only, per ADR-0001, which relies on\n"+
 					"    this to keep the cloud choice reversible.",
 					p.ImportPath, imported)
+			}
+		}
+	}
+}
+
+// ADR-0006 defers Redis on the strength of the swap being cheap, and that is
+// only true while the transport is reached through platform/broadcast.
+//
+// A handler calling LISTEN or NOTIFY directly would work perfectly and would
+// quietly make the deferral wrong, because there would then be call sites to
+// rewrite rather than one adapter to add. This is the check that would have
+// been "we will remember" otherwise.
+func TestFanOutGoesThroughTheBroadcastPackage(t *testing.T) {
+	t.Parallel()
+
+	// platform/broadcast is the implementation, and platform/outbox emits the
+	// wake-up inside its own transaction, which is the one thing the interface
+	// deliberately cannot express. Both are named here so the exemption is a
+	// decision on the record rather than a prefix match that quietly widens.
+	allowed := map[string]string{
+		modulePath + "/platform/broadcast": "is the implementation",
+		modulePath + "/platform/outbox":    "emits its wake-up transactionally, which no external transport can do",
+	}
+
+	for _, p := range packages(t) {
+		if _, exempt := allowed[p.ImportPath]; exempt {
+			continue
+		}
+
+		for _, file := range goFilesOf(p) {
+			source, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatalf("reading %s: %v", file, err)
+			}
+			for _, forbidden := range []string{"LISTEN ", "pg_notify", "NOTIFY "} {
+				if strings.Contains(string(source), forbidden) {
+					t.Errorf("%s uses %q directly\n"+
+						"    Fan-out goes through platform/broadcast, per ADR-0006, which defers\n"+
+						"    Redis on the strength of that swap being one new adapter.",
+						file, strings.TrimSpace(forbidden))
+				}
 			}
 		}
 	}

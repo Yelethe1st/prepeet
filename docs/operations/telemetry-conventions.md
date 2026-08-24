@@ -197,6 +197,19 @@ Not by reading this document, but by passing these assertions. They are the shar
 The suite is written once per language and run against that language's implementation, so an
 implementation inherits the assertions rather than copying them.
 
+## Related: the fan-out transport
+
+Live progress does not travel over telemetry. It travels over
+[`platform/broadcast`](../../services/platform/platform/broadcast), and the same classification rule
+applies: a topic carries identifiers and small signals, never restricted content. A subscriber that needs
+the content reads it from the database using the identifier, under the row-level security that decides
+whether it may.
+
+Topics are lower case letters, digits and underscores, at most 63 bytes, because that is PostgreSQL's
+identifier limit and the transport is currently `LISTEN/NOTIFY`. Payloads are capped at 4000 bytes.
+Delivery is best effort and nothing is replayed, so anything that must not be lost goes through the
+outbox instead. See [ADR-0006](../architecture/decisions/0006-postgresql-serves-cache-coordination-and-rate-limiting.md).
+
 ## Open
 
 - **Vendor.** Deferred with [deployment-topology.md](deployment-topology.md). OTLP is what keeps it

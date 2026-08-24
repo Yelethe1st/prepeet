@@ -44,18 +44,33 @@ makes delivery certain, and listens as well, which is what makes it fast.
 end; tailing a table does not. This also removes the dependency on PLT-06, so the outbox can ship before
 Temporal does, which matters because ADR-0005 already depends on it.
 
-Built in `services/platform/platform/outbox` with migration 0004. Both load-bearing guarantees were
-verified by removing them and watching the tests fail. What remains is the dispatcher process itself
-and the `LISTEN/NOTIFY` wake-up, which need `cmd/worker` wired.
+A third decision surfaced while wiring the dispatcher, and is settled the same way.
+
+**An event type nobody has decided about fails rather than being dropped.** `outbox.Router` refuses an
+unregistered type, so it retries and eventually dead letters, which somebody sees. The tempting
+alternative, treating unknown as nothing to do, loses data in the quietest possible way: the day somebody
+adds a producer and forgets the consumer, every event of that type is marked delivered and gone, and
+nothing about the system looks wrong. A type with no consumer is a legitimate state, so `Ignore` records
+it along with the reason, which is required by the signature rather than by convention.
+
+Built in `services/platform/platform/outbox` with migration 0004, and running in `cmd/worker`. Every
+load-bearing guarantee was verified by removing it and watching exactly the intended test fail. The
+wake-up is emitted by `Publish` inside the caller's transaction, so the signal becomes visible exactly
+when the row does; PostgreSQL drops it on rollback, which is a guarantee no external transport can make
+and the one place being tied to PostgreSQL is an advantage.
 
 **Done when**
 - [x] Publishing happens in the same transaction as the state change, or not at all, so a rolled back change takes its event with it.
 - [x] Two dispatchers running at once do not claim the same event, using `FOR UPDATE SKIP LOCKED`.
 - [x] Retries are backed off and bounded, with a dead-letter state an operator can see.
 - [x] An event type without a contract version is refused, since that version is what consumers subscribe against.
-- [ ] The dispatcher runs in `cmd/worker`, polling on an interval.
-- [ ] A notification shortens the wait without being relied on for delivery.
+- [x] The dispatcher runs in `cmd/worker`, polling on an interval.
+- [x] A notification shortens the wait without being relied on for delivery.
 - [ ] Replay of a delivery does not duplicate its effect for a well-behaved consumer.
+
+**Remaining.** The last box needs a consumer to be idempotent against, and there is none yet: `routes()`
+in `cmd/worker` is deliberately empty because nothing publishes an event. It closes with INT-03, the
+first real handler.
 
 **Spec** [event-catalog.md](../../contracts/event-catalog.md)
 

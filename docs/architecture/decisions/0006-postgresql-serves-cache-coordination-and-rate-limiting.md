@@ -44,7 +44,9 @@ It also scales the right way. A distributed lock or leader election makes one di
 while the others idle; `SKIP LOCKED` means each additional dispatcher steps over what the others hold,
 so adding one adds throughput.
 
-Verified by removing it: four dispatchers claimed the same events, one of them four times.
+Verified by removing it: four dispatchers claimed the same events, one of them four times. The same four
+dispatchers now run against the real `outbox.Dispatcher` in an integration test, which also asserts that
+more than one of them delivered something, since the property means nothing if only one ever contended.
 
 ### Rate limiting: a counter in PostgreSQL
 
@@ -137,7 +139,7 @@ and [OPS-02](../../delivery/tickets/18-platform-operations.md).
 | Trigger | Measure | Estimated threshold | Try first |
 |---|---|---|---|
 | Rate limiting extended beyond authentication to every request | Lock waits on the counter table, dead tuple ratio in `pg_stat_user_tables` | Sustained 1,000 writes per second, or any visible lock wait on a hot key | Limit only what needs limiting; put volumetric protection at the edge, where it belongs |
-| Live interview progress fanned out across instances | Notification delivery latency, `NOTIFY` in wait events | A few hundred notifications per second, roughly 500 concurrent interviews | `LISTEN/NOTIFY`, which the outbox dispatcher already uses |
+| Live interview progress fanned out across instances | Notification delivery latency, `NOTIFY` in wait events, and the share of received messages each task discards | A few hundred notifications per second, roughly 500 concurrent interviews | `LISTEN/NOTIFY` behind `platform/broadcast`, which the outbox dispatcher already uses |
 | Session lookup or authorization context dominating latency | Share of p99 attributable to the lookup span, connection pool saturation | Sustained 1,000 requests per second, probably later | PgBouncer first, since pool exhaustion is a pooling problem before it is a caching problem. Then an in-process cache, which needs the fan-out trigger above to invalidate correctly |
 | Immutable artifact and catalogue reads costing measurable latency | Share of p99 attributable to artifact loading | Whenever it is measurable, which may be soon | An in-process cache keyed by version, which needs no invalidation and no new infrastructure. `ETag` on the catalogue endpoints, which removes the request |
 | Provider concurrency capped across workers | In-flight model calls per provider | When the cap must span work Temporal is not orchestrating | Temporal task queue concurrency, which expresses this directly |
@@ -187,10 +189,29 @@ behaviour every counter must satisfy is written once as a shared contract each o
 implementation is a new adapter plus one line to run the existing contract against it, and one changed
 wiring line. Nothing in the authentication path knows which counter it holds.
 
-**Fan-out: build it behind an interface when it is built.** No streaming endpoint exists yet, so there
-is nothing to migrate. What matters is that whoever builds it puts a publish and subscribe interface in
-front of the transport rather than calling `LISTEN/NOTIFY` from the handler. Recorded on the ticket so
-it is not discovered later.
+**Fan-out: hours, and the interface now exists.** An earlier version of this section said to build the
+interface when the streaming endpoint was built. That was one notch too lax, so
+[`platform/broadcast`](../../../services/platform/platform/broadcast) was built first instead: a
+`Broadcaster` with `Publish` and `Subscribe`, an in-memory implementation, a `LISTEN/NOTIFY` one, and a
+shared contract suite that both run. A Redis implementation is a third adapter running the same suite,
+the same shape as the rate limiter below.
+
+Writing the contract before the second implementation exists is the point. A replacement needs something
+to prove itself against, and a suite written afterwards is a description of whatever the first
+implementation happened to do.
+
+Two things that suite pins down are worth naming here, because both would otherwise be discovered during
+the swap. The payload cap is the intersection of what every implementation can carry, not what the
+current one can: `NOTIFY` has a hard ceiling and Redis has none, so a payload accepted by one and refused
+by the other would be a breaking change found at runtime. And the suite asserts that a message published
+before anybody subscribed is **lost**, so nothing can come to depend on delivery that this transport does
+not promise.
+
+The PostgreSQL implementation sends everything over one channel and filters in process, so subscribing
+costs no database round trip at all. The alternative, a channel per topic, needs a connection per
+subscription, which is one database connection per live interview. The cost of the choice made is that
+every task receives every message, and **that is precisely the fan-out trigger below**: when filtering
+everywhere becomes the expensive part, that is the measurement saying to move.
 
 **Session caching: not independent.** Correct invalidation needs cross-instance messaging, so it cannot
 be done before fan-out exists.
@@ -206,7 +227,8 @@ way it already stops the AWS SDK.
 ## Validation
 
 - A Redis implementation of `ratelimit.Counter` passes the existing shared contract without the contract changing.
+- A Redis implementation of `broadcast.Broadcaster` does the same.
 - The counter table's dead tuple ratio and lock wait time are on a dashboard before authentication carries real traffic.
 - Notification latency is measured once a streaming endpoint exists, rather than assumed.
-- Any streaming implementation sits behind a publish and subscribe interface, checked at review.
+- Any streaming implementation uses `platform/broadcast` rather than reaching for `LISTEN/NOTIFY`, checked at review and by the module boundary test.
 - This ADR is revisited when any trigger above is measured rather than estimated.

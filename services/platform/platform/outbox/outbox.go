@@ -36,6 +36,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 )
 
@@ -144,6 +145,31 @@ func (s *Store) Publish(ctx context.Context, tx pgx.Tx, event Event) (string, er
 		payload); err != nil {
 		return "", fmt.Errorf("outbox: inserting event: %w", err)
 	}
+
+	// The wakeup is emitted inside the caller's transaction, deliberately, and
+	// deliberately not through platform/broadcast.
+	//
+	// PostgreSQL holds a notification until the transaction commits and drops it
+	// if the transaction rolls back, so the signal becomes visible exactly when
+	// the row does. No external transport can do that: publishing before the
+	// commit announces an event that may never exist, and publishing after
+	// leaves a window where a crash loses the signal entirely.
+	//
+	// Losing it would only cost latency, since the dispatcher polls regardless.
+	// But a guarantee available for free is worth taking, and this is the one
+	// place where being tied to PostgreSQL is an advantage rather than a debt.
+	// The payload is empty on purpose. The dispatcher needs to know only that
+	// there is work; it reads what the work is from the table, under the same
+	// claim that makes concurrent dispatchers safe. Putting the event in the
+	// signal would mean delivering from a message that may have been superseded.
+	channel, body, err := broadcast.NotifyArguments(WakeupTopic, nil)
+	if err != nil {
+		return "", fmt.Errorf("outbox: preparing the dispatcher signal: %w", err)
+	}
+	if _, err := tx.Exec(ctx, "SELECT pg_notify($1, $2)", channel, body); err != nil {
+		return "", fmt.Errorf("outbox: signalling the dispatcher: %w", err)
+	}
+
 	return eventID, nil
 }
 

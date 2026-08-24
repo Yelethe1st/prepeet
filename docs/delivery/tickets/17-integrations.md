@@ -25,13 +25,36 @@ delivery status fed back into the product.
 
 ### INT-02 · Build the transactional outbox and delivery workflow
 
-**Depends on** PLT-06, CTR-03 · **Blocks** INT-03
+**Depends on** CTR-03 · **Blocks** INT-03
 
 Durable, ordered, at-least-once delivery of durable events, with deduplication at the consumer boundary.
 
+[ADR-0005](../../architecture/decisions/0005-module-boundaries-and-extraction.md) makes this load
+bearing: state changes other contexts care about travel as events, so the outbox is the only way one
+context tells another that something happened.
+
+Two decisions were hiding in this ticket and are settled here rather than drifted into.
+
+**Polling is the guarantee, `LISTEN/NOTIFY` is the optimisation.** A notification is not durable: it is
+delivered to whoever is listening at that moment and is gone. A dispatcher that relied on it alone would
+strand any row published while it was restarting. So the dispatcher polls on an interval, which is what
+makes delivery certain, and listens as well, which is what makes it fast.
+
+**The dispatcher lives in `cmd/worker`, not in a Temporal workflow.** A workflow has a beginning and an
+end; tailing a table does not. This also removes the dependency on PLT-06, so the outbox can ship before
+Temporal does, which matters because ADR-0005 already depends on it.
+
+Built in `services/platform/platform/outbox` with migration 0004. Both load-bearing guarantees were
+verified by removing them and watching the tests fail. What remains is the dispatcher process itself
+and the `LISTEN/NOTIFY` wake-up, which need `cmd/worker` wired.
+
 **Done when**
-- [ ] An event is never lost when the process dies between commit and publish.
-- [ ] Retries are backed off and bounded, with a visible dead-letter path.
+- [x] Publishing happens in the same transaction as the state change, or not at all, so a rolled back change takes its event with it.
+- [x] Two dispatchers running at once do not claim the same event, using `FOR UPDATE SKIP LOCKED`.
+- [x] Retries are backed off and bounded, with a dead-letter state an operator can see.
+- [x] An event type without a contract version is refused, since that version is what consumers subscribe against.
+- [ ] The dispatcher runs in `cmd/worker`, polling on an interval.
+- [ ] A notification shortens the wait without being relied on for delivery.
 - [ ] Replay of a delivery does not duplicate its effect for a well-behaved consumer.
 
 **Spec** [event-catalog.md](../../contracts/event-catalog.md)

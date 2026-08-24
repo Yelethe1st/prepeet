@@ -4,7 +4,7 @@
 **Owner:** Principal Engineer and delivery leads  
 **Last updated:** 2026-08-23
 
-Every piece of work the specification implies, broken into 164 tickets across 22 epics. This is the
+Every piece of work the specification implies, broken into 165 tickets across 22 epics. This is the
 delivery view of the same system [implementation-roadmap.md](../implementation-roadmap.md) describes in
 phases and [dependency-map.md](../dependency-map.md) describes as a critical path.
 
@@ -71,12 +71,12 @@ satisfies its checklist but not these is not finished.
 | [TEN](16-tenant-administration.md) | Tenant administration | 5 | 8 |
 | [INT](17-integrations.md) | Email, webhooks and ATS integration | 3 and 5 | 6 |
 | [OPS](18-platform-operations.md) | Platform operations and internal consoles | 3–6 | 7 |
-| [SEC](19-security-and-privacy.md) | Security, privacy and data rights | 0–5, continuous | 9 |
+| [SEC](19-security-and-privacy.md) | Security, privacy and data rights | 0–5, continuous | 10 |
 | [A11Y](20-accessibility.md) | Accessibility and inclusive content | 1–4, continuous | 7 |
 | [QUA](21-ai-quality.md) | AI quality, datasets and monitoring | 2–6, continuous | 6 |
 | [REL](22-release-readiness.md) | Release readiness and operational proof | 3, 5 and 6 gates | 7 |
 
-**164 tickets** in total.
+**165 tickets** in total.
 
 ## Suggested order
 
@@ -285,6 +285,7 @@ after them, and REL turns each gate into evidence.
 - **[SEC-05](19-security-and-privacy.md#sec-05--implement-candidate-data-export-and-correction)** · Implement candidate data export and correction
 - **[SEC-06](19-security-and-privacy.md#sec-06--build-the-durable-deletion-workflow-with-reconciliation)** · Build the durable deletion workflow with reconciliation
 - **[SEC-07](19-security-and-privacy.md#sec-07--build-the-candidate-data-request-status-surface)** · Build the candidate data-request status surface
+- **[SEC-10](19-security-and-privacy.md#sec-10--rate-limit-authentication-and-every-other-abusable-endpoint)** · Rate limit authentication and every other abusable endpoint
 - **[SEC-08](19-security-and-privacy.md#sec-08--run-restricted-content-scanning-across-telemetry)** · Run restricted-content scanning across telemetry
 - **[SEC-09](19-security-and-privacy.md#sec-09--commission-independent-penetration-and-isolation-testing)** · Commission independent penetration and isolation testing
 

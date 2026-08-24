@@ -319,12 +319,27 @@ func TestEveryTenantOwnedTableForcesRowLevelSecurity(t *testing.T) {
 	}
 	defer rows.Close()
 
+	// Exemptions are listed here rather than skipped in the query, so adding one
+	// is a visible change to this test with a reason beside it. A guard whose
+	// exceptions live somewhere else is a guard nobody can audit.
+	exempt := map[string]string{
+		"integration.outbox": "Written inside a tenant-scoped transaction and read only by the " +
+			"dispatcher, which acts for no tenant and must see every row. A tenant policy would " +
+			"make the dispatcher see nothing, and the usual fix is a role that bypasses row-level " +
+			"security, which would bypass every other policy too. Payloads carry no restricted " +
+			"content. See migration 0004.",
+	}
+
 	checked := 0
 	for rows.Next() {
 		var schema, table string
 		var enabled, forced bool
 		if err := rows.Scan(&schema, &table, &enabled, &forced); err != nil {
 			t.Fatalf("scan: %v", err)
+		}
+		if reason, isExempt := exempt[schema+"."+table]; isExempt {
+			t.Logf("%s.%s is exempt: %s", schema, table, reason)
+			continue
 		}
 		checked++
 		if !enabled {
@@ -336,6 +351,12 @@ func TestEveryTenantOwnedTableForcesRowLevelSecurity(t *testing.T) {
 	}
 	if checked == 0 {
 		t.Error("no tenant-owned tables were found, so this test proved nothing")
+	}
+
+	// The exemption list earns its place only while it stays short. A growing
+	// list means the rule has become a suggestion.
+	if len(exempt) > 3 {
+		t.Errorf("%d tables are exempt from row-level security, which is more than a rule can survive", len(exempt))
 	}
 }
 

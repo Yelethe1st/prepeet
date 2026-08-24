@@ -118,6 +118,39 @@ request's status, its SLA, or why something was withheld.*
 
 ---
 
+### SEC-10 · Rate limit authentication and every other abusable endpoint
+
+**Depends on** IAM-01 · **Blocks** REL-02
+
+[ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md) chose to build authentication
+rather than buy it, and named credential stuffing as the standing obligation that comes with that
+choice. A vendor would have been doing this work continuously; now it is ours.
+
+Login, registration, password recovery, magic link and OTP are all endpoints where an attacker gets
+unlimited attempts unless something stops them. Rate limiting is also the only defence that works
+before a breached-password check exists.
+
+Counting starts in memory, which is correct while there is one instance and wrong the moment there are
+two: each would enforce its own share of the limit. Redis is the upgrade, and it is not worth
+provisioning before the second instance exists.
+
+The counter is built in `services/platform/platform/ratelimit`. What remains is applying it to the
+authentication routes, which needs the handlers in IAM-01.
+
+**Done when**
+- [x] The limiter counts per key with a moving window, and forgets keys it no longer needs.
+- [x] The limiter cannot distinguish a registered address from an unknown one, because it never looks either up.
+- [x] An empty key is refused rather than collapsing every anonymous caller into one bucket.
+- [x] An unusable rule fails at construction rather than locking out every user at runtime.
+- [ ] Authentication endpoints are limited per address and per network, not per address alone, since one attacker with many addresses is the ordinary case.
+- [ ] A limited response is `429` with `Retry-After`, per ADR-0004.
+- [ ] Limits are configuration rather than constants, so they can be tightened during an incident.
+- [ ] The counter moves to Redis before a second instance runs, and the ticket that adds the instance is what triggers it.
+
+**Spec** [threat-model.md](../../security/threat-model.md)
+
+---
+
 ### SEC-08 · Run restricted-content scanning across telemetry
 
 **Depends on** PLT-08, SEC-03 · **Blocks** REL-01

@@ -55,10 +55,29 @@ matches reading order. Most people who type fast never touch the mouse.
 text, in light and dark. Nothing rendered dark until this existed, so a token
 defined only in light would have passed every other test and rendered as nothing.
 
+Dark is the default, which is the one place the product departs from the
+prototype: `/screens` declares light on 53 of its 57 pages. An interview is a
+long, concentrated session and many people take one in the evening. An explicit
+choice wins and persists; the operating system's `prefers-color-scheme` is
+deliberately not consulted, because most systems report light and following it
+would make the default light in practice while claiming otherwise.
+
 **The narrowest viewport.** 320px, checked against the stylesheets: no fixed
 width wider than the viewport, no unguarded minimum, and the two-panel
 authentication layout collapsing. If it did not, somebody on a small phone could
 not sign in at all.
+
+## One thing about the harness
+
+`localStorage` is supplied by `vitest.setup.ts` rather than by the environment.
+jsdom provides one, and Node 26 ships an experimental global that is unavailable
+unless the process was started with `--localstorage-file`; Node's wins, so
+`window.localStorage` is undefined and any test touching a stored preference
+fails with "Cannot read properties of undefined" rather than with anything about
+storage.
+
+What happens when storage is genuinely unavailable, which is a private window or
+blocked site data, is asserted separately by stubbing one that throws.
 
 ## The coverage floor
 

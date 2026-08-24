@@ -35,12 +35,14 @@ export default defineConfig({
       // moment a page decided where to navigate after signing in, and because
       // the exclusion was blanket, nothing said so. Pages are covered now.
       //
-      // Layouts stay out: they compose a tree and choose stylesheets, and there
-      // is no behaviour in one to assert that rendering it would not.
+      // The route group layout stays out: it wraps children in a div and picks
+      // stylesheets, and there is nothing in it to assert that rendering a page
+      // does not already cover. The root layout is covered, because it decides
+      // the theme the browser sees before any React runs.
       exclude: [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.d.ts",
-        "src/app/**/layout.tsx",
+        "src/app/(auth)/layout.tsx",
         // Barrel files re-export and do nothing.
         "src/design-system/components/index.ts",
       ],

@@ -16,9 +16,27 @@ One repository, three deployables, shared contract definitions, per-language too
 runner that works the same on a laptop and in CI.
 
 **Done when**
-- [ ] `web`, `api` and `intelligence` build reproducibly from a clean checkout.
-- [ ] Formatting, linting and type checking run identically locally and in CI.
-- [ ] A new engineer can run the whole stack locally from a documented single command.
+- [x] `web`, `api` and `intelligence` build reproducibly from a clean checkout.
+- [x] Formatting, linting and type checking run identically locally and in CI.
+- [x] A new engineer can run the whole stack locally from a documented single command.
+
+**Ticked late, and two of the three were not true when they were written.**
+
+`make lint` had never passed. The web package's lint script ran `next lint`, which Next 16 removed, and
+no ESLint configuration existed anywhere in the repository. Nothing reported it because CI reimplemented
+the checks rather than invoking the make targets, and its version of the web job omitted lint entirely.
+Two copies of a check are two chances for one to stop running, and the one that stops is the one nobody
+notices. CI now runs `make lint-go`, `make lint-py`, `make lint-web` and `make lint-contracts`, which is
+what "identically" has to mean to be checkable.
+
+`make dev` now starts the infrastructure, applies migrations and runs all three deployables together,
+stopping them together on Ctrl-C. Before this there was no single command: `local-up` started the
+containers and the deployables were three more commands. The connection strings read the same
+`infrastructure/local/.env` the compose file does, so moving a port moves it for both rather than leaving
+the application dialling a port nothing published.
+
+Verified by running it: api and web answer on 8080 and 3000, the worker connects to Temporal, an
+organisation registers and `/me` reports its workspace, and Ctrl-C leaves no process holding a port.
 
 **Spec** [architecture-and-implementation-brief.md](../../architecture/architecture-and-implementation-brief.md)
 

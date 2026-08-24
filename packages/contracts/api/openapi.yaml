@@ -48,6 +48,9 @@ paths:
       responses:
         "200":
           description: The process is alive.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
@@ -66,12 +69,18 @@ paths:
       responses:
         "200":
           description: Every dependency answered.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Readiness"
         "503":
           description: At least one dependency did not answer.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
@@ -103,6 +112,9 @@ paths:
           description: |
             Accepted. Returned whether the address was new or already known, so
             the response cannot be used to test for an account.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
@@ -135,6 +147,8 @@ paths:
         "200":
           description: Authenticated.
           headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
             Set-Cookie:
               description: Session and refresh cookies, HTTP-only and SameSite.
               schema: { type: string }
@@ -147,6 +161,9 @@ paths:
           description: |
             The credentials did not authenticate. Identical for an unknown
             address and a wrong password.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
@@ -165,6 +182,8 @@ paths:
         "204":
           description: The session is ended.
           headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
             Set-Cookie:
               description: Expired session and refresh cookies.
               schema: { type: string }
@@ -186,6 +205,8 @@ paths:
         "200":
           description: A new session was issued and the old one retired.
           headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
             Set-Cookie:
               description: Rotated session and refresh cookies.
               schema: { type: string }
@@ -197,6 +218,9 @@ paths:
           description: |
             The refresh token was missing, expired, or already used. A reused
             token also revokes the entire family.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
@@ -218,6 +242,9 @@ paths:
       responses:
         "200":
           description: The current user.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
@@ -249,21 +276,44 @@ components:
         type: string
         format: uuid
 
+  headers:
+    CacheControl:
+      description: |
+        What an intermediary may do with this response, per the caching
+        conventions in ADR-0004.
+
+        Declared on every response rather than left to the server, because a
+        cacheability that exists only in a handler is a property nobody can
+        review and no client can rely on. What the server actually sends is
+        asserted against this document, so the two cannot drift.
+      required: true
+      schema:
+        type: string
+
   responses:
     ValidationFailed:
       description: The request was malformed or failed validation.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
     Unauthenticated:
       description: No valid session was presented.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
     IdempotencyConflict:
       description: The idempotency key was reused with a different request body.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
       content:
         application/json:
           schema:
@@ -271,6 +321,8 @@ components:
     RateLimited:
       description: Too many requests.
       headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
         Retry-After:
           description: Seconds to wait before retrying.
           schema: { type: integer, minimum: 1 }

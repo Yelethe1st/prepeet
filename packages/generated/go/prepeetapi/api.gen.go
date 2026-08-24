@@ -643,10 +643,18 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	return m
 }
 
-type IdempotencyConflictJSONResponse Error
+type IdempotencyConflictResponseHeaders struct {
+	CacheControl string
+}
+type IdempotencyConflictJSONResponse struct {
+	Body Error
+
+	Headers IdempotencyConflictResponseHeaders
+}
 
 type RateLimitedResponseHeaders struct {
-	RetryAfter *int
+	CacheControl string
+	RetryAfter   *int
 }
 type RateLimitedJSONResponse struct {
 	Body Error
@@ -654,9 +662,23 @@ type RateLimitedJSONResponse struct {
 	Headers RateLimitedResponseHeaders
 }
 
-type UnauthenticatedJSONResponse Error
+type UnauthenticatedResponseHeaders struct {
+	CacheControl string
+}
+type UnauthenticatedJSONResponse struct {
+	Body Error
 
-type ValidationFailedJSONResponse Error
+	Headers UnauthenticatedResponseHeaders
+}
+
+type ValidationFailedResponseHeaders struct {
+	CacheControl string
+}
+type ValidationFailedJSONResponse struct {
+	Body Error
+
+	Headers ValidationFailedResponseHeaders
+}
 
 type LoginRequestObject struct {
 	Body *LoginJSONRequestBody
@@ -667,7 +689,8 @@ type LoginResponseObject interface {
 }
 
 type Login200ResponseHeaders struct {
-	SetCookie *string
+	CacheControl string
+	SetCookie    *string
 }
 
 type Login200JSONResponse struct {
@@ -682,6 +705,7 @@ func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) e
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	if response.Headers.SetCookie != nil {
 		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
 	}
@@ -695,24 +719,33 @@ type Login400JSONResponse struct{ ValidationFailedJSONResponse }
 func (response Login400JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type Login401JSONResponse Error
+type Login401ResponseHeaders struct {
+	CacheControl string
+}
+
+type Login401JSONResponse struct {
+	Body    Error
+	Headers Login401ResponseHeaders
+}
 
 func (response Login401JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
@@ -727,6 +760,7 @@ func (response Login429JSONResponse) VisitLoginResponse(w http.ResponseWriter) e
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	if response.Headers.RetryAfter != nil {
 		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
 	}
@@ -743,7 +777,8 @@ type LogoutResponseObject interface {
 }
 
 type Logout204ResponseHeaders struct {
-	SetCookie *string
+	CacheControl string
+	SetCookie    *string
 }
 
 type Logout204Response struct {
@@ -751,6 +786,7 @@ type Logout204Response struct {
 }
 
 func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	if response.Headers.SetCookie != nil {
 		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
 	}
@@ -763,10 +799,11 @@ type Logout401JSONResponse struct{ UnauthenticatedJSONResponse }
 func (response Logout401JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
@@ -780,7 +817,8 @@ type RefreshResponseObject interface {
 }
 
 type Refresh200ResponseHeaders struct {
-	SetCookie *string
+	CacheControl string
+	SetCookie    *string
 }
 
 type Refresh200JSONResponse struct {
@@ -795,6 +833,7 @@ func (response Refresh200JSONResponse) VisitRefreshResponse(w http.ResponseWrite
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	if response.Headers.SetCookie != nil {
 		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
 	}
@@ -803,15 +842,23 @@ func (response Refresh200JSONResponse) VisitRefreshResponse(w http.ResponseWrite
 	return err
 }
 
-type Refresh401JSONResponse Error
+type Refresh401ResponseHeaders struct {
+	CacheControl string
+}
+
+type Refresh401JSONResponse struct {
+	Body    Error
+	Headers Refresh401ResponseHeaders
+}
 
 func (response Refresh401JSONResponse) VisitRefreshResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
@@ -826,15 +873,23 @@ type RegisterResponseObject interface {
 	VisitRegisterResponse(w http.ResponseWriter) error
 }
 
-type Register202JSONResponse RegistrationAccepted
+type Register202ResponseHeaders struct {
+	CacheControl string
+}
+
+type Register202JSONResponse struct {
+	Body    RegistrationAccepted
+	Headers Register202ResponseHeaders
+}
 
 func (response Register202JSONResponse) VisitRegisterResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(202)
 	_, err := buf.WriteTo(w)
 	return err
@@ -845,10 +900,11 @@ type Register400JSONResponse struct{ ValidationFailedJSONResponse }
 func (response Register400JSONResponse) VisitRegisterResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
@@ -861,10 +917,11 @@ type Register409JSONResponse struct {
 func (response Register409JSONResponse) VisitRegisterResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
@@ -879,6 +936,7 @@ func (response Register429JSONResponse) VisitRegisterResponse(w http.ResponseWri
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	if response.Headers.RetryAfter != nil {
 		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
 	}
@@ -894,15 +952,23 @@ type GetLivenessResponseObject interface {
 	VisitGetLivenessResponse(w http.ResponseWriter) error
 }
 
-type GetLiveness200JSONResponse Liveness
+type GetLiveness200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetLiveness200JSONResponse struct {
+	Body    Liveness
+	Headers GetLiveness200ResponseHeaders
+}
 
 func (response GetLiveness200JSONResponse) VisitGetLivenessResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
@@ -915,15 +981,23 @@ type GetCurrentUserResponseObject interface {
 	VisitGetCurrentUserResponse(w http.ResponseWriter) error
 }
 
-type GetCurrentUser200JSONResponse CurrentUser
+type GetCurrentUser200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetCurrentUser200JSONResponse struct {
+	Body    CurrentUser
+	Headers GetCurrentUser200ResponseHeaders
+}
 
 func (response GetCurrentUser200JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
@@ -934,10 +1008,11 @@ type GetCurrentUser401JSONResponse struct{ UnauthenticatedJSONResponse }
 func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
@@ -950,29 +1025,45 @@ type GetReadinessResponseObject interface {
 	VisitGetReadinessResponse(w http.ResponseWriter) error
 }
 
-type GetReadiness200JSONResponse Readiness
+type GetReadiness200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetReadiness200JSONResponse struct {
+	Body    Readiness
+	Headers GetReadiness200ResponseHeaders
+}
 
 func (response GetReadiness200JSONResponse) VisitGetReadinessResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type GetReadiness503JSONResponse Readiness
+type GetReadiness503ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetReadiness503JSONResponse struct {
+	Body    Readiness
+	Headers GetReadiness503ResponseHeaders
+}
 
 func (response GetReadiness503JSONResponse) VisitGetReadinessResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1231,72 +1322,76 @@ func (sh *strictHandler) GetReadiness(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"xFtfcxs5jv8qrL6r2pe2LCfZuhrvk8ZWNt7x2FnZmdmrKOWCmpCaazbZS7Ila6f83a8AslutP449N072",
+	"KZbUTRLAD8APAPNbVtiqtgZN8Nnpb1mJINHxn2dQlHhmTXBW02eJvnCqDsqa7DT7tYQgwAhlAroKpQK3",
+	"FhWshbRipUIpQqm8cOhrazzmokYnQomigKJUZjE1hTVLNLSaF8qI0fnkaDgcvhtMzdScY6HBoRTWCFyi",
+	"W3cLCQeh5KXACI3zIILldT26JbpczLCAxqOAqaGtEGZKq7CmF4LAB+WDF9boNe0JogQjNTqhvABRO1uj",
+	"C2th7MzKtSjATI3DpcKVACOFsaLQCk2gX4RDvRbWDARrYnMEAUVoQOu18GikF8pPDXiPLqAUsABlfIjK",
+	"kbZoKjQhFz7KEFaWljY2COnUPAymJsszh/9qlEOZnQbXYJ75osQKyCJhXWN2mvnglFlkj4+PeVaDgwpD",
+	"MuGFxKq2AU2x/gnX+0a8KWyNklWIBugkaGRtlQks8D2uRbALJI0PxEg4rDWQXpxbK7OIQkOFU8P6chga",
+	"Z3z8OliyX2u2vwjYexuEVPM5OlIov0+aejf8YWND0sfmGdIDkvkaI9EJa5APyKZLdpk1Czb01Hil0QQy",
+	"QlMUiJI2XNlGS1EqiVGxilQQAZ/lmYGKlNlT2RHprK/vuXUVhOw0axols/yQ/luBd9V/Zs1cqyLQ14U1",
+	"AQ3/CXWtVQFkjuN/erLJb739/tvhPDvN/ut446PH8Vd/PHbOurjntk1vSxRqszHraAXkio1HGX0T9tXK",
+	"Jhhk+V4EOOqFgEMHSs8fb4ULPtcEAl6qSgXC7jcX21pRgVl3MHk9WfJsgsGtj0bzgO6AE2FhydGDFStQ",
+	"Qcxwbh2SNzDOB1sQqpRRVVNlpycdfCiCLpCFesyzTwaaUFJgLOC7KO7KiiVoJYVH75U1DJbaoUcTUL4u",
+	"In6hjfj070Hp7wKLEjuEk2AVaPJiSi1OzPkQUXze9TWlfWzNHpdqHHnbJx8RlFKNinECiqCWeBdj8J2S",
+	"T8eaz22wyTPTaJ19ecwzrEDprVfiN3vxKT16t0Sn5ipqPz0ys1YjGHqmwmqGzpeq9vtYH4nGo+M8P0Nt",
+	"KQdY4SlFg045xA8EhyDiBXMoUGgMnBMq4VcqFGU+NZRcehlTYqEkerHiHA1FKTaHIOJQqeBTyA5Y+efA",
+	"8HP3MsmTJATnYE2fSYCv6ngTz/u593P34p4at3X2pVvHzv6JRaA9Izz3tEl68sosNAqkJwSaJWpbYyI9",
+	"hM/GkS4jYRh9vCD9c2jbRhC2G2x/XViJL3KdM3rwMc/mCrW849V4gRfp+z29lDxwX98Veg8L3Jf+Q1Mx",
+	"jQIJM425MCS0qJgfotB2oYrBIRAnd0423F7zzDqHmn2ZkqAJZCGXC9DeJn6CkvT5j6NJXObo4nwgLgKT",
+	"D8ZfBfdIlILM/ScvfFPX1lGaTP94q5d0YEI+cZDgoEiEAh+gqjWp/jOd8m54AsO3wxMJcDL8n+Fw+EMP",
+	"HH15glvTiodINnOvLpd0jKuLaQVzmlpD49VsQ3d6iutcewfOjI2Nefrn2MHBlsr34b2zboTik15wliC5",
+	"k0MDq5RZNsMgsZW5dVtkpUIwlFPFX9GgowRJgcaKmQ3l1EQW6AV4qkzQNBVTa+jT9sj4BUnvBT6U0HgK",
+	"vnrNm4MwuJoasmvklbaqlcajoCqk+qCqw1YFAsI1hn/0jaud8sj1y89RqV6AQ5ahJKx73iLGTuFwZZ2k",
+	"koC49lrQIgNxTZUJl0lW4tQov+MPEWaGCMTn7JfR5cX56Pbi+uru/ejicnye5dmnq9Gn2w/jq9uLs9Et",
+	"f/P+evLjxfn5+CrLs6vr27v315+u6Pufx7cfrs/v6KvR5eX1r/zwxfn454/Xt+Ors/+9O7u+en95cXab",
+	"5dlkdDu+u7z4+SIueTYZn9MWo8ubu4srPkaWZzfjmxs6y/gfHy8m/Nxk/H4yvvlwd3v90/jqbjL+dBM3",
+	"ubodT65Glwe9oRdM9lBybVAwMo80LlH3EncbKvcjYxsC+745Gf/9Ex/x0AF4g/29/3ZzfSW4NCLbx3rN",
+	"zudouLTglwY7IeA45uFDm/SC4teTTjxNvuuth9zrA4IO5VmJxf1+JojVzaEEJLFGI6lU+JMX9FjM3w7B",
+	"UxANLUtSPrmmMoVu5FaM2QjmA4QmpqSEUgrwVEY1Jv715bk8y0ftVjok6aVaokHv98Xc3x60WuLzm35t",
+	"N7tQJmWL/R2fZl8VPFyiWYQyO337ZnhAVzV4T0GA64LNwyfDN++eO267R7fEoYP3eNALFKXMkiu1PNFR",
+	"DvtLe4/yIIJfQFb3n25R+HXhNktvv/hVTEwQpDoMioJc4uV0pu9HB/jMKyA8LZG3Jzssz0L5gO5J4EFR",
+	"2MaEu/jmPlEvwEiKjuTKcSnPqYiYuEe9RD8QIyOsW4BRPkbR+KTjD1MDUir6i5tZhUMITIyiSWK6NMKu",
+	"KCH3CPt2jupOkeVZf6uDmPoDvtRf++5wsJskC4hViUb01Uexrb/AYHvHN8PnvHeH2IIvu06LW1jzRske",
+	"tdF2sUAZo2wFD6pqKg6uNggQPjjedWpqq1WxPk0riJIWjSVSjMJEWcWCImEkOUY0ZmYbI5kT1U2ktCAk",
+	"GgVa2DlXW6rlqnsBp1Km++LN744/+TYen0Z0BNeoKLBO7Y2nAtOu9RJ5XyVObB2rjPIwSOnQey7wQbMT",
+	"dqBPmp6aroOsvJCo1Yz5o16LxigTAaeWKGBmmyBWpSrKbSTHci92J+48mvCHkspNbLbsy3nOn2aY2qip",
+	"J8PdaxIPPTFlRQCLCAr2HmPPNXk1cc6pUUZ8uL39eMSt7sLae4W+h0GoawQXe+CdYmZWrhlLxop4JF6H",
+	"zlHDAlPXG7h0r6Jynu9j7DSbGq0Tqd/Ep1VpUzeBm2im7UYPxDj1/jkETg3txUEodoDxAYrATXgU+FBr",
+	"Vagg4hm6fjaJHF2FBSeB5ugoCsydraL0tnEF9srFKNrLGzBbDbs7CAfruKhH7p5o8IGKiSWjmankmqyW",
+	"R9i1wWCVXpqafmdOed+Q7c/RB9dEYUlIXIJuGJxHRQlmQUG5gDqOPxR6cgBGZmwlUM1EmaFAE3bkJZtw",
+	"wXOwg/RQK4c+Sfmyd16j47LZ9oC+D9akHovGqbC+obSeYkvU4xm7w4GcaYSt4V9Nz+3IufJ2mFHGuJ6a",
+	"Vl5JjNWlhAAz8MyZ5dSsibKzCUsyQmqlUn07ENdx/e0S8m+/3nYjj00e5dGTjfFGVI0PIsA9CpzPsQic",
+	"XJQRPvaeB+IGsR2hve1NN6Lnb6YbtcMaMdwlATcWgFr9hOvYQaVw2HZmIY4s0usf4+sCCV+IrYH3i4qZ",
+	"syuCegB972O5lPpX3PqznXZQe+T+S1v2Q1ESWD9aHxYOb/5+mYtbrGrrQOcimpftQQEpshluNWqtFmgK",
+	"bJOckMohRYd8ajqv4v7OPWLtBWHIOvXvqF5uQHIHQhkOJ7WOTZ2p2QpB4ndHoIG4jXSJknFbP70wAgUV",
+	"dF/ro48XWU55KGaO7GQwHAyZ/NRooFbZafZ2cDIYcl4OJUP+mAQ91lTCcK61PhwiiytnCaopm7fcjght",
+	"m0W7JFs7K5sC+62omD9SW5dA2v1GIaE3z1MV2Vwj3CdjUBpwOG+IYcZ+SJolSovsQmyDaxP7Wn47KdJ2",
+	"DucOfdmmQXD0cxDgN+kvn5obqPBGBewyYd8B+21BWn4/DaZfpuapNBhhoay5kNlpLBg3XbMfrVy/2qBj",
+	"qxh93A6YwTW4O4J8Mxy+2t4tZzkwZhn1Q/JrTt5uMBw9Fa9vDuAgGTjvsR/6uQXA9jBub377mGfvosIO",
+	"nbFT7PHeHItfPPk+46zCIQcK0F5IJWPh0NP/QFzI+HeiWuTI98auYknHThx7ndteH6H8esO+d29+eF6T",
+	"/RlxP2tnp5+/5JlvqgrcOjvNxg/Maralj0Syl8tgwY23nja41KSFu0Bom/B0JJxwx2M/zKjgO4jNoVJ6",
+	"nTrLPliNZjsMTU26xGGboDkVlNy/tU1g28TRfDjlSpACIlUcYUVZq60DTRwIPRFdSIQ9P3/3xHwpSaG8",
+	"QCO/n3OOmbHJg8E6OelLnPHkeQjtTswZRhvgpFFjEQewvwst6bxPw2UMRdlJxczcxxGCqEG5JHMg5hr7",
+	"xVoSVRiIj5ET8i0Y4nmBVcXg4RGHF6g4QXUAi7/Fwqm76xLLm5nlPgNOTZxtyE36XcH6lD+tSqs3WIgI",
+	"Fnw/izt8oh3I4hJN4LkDNJKcciB+RM7Z3LRgpMbBSIlQt133vxBgIQQo7tExwUqSza0NJUmt2mS+B+dJ",
+	"0vF/KG+xsfbrq04hyWTJjN/NeyY28HDrNbzne1yw6EW/eM1Cea/MIhexcJM5Qze1ZhpPuBqlGd/UxNfS",
+	"iHYTf8lBHCawvm5y+kqiiZrfSgCNj9fVtsR8YQCJ9Pkr1Nv4FTqfuH/BrdavdLjUwQbX1JxZM1eO2TW5",
+	"Ynq6RIfp1ptGHjNyoWKaiqsYbj7UjuoVj5xNp4bnW0uFK9/rRnT9MUJir3FTQkpXC4fxGqEvwcW6qd/t",
+	"S8WdV4t0O5DbIMoMxC+9ppoobEXHUM6nxk3Y6tt5WKerm6G9cWnwgapBrPkoM0SqiM0TcSaZYvuO5OfD",
+	"wNk8crxzh/Lxy7ch9rv9/hdx+zevvP1Oc/ZQwEy/DcReQ3a3E0uRtef1zECJNU1NKDdVY3vhdcaoSHdR",
+	"fWiZa+oqvzo3/f+z/BeQ2kP3Pl+bELd42XLIqLOtOcszYarkYde/6VwLDIfa0b1OuVoYS1ymGxlTGhIX",
+	"cwHMBCj6dL2wCmRqNdJPeTS6dUWJDDPrUmBy6AO4IOJB1qJ2lgp92qVxKZ7ZJlDhDYaSReMoCElcOEiz",
+	"f74B0j12yPn/iqGbGX9DotHt8USeTLLFKK6WOPhOKS1eXer7ae8krjEmNrRboERTJIDESdpBbEx6970p",
+	"ouf9LYj+bpJWe1cuTz/F5tjU9C7OccSPKSe0LbOWtVMVz121dLum95JDockR5Obm/wvuKCYsffWe4kBc",
+	"Kh85ev8+Ym9UBwEr5svt0AiCUKG9sXga8xSPmwolUfL/geiuW6d7Pm2Lfj01GtZ8Vy1Rz83JYvoMDoFP",
+	"qDyLzNec+m3MJ5Dfv3r6DcHf3+apzkWqwcg+g1eO53+4UGwHbzGP9R+MeEpmUW67wftcgOXk93R8/fPw",
+	"rQioNdVU2oIUM9BginjHyNkmILfIV5HKqVAS0FLM5P9GA2bNnfT21k7KqhEyBTjHg7/tWz7xsqnEQJE5",
+	"+tzU0GbKII8LTQBl6LXSMhcTHEBIA95WGFTFa25aMU8gb3Mn4xvibrPJAdTF7v1GeAHMt1/7Xvufh2+/",
+	"jzyjIDSCD1yT9sTq+oAs3n8qryjfJZYCTByUieBgPlfFwfyyvfjegO7zF2Lbcd4Wufq2Nn6JoxDRDalD",
+	"SXUlEc9l+1P6j108N9q5uYmkSk7CjdPZaXYMtTpenjDFT2fdp0O1tmsK+rTojOjPTlQZbIZtSc7HfD9x",
+	"bsh2zjc74z/k2+xkqfBMBWdvyZ0Q8/jl8f8CAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

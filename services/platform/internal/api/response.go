@@ -44,8 +44,10 @@ func (r sessionIssued) write(w http.ResponseWriter) error {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	// A session description is about the person reading it and must never be
-	// stored by an intermediary, per the caching conventions in ADR-0004.
-	w.Header().Set("Cache-Control", "no-store")
+	// stored by an intermediary. The value comes from the same constant the
+	// contract-comparison test reads, so this cannot drift from what the
+	// document declares.
+	w.Header().Set("Cache-Control", NoStore)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	return json.NewEncoder(w).Encode(r.body)
@@ -62,6 +64,7 @@ type sessionCleared struct {
 
 func (r sessionCleared) VisitLogoutResponse(w http.ResponseWriter) error {
 	ClearSessionCookies(w, r.environment)
+	w.Header().Set("Cache-Control", NoStore)
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
@@ -128,7 +131,7 @@ func (f failure) write(w http.ResponseWriter) error {
 	body.Error.RequestID = f.requestID
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Cache-Control", NoStore)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(f.status)
 	return json.NewEncoder(w).Encode(body)

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -51,7 +50,10 @@ func (a *authentication) Register(ctx context.Context, request prepeetapi.Regist
 	// known. The identity service does not report which, so this handler could
 	// not distinguish them even if it wanted to, which is the point: the
 	// property is structural rather than a discipline kept here.
-	return prepeetapi.Register202JSONResponse{Status: prepeetapi.VerificationSent}, nil
+	return prepeetapi.Register202JSONResponse{
+		Body:    prepeetapi.RegistrationAccepted{Status: prepeetapi.VerificationSent},
+		Headers: prepeetapi.Register202ResponseHeaders{CacheControl: NoStore},
+	}, nil
 }
 
 // Login exchanges credentials for a session.
@@ -136,7 +138,10 @@ func (a *authentication) GetCurrentUser(ctx context.Context, _ prepeetapi.GetCur
 	if err != nil {
 		return a.failed(ctx, err), nil
 	}
-	return currentUser{body: body}, nil
+	return prepeetapi.GetCurrentUser200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.GetCurrentUser200ResponseHeaders{CacheControl: NoStore},
+	}, nil
 }
 
 // currentUserBody converts what identity reports into the contract shape.
@@ -277,22 +282,3 @@ func (a *authentication) record(ctx context.Context, err error) {
 	span.RecordError(errors.New(telemetry.Scrub(err.Error())))
 	span.SetAttributes(telemetry.MustAttr(telemetry.KeyOutcome, "internal_error"))
 }
-
-// currentUser is the 200 for /me.
-//
-// Hand-written for the cache header rather than for cookies: /me describes one
-// person and must never be stored by an intermediary, and the generated
-// response sets no Cache-Control at all.
-type currentUser struct {
-	body prepeetapi.CurrentUser
-}
-
-func (r currentUser) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(r.body)
-}
-
-var _ prepeetapi.GetCurrentUserResponseObject = currentUser{}

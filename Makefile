@@ -155,6 +155,20 @@ fmt: ## Format everything in place
 
 COMPOSE := docker compose -f infrastructure/local/docker-compose.yml
 
+# LOCAL_ENV loads the same port overrides the compose file reads.
+#
+# Every dev target starts with this. Without it the application would connect to
+# the default port while compose published whichever one the developer moved it
+# to, and the two would disagree in a way that reads as "the database is down"
+# rather than as "you changed a port".
+#
+# The credentials are the local ones from docker-compose.yml and are not secret.
+# A deployed environment supplies its own through PLT-07.
+LOCAL_ENV = set -a; [ -f infrastructure/local/.env ] && . infrastructure/local/.env; set +a; \
+	PORT=$${PREPEET_POSTGRES_PORT:-5432}; \
+	export PREPEET_APP_URL="postgres://prepeet_app:app-password@localhost:$$PORT/prepeet?sslmode=disable"; \
+	export PREPEET_MIGRATOR_URL="postgres://prepeet:local-development-only@localhost:$$PORT/prepeet?sslmode=disable"
+
 .PHONY: local-up
 local-up: ## Start PostgreSQL, LocalStack and Temporal locally
 	@$(COMPOSE) up -d --wait || { \
@@ -234,3 +248,51 @@ local-ports: ## Show which local stack host ports are free and which are taken
 			printf "    %-12s %-6s TAKEN, by something this user cannot see\n" "$$name" "$$port"; \
 		fi; \
 	done
+
+# ------------------------------------------------------------------ run local
+
+.PHONY: dev
+dev: ## Start the whole stack: infrastructure, migrations, and all three deployables
+	@$(MAKE) --no-print-directory local-up
+	@$(MAKE) --no-print-directory migrate
+	@echo
+	@echo "  starting api, worker and web. Ctrl-C stops all three."
+	@echo
+	@# Run concurrently and stop together. Without the trap, Ctrl-C leaves
+	@# background processes holding ports, and the next `make dev` fails with a
+	@# bind error that says nothing about why.
+	@#
+	@# awk with fflush rather than sed, because sed block-buffers when its
+	@# output is not a terminal. `make dev > log` then shows the stack starting
+	@# and nothing after it, which reads as three processes that hung.
+	@$(LOCAL_ENV); \
+	trap 'kill 0' INT TERM EXIT; \
+	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" go run ./cmd/api 2>&1 | awk '{ print "[api]    " $$0; fflush() }' ) & \
+	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" \
+		PREPEET_TEMPORAL_ADDRESS="localhost:$${PREPEET_TEMPORAL_PORT:-7233}" \
+		go run ./cmd/worker 2>&1 | awk '{ print "[worker] " $$0; fflush() }' ) & \
+	( cd $(WEB_DIR) && pnpm dev 2>&1 | awk '{ print "[web]    " $$0; fflush() }' ) & \
+	wait
+
+.PHONY: dev-api
+dev-api: ## Run the Go API alone
+	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" go run ./cmd/api
+
+.PHONY: dev-worker
+dev-worker: ## Run the worker alone
+	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" \
+		PREPEET_TEMPORAL_ADDRESS="localhost:$${PREPEET_TEMPORAL_PORT:-7233}" go run ./cmd/worker
+
+.PHONY: dev-web
+dev-web: ## Run the Next.js application alone
+	cd $(WEB_DIR) && pnpm dev
+
+.PHONY: migrate
+migrate: ## Apply database migrations to the local stack
+	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_MIGRATOR_URL" \
+		PREPEET_APP_DATABASE_PASSWORD="app-password" go run ./cmd/migrate
+
+# ------------------------------------------------------------------------- ci
+
+.PHONY: ci
+ci: lint check-generated cover ## Everything CI runs, in the order CI runs it

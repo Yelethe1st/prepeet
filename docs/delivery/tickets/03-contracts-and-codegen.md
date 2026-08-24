@@ -34,7 +34,23 @@ interfaces. The contract is not adjusted to suit the generator: it describes the
 two cookies.
 - [ ] `oasdiff` runs against the previous release once there is a previous release.
 - [ ] Every operation declares its required capability, which needs the capability catalogue published as a contract in IAM-04.
-- [ ] Every operation declares its cacheability, per the conventions added to ADR-0004: `no-store` for anything derived from a candidate's own data, `ETag` with a short `max-age` for the catalogue, and indefinite for anything addressed by an immutable version.
+- [x] Every operation declares its cacheability, per the conventions added to ADR-0004: `no-store` for anything derived from a candidate's own data, `ETag` with a short `max-age` for the catalogue, and indefinite for anything addressed by an immutable version.
+
+Every response in the document declares `Cache-Control`, including the shared error responses, because a
+response that says nothing is not neutral: an intermediary applies its own heuristics, and the ones for an
+authenticated JSON endpoint are not something to leave to a CDN's defaults.
+
+Two tests keep the declaration from being a comment. One walks the embedded contract and fails if any
+response omits the header, which covers operations no handler serves yet. The other makes a real request
+per served operation and compares what arrived to what the document promises.
+
+Declaring the header also changed the generated response types, so a handler now populates
+`Headers.CacheControl` rather than setting a string of its own. Removing a declaration from the contract
+makes the handler fail to compile, which is a stronger gate than a test: for anything the server
+implements, the document and the code cannot drift at all.
+
+The `ETag` half of the convention lands with the catalogue endpoints in CAT-03, which are the responses
+it describes. Nothing shipped so far is cacheable.
 
 **Spec** [public-api.md](../../contracts/public-api.md)
 

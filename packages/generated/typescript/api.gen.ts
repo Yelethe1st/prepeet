@@ -309,6 +309,7 @@ export interface components {
         /** @description The request was malformed or failed validation. */
         ValidationFailed: {
             headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
                 [name: string]: unknown;
             };
             content: {
@@ -318,6 +319,7 @@ export interface components {
         /** @description No valid session was presented. */
         Unauthenticated: {
             headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
                 [name: string]: unknown;
             };
             content: {
@@ -327,6 +329,7 @@ export interface components {
         /** @description The idempotency key was reused with a different request body. */
         IdempotencyConflict: {
             headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
                 [name: string]: unknown;
             };
             content: {
@@ -336,6 +339,7 @@ export interface components {
         /** @description Too many requests. */
         RateLimited: {
             headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
                 /** @description Seconds to wait before retrying. */
                 "Retry-After"?: number;
                 [name: string]: unknown;
@@ -355,7 +359,18 @@ export interface components {
         IdempotencyKey: string;
     };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /**
+         * @description What an intermediary may do with this response, per the caching
+         *     conventions in ADR-0004.
+         *
+         *     Declared on every response rather than left to the server, because a
+         *     cacheability that exists only in a handler is a property nobody can
+         *     review and no client can rely on. What the server actually sends is
+         *     asserted against this document, so the two cannot drift.
+         */
+        CacheControl: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -372,6 +387,7 @@ export interface operations {
             /** @description The process is alive. */
             200: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -392,6 +408,7 @@ export interface operations {
             /** @description Every dependency answered. */
             200: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -401,6 +418,7 @@ export interface operations {
             /** @description At least one dependency did not answer. */
             503: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -436,6 +454,7 @@ export interface operations {
              */
             202: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -463,6 +482,7 @@ export interface operations {
             /** @description Authenticated. */
             200: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     /** @description Session and refresh cookies, HTTP-only and SameSite. */
                     "Set-Cookie"?: string;
                     [name: string]: unknown;
@@ -478,6 +498,7 @@ export interface operations {
              */
             401: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -499,6 +520,7 @@ export interface operations {
             /** @description The session is ended. */
             204: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     /** @description Expired session and refresh cookies. */
                     "Set-Cookie"?: string;
                     [name: string]: unknown;
@@ -520,6 +542,7 @@ export interface operations {
             /** @description A new session was issued and the old one retired. */
             200: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     /** @description Rotated session and refresh cookies. */
                     "Set-Cookie"?: string;
                     [name: string]: unknown;
@@ -534,6 +557,7 @@ export interface operations {
              */
             401: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -554,6 +578,7 @@ export interface operations {
             /** @description The current user. */
             200: {
                 headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {

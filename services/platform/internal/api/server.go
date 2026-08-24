@@ -112,7 +112,10 @@ type server struct {
 // unversioned paths; these exist so the document is complete and so the
 // generated client can reach them.
 func (s *server) GetLiveness(_ context.Context, _ prepeetapi.GetLivenessRequestObject) (prepeetapi.GetLivenessResponseObject, error) {
-	return prepeetapi.GetLiveness200JSONResponse{Status: prepeetapi.Alive}, nil
+	return prepeetapi.GetLiveness200JSONResponse{
+		Body:    prepeetapi.Liveness{Status: prepeetapi.Alive},
+		Headers: prepeetapi.GetLiveness200ResponseHeaders{CacheControl: NoStore},
+	}, nil
 }
 
 func (s *server) GetReadiness(ctx context.Context, _ prepeetapi.GetReadinessRequestObject) (prepeetapi.GetReadinessResponseObject, error) {
@@ -134,10 +137,19 @@ func (s *server) GetReadiness(ctx context.Context, _ prepeetapi.GetReadinessRequ
 		Status: prepeetapi.ReadinessStatus(report.Status),
 		Checks: checks,
 	}
+	// A probe answer is never cacheable. A cached readiness would keep traffic
+	// flowing to a process that has already failed, which is the one caching
+	// mistake that turns a degradation into an outage.
 	if report.Status != health.StatusReady {
-		return prepeetapi.GetReadiness503JSONResponse(body), nil
+		return prepeetapi.GetReadiness503JSONResponse{
+			Body:    body,
+			Headers: prepeetapi.GetReadiness503ResponseHeaders{CacheControl: NoStore},
+		}, nil
 	}
-	return prepeetapi.GetReadiness200JSONResponse(body), nil
+	return prepeetapi.GetReadiness200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.GetReadiness200ResponseHeaders{CacheControl: NoStore},
+	}, nil
 }
 
 var _ prepeetapi.StrictServerInterface = (*server)(nil)

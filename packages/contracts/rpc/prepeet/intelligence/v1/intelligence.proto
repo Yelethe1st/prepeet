@@ -1,0 +1,655 @@
+// The contract between the Go control plane and the Python intelligence plane.
+//
+// Go calls Python and never the reverse, because Go owns trusted product state
+// and Python proposes typed intelligence; a callback path would be a second
+// place product state could change. Nothing here mutates anything: every RPC is
+// a question, and Go decides what to do with the answer.
+//
+// What is deliberately absent:
+//
+//   - A deadline field. Deadlines travel as gRPC deadlines, which propagate
+//     cancellation to the provider call in flight; a request field cannot.
+//   - Trace context. It travels in call metadata via OpenTelemetry, so the
+//     contract does not re-invent propagation.
+//   - Raw documents or audio. Large inputs travel as short-lived,
+//     purpose-scoped object references, because a request that embeds a CV
+//     puts a CV in every hop's memory and every retry's payload.
+//
+// The capability result messages are a first reading, constrained by the specs
+// that exist. The capabilities themselves are unbuilt, and their tickets will
+// revise these messages additively or with a new version, exactly as after a
+// release. The envelope, the failure taxonomy and the method policies are not
+// provisional.
+//
+// Implements CTR-02. See docs/contracts/internal-rpc.md and ADR-0004.
+syntax = "proto3";
+
+package prepeet.intelligence.v1;
+
+import "prepeet/rpc/v1/method_policy.proto";
+
+option go_package = "github.com/Yelethe1st/prepeet/packages/generated/go/prepeetrpc/intelligencev1";
+
+// ─────────────────────────────────────────────────────────── envelope
+
+// Which authority a call acts under.
+//
+// Practice and screening are separated everywhere, and the intelligence plane
+// enforces its side by refusing a call whose purpose does not match the bundle
+// it references. An enum rather than a string so that a typo is a compile
+// error rather than a new authority.
+enum Purpose {
+  // Never sent. The server refuses it, because a call that cannot say which
+  // authority it acts under must not act.
+  PURPOSE_UNSPECIFIED = 0;
+
+  // The candidate's own practice. Nothing produced under it is reachable from
+  // any employer authority.
+  PURPOSE_PRACTICE = 1;
+
+  // An employer's screening pipeline, with its disclosure and audit duties.
+  PURPOSE_SCREENING = 2;
+}
+
+// What every request carries.
+//
+// A message rather than fields repeated per request, so that adding something
+// every call needs is one change rather than eight, and so the server can
+// validate the envelope before it knows which capability was asked for.
+message RequestContext {
+  // Version of the request schema the caller was built against. The server
+  // tolerates a lower one and refuses a higher one, which it cannot decode.
+  string schema_version = 1;
+
+  // Identifies this logical request across every retry of it. The server
+  // deduplicates on it, which is what makes retrying from the workflow layer
+  // safe: one interview cannot become two evaluations and two charges.
+  string request_id = 2;
+
+  // The tenant whose work this is. Empty only for a candidate acting outside
+  // any tenant, which mirrors how the platform's own storage scopes them.
+  string tenant_id = 3;
+
+  // The authority the call acts under. Never unspecified.
+  Purpose purpose = 4;
+
+  // Ties every call arising from one originating request together.
+  string correlation_id = 5;
+
+  // What caused this call, for walking a chain backwards without timestamps.
+  string causation_id = 6;
+
+  // The most the capability may spend answering, in cost units. Zero means the
+  // deterministic path only: no provider call at all.
+  uint32 budget_cost_units = 7;
+
+  // Providers this tenant permits, by provider identifier. Empty means the
+  // platform default set. The gateway refuses to route outside it, because a
+  // tenant's regional and contractual constraints are not advisory.
+  repeated string approved_providers = 8;
+}
+
+// A reference to an object in storage, with the digest that pins it.
+//
+// The digest is required everywhere this is used: a reference without one
+// names whatever the object happens to be at read time, and every consumer of
+// an evaluation needs to know it was produced from exactly the inputs the
+// record claims.
+message ObjectRef {
+  // The storage key. Reading it requires a scoped, short-lived grant that this
+  // message does not confer.
+  string storage_key = 1;
+
+  // SHA-256 of the content, hex encoded. The reader verifies it after
+  // fetching; a mismatch is FAILURE_CODE_ARTIFACT_NOT_FOUND, because the
+  // pinned artifact is what was asked for and it no longer exists.
+  string digest = 2;
+
+  // The declared media type, so a capability can refuse what it cannot read
+  // before fetching it.
+  string media_type = 3;
+}
+
+// What answering cost.
+message Usage {
+  // Cost units spent, in the same units the budget was expressed in.
+  uint32 cost_units = 1;
+
+  // How many provider calls were made, including retries inside the gateway.
+  uint32 provider_calls = 2;
+
+  // Wall-clock time spent, for capacity planning; the caller has its own
+  // measurement, but not of where the time went.
+  uint32 latency_ms = 3;
+}
+
+// What every successful response carries.
+//
+// The versions are the reproducibility contract: an evaluation that cannot
+// name the schema, calculation, prompt and policy that produced it cannot be
+// reconstructed, and an irreproducible result is not evidence.
+message ResponseMeta {
+  // Version of the result payload's schema.
+  string schema_version = 1;
+
+  // Version of the deterministic calculation, where the capability has one. A
+  // model cannot invent a measured value, so the calculator that produced it
+  // is recorded separately from the model.
+  string calculation_version = 2;
+
+  // Version of the policy applied: the rubric policy, the coaching policy.
+  string policy_version = 3;
+
+  // Version of the prompt rendered, empty for a purely deterministic answer.
+  string prompt_version = 4;
+
+  // The model and version actually used, empty for a deterministic answer.
+  // What was used, not what was asked for: fallback routing means they differ,
+  // and reproducing a result requires the truth.
+  string model_version = 5;
+
+  // Digest of the input the capability actually read, echoed so the caller
+  // can detect the read racing a write. Go refuses a response whose echo does
+  // not match what it sent.
+  string input_digest = 6;
+
+  // True when the capability validated its own output against the schema it
+  // claims. False never reaches a caller: it becomes
+  // FAILURE_CODE_SCHEMA_VALIDATION_FAILED instead. The field exists so the
+  // claim is explicit in the record rather than implied by arrival.
+  bool output_validated = 7;
+
+  // Conditions worth recording that did not prevent an answer: a low-quality
+  // audio segment, a truncated document. Stable identifiers, not prose.
+  repeated string warnings = 8;
+
+  // What answering cost.
+  Usage usage = 9;
+}
+
+// ─────────────────────────────────────────────────────────── service
+
+// The capabilities Go may ask of the intelligence plane.
+//
+// Failures travel as canonical gRPC status codes with a
+// prepeet.rpc.v1.Failure in the error details, per
+// docs/contracts/internal-rpc.md. Every method declares its policy; a test
+// walks this descriptor and refuses one that does not.
+service IntelligenceService {
+  // Reads a candidate document into a structured profile.
+  rpc ExtractCandidateProfile(ExtractCandidateProfileRequest)
+      returns (ExtractCandidateProfileResponse) {
+    option (prepeet.rpc.v1.method_policy) = {
+      timeout_ms: 60000
+      idempotent: true
+      failure_codes: [
+        FAILURE_CODE_INVALID_INPUT,
+        FAILURE_CODE_ARTIFACT_NOT_FOUND,
+        FAILURE_CODE_UNASSESSABLE_INPUT,
+        FAILURE_CODE_SCHEMA_VALIDATION_FAILED,
+        FAILURE_CODE_BUDGET_EXHAUSTED,
+        FAILURE_CODE_PROVIDER_UNAVAILABLE,
+        FAILURE_CODE_PROVIDER_TIMEOUT
+      ]
+    };
+  }
+
+  // Composes the immutable session bundle from pinned inputs.
+  rpc ComposeSessionBundle(ComposeSessionBundleRequest)
+      returns (ComposeSessionBundleResponse) {
+    option (prepeet.rpc.v1.method_policy) = {
+      timeout_ms: 30000
+      idempotent: true
+      failure_codes: [
+        FAILURE_CODE_INVALID_INPUT,
+        FAILURE_CODE_UNSUPPORTED_POLICY_VERSION,
+        FAILURE_CODE_ARTIFACT_NOT_FOUND,
+        FAILURE_CODE_SCHEMA_VALIDATION_FAILED,
+        FAILURE_CODE_PROVIDER_UNAVAILABLE,
+        FAILURE_CODE_PROVIDER_TIMEOUT
+      ]
+    };
+  }
+
+  // Folds accepted interview events into the runtime state the next-action
+  // policy reads.
+  rpc ReduceInterviewEvents(ReduceInterviewEventsRequest)
+      returns (ReduceInterviewEventsResponse) {
+    option (prepeet.rpc.v1.method_policy) = {
+      timeout_ms: 10000
+      idempotent: true
+      failure_codes: [
+        FAILURE_CODE_INVALID_INPUT,
+        FAILURE_CODE_UNSUPPORTED_POLICY_VERSION,
+        FAILURE_CODE_STALE_CURSOR
+      ]
+    };
+  }
+
+  // Proposes the interviewer's next action during a live session.
+  //
+  // The tightest deadline in the service, because a candidate is waiting in
+  // silence while it runs. Go validates freshness, lifecycle, authority,
+  // obligation and schema before applying a proposal; a proposal is never a
+  // command.
+  rpc ProposeNextAction(ProposeNextActionRequest)
+      returns (ProposeNextActionResponse) {
+    option (prepeet.rpc.v1.method_policy) = {
+      timeout_ms: 5000
+      idempotent: true
+      failure_codes: [
+        FAILURE_CODE_INVALID_INPUT,
+        FAILURE_CODE_UNSUPPORTED_POLICY_VERSION,
+        FAILURE_CODE_STALE_CURSOR,
+        FAILURE_CODE_BUDGET_EXHAUSTED,
+        FAILURE_CODE_PROVIDER_UNAVAILABLE,
+        FAILURE_CODE_PROVIDER_TIMEOUT
+      ]
+    };
+  }
+
+  // Evaluates a batch of completed turns against the bundle's rubric.
+  rpc EvaluateTurns(EvaluateTurnsRequest) returns (EvaluateTurnsResponse) {
+    option (prepeet.rpc.v1.method_policy) = {
+      timeout_ms: 60000
+      idempotent: true
+      failure_codes: [
+        FAILURE_CODE_INVALID_INPUT,
+        FAILURE_CODE_UNSUPPORTED_POLICY_VERSION,
+        FAILURE_CODE_ARTIFACT_NOT_FOUND,
+        FAILURE_CODE_UNASSESSABLE_INPUT,
+        FAILURE_CODE_SCHEMA_VALIDATION_FAILED,
+        FAILURE_CODE_BUDGET_EXHAUSTED,
+        FAILURE_CODE_PROVIDER_UNAVAILABLE,
+        FAILURE_CODE_PROVIDER_TIMEOUT
+      ]
+    };
+  }
+
+  // Aggregates a completed session into its evaluation.
+  rpc EvaluateSession(EvaluateSessionRequest) returns (EvaluateSessionResponse) {
+    option (prepeet.rpc.v1.method_policy) = {
+      timeout_ms: 120000
+      idempotent: true
+      failure_codes: [
+        FAILURE_CODE_INVALID_INPUT,
+        FAILURE_CODE_UNSUPPORTED_POLICY_VERSION,
+        FAILURE_CODE_ARTIFACT_NOT_FOUND,
+        FAILURE_CODE_UNASSESSABLE_INPUT,
+        FAILURE_CODE_SCHEMA_VALIDATION_FAILED,
+        FAILURE_CODE_BUDGET_EXHAUSTED,
+        FAILURE_CODE_PROVIDER_UNAVAILABLE,
+        FAILURE_CODE_PROVIDER_TIMEOUT
+      ]
+    };
+  }
+
+  // Analyses how, rather than what, a candidate communicated.
+  rpc AnalyzeArticulation(AnalyzeArticulationRequest)
+      returns (AnalyzeArticulationResponse) {
+    option (prepeet.rpc.v1.method_policy) = {
+      timeout_ms: 120000
+      idempotent: true
+      failure_codes: [
+        FAILURE_CODE_INVALID_INPUT,
+        FAILURE_CODE_UNSUPPORTED_POLICY_VERSION,
+        FAILURE_CODE_ARTIFACT_NOT_FOUND,
+        FAILURE_CODE_UNASSESSABLE_INPUT,
+        FAILURE_CODE_SCHEMA_VALIDATION_FAILED,
+        FAILURE_CODE_BUDGET_EXHAUSTED,
+        FAILURE_CODE_PROVIDER_UNAVAILABLE,
+        FAILURE_CODE_PROVIDER_TIMEOUT
+      ]
+    };
+  }
+
+  // Turns a practice evaluation into coaching a candidate can act on.
+  //
+  // Practice only, and the server refuses PURPOSE_SCREENING: coaching a
+  // screening candidate mid-pipeline would advantage whoever screened last.
+  rpc GeneratePracticeCoaching(GeneratePracticeCoachingRequest)
+      returns (GeneratePracticeCoachingResponse) {
+    option (prepeet.rpc.v1.method_policy) = {
+      timeout_ms: 60000
+      idempotent: true
+      failure_codes: [
+        FAILURE_CODE_INVALID_INPUT,
+        FAILURE_CODE_UNSUPPORTED_POLICY_VERSION,
+        FAILURE_CODE_BUDGET_EXHAUSTED,
+        FAILURE_CODE_PROVIDER_UNAVAILABLE,
+        FAILURE_CODE_PROVIDER_TIMEOUT
+      ]
+    };
+  }
+}
+
+// ────────────────────────────────────────────── extraction (provisional)
+
+// Asks for a document to be read into a structured profile.
+message ExtractCandidateProfileRequest {
+  // The envelope every request carries.
+  RequestContext context = 1;
+
+  // The uploaded document. The digest pins which upload this extraction is of,
+  // so a re-upload racing an extraction cannot produce a profile of neither.
+  ObjectRef document = 2;
+
+  // The extraction policy version to apply.
+  string policy_version = 3;
+}
+
+// What extraction found.
+message ExtractCandidateProfileResponse {
+  // The versions and usage every response carries.
+  ResponseMeta meta = 1;
+
+  // The structured profile. Claims rather than a rendered document, because Go
+  // owns how a profile is stored and shown, and extraction owns only what the
+  // document said.
+  repeated ProfileClaim claims = 2;
+}
+
+// One thing the document asserts about the candidate.
+message ProfileClaim {
+  // What kind of claim: a skill, a role held, an education entry. A stable
+  // identifier from the extraction schema, not display text.
+  string kind = 1;
+
+  // The claim's structured value, JSON encoded against the schema named by
+  // meta.schema_version. Typed as bytes rather than a message because the
+  // claim schemas belong to the extraction ticket and evolve faster than this
+  // contract; the envelope's schema_version is what makes that safe.
+  bytes value = 2;
+
+  // Where in the document the claim came from, as a span reference, so a
+  // reviewer can check the source without the claim carrying the text.
+  string source_span = 3;
+}
+
+// ────────────────────────────────────────────── composition (provisional)
+
+// Asks for a session bundle to be composed from pinned inputs.
+message ComposeSessionBundleRequest {
+  // The envelope every request carries.
+  RequestContext context = 1;
+
+  // The session being composed for.
+  string session_id = 2;
+
+  // Every input, pinned. Composition reads only these; that the bundle can be
+  // reproduced from this list is the whole immutability guarantee.
+  repeated ObjectRef inputs = 3;
+
+  // The blueprint to compose against.
+  string blueprint_id = 4;
+}
+
+// The composed, immutable bundle.
+message ComposeSessionBundleResponse {
+  // The versions and usage every response carries.
+  ResponseMeta meta = 1;
+
+  // The composed bundle, stored by the capability and returned by reference:
+  // it is the one result too large to travel inline, and Go records the
+  // reference and digest as the session's pinned configuration.
+  ObjectRef bundle = 2;
+
+  // Which revision this composition produced.
+  uint32 bundle_revision = 3;
+}
+
+// ────────────────────────────────────────────── runtime (provisional)
+
+// Asks for accepted events to be folded into runtime state.
+message ReduceInterviewEventsRequest {
+  // The envelope every request carries.
+  RequestContext context = 1;
+
+  // The session whose state is being folded.
+  string session_id = 2;
+
+  // The bundle in force. The reducer refuses a digest that does not match the
+  // session, because state folded under the wrong configuration poisons every
+  // proposal after it.
+  string bundle_digest = 3;
+
+  // The accepted events to fold, in accepted order, JSON encoded against the
+  // runtime event schema. Inline rather than by reference: they are small and
+  // the call is on the live path.
+  repeated bytes events = 4;
+
+  // The sequence number of the last event already folded.
+  uint64 cursor = 5;
+}
+
+// Where the runtime state now stands.
+message ReduceInterviewEventsResponse {
+  // The versions and usage every response carries.
+  ResponseMeta meta = 1;
+
+  // The cursor after folding, which the next call must present.
+  uint64 cursor = 2;
+}
+
+// Asks what the interviewer should do next.
+message ProposeNextActionRequest {
+  // The envelope every request carries.
+  RequestContext context = 1;
+
+  // The live session being conducted.
+  string session_id = 2;
+
+  // The bundle in force, refused on mismatch for the reducer's reason.
+  string bundle_digest = 3;
+
+  // The sequence number of the last accepted event the caller knows. A cursor
+  // behind the reducer's is FAILURE_CODE_STALE_CURSOR.
+  uint64 cursor = 4;
+}
+
+// The proposed next action, for Go to validate.
+message ProposeNextActionResponse {
+  // The versions and usage every response carries.
+  ResponseMeta meta = 1;
+
+  // The proposal. Go validates it before applying it; nothing in it is a
+  // command.
+  ActionProposal proposal = 2;
+}
+
+// What the interviewer should do next, proposed.
+message ActionProposal {
+  // Identifies this proposal, so accepting it is idempotent and an audit can
+  // point at exactly what the policy suggested.
+  string proposal_id = 1;
+
+  // The cursor the proposal was computed at. Go refuses a proposal computed
+  // behind the accepted sequence, because it was reasoning about a session
+  // that no longer exists.
+  uint64 cursor = 2;
+
+  // What to do. A closed set: the policy chooses among actions the runtime
+  // defined, and cannot invent one.
+  ActionKind action = 3;
+
+  // What the runtime owes the candidate before the action, such as a
+  // disclosure. A stable identifier from the bundle's rule pack, empty when
+  // nothing is owed.
+  string obligation = 4;
+
+  // The content to speak or show, for actions that carry any.
+  string content = 5;
+
+  // Why the policy chose this, as a stable reason code for the audit trail.
+  // Never prose: the reasoning a human reads is reconstructed from the code
+  // and the bundle, not stored in every proposal.
+  string reason_code = 6;
+
+  // The state the proposal expects to apply against, JSON encoded, so Go can
+  // detect a proposal racing an event it has not seen.
+  bytes state_patch = 7;
+}
+
+// The actions a proposal may choose from.
+enum ActionKind {
+  // Never proposed. Go refuses it, since applying an unknown action is
+  // exactly what "a proposal is never a command" forbids.
+  ACTION_KIND_UNSPECIFIED = 0;
+
+  // Ask the next planned question.
+  ACTION_KIND_ASK_QUESTION = 1;
+
+  // Probe the previous answer further before moving on.
+  ACTION_KIND_FOLLOW_UP = 2;
+
+  // Move to the next topic in the blueprint.
+  ACTION_KIND_TRANSITION_TOPIC = 3;
+
+  // Deliver a disclosure the rule pack owes the candidate now.
+  ACTION_KIND_GIVE_OBLIGED_DISCLOSURE = 4;
+
+  // Begin closing: final questions, candidate's own questions.
+  ACTION_KIND_WRAP_UP = 5;
+
+  // End the session. A proposal, like everything else: Go ends sessions.
+  ACTION_KIND_END_SESSION = 6;
+}
+
+// ────────────────────────────────────────────── evaluation (provisional)
+
+// Asks for a batch of completed turns to be evaluated.
+message EvaluateTurnsRequest {
+  // The envelope every request carries.
+  RequestContext context = 1;
+
+  // The session the turns belong to.
+  string session_id = 2;
+
+  // The bundle in force, which names the rubric the turns are judged against.
+  string bundle_digest = 3;
+
+  // The turns to evaluate, by reference: a turn carries transcript content,
+  // which stays in storage under its own access rules.
+  repeated ObjectRef turns = 4;
+}
+
+// The evidence found in the batch.
+message EvaluateTurnsResponse {
+  // The versions and usage every response carries.
+  ResponseMeta meta = 1;
+
+  // One observation per piece of evidence found. Unknown evidence is absent,
+  // never a zero: coercing silence into a score is the failure the evaluation
+  // system is designed around refusing.
+  repeated CompetencyObservation observations = 2;
+}
+
+// Evidence for one competency, observed in one turn.
+message CompetencyObservation {
+  // The competency the evidence bears on.
+  string competency_id = 1;
+
+  // Which turn the evidence is in.
+  string turn_id = 2;
+
+  // The observation, JSON encoded against the schema in meta.schema_version.
+  // Bytes for the same reason as ProfileClaim: the observation schema belongs
+  // to the evaluation ticket and evolves faster than this contract.
+  bytes observation = 3;
+}
+
+// Asks for a completed session to be aggregated into its evaluation.
+message EvaluateSessionRequest {
+  // The envelope every request carries.
+  RequestContext context = 1;
+
+  // The completed session.
+  string session_id = 2;
+
+  // The bundle in force for the whole session.
+  string bundle_digest = 3;
+
+  // The finalized media manifest. Evaluation refuses to run from a manifest
+  // whose track count is short, because judging what was recorded rather than
+  // what was said is the mistake this field exists to make impossible.
+  ObjectRef manifest = 4;
+
+  // The rubric pin, echoed from the bundle so the request is self-describing
+  // in the workflow history.
+  string rubric_id = 5;
+
+  // The exact rubric version, so an edited rubric cannot change what this
+  // evaluation meant.
+  string rubric_version = 6;
+}
+
+// The session's evaluation.
+message EvaluateSessionResponse {
+  // The versions and usage every response carries.
+  ResponseMeta meta = 1;
+
+  // The evaluation result, JSON encoded against the rubric result schema. It
+  // travels inline because Go persists it as the authoritative record: a
+  // result Python stored and Go referenced would make Python an owner of
+  // product state.
+  bytes result = 2;
+
+  // Competencies with too little evidence to conclude on. Present alongside a
+  // result rather than instead of one, because a session can support
+  // conclusions on some competencies and not others.
+  repeated string uncovered_competency_ids = 3;
+}
+
+// ────────────────────────────────────────────── articulation (provisional)
+
+// Asks how, rather than what, the candidate communicated.
+message AnalyzeArticulationRequest {
+  // The envelope every request carries.
+  RequestContext context = 1;
+
+  // The session analysed.
+  string session_id = 2;
+
+  // The bundle in force, which carries the articulation policy.
+  string bundle_digest = 3;
+
+  // The finalized media manifest the analysis reads from.
+  ObjectRef manifest = 4;
+}
+
+// The articulation analysis.
+message AnalyzeArticulationResponse {
+  // The versions and usage every response carries.
+  ResponseMeta meta = 1;
+
+  // The articulation analysis, JSON encoded against its schema. Measured
+  // values come from the deterministic calculator named in
+  // meta.calculation_version; a model cannot invent a measurement.
+  bytes analysis = 2;
+}
+
+// ────────────────────────────────────────────── coaching (provisional)
+
+// Asks for coaching a candidate can act on, from a practice evaluation.
+message GeneratePracticeCoachingRequest {
+  // The envelope every request carries.
+  RequestContext context = 1;
+
+  // The practice session the coaching is about.
+  string session_id = 2;
+
+  // The evaluation to coach from, by reference; it carries prose.
+  ObjectRef evaluation = 3;
+
+  // The coaching policy version to apply.
+  string policy_version = 4;
+}
+
+// The coaching produced.
+message GeneratePracticeCoachingResponse {
+  // The versions and usage every response carries.
+  ResponseMeta meta = 1;
+
+  // The coaching content, JSON encoded against the coaching schema.
+  bytes coaching = 2;
+}

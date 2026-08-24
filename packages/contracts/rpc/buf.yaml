@@ -1,0 +1,16 @@
+# The RPC contract module. ADR-0004: Protobuf over gRPC, buf for lint,
+# generation and breaking checks.
+version: v2
+lint:
+  use:
+    - STANDARD
+    # Not in STANDARD, but the repository's documentation baseline is that
+    # every exported thing explains which rule it enforces, and a contract
+    # consumed by two languages is the last place to relax that.
+    - COMMENTS
+breaking:
+  use:
+    # WIRE_JSON rather than FILE: what must not break is a deployed reader of
+    # the bytes or the JSON form, and FILE would also refuse harmless
+    # source-level moves.
+    - WIRE_JSON

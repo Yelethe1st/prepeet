@@ -1,0 +1,44 @@
+// The declaration every RPC must carry.
+//
+// CTR-02 requires each RPC to declare its timeout, idempotency, retryability
+// and failure codes. An option on the method is the only place that declaration
+// cannot drift from the method it describes, and a test walks the descriptor to
+// refuse a method that omits it.
+syntax = "proto3";
+
+package prepeet.rpc.v1;
+
+import "google/protobuf/descriptor.proto";
+import "prepeet/rpc/v1/failure.proto";
+
+option go_package = "github.com/Yelethe1st/prepeet/packages/generated/go/prepeetrpc/rpcv1";
+
+// What a caller may assume about one RPC.
+message MethodPolicy {
+  // The deadline the caller sets, and the longest the server will work before
+  // abandoning the call itself. Enforced through gRPC's own deadline rather
+  // than a field in the request, because gRPC propagates cancellation to the
+  // provider call in flight and a request field cannot.
+  uint32 timeout_ms = 1;
+
+  // Whether repeating the call with the same request identifier is safe.
+  //
+  // Every RPC here must be true, because retries happen in the durable
+  // workflow layer against exactly this promise. The field exists rather than
+  // being assumed so that the promise is written where the method is, and so
+  // that a future non-idempotent method has to say so and fail the descriptor
+  // test rather than slip in quietly.
+  bool idempotent = 2;
+
+  // The failure codes this method can return, beyond FAILURE_CODE_INTERNAL,
+  // which every method can. Retryability is declared on the codes themselves;
+  // listing them here is what makes "what can go wrong calling this" a
+  // property of the contract rather than of the implementation's history.
+  repeated FailureCode failure_codes = 3;
+}
+
+extend google.protobuf.MethodOptions {
+  // The policy for this method. Required on every RPC; the descriptor test
+  // refuses a method without one.
+  MethodPolicy method_policy = 50002;
+}

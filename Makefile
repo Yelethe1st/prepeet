@@ -175,6 +175,9 @@ tools: ## Install the pinned code generators into .tools
 	@mkdir -p $(TOOLS_BIN)
 	cd $(GO_DIR) && GOBIN=$(TOOLS_BIN) go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 	cd $(GO_DIR) && GOBIN=$(TOOLS_BIN) go install github.com/sqlc-dev/sqlc/cmd/sqlc
+	cd $(GO_DIR) && GOBIN=$(TOOLS_BIN) go install github.com/bufbuild/buf/cmd/buf
+	cd $(GO_DIR) && GOBIN=$(TOOLS_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go
+	cd $(GO_DIR) && GOBIN=$(TOOLS_BIN) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
 
 .PHONY: generate
 generate: tools ## Regenerate every client and server type from the contracts
@@ -196,6 +199,13 @@ generate: tools ## Regenerate every client and server type from the contracts
 	# The repositories' SQL, checked against the real migrations rather than
 	# against a description of them. See ADR-0008.
 	cd $(GO_DIR) && $(TOOLS_BIN)/sqlc generate
+	# The Go/Python RPC stubs, per ADR-0004 and CTR-02. buf runs the Go plugins
+	# and the built-in Python message generator; the Python gRPC service stub
+	# comes from grpc_tools.protoc, which ships as a module rather than a
+	# plugin buf could invoke.
+	cd packages/contracts/rpc && PATH="$(TOOLS_BIN):$$PATH" $(TOOLS_BIN)/buf generate
+	cd $(PY_DIR) && uv run python -m grpc_tools.protoc -I ../../packages/contracts/rpc \
+		--grpc_python_out=../../packages/generated/python prepeet/intelligence/v1/intelligence.proto
 	cd packages/generated/go && go mod tidy
 
 .PHONY: check-generated
@@ -225,9 +235,23 @@ check-events: ## Fail if the event contracts would break a consumer
 	cd tools/eventgen && go build -o $(TOOLS_BIN)/eventgen . && cd $(CURDIR); \
 	$(TOOLS_BIN)/eventgen -baseline "$$baseline/packages/contracts/events"
 
+.PHONY: check-rpc
+check-rpc: ## Fail if the RPC contracts would break a deployed reader
+	@# Same shape as check-events: against the previous release, per ADR-0004.
+	@set -e; \
+	tag=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
+	if [ -z "$$tag" ]; then \
+		printf 'no release tag yet, so there is no baseline to compare against.\n'; \
+		printf 'This becomes a real gate at the first tagged release.\n'; \
+		exit 0; \
+	fi; \
+	cd packages/contracts/rpc && $(TOOLS_BIN)/buf breaking \
+		--against "../../../.git#tag=$$tag,subdir=packages/contracts/rpc"
+
 .PHONY: lint-contracts
-lint-contracts: ## Lint the OpenAPI document
+lint-contracts: ## Lint the OpenAPI document and the Protobuf module
 	pnpm lint:contracts
+	cd packages/contracts/rpc && $(TOOLS_BIN)/buf lint
 
 # ----------------------------------------------------------------- lint / fmt
 

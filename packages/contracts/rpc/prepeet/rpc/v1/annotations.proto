@@ -1,0 +1,22 @@
+// The one custom annotation the RPC contracts hang retry semantics on.
+//
+// In its own file because failure.proto uses it and method_policy.proto is used
+// by it, and protobuf refuses an import cycle sooner than Go does.
+syntax = "proto3";
+
+package prepeet.rpc.v1;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/Yelethe1st/prepeet/packages/generated/go/prepeetrpc/rpcv1";
+
+extend google.protobuf.EnumValueOptions {
+  // Whether retrying the same call after this failure could plausibly succeed.
+  //
+  // Declared on the enum value rather than in each language's client, so that a
+  // new code cannot be added without someone deciding its retry behaviour, and
+  // so that Go and Python cannot hold different opinions about the same code.
+  // Both read it from the descriptor; docs/contracts/internal-rpc.md is the
+  // reasoning.
+  bool retryable = 50001;
+}

@@ -77,8 +77,15 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      # check-generated regenerates everything, and the Python gRPC stub step
+      # runs through uv, so this job needs it even though it tests nothing.
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: Install the Python toolchain
+        run: cd services/intelligence && uv sync --all-extras
       - name: Lint the OpenAPI document
         run: make lint-contracts
       # ADR-0004 makes the contract the source and generates everything else
@@ -92,6 +99,12 @@ jobs:
         run: git fetch --tags --depth=1
       - name: Refuse a breaking change to the event contracts
         run: make check-events
+      - name: Refuse a breaking change to the RPC contracts
+        run: make check-rpc
+      # Nothing imports the RPC stubs yet, so building the module is the only
+      # thing proving they compile, which is CTR-02's first criterion.
+      - name: Build the generated Go stubs
+        run: cd packages/generated/go && go build ./...
 
   python:
     name: Python intelligence

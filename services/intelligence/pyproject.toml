@@ -3,7 +3,12 @@ name = "prepeet-intelligence"
 version = "0.1.0"
 description = "Typed intelligence for Prepeet: composition, evaluation, articulation and coaching."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    # The RPC surface. grpcio serves it, protobuf decodes it; both sides of the
+    # contract in packages/contracts/rpc depend on these at runtime.
+    "grpcio>=1.68",
+    "protobuf>=5.28",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -11,6 +16,9 @@ dev = [
     "pytest-cov>=6.0",
     "mypy>=1.13",
     "ruff>=0.8",
+    # Generates the Python gRPC service stub in make generate. A build-time
+    # dependency only: the service imports the generated code, not the tool.
+    "grpcio-tools>=1.68",
 ]
 
 [build-system]
@@ -22,7 +30,7 @@ packages = ["src/prepeet_ai"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "../../packages/generated/python"]
 # Strict markers and strict config turn a typo in a decorator or a setting into
 # an error rather than a silently skipped test.
 addopts = "--strict-markers --strict-config"

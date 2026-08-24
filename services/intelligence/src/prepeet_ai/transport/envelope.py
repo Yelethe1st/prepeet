@@ -1,7 +1,10 @@
 """The typed envelope every RPC between Go and this service travels in.
 
-docs/contracts/internal-rpc.md fixes two rules that this module enforces rather
-than documents. Every result carries the versions that produced it, so an
+The taxonomy itself is owned by packages/contracts/rpc, where each code
+declares its retry decision as a descriptor option; tests/test_rpc_contract.py
+fails if this module and the descriptor disagree, so neither can be edited
+alone. docs/contracts/internal-rpc.md fixes two rules that this module enforces
+rather than documents. Every result carries the versions that produced it, so an
 evaluation can be reconstructed a year later against the same inputs. Every
 failure states whether retrying could help, because Go owns the retry decision
 and cannot make it by inspecting a message string.
@@ -59,8 +62,18 @@ class FailureCode(Enum):
 
     INVALID_INPUT = ("INVALID_INPUT", False)
     UNSUPPORTED_CAPABILITY = ("UNSUPPORTED_CAPABILITY", False)
+    # The request pinned a policy or schema version this deployment does not
+    # carry. The fix is a rollout or a re-pin, not a retry.
+    UNSUPPORTED_POLICY_VERSION = ("UNSUPPORTED_POLICY_VERSION", False)
     ARTIFACT_NOT_FOUND = ("ARTIFACT_NOT_FOUND", False)
     SCHEMA_VALIDATION_FAILED = ("SCHEMA_VALIDATION_FAILED", False)
+    # Silence where speech was expected, audio below the quality floor, an
+    # unsupported language. Never coerced into a low score: a distinct code is
+    # what makes that refusal expressible.
+    UNASSESSABLE_INPUT = ("UNASSESSABLE_INPUT", False)
+    # The proposal cursor is behind the accepted sequence. The caller
+    # refreshes and asks again; retrying replays the same stale state.
+    STALE_CURSOR = ("STALE_CURSOR", False)
     # Retrying a budget failure spends more money to fail the same way. The
     # caller degrades instead: it keeps the deterministic result and omits the
     # optional narrative. See docs/architecture/evaluation-system.md.

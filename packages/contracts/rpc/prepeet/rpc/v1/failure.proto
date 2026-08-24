@@ -1,0 +1,100 @@
+// The failure taxonomy every RPC between Go and Python shares.
+//
+// One taxonomy rather than one per capability, because the caller's response
+// depends on the kind of failure, not on which capability produced it: a
+// budget failure is answered by degrading whether it came from evaluation or
+// articulation, and a provider outage is retried the same way everywhere.
+//
+// Implements part of CTR-02. See docs/contracts/internal-rpc.md.
+syntax = "proto3";
+
+package prepeet.rpc.v1;
+
+import "prepeet/rpc/v1/annotations.proto";
+
+option go_package = "github.com/Yelethe1st/prepeet/packages/generated/go/prepeetrpc/rpcv1";
+
+// Why a call failed. Callers branch on this, never on the message.
+//
+// Each value declares its retry decision as an option, which both sides read
+// from the descriptor. The reasoning for each decision lives here, on the
+// value, because a retry flag without its reason is a flag nobody can safely
+// change.
+enum FailureCode {
+  // Never emitted. Proto3 requires a zero value, and a consumer receiving it
+  // knows the producer is newer than its own descriptor.
+  FAILURE_CODE_UNSPECIFIED = 0;
+
+  // The request was malformed or violated the capability's contract. The same
+  // request will fail the same way, so retrying spends latency to learn
+  // nothing.
+  FAILURE_CODE_INVALID_INPUT = 1 [(prepeet.rpc.v1.retryable) = false];
+
+  // The capability does not exist in this deployment. A deploy problem, not a
+  // transient one.
+  FAILURE_CODE_UNSUPPORTED_CAPABILITY = 2 [(prepeet.rpc.v1.retryable) = false];
+
+  // The request pinned a policy, rubric or schema version this deployment does
+  // not carry. Distinct from INVALID_INPUT because the fix is a rollout or a
+  // re-pin, not an edit to the request.
+  FAILURE_CODE_UNSUPPORTED_POLICY_VERSION = 3 [(prepeet.rpc.v1.retryable) = false];
+
+  // A referenced artifact, such as a persona or rule pack, was not found at
+  // the pinned version.
+  FAILURE_CODE_ARTIFACT_NOT_FOUND = 4 [(prepeet.rpc.v1.retryable) = false];
+
+  // The capability produced output that failed its own schema. Retrying with
+  // the same inputs re-rolls the dice on a provider, which is not a strategy;
+  // the caller records the failure and a human looks.
+  FAILURE_CODE_SCHEMA_VALIDATION_FAILED = 5 [(prepeet.rpc.v1.retryable) = false];
+
+  // The capability budget was exhausted. Retrying spends more money to fail
+  // the same way. The caller degrades instead: it keeps the deterministic
+  // result and omits the optional narrative.
+  FAILURE_CODE_BUDGET_EXHAUSTED = 6 [(prepeet.rpc.v1.retryable) = false];
+
+  // The input cannot be assessed: silence where speech was expected, audio
+  // below the supported quality floor, an unsupported language. Never coerced
+  // into a low score, which is the core evaluation invariant; a distinct code
+  // is what makes that refusal expressible.
+  FAILURE_CODE_UNASSESSABLE_INPUT = 7 [(prepeet.rpc.v1.retryable) = false];
+
+  // The runtime proposal cursor is behind the accepted sequence. The caller
+  // refreshes its cursor and asks again; retrying the same call replays the
+  // same stale state.
+  FAILURE_CODE_STALE_CURSOR = 8 [(prepeet.rpc.v1.retryable) = false];
+
+  // The model provider refused or was unreachable. The condition is theirs and
+  // transient, so a later attempt can succeed.
+  FAILURE_CODE_PROVIDER_UNAVAILABLE = 9 [(prepeet.rpc.v1.retryable) = true];
+
+  // The provider accepted the call and did not answer in time. Retryable for
+  // the same reason, and only from the durable workflow layer, where
+  // idempotency is enforced.
+  FAILURE_CODE_PROVIDER_TIMEOUT = 10 [(prepeet.rpc.v1.retryable) = true];
+
+  // Something in the intelligence service itself. Retryable because a crash or
+  // a deploy is transient; if it persists, the workflow's retry policy is what
+  // gives up.
+  FAILURE_CODE_INTERNAL = 11 [(prepeet.rpc.v1.retryable) = true];
+}
+
+// The typed failure detail attached to a gRPC error status.
+//
+// It travels as an error detail rather than in the response body, per
+// docs/contracts/internal-rpc.md: canonical gRPC status for transport and
+// middleware, this message for what the application actually branches on.
+message Failure {
+  // The code the caller branches on.
+  FailureCode code = 1;
+
+  // For an operator. Never machine logic, may be reworded at any time, and
+  // never carries a raw provider error or a secret: provider errors have
+  // included request echoes, and this message is logged.
+  string message = 2;
+
+  // Which field or artifact was at fault, where that is known. Keys and values
+  // must never carry transcript content or any other restricted data, because
+  // failures are logged and logs have a wider audience than results.
+  map<string, string> detail = 3;
+}

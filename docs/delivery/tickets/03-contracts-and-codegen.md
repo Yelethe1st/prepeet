@@ -64,9 +64,9 @@ Typed envelopes with explicit versions, deadlines, retry semantics and failure t
 returns free-form text where a schema is possible.
 
 **Done when**
-- [ ] Protobuf definitions compile to Go and Python stubs in CI.
-- [ ] Every RPC declares timeout, retryability, idempotency and failure codes.
-- [ ] A failure taxonomy exists that distinguishes invalid input, provider failure and budget exhaustion.
+- [x] Protobuf definitions compile to Go and Python stubs in CI.
+- [x] Every RPC declares timeout, retryability, idempotency and failure codes.
+- [x] A failure taxonomy exists that distinguishes invalid input, provider failure and budget exhaustion.
 
 **Spec** [internal-rpc.md](../../contracts/internal-rpc.md)
 

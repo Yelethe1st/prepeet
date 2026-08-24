@@ -1,8 +1,18 @@
 # Internal RPC
 
-**Status:** Proposed; Protobuf is authoritative after implementation  
+**Status:** Implemented  
 **Owner:** Go/Python platform teams  
-**Last updated:** 2026-08-23
+**Last updated:** 2026-08-24
+
+The authoritative contract is the hand-authored Protobuf in
+`packages/contracts/rpc/`, per
+[ADR-0004](../architecture/decisions/0004-contract-conventions-and-code-generation.md);
+Go and Python stubs are generated from it and never edited. This document is
+the reasoning. Every method declares its timeout, idempotency and failure codes
+as a descriptor option, every failure code declares its retry decision the same
+way, and a test walks the descriptor refusing a method or code that does not.
+`buf lint` and `buf breaking` gate the module in CI. Delivered by CTR-02;
+the capability result payloads are provisional until their tickets run.
 
 ## Boundary
 

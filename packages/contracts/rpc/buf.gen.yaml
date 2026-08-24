@@ -1,0 +1,16 @@
+# How the stubs are generated. `make generate` runs this with the pinned
+# plugins from .tools on PATH; the Python gRPC service stub is produced in the
+# same target by grpc_tools.protoc, which ships as a Python module rather than
+# a protoc plugin buf could invoke.
+version: v2
+plugins:
+  - local: protoc-gen-go
+    out: ../../generated/go
+    opt: module=github.com/Yelethe1st/prepeet/packages/generated/go
+  - local: protoc-gen-go-grpc
+    out: ../../generated/go
+    opt: module=github.com/Yelethe1st/prepeet/packages/generated/go
+  - protoc_builtin: python
+    out: ../../generated/python
+  - protoc_builtin: pyi
+    out: ../../generated/python

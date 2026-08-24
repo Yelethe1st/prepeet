@@ -11,11 +11,13 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // Lookup reads one configuration value. os.LookupEnv satisfies it.
@@ -54,6 +56,20 @@ type Config struct {
 	OTLPEndpoint string
 	// TraceSampleRatio is the fraction of traces recorded, between 0 and 1.
 	TraceSampleRatio float64
+	// TemporalAddress is the Temporal frontend, as host:port. Empty means this
+	// process does not use Temporal, which is how cmd/api and cmd/migrate start
+	// without it.
+	TemporalAddress string
+	// TemporalNamespace is derived from Environment rather than configured
+	// independently. ADR-0007 separates environments by namespace, and a
+	// namespace that could name any environment makes that a matter of getting
+	// one variable right.
+	TemporalNamespace string
+	// TemporalTLSCertFile and TemporalTLSKeyFile are the client certificate
+	// pair. Empty for a self-hosted server on a private network; both set for
+	// Temporal Cloud, which is the whole of what that swap costs in code.
+	TemporalTLSCertFile string
+	TemporalTLSKeyFile  string
 	// AppDatabasePassword is the password for the prepeet_app role, used only
 	// by cmd/migrate when creating the role. It has no default because a
 	// default would be a credential in the repository, and in a deployed
@@ -72,9 +88,10 @@ func (c Config) String() string {
 	if c.AppDatabasePassword != "" {
 		password = "[redacted]"
 	}
-	return fmt.Sprintf("Config{Address:%s Environment:%s DatabaseURL:%s AppDatabasePassword:%s OTLPEndpoint:%s TraceSampleRatio:%v}",
+	return fmt.Sprintf("Config{Address:%s Environment:%s DatabaseURL:%s AppDatabasePassword:%s "+
+		"OTLPEndpoint:%s TraceSampleRatio:%v TemporalAddress:%s TemporalNamespace:%s}",
 		c.Address, c.Environment, redactURL(c.DatabaseURL), password,
-		c.OTLPEndpoint, c.TraceSampleRatio)
+		c.OTLPEndpoint, c.TraceSampleRatio, c.TemporalAddress, c.TemporalNamespace)
 }
 
 // redactURL removes any password embedded in a connection string, which is the
@@ -110,6 +127,10 @@ func Load(lookup Lookup) (Config, error) {
 
 		OTLPEndpoint: value(lookup, "PREPEET_OTLP_ENDPOINT", ""),
 
+		TemporalAddress:     value(lookup, "PREPEET_TEMPORAL_ADDRESS", ""),
+		TemporalTLSCertFile: value(lookup, "PREPEET_TEMPORAL_TLS_CERT_FILE", ""),
+		TemporalTLSKeyFile:  value(lookup, "PREPEET_TEMPORAL_TLS_KEY_FILE", ""),
+
 		// No defaults. See the field comments.
 		DatabaseURL:         value(lookup, "PREPEET_DATABASE_URL", ""),
 		AppDatabasePassword: value(lookup, "PREPEET_APP_DATABASE_PASSWORD", ""),
@@ -127,6 +148,24 @@ func Load(lookup Lookup) (Config, error) {
 	if !slices.Contains(environments, cfg.Environment) {
 		return Config{}, fmt.Errorf("config: PREPEET_ENVIRONMENT is %q, want one of %v",
 			cfg.Environment, environments)
+	}
+
+	// The namespace follows the environment. An override is permitted because
+	// Temporal Cloud qualifies a namespace with an account identifier, but it
+	// must still start with the derived name, so a process can add a suffix and
+	// cannot point at a different environment.
+	derived := "prepeet-" + string(cfg.Environment)
+	cfg.TemporalNamespace = value(lookup, "PREPEET_TEMPORAL_NAMESPACE", derived)
+	if !strings.HasPrefix(cfg.TemporalNamespace, derived) {
+		return Config{}, fmt.Errorf("config: PREPEET_TEMPORAL_NAMESPACE is %q in the %s environment, "+
+			"want %q or that with an account suffix", cfg.TemporalNamespace, cfg.Environment, derived)
+	}
+
+	// Half a certificate pair fails at dial time with a TLS error nobody can
+	// read, so it fails here instead where the cause is named.
+	if (cfg.TemporalTLSCertFile == "") != (cfg.TemporalTLSKeyFile == "") {
+		return Config{}, errors.New("config: PREPEET_TEMPORAL_TLS_CERT_FILE and " +
+			"PREPEET_TEMPORAL_TLS_KEY_FILE must be set together or not at all")
 	}
 
 	// SplitHostPort rejects the shapes net.Listen would fail on later, so the

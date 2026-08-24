@@ -81,8 +81,16 @@ Cloud or self-hosted, who operates it, and which team owns each workflow. Compos
 deletion and outbox delivery all sit on this.
 
 **Done when**
-- [ ] ADR accepted covering hosting, namespaces, retention of workflow history, and on-call ownership.
-- [ ] Disaster-recovery implications passed to [disaster-recovery.md](../../operations/disaster-recovery.md).
+- [x] ADR covering hosting, namespaces, retention of workflow history, and on-call ownership.
+- [x] Disaster-recovery implications passed to [disaster-recovery.md](../../operations/disaster-recovery.md).
+
+**Decided** in [ADR-0007](../../architecture/decisions/0007-durable-execution-with-self-hosted-temporal.md):
+self-hosted in `eu-west-2` on a database instance of its own, one namespace per environment, thirty days
+of history in production, and a payload rule enforced by a data converter rather than by review.
+
+The dependency this ticket had on outbox delivery was wrong and is removed. The dispatcher deliberately
+does not run in a workflow, per [INT-02](17-integrations.md): a workflow has a beginning and an end, and
+tailing a table does not.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md)
 

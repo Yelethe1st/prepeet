@@ -14,7 +14,7 @@ Proposed starting database RPO: 15 minutes or better. Proposed service RTO: 4 ho
 
 - Managed multi-zone PostgreSQL with PITR.
 - Object versioning/replication consistent with residency.
-- Temporal managed guarantees or backed-up persistence.
+- Temporal persistence backed up with point-in-time recovery, on its own database instance. Settled by [ADR-0007](../architecture/decisions/0007-durable-execution-with-self-hosted-temporal.md): self-hosting means this is our recovery model rather than a vendor's guarantee. Product state and workflow state restore to different points, so workflows must be idempotent against product state rather than assuming it, and the replay drill below has to cover that case rather than only a clean restore.
 - Infrastructure/config/contracts/artifacts recoverable from version control and registries.
 - Secret/KMS emergency rotation and recovery.
 - Provider configuration and webhook destinations backed up without exposing secrets.
@@ -48,5 +48,7 @@ Database failover/restore, region outage, stuck/replayed workflow, interrupted s
 
 ## Open decisions
 
-Final RPO/RTO, regional topology, object replication, Temporal recovery model, backup retention/encryption, enterprise communication, and provider exit/fallback.
+Final RPO/RTO, regional topology, object replication, backup retention/encryption, enterprise communication, and provider exit/fallback.
+
+Temporal recovery model settled by [ADR-0007](../architecture/decisions/0007-durable-execution-with-self-hosted-temporal.md).
 

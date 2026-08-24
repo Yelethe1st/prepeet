@@ -246,3 +246,107 @@ func TestASampleRatioIsRead(t *testing.T) {
 		t.Errorf("TraceSampleRatio = %v, want 0.25", cfg.TraceSampleRatio)
 	}
 }
+
+// ─────────────────────────────────────────────────────────────── temporal
+
+// The namespace is derived from the environment rather than configured
+// independently, so the mistake ADR-0007 worries about, a preview worker
+// picking up production work, is not expressible.
+func TestTheTemporalNamespaceFollowsTheEnvironment(t *testing.T) {
+	t.Parallel()
+
+	for environment, want := range map[string]string{
+		"local":      "prepeet-local",
+		"preview":    "prepeet-preview",
+		"staging":    "prepeet-staging",
+		"production": "prepeet-production",
+	} {
+		cfg, err := config.Load(lookupFrom(map[string]string{"PREPEET_ENVIRONMENT": environment}))
+		if err != nil {
+			t.Fatalf("Load(%s): %v", environment, err)
+		}
+		if cfg.TemporalNamespace != want {
+			t.Errorf("in %s the namespace is %q, want %q", environment, cfg.TemporalNamespace, want)
+		}
+	}
+}
+
+// Temporal Cloud qualifies a namespace with an account, so an override has to
+// be possible. It must still start with the derived name, which keeps the
+// safety property while allowing the suffix.
+func TestATemporalNamespaceOverrideMustStillMatchTheEnvironment(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_ENVIRONMENT":        "production",
+		"PREPEET_TEMPORAL_NAMESPACE": "prepeet-production.a2dd6",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TemporalNamespace != "prepeet-production.a2dd6" {
+		t.Errorf("TemporalNamespace = %q", cfg.TemporalNamespace)
+	}
+}
+
+// The mistake worth making impossible.
+func TestATemporalNamespaceFromAnotherEnvironmentIsRefused(t *testing.T) {
+	t.Parallel()
+
+	_, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_ENVIRONMENT":        "preview",
+		"PREPEET_TEMPORAL_NAMESPACE": "prepeet-production",
+	}))
+	if err == nil {
+		t.Fatal("a preview process was allowed to point at the production namespace")
+	}
+	if !strings.Contains(err.Error(), "prepeet-preview") {
+		t.Errorf("the error does not say what the namespace should have been: %v", err)
+	}
+}
+
+// Empty means no Temporal, which is how a process that does not need it starts.
+func TestTemporalIsOffByDefault(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TemporalAddress != "" {
+		t.Errorf("TemporalAddress = %q by default, want empty", cfg.TemporalAddress)
+	}
+}
+
+// Client certificates are what Temporal Cloud authenticates with, so both
+// arriving together is the whole point of the swap being cheap. One without the
+// other is a misconfiguration that would otherwise fail at dial time with a TLS
+// error nobody can read.
+func TestATemporalClientCertificateWithoutItsKeyIsRefused(t *testing.T) {
+	t.Parallel()
+
+	for _, env := range []map[string]string{
+		{"PREPEET_TEMPORAL_ADDRESS": "temporal:7233", "PREPEET_TEMPORAL_TLS_CERT_FILE": "/certs/client.pem"},
+		{"PREPEET_TEMPORAL_ADDRESS": "temporal:7233", "PREPEET_TEMPORAL_TLS_KEY_FILE": "/certs/client.key"},
+	} {
+		if _, err := config.Load(lookupFrom(env)); err == nil {
+			t.Errorf("half a client certificate was accepted: %v", env)
+		}
+	}
+}
+
+func TestATemporalClientCertificatePairIsRead(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_TEMPORAL_ADDRESS":       "prepeet.a2dd6.tmprl.cloud:7233",
+		"PREPEET_TEMPORAL_TLS_CERT_FILE": "/certs/client.pem",
+		"PREPEET_TEMPORAL_TLS_KEY_FILE":  "/certs/client.key",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TemporalTLSCertFile == "" || cfg.TemporalTLSKeyFile == "" {
+		t.Error("the certificate pair was not read")
+	}
+}

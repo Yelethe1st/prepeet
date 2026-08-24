@@ -160,7 +160,7 @@ local-up: ## Start PostgreSQL, LocalStack and Temporal locally
 	$(COMPOSE) up -d --wait
 	@echo "  postgres      localhost:5432"
 	@echo "  localstack    localhost:4566   (s3, secretsmanager, kms)"
-	@echo "  temporal      localhost:7233   ui localhost:8233"
+	@echo "  temporal      localhost:7233   ui localhost:8233   namespace prepeet-local"
 
 .PHONY: local-down
 local-down: ## Stop the local stack, keeping its data

@@ -221,6 +221,43 @@ func TestFanOutGoesThroughTheBroadcastPackage(t *testing.T) {
 	}
 }
 
+// The Temporal client stays out of the bounded contexts, and the workflow
+// package does not.
+//
+// The distinction is the point. ADR-0007 keeps the swap to Temporal Cloud cheap
+// by building the client in one place, so a context that dialled its own would
+// undo that. But workflow definitions are written against go.temporal.io/sdk/
+// workflow and no interface hides that honestly, and they are domain logic, so
+// they belong in the context that owns them. Banning both would push workflow
+// code into platform/, where it has no business being.
+//
+// So: a context starts a workflow through a consumer-defined interface, and
+// defines one using the SDK directly.
+func TestTheTemporalClientStaysOutOfBoundedContexts(t *testing.T) {
+	t.Parallel()
+
+	const clientPackage = "go.temporal.io/sdk/client"
+
+	for _, p := range packages(t) {
+		// platform/ builds the client; cmd/ wires it.
+		if strings.HasPrefix(p.ImportPath, modulePath+"/platform/") ||
+			strings.HasPrefix(p.ImportPath, modulePath+"/cmd/") {
+			continue
+		}
+
+		for _, imported := range allImports(p) {
+			if imported == clientPackage {
+				t.Errorf("%s imports %s\n"+
+					"    The Temporal client is built in platform/temporal, per ADR-0007, which\n"+
+					"    keeps moving to Temporal Cloud a configuration change. Start a workflow\n"+
+					"    through a consumer-defined interface instead. Defining a workflow with\n"+
+					"    go.temporal.io/sdk/workflow is fine and is not what this checks.",
+					p.ImportPath, imported)
+			}
+		}
+	}
+}
+
 // cmd is the one place allowed to see the whole system, because something has
 // to wire it together. This test does not enforce a rule so much as record that
 // the exemption is deliberate, and fail if cmd ever stops being that place.

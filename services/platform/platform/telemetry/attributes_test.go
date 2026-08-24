@@ -190,3 +190,74 @@ func TestScrubLeavesAnOrdinaryMessageAlone(t *testing.T) {
 		t.Errorf("Scrub changed an ordinary message:\n  before: %q\n  after:  %q", message, scrubbed)
 	}
 }
+
+// ─────────────────────────────────────────────────────── detecting, not just removing
+
+// Scrub redacts, because a log message with a credential in it is still worth
+// having without the credential. Other callers need the opposite response: a
+// workflow argument carrying restricted content must be refused outright, since
+// there is no useful version of it with the content removed.
+//
+// Both answer the same question about the same four shapes, so the shapes are
+// defined once and the two responses are built on it. Two copies of the
+// patterns would drift, and the copy that was not updated would be the one
+// deciding what reaches durable storage.
+
+func TestFindRestrictedNamesTheShapeItFound(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"no user found for daniel.okonkwo@example.com":        "address",
+		"rejected token ses_AbCdEf0123456789AbCdEf0123456789": "token",
+		"dial postgres://prepeet:hunter2@db.internal:5432/x":  "credential",
+		"stored $argon2id$v=19$m=65536,t=2,p=1$c2E$aGE":       "hash",
+	}
+
+	for text, wantShape := range cases {
+		shape, found := telemetry.FindRestricted(text)
+		if !found {
+			t.Errorf("FindRestricted(%q) found nothing", text)
+			continue
+		}
+		if !strings.Contains(shape, wantShape) {
+			t.Errorf("FindRestricted(%q) said %q, want it to mention %q", text, shape, wantShape)
+		}
+	}
+}
+
+func TestFindRestrictedLeavesOrdinaryTextAlone(t *testing.T) {
+	t.Parallel()
+
+	for _, text := range []string{
+		"session ses_7Kq2XA moved from composing to ready",
+		"01a0301d-aa10-7000-8f3e-1234567890ab",
+		`{"session_id":"ses_7Kq2XA","rubric_version":4}`,
+		"",
+	} {
+		if shape, found := telemetry.FindRestricted(text); found {
+			t.Errorf("FindRestricted(%q) reported %q in text that carries nothing restricted", text, shape)
+		}
+	}
+}
+
+// The two must agree. Anything Scrub changes is something FindRestricted finds,
+// or one of them is working from a different idea of what is restricted.
+func TestScrubAndFindRestrictedAgree(t *testing.T) {
+	t.Parallel()
+
+	for _, text := range []string{
+		"no user found for daniel.okonkwo@example.com",
+		"rejected token ses_AbCdEf0123456789AbCdEf0123456789",
+		"dial postgres://prepeet:hunter2@db.internal:5432/x",
+		"stored $argon2id$v=19$m=65536,t=2,p=1$c2E$aGE",
+		"session ses_7Kq2XA moved from composing to ready",
+		"nothing interesting here",
+	} {
+		_, found := telemetry.FindRestricted(text)
+		changed := telemetry.Scrub(text) != text
+
+		if found != changed {
+			t.Errorf("for %q: FindRestricted says %v but Scrub changed it %v", text, found, changed)
+		}
+	}
+}

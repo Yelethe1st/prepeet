@@ -109,29 +109,74 @@ func MustAttr(key Key, value string) attribute.KeyValue {
 	return attr
 }
 
-// Patterns that must never survive into telemetry.
+// The shapes that must never reach durable storage of any kind, defined once.
 //
-// Each one exists because that shape reaches an error message in the ordinary
-// course of things, not because someone might be careless.
-var (
-	// A driver error naming the user it could not find, or a validation error
-	// echoing what was typed.
-	emailPattern = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
+// Each exists because that shape reaches free text in the ordinary course of
+// things, not because someone might be careless.
+//
+// Two responses are built on this list and they are deliberately different.
+// Scrub redacts, because a log message is still worth having without the
+// credential in it. FindRestricted reports, for callers that must refuse
+// instead: a workflow argument carrying a transcript has no useful redacted
+// version, so the right answer is to fail at the call site rather than to store
+// a censored copy. One list, so the two cannot drift.
+var restrictedShapes = []struct {
+	name string
+	// pattern matches the shape; replacement is what Scrub puts in its place.
+	pattern     *regexp.Regexp
+	replacement string
+}{
+	// A connection failure carrying its own credentials, which is the default
+	// behaviour of most drivers. First, because a connection string contains
+	// something that looks like neither an address nor a token and a little
+	// like both.
+	{
+		name:        "a credential in a connection string",
+		pattern:     regexp.MustCompile(`([a-z][a-z0-9+.\-]*)://[^:/\s]+:[^@/\s]+@`),
+		replacement: "$1://[redacted]@",
+	},
+	// A stored credential quoted back in an error about it being unusable.
+	{
+		name:        "a password hash",
+		pattern:     regexp.MustCompile(`\$argon2(id|i|d)\$[^\s]*`),
+		replacement: "[redacted hash]",
+	},
 	// A rejected token logged so somebody can "check which one it was". The
 	// prefixes are the ones platform/token issues.
-	tokenPattern = regexp.MustCompile(`\b(ses|ref|vrf|rst|mgc|inv)_[A-Za-z0-9_\-]{16,}`)
-	// A connection failure carrying its own credentials, which is the default
-	// behaviour of most drivers.
-	connectionPattern = regexp.MustCompile(`([a-z][a-z0-9+.\-]*)://[^:/\s]+:[^@/\s]+@`)
-	// A stored credential quoted back in an error about it being unusable.
-	hashPattern = regexp.MustCompile(`\$argon2(id|i|d)\$[^\s]*`)
-)
+	{
+		name:        "a bearer token",
+		pattern:     regexp.MustCompile(`\b(ses|ref|vrf|rst|mgc|inv)_[A-Za-z0-9_\-]{16,}`),
+		replacement: "[redacted token]",
+	},
+	// A driver error naming the user it could not find, or a validation error
+	// echoing what was typed.
+	{
+		name:        "an email address",
+		pattern:     regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`),
+		replacement: "[redacted address]",
+	},
+}
+
+// FindRestricted reports the first restricted shape in text, and whether one
+// was found.
+//
+// For callers that must refuse rather than redact. The returned description
+// names the shape and never quotes the match, because the whole point is not to
+// carry it onward: an error message saying which address was found would put it
+// straight back into the log the refusal was protecting.
+func FindRestricted(text string) (shape string, found bool) {
+	for _, restricted := range restrictedShapes {
+		if restricted.pattern.MatchString(text) {
+			return restricted.name, true
+		}
+	}
+	return "", false
+}
 
 // Scrub removes restricted content from free text.
 //
-// It runs on every attribute value and every log message. The order matters:
-// connection strings are handled before addresses, because a connection string
-// contains something that looks like neither and both.
+// It runs on every attribute value and every log message. The order of
+// restrictedShapes matters and is documented there.
 //
 // It is deliberately not clever. A scrubber that tried to understand the text
 // would fail differently on each input; one that removes four known shapes and
@@ -142,10 +187,10 @@ func Scrub(text string) string {
 		return text
 	}
 
-	scrubbed := connectionPattern.ReplaceAllString(text, "$1://[redacted]@")
-	scrubbed = hashPattern.ReplaceAllString(scrubbed, "[redacted hash]")
-	scrubbed = tokenPattern.ReplaceAllString(scrubbed, "[redacted token]")
-	scrubbed = emailPattern.ReplaceAllString(scrubbed, "[redacted address]")
+	scrubbed := text
+	for _, restricted := range restrictedShapes {
+		scrubbed = restricted.pattern.ReplaceAllString(scrubbed, restricted.replacement)
+	}
 
 	if len(scrubbed) > MaxMessageLength {
 		// The marker matters as much as the cut. A silently shortened message

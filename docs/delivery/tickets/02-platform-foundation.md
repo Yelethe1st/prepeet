@@ -114,17 +114,41 @@ playback authorization, which belongs to the policy layer in IAM-04 rather than 
 
 ### PLT-06 · Stand up Temporal with restart-safe workers and a deployment story
 
-**Depends on** DEC-04 · **Blocks** SES-04, EVL-02, SEC-06, INT-02
+**Depends on** DEC-04 · **Blocks** SES-04, EVL-02, SEC-06
+
+INT-02 was listed here and is removed: the outbox dispatcher deliberately does not run in a workflow, so
+outbox delivery never depended on this ticket.
 
 Durable orchestration for composition, evaluation, deletion and outbox delivery. Workers must survive
 restart and replay without duplicating side effects.
 
 **Done when**
 - [ ] Worker restart mid-workflow replays without duplicating state, usage or notification.
-- [ ] Workflow versioning strategy is in place before the first workflow ships.
-- [ ] Namespaces separate environments and history retention matches DEC-04.
+- [x] Workflow versioning strategy is in place before the first workflow ships.
+- [x] Namespaces separate environments and history retention matches DEC-04.
 
-**Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md)
+**In progress.** `platform/temporal` builds the client in one place with the data converter, the
+OpenTelemetry interceptor and the scrubbing logger attached, so no call site can opt out of any of them.
+The namespace is derived from the environment rather than configured, so a preview process pointing at
+the production namespace is not expressible; an override is allowed only as a suffix, which is what
+Temporal Cloud's account qualifier needs. Locally Temporal runs on its own PostgreSQL with the
+`prepeet-local` namespace and seven-day retention, matching the deployed shape from ADR-0007 rather than
+approximating it.
+
+ADR-0007's payload rule is enforced by the converter and asserted against a real server: a workflow
+started with a transcript-sized argument is refused before anything is stored, and one carrying
+identifiers is accepted, so the refusal is not passing for some other reason.
+
+The module boundary test now distinguishes the Temporal client from the workflow package. A bounded
+context starting its own client would undo the reversibility ADR-0007 rests on; a context defining a
+workflow with `go.temporal.io/sdk/workflow` is doing exactly what it should. Both directions verified by
+planting each.
+
+**Remaining.** The first box needs a workflow to restart in the middle of, and there is none: the first
+lands with SES-04. Production and staging namespaces and their thirty-day retention are infrastructure,
+so they land with PLT-09. Worker registration and task queue naming land with the first workflow.
+
+**Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md) · [ADR-0007](../../architecture/decisions/0007-durable-execution-with-self-hosted-temporal.md)
 
 ---
 

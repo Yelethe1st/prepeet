@@ -69,17 +69,53 @@ services:
       timeout: 5s
       retries: 20
 
+  # Temporal gets its own PostgreSQL, matching the deployed shape from ADR-0007
+  # rather than approximating it.
+  #
+  # It shared the application's database until that ADR, and three things made
+  # that wrong. Temporal manages its own schema with its own migration tool and
+  # expects ordinary ownership, which collides with ADR-0002 forcing row-level
+  # security on every table and giving the application a NOBYPASSRLS role. Its
+  # write pattern is many small writes to few rows, which ADR-0006 already
+  # identified as the one to keep off the primary. And its upgrades pin schema
+  # versions, so sharing an instance couples its upgrade window to ours.
+  #
+  # Locally this costs one container. Sharing would have hidden all three until
+  # they appeared in a deployed environment.
+  temporal-postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: temporal
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   temporal:
     image: temporalio/auto-setup:1.29.7
     depends_on:
-      postgres:
+      temporal-postgres:
         condition: service_healthy
     environment:
       DB: postgres12
       DB_PORT: 5432
-      POSTGRES_USER: prepeet
+      POSTGRES_USER: temporal
       POSTGRES_PWD: local-development-only
-      POSTGRES_SEEDS: postgres
+      POSTGRES_SEEDS: temporal-postgres
+      # One namespace per environment, per ADR-0007. The local worker connects
+      # to prepeet-local and never to default, so a task queue name typed
+      # correctly against the wrong namespace finds nothing rather than
+      # something.
+      DEFAULT_NAMESPACE: prepeet-local
+      # Seven days outside production. Retention is set explicitly because a
+      # default is a value nobody chose, and workflow history is
+      # candidate-linked storage on its own schedule.
+      DEFAULT_NAMESPACE_RETENTION: 168h
     ports:
       - "${PREPEET_TEMPORAL_PORT:-7233}:7233"
     healthcheck:
@@ -94,9 +130,11 @@ services:
       - temporal
     environment:
       TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_DEFAULT_NAMESPACE: prepeet-local
     ports:
       - "${PREPEET_TEMPORAL_UI_PORT:-8233}:8080"
 
 volumes:
   postgres-data:
+  temporal-postgres-data:
   localstack-data:

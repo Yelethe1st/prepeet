@@ -13,6 +13,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -25,6 +26,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/temporal"
 )
 
 // shutdownGrace bounds how long the process waits for in-flight delivery.
@@ -85,6 +87,31 @@ func main() {
 		wakeups = nil
 	} else {
 		defer func() { _ = wakeups.Close() }()
+	}
+
+	// Temporal is dialled before the dispatcher starts, so a process that
+	// cannot reach it fails at startup rather than when the first workflow is
+	// requested. It is not fatal yet, because no workflow exists to run and a
+	// worker that refused to start would also stop draining the outbox, which
+	// does work.
+	workflows, err := temporal.Dial(ctx, temporal.Config{
+		Address:   cfg.TemporalAddress,
+		Namespace: cfg.TemporalNamespace,
+		CertFile:  cfg.TemporalTLSCertFile,
+		KeyFile:   cfg.TemporalTLSKeyFile,
+		Logger:    log,
+	})
+	switch {
+	case errors.Is(err, temporal.ErrNotConfigured):
+		log.Info("no Temporal address is configured; this process will only drain the outbox")
+	case err != nil:
+		log.Error("Temporal is not reachable", slog.String("error", err.Error()))
+	default:
+		defer workflows.Close()
+		log.Info("connected to Temporal",
+			slog.String("address", cfg.TemporalAddress),
+			slog.String("namespace", cfg.TemporalNamespace),
+			slog.String("next", "PLT-06 registers workflows and activities on this client"))
 	}
 
 	router := routes()

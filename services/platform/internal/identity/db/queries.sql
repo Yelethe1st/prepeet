@@ -198,3 +198,57 @@ UPDATE identity.sessions
 SET revoked_at = sqlc.arg(revoked_at)::timestamptz,
     revoked_reason = sqlc.arg(reason)::text
 WHERE user_id = sqlc.arg(user_id)::uuid AND revoked_at IS NULL;
+
+-- name: InsertElevation :exec
+INSERT INTO identity.elevations (id, user_id, reason, ticket, expires_at)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(user_id)::uuid, sqlc.arg(reason)::text,
+        sqlc.arg(ticket)::text, sqlc.arg(expires_at)::timestamptz);
+
+-- name: ActiveElevationByUser :one
+-- The newest grant still alive. Expiry is compared here, at read time, so an
+-- elevation dies at its timestamp whether or not anything else runs.
+SELECT id::text AS id, reason, ticket, granted_at, expires_at
+FROM identity.elevations
+WHERE user_id = sqlc.arg(user_id)::uuid
+  AND revoked_at IS NULL
+  AND expires_at > now()
+ORDER BY expires_at DESC
+LIMIT 1;
+
+-- name: RevokeElevation :execrows
+-- Guarded on liveness: revoking an already-dead grant reports zero rows and
+-- the caller says so, rather than stamping a second ending on it.
+UPDATE identity.elevations
+SET revoked_at = now(), revoked_by = sqlc.arg(revoked_by)::uuid
+WHERE id = sqlc.arg(id)::uuid AND revoked_at IS NULL AND expires_at > now();
+
+-- name: ListActiveElevations :many
+-- The visibility criterion: who is elevated right now, for the operator and
+-- their team. Joined to users so the list names people, not identifiers.
+SELECT e.id::text AS id, e.user_id::text AS user_id,
+       coalesce(u.email::text, '')::text AS email,
+       e.reason, e.ticket, e.granted_at, e.expires_at
+FROM identity.elevations e
+JOIN identity.users u ON u.id = e.user_id
+WHERE e.revoked_at IS NULL AND e.expires_at > now()
+ORDER BY e.expires_at;
+
+-- name: InsertElevatedRequestAudit :exec
+-- One row per authenticated request made under an active grant: the record
+-- that access happened, whether or not anything was read, which is the
+-- ticket's own wording. Written from session lookup, the choke point every
+-- request passes exactly once.
+INSERT INTO audit.events
+    (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, detail, request_id)
+VALUES (sqlc.arg(id)::uuid, NULL, sqlc.arg(actor_id)::uuid, 'user',
+        'identity.elevated_request', 'elevation', sqlc.arg(grant_id)::text, 'allowed',
+        sqlc.arg(detail)::jsonb, nullif(sqlc.arg(request_id)::text, ''));
+
+-- name: InsertElevationAudit :exec
+-- Grants and revocations, with reason and ticket in the detail so the trail
+-- answers "why" without a join.
+INSERT INTO audit.events
+    (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, detail)
+VALUES (sqlc.arg(id)::uuid, NULL, sqlc.arg(actor_id)::uuid, 'user',
+        sqlc.arg(action)::text, 'elevation', sqlc.arg(grant_id)::text,
+        sqlc.arg(outcome)::text, sqlc.arg(detail)::jsonb);

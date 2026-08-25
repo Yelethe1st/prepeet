@@ -139,6 +139,15 @@ type Repository interface {
 	RetireSession(ctx context.Context, sessionID string, at time.Time) error
 	RevokeFamily(ctx context.Context, familyID, reason string, at time.Time) error
 
+	// The elevation half, for IAM-07. Grants and revocations carry their
+	// audit rows in the same transaction; AuditElevatedRequest is called from
+	// Lookup for every request made under an active grant.
+	CreateElevation(ctx context.Context, grantID, userID, reason, ticket string, expiresAt time.Time) error
+	RevokeElevation(ctx context.Context, grantID, revokedBy string) error
+	ListActiveElevations(ctx context.Context) ([]Elevation, error)
+	ActiveElevationFor(ctx context.Context, userID string) (Elevation, error)
+	AuditElevatedRequest(ctx context.Context, userID, grantID string) error
+
 	// The action-token half, for IAM-02's flows. Each Consume method pairs
 	// the single-use mark with the effect it grants in one transaction, which
 	// is what makes replaying a link repeat nothing.
@@ -410,6 +419,24 @@ func (s *Service) Lookup(ctx context.Context, sessionToken string) (SessionRow, 
 	if row.RevokedAt != nil || !s.clock().Before(row.ExpiresAt) {
 		return SessionRow{}, ErrSessionInvalid
 	}
+
+	// IAM-07: a request made under an active elevation is recorded, here,
+	// because lookup is the one choke point every authenticated request
+	// passes exactly once - a future endpoint cannot forget to be audited
+	// under elevation by never knowing it had to be. The extra point query
+	// runs against a partial index of live grants, which is almost always
+	// empty; folding it into the session read is the optimisation to make
+	// when measurement asks for it.
+	if elevation, err := s.repo.ActiveElevationFor(ctx, row.UserID); err == nil {
+		if err := s.repo.AuditElevatedRequest(ctx, row.UserID, elevation.GrantID); err != nil {
+			// Failing the request is right: an elevated read that cannot be
+			// recorded is exactly the read the ticket says must not happen.
+			return SessionRow{}, err
+		}
+	} else if !errors.Is(err, ErrNotFound) {
+		return SessionRow{}, err
+	}
+
 	return row, nil
 }
 

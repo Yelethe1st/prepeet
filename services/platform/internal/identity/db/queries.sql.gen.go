@@ -10,6 +10,39 @@ import (
 	"time"
 )
 
+const activeElevationByUser = `-- name: ActiveElevationByUser :one
+SELECT id::text AS id, reason, ticket, granted_at, expires_at
+FROM identity.elevations
+WHERE user_id = $1::uuid
+  AND revoked_at IS NULL
+  AND expires_at > now()
+ORDER BY expires_at DESC
+LIMIT 1
+`
+
+type ActiveElevationByUserRow struct {
+	ID        string
+	Reason    string
+	Ticket    string
+	GrantedAt time.Time
+	ExpiresAt time.Time
+}
+
+// The newest grant still alive. Expiry is compared here, at read time, so an
+// elevation dies at its timestamp whether or not anything else runs.
+func (q *Queries) ActiveElevationByUser(ctx context.Context, userID string) (ActiveElevationByUserRow, error) {
+	row := q.db.QueryRow(ctx, activeElevationByUser, userID)
+	var i ActiveElevationByUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Reason,
+		&i.Ticket,
+		&i.GrantedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const findActionTokenByHash = `-- name: FindActionTokenByHash :one
 SELECT id::text AS id, user_id::text AS user_id, purpose,
        expires_at, used_at, superseded_at, attempts
@@ -315,6 +348,93 @@ func (q *Queries) InsertCredentials(ctx context.Context, arg InsertCredentialsPa
 	return err
 }
 
+const insertElevatedRequestAudit = `-- name: InsertElevatedRequestAudit :exec
+INSERT INTO audit.events
+    (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, detail, request_id)
+VALUES ($1::uuid, NULL, $2::uuid, 'user',
+        'identity.elevated_request', 'elevation', $3::text, 'allowed',
+        $4::jsonb, nullif($5::text, ''))
+`
+
+type InsertElevatedRequestAuditParams struct {
+	ID        string
+	ActorID   string
+	GrantID   string
+	Detail    []byte
+	RequestID string
+}
+
+// One row per authenticated request made under an active grant: the record
+// that access happened, whether or not anything was read, which is the
+// ticket's own wording. Written from session lookup, the choke point every
+// request passes exactly once.
+func (q *Queries) InsertElevatedRequestAudit(ctx context.Context, arg InsertElevatedRequestAuditParams) error {
+	_, err := q.db.Exec(ctx, insertElevatedRequestAudit,
+		arg.ID,
+		arg.ActorID,
+		arg.GrantID,
+		arg.Detail,
+		arg.RequestID,
+	)
+	return err
+}
+
+const insertElevation = `-- name: InsertElevation :exec
+INSERT INTO identity.elevations (id, user_id, reason, ticket, expires_at)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::text, $5::timestamptz)
+`
+
+type InsertElevationParams struct {
+	ID        string
+	UserID    string
+	Reason    string
+	Ticket    string
+	ExpiresAt time.Time
+}
+
+func (q *Queries) InsertElevation(ctx context.Context, arg InsertElevationParams) error {
+	_, err := q.db.Exec(ctx, insertElevation,
+		arg.ID,
+		arg.UserID,
+		arg.Reason,
+		arg.Ticket,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const insertElevationAudit = `-- name: InsertElevationAudit :exec
+INSERT INTO audit.events
+    (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, detail)
+VALUES ($1::uuid, NULL, $2::uuid, 'user',
+        $3::text, 'elevation', $4::text,
+        $5::text, $6::jsonb)
+`
+
+type InsertElevationAuditParams struct {
+	ID      string
+	ActorID string
+	Action  string
+	GrantID string
+	Outcome string
+	Detail  []byte
+}
+
+// Grants and revocations, with reason and ticket in the detail so the trail
+// answers "why" without a join.
+func (q *Queries) InsertElevationAudit(ctx context.Context, arg InsertElevationAuditParams) error {
+	_, err := q.db.Exec(ctx, insertElevationAudit,
+		arg.ID,
+		arg.ActorID,
+		arg.Action,
+		arg.GrantID,
+		arg.Outcome,
+		arg.Detail,
+	)
+	return err
+}
+
 const insertOwningMembership = `-- name: InsertOwningMembership :exec
 INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
 VALUES ($1, $2, $3, 'active', 'owner')
@@ -404,6 +524,56 @@ type InsertUserParams struct {
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
 	_, err := q.db.Exec(ctx, insertUser, arg.ID, arg.Email)
 	return err
+}
+
+const listActiveElevations = `-- name: ListActiveElevations :many
+SELECT e.id::text AS id, e.user_id::text AS user_id,
+       coalesce(u.email::text, '')::text AS email,
+       e.reason, e.ticket, e.granted_at, e.expires_at
+FROM identity.elevations e
+JOIN identity.users u ON u.id = e.user_id
+WHERE e.revoked_at IS NULL AND e.expires_at > now()
+ORDER BY e.expires_at
+`
+
+type ListActiveElevationsRow struct {
+	ID        string
+	UserID    string
+	Email     string
+	Reason    string
+	Ticket    string
+	GrantedAt time.Time
+	ExpiresAt time.Time
+}
+
+// The visibility criterion: who is elevated right now, for the operator and
+// their team. Joined to users so the list names people, not identifiers.
+func (q *Queries) ListActiveElevations(ctx context.Context) ([]ListActiveElevationsRow, error) {
+	rows, err := q.db.Query(ctx, listActiveElevations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListActiveElevationsRow{}
+	for rows.Next() {
+		var i ListActiveElevationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Email,
+			&i.Reason,
+			&i.Ticket,
+			&i.GrantedAt,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listMembershipsByUser = `-- name: ListMembershipsByUser :many
@@ -552,6 +722,27 @@ type RevokeAllSessionsParams struct {
 func (q *Queries) RevokeAllSessions(ctx context.Context, arg RevokeAllSessionsParams) error {
 	_, err := q.db.Exec(ctx, revokeAllSessions, arg.RevokedAt, arg.Reason, arg.UserID)
 	return err
+}
+
+const revokeElevation = `-- name: RevokeElevation :execrows
+UPDATE identity.elevations
+SET revoked_at = now(), revoked_by = $1::uuid
+WHERE id = $2::uuid AND revoked_at IS NULL AND expires_at > now()
+`
+
+type RevokeElevationParams struct {
+	RevokedBy string
+	ID        string
+}
+
+// Guarded on liveness: revoking an already-dead grant reports zero rows and
+// the caller says so, rather than stamping a second ending on it.
+func (q *Queries) RevokeElevation(ctx context.Context, arg RevokeElevationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeElevation, arg.RevokedBy, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const revokeFamily = `-- name: RevokeFamily :exec

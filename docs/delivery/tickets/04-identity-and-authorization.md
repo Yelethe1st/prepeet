@@ -271,8 +271,24 @@ Support access to tenant data is exceptional: scoped, reason-bound, ticket-linke
 recorded whether or not anything was read.
 
 **Done when**
-- [ ] Elevation requires reason and ticket, expires automatically, and can be revoked.
-- [ ] Every read performed under elevation is separately audited.
-- [ ] An unexpired elevation is visible to the operator and to their team.
+- [x] Elevation requires reason and ticket, expires automatically, and can be revoked.
+- [x] Every read performed under elevation is separately audited.
+- [x] An unexpired elevation is visible to the operator and to their team.
+
+**Done.** The grant cannot exist without a reason and a ticket - by CHECK as well as validation -
+cannot outlive the one-hour cap, which refuses rather than clamps because an operator silently
+granted less time than they asked for believes they hold time they do not, and dies at its
+timestamp with no job to run: liveness is the comparison in the query. Revocation is immediate,
+guarded, and audited in the same transaction as the grant's ending; the active list joins to
+users so a teammate reads a name, a reason and a ticket, not identifiers.
+
+The second criterion is enforced at the one choke point every authenticated request passes
+exactly once: session lookup. A request made while a grant is active writes its own audit row
+naming the grant and carrying the request id, so a future endpoint cannot forget to be recorded
+under elevation by never knowing it had to be, and a lookup whose audit write fails fails the
+request - an elevated read that cannot be recorded is exactly the read the criterion forbids.
+Proven by counting: two requests under a grant are two rows naming it, requests before and after
+are none. The capability gate (platform.privileged_elevate) and the console land with OPS-07,
+which this unblocks.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md) · [observability.md](../../operations/observability.md)

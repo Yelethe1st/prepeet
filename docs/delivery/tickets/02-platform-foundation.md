@@ -141,7 +141,7 @@ Durable orchestration for composition, evaluation, deletion and outbox delivery.
 restart and replay without duplicating side effects.
 
 **Done when**
-- [ ] Worker restart mid-workflow replays without duplicating state, usage or notification.
+- [x] Worker restart mid-workflow replays without duplicating state, usage or notification.
 - [x] Workflow versioning strategy is in place before the first workflow ships.
 - [x] Namespaces separate environments and history retention matches DEC-04.
 
@@ -162,9 +162,20 @@ context starting its own client would undo the reversibility ADR-0007 rests on; 
 workflow with `go.temporal.io/sdk/workflow` is doing exactly what it should. Both directions verified by
 planting each.
 
-**Remaining.** The first box needs a workflow to restart in the middle of, and there is none: the first
-lands with SES-04. Production and staging namespaces and their thirty-day retention are infrastructure,
-so they land with PLT-09. Worker registration and task queue naming land with the first workflow.
+**The first workflow arrived with SES-01's composition rather than SES-04, and the first box closed
+with it.** The restart is proven the hard way in the interview package's integration suite: a composer
+blocks inside its activity while the worker running it is stopped, a second worker picks up the retry,
+and then everything is counted - composition ran at least twice, which is at-least-once being
+exercised, while the session advanced exactly once, the catalogue event published exactly once, and
+the audit trail holds exactly one ready row. The exactly-onces come from the aggregate's version
+guards and idempotent activities, not from trusting delivery semantics Temporal does not offer.
+
+Task queues are named by bounded context - the interview queue is `prepeet-interview` - so queue
+ownership follows module ownership. The worker serves it only when the intelligence plane is also
+configured, because a worker polling a queue without its composer would take tasks it can only fail.
+
+**Remaining.** Production and staging namespaces and their thirty-day retention are infrastructure,
+so they land with PLT-09.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md) · [ADR-0007](../../architecture/decisions/0007-durable-execution-with-self-hosted-temporal.md)
 

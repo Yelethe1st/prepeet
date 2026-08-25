@@ -72,6 +72,10 @@ type Config struct {
 	SMTPPassword string
 	// EmailFrom is the sender address on every message.
 	EmailFrom string
+	// IntelligenceAddress is the Python intelligence plane's gRPC endpoint, as
+	// host:port. Empty means this process runs no workflows that need it; the
+	// worker then skips registering the interview task queue and says so.
+	IntelligenceAddress string
 	// WebBaseURL is where emailed links point, such as https://app.prepeet.com.
 	// The links land in inboxes, so a wrong value is not a broken page but a
 	// thousand dead links that cannot be recalled.
@@ -150,6 +154,7 @@ func Load(lookup Lookup) (Config, error) {
 		SMTPPassword:        value(lookup, "PREPEET_SMTP_PASSWORD", ""),
 		EmailFrom:           value(lookup, "PREPEET_EMAIL_FROM", ""),
 		WebBaseURL:          value(lookup, "PREPEET_WEB_BASE_URL", ""),
+		IntelligenceAddress: value(lookup, "PREPEET_INTELLIGENCE_ADDRESS", ""),
 		TemporalTLSCertFile: value(lookup, "PREPEET_TEMPORAL_TLS_CERT_FILE", ""),
 		TemporalTLSKeyFile:  value(lookup, "PREPEET_TEMPORAL_TLS_KEY_FILE", ""),
 

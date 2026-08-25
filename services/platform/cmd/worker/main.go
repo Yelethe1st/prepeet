@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	sdkworker "go.temporal.io/sdk/worker"
 
+	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
@@ -113,8 +115,37 @@ func main() {
 		defer workflows.Close()
 		log.Info("connected to Temporal",
 			slog.String("address", cfg.TemporalAddress),
-			slog.String("namespace", cfg.TemporalNamespace),
-			slog.String("next", "PLT-06 registers workflows and activities on this client"))
+			slog.String("namespace", cfg.TemporalNamespace))
+
+		// The interview task queue: composition, and every session workflow
+		// after it. Registered only when the intelligence plane is reachable
+		// too, because a worker polling the queue without a composer would
+		// take tasks it can only fail.
+		if cfg.IntelligenceAddress == "" {
+			log.Warn("no intelligence address is configured; the interview task queue is not being served")
+		} else {
+			composer, conn, err := newComposer(cfg.IntelligenceAddress)
+			if err != nil {
+				log.Error("the intelligence plane is not usable", slog.String("error", err.Error()))
+				os.Exit(1)
+			}
+			defer conn.Close()
+
+			interviewWorker := sdkworker.New(workflows, interview.TaskQueue, sdkworker.Options{})
+			interviewWorker.RegisterWorkflow(interview.CompositionWorkflow)
+			activities := interview.NewActivities(interview.NewStore(pool), composer)
+			interviewWorker.RegisterActivity(activities.Compose)
+			interviewWorker.RegisterActivity(activities.MarkReady)
+			interviewWorker.RegisterActivity(activities.MarkFailed)
+			if err := interviewWorker.Start(); err != nil {
+				log.Error("the interview worker did not start", slog.String("error", err.Error()))
+				os.Exit(1)
+			}
+			defer interviewWorker.Stop()
+			log.Info("interview worker started",
+				slog.String("task_queue", interview.TaskQueue),
+				slog.String("intelligence", cfg.IntelligenceAddress))
+		}
 	}
 
 	router := routes()
@@ -129,8 +160,7 @@ func main() {
 
 	log.Info("worker started",
 		slog.String("environment", string(cfg.Environment)),
-		slog.Int("outbox_routes", len(router.Routes())),
-		slog.String("next", "PLT-06 registers the Temporal client and workers"))
+		slog.Int("outbox_routes", len(router.Routes())))
 
 	// The email sender drains notification.emails beside the dispatcher. Not
 	// starting is loud rather than fatal: a worker that refused to run would

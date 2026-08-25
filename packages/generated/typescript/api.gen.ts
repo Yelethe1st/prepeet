@@ -431,6 +431,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/catalog/disciplines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the professions the product serves */
+        get: operations["listDisciplines"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List catalogued roles with their valid combinations
+         * @description Each role names its discipline and the interview shapes it offers,
+         *     which is the combination rule the server enforces at composition. The
+         *     browser may filter by these; the server never trusts that it did.
+         */
+        get: operations["listRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/interview-shapes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List interview shapes with their runnable lengths */
+        get: operations["listInterviewShapes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/personas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List interviewer personas
+         * @description A persona is an interview style - pacing, follow-up pressure, silence
+         *     - never a judgement about the candidate. The same rubric and evidence
+         *     standard apply whichever is chosen.
+         */
+        get: operations["listPersonas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -639,6 +717,48 @@ export interface components {
         };
         DocumentList: {
             documents: components["schemas"]["Document"][];
+        };
+        Discipline: {
+            id: string;
+            name: string;
+        };
+        DisciplineList: {
+            disciplines: components["schemas"]["Discipline"][];
+        };
+        CatalogRole: {
+            id: string;
+            discipline: string;
+            title: string;
+            organisation: string;
+            competencies: string[];
+            /** @description The interview shapes this role offers; the combination rule. */
+            shapes: string[];
+        };
+        RoleList: {
+            roles: components["schemas"]["CatalogRole"][];
+        };
+        InterviewShape: {
+            id: string;
+            name: string;
+            description: string;
+            /** @description The lengths this shape can honestly run at. */
+            minutes: number[];
+        };
+        ShapeList: {
+            shapes: components["schemas"]["InterviewShape"][];
+        };
+        Persona: {
+            id: string;
+            name: string;
+            style: string;
+            voice: string;
+            description: string;
+            best_for: string;
+            /** @description The shapes this persona runs. Empty means unrestricted. */
+            shapes: string[];
+        };
+        PersonaList: {
+            personas: components["schemas"]["Persona"][];
         };
         /**
          * @description One thing extraction read, with its provenance. The value is what the
@@ -1536,6 +1656,94 @@ export interface operations {
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listDisciplines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The disciplines. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisciplineList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roles. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    listInterviewShapes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shapes. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShapeList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    listPersonas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The personas. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonaList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
         };
     };
     getCurrentUser: {

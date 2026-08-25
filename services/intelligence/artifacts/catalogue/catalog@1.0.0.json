@@ -1,0 +1,152 @@
+{
+  "type": "catalogue",
+  "reference": "catalog",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "disciplines": [
+      { "id": "software-engineering", "name": "Software engineering" },
+      { "id": "product-management", "name": "Product management" },
+      { "id": "nursing", "name": "Nursing" },
+      { "id": "teaching", "name": "Teaching" },
+      { "id": "sales", "name": "Sales" },
+      { "id": "finance", "name": "Finance" }
+    ],
+    "shapes": [
+      {
+        "id": "shape_behavioural",
+        "name": "Behavioural",
+        "description": "Competency questions with STAR-style follow-ups on real examples from your history.",
+        "minutes": [15, 25, 40]
+      },
+      {
+        "id": "shape_technical",
+        "name": "Technical deep-dive",
+        "description": "Verbal reasoning about systems, trade-offs and failure modes. No coding editor.",
+        "minutes": [25, 40]
+      },
+      {
+        "id": "shape_case",
+        "name": "Case / scenario",
+        "description": "A realistic scenario from the role, worked through out loud with escalating constraints.",
+        "minutes": [25, 40]
+      },
+      {
+        "id": "shape_screen",
+        "name": "Recruiter screen",
+        "description": "Motivation, availability, salary expectations and a light skills pass.",
+        "minutes": [15, 25]
+      },
+      {
+        "id": "shape_panel",
+        "name": "Panel simulation",
+        "description": "Three rotating interviewer viewpoints in one session, as used in clinical and education hiring.",
+        "minutes": [40, 60]
+      }
+    ],
+    "personas": [
+      {
+        "id": "per_ama",
+        "name": "Ama",
+        "style": "Warm and structured",
+        "voice": "Mid-tone, unhurried",
+        "description": "Opens with context, gives you a moment to think, and follows up gently when an answer is thin.",
+        "best_for": "First sessions, nerves, behavioural rounds",
+        "shapes": []
+      },
+      {
+        "id": "per_ravi",
+        "name": "Ravi",
+        "style": "Direct and technical",
+        "voice": "Brisk, precise",
+        "description": "Moves quickly, probes trade-offs and asks for specifics. Interrupts less politely than Ama.",
+        "best_for": "Systems design, technical depth, senior loops",
+        "shapes": ["shape_technical", "shape_case", "shape_behavioural"]
+      },
+      {
+        "id": "per_lena",
+        "name": "Lena",
+        "style": "Panel chair",
+        "voice": "Formal, measured",
+        "description": "Runs a competency-based panel format with scripted follow-ups and time boxing per question.",
+        "best_for": "Public sector, clinical and education panels",
+        "shapes": ["shape_panel", "shape_behavioural"]
+      },
+      {
+        "id": "per_marcus",
+        "name": "Marcus",
+        "style": "Sceptical stakeholder",
+        "voice": "Low, deliberate",
+        "description": "Pushes back on claims and asks you to defend decisions with evidence. Harder than a real first round.",
+        "best_for": "Stakeholder management, sales, exec practice",
+        "shapes": ["shape_case", "shape_behavioural", "shape_screen"]
+      }
+    ],
+    "roles": [
+      {
+        "id": "rl_swe",
+        "discipline": "software-engineering",
+        "title": "Senior Backend Engineer",
+        "organisation": "Product company, 200-800 people",
+        "competencies": ["Systems design", "Debugging & incident response", "Collaboration", "Technical communication"],
+        "shapes": ["shape_behavioural", "shape_technical", "shape_case", "shape_screen"]
+      },
+      {
+        "id": "rl_em",
+        "discipline": "software-engineering",
+        "title": "Engineering Manager",
+        "organisation": "Scale-up",
+        "competencies": ["People development", "Delivery management", "Technical judgement", "Conflict handling"],
+        "shapes": ["shape_behavioural", "shape_case", "shape_screen"]
+      },
+      {
+        "id": "rl_pm",
+        "discipline": "product-management",
+        "title": "Senior Product Manager",
+        "organisation": "B2B SaaS",
+        "competencies": ["Product sense", "Prioritisation", "Stakeholder management", "Data reasoning"],
+        "shapes": ["shape_behavioural", "shape_case", "shape_screen"]
+      },
+      {
+        "id": "rl_rn",
+        "discipline": "nursing",
+        "title": "Registered Nurse - Intensive Care",
+        "organisation": "NHS-style trust or health system",
+        "competencies": ["Clinical reasoning", "Patient safety", "Escalation & handover", "Compassionate communication"],
+        "shapes": ["shape_behavioural", "shape_case", "shape_panel", "shape_screen"]
+      },
+      {
+        "id": "rl_cne",
+        "discipline": "nursing",
+        "title": "Clinical Nurse Educator",
+        "organisation": "Teaching hospital",
+        "competencies": ["Teaching & assessment", "Clinical currency", "Feedback delivery", "Programme design"],
+        "shapes": ["shape_behavioural", "shape_case", "shape_panel"]
+      },
+      {
+        "id": "rl_teach",
+        "discipline": "teaching",
+        "title": "Secondary Mathematics Teacher",
+        "organisation": "Multi-academy trust",
+        "competencies": ["Subject pedagogy", "Behaviour management", "Assessment & feedback", "Safeguarding awareness"],
+        "shapes": ["shape_behavioural", "shape_case", "shape_panel"]
+      },
+      {
+        "id": "rl_sales",
+        "discipline": "sales",
+        "title": "Enterprise Account Executive",
+        "organisation": "Health-tech vendor",
+        "competencies": ["Discovery", "Commercial qualification", "Objection handling", "Forecast discipline"],
+        "shapes": ["shape_behavioural", "shape_case", "shape_screen"]
+      },
+      {
+        "id": "rl_fin",
+        "discipline": "finance",
+        "title": "Financial Analyst - FP&A",
+        "organisation": "Multi-site provider group",
+        "competencies": ["Financial modelling", "Variance analysis", "Business partnering", "Controls awareness"],
+        "shapes": ["shape_behavioural", "shape_case", "shape_screen"]
+      }
+    ]
+  }
+}

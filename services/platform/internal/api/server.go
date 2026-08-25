@@ -25,7 +25,9 @@ type ServerConfig struct {
 	// since the port takes only the session's own user.
 	Candidates CandidateProfiles
 	// Documents serves the CV flows, owner-scoped the same way.
-	Documents   CandidateDocuments
+	Documents CandidateDocuments
+	// Catalog serves the interview catalogue from the artifact registry.
+	Catalog     Catalog
 	Environment config.Environment
 	// Health is consulted by the readiness probe. Optional: a nil registry
 	// reports ready, which is correct for a process with no dependencies.
@@ -47,6 +49,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Documents == nil {
 		return nil, errors.New("api: a CandidateDocuments is required")
 	}
+	if cfg.Catalog == nil {
+		return nil, errors.New("api: a Catalog is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -62,6 +67,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	handlers.documents = documents{
 		authentication: &handlers.authentication,
 		flows:          cfg.Documents,
+	}
+	handlers.catalog = catalog{
+		authentication: &handlers.authentication,
+		source:         cfg.Catalog,
 	}
 
 	strict := prepeetapi.NewStrictHandlerWithOptions(handlers,
@@ -124,6 +133,7 @@ type server struct {
 	authentication
 	profile
 	documents
+	catalog
 	health *health.Registry
 }
 

@@ -35,6 +35,8 @@ tags:
     description: Registration, login, logout and session refresh.
   - name: candidate
     description: The candidate's own data. Owner-scoped; no tenant authority reaches it.
+  - name: catalog
+    description: The interview catalogue - disciplines, roles, shapes and personas - served from the artifact registry, never hardcoded.
 
 paths:
   /healthz:
@@ -608,6 +610,82 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /catalog/disciplines:
+    get:
+      tags: [catalog]
+      operationId: listDisciplines
+      summary: List the professions the product serves
+      responses:
+        "200":
+          description: The disciplines.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisciplineList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /catalog/roles:
+    get:
+      tags: [catalog]
+      operationId: listRoles
+      summary: List catalogued roles with their valid combinations
+      description: |
+        Each role names its discipline and the interview shapes it offers,
+        which is the combination rule the server enforces at composition. The
+        browser may filter by these; the server never trusts that it did.
+      responses:
+        "200":
+          description: The roles.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /catalog/interview-shapes:
+    get:
+      tags: [catalog]
+      operationId: listInterviewShapes
+      summary: List interview shapes with their runnable lengths
+      responses:
+        "200":
+          description: The shapes.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShapeList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /catalog/personas:
+    get:
+      tags: [catalog]
+      operationId: listPersonas
+      summary: List interviewer personas
+      description: |
+        A persona is an interview style - pacing, follow-up pressure, silence
+        - never a judgement about the candidate. The same rubric and evidence
+        standard apply whichever is chosen.
+      responses:
+        "200":
+          description: The personas.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonaList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
   /me:
     get:
       tags: [authentication]
@@ -1059,6 +1137,88 @@ components:
         documents:
           type: array
           items: { $ref: "#/components/schemas/Document" }
+
+    Discipline:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+
+    DisciplineList:
+      type: object
+      required: [disciplines]
+      properties:
+        disciplines:
+          type: array
+          items: { $ref: "#/components/schemas/Discipline" }
+
+    CatalogRole:
+      type: object
+      required: [id, discipline, title, organisation, competencies, shapes]
+      properties:
+        id: { type: string }
+        discipline: { type: string }
+        title: { type: string }
+        organisation: { type: string }
+        competencies:
+          type: array
+          items: { type: string }
+        shapes:
+          type: array
+          items: { type: string }
+          description: The interview shapes this role offers; the combination rule.
+
+    RoleList:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogRole" }
+
+    InterviewShape:
+      type: object
+      required: [id, name, description, minutes]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        minutes:
+          type: array
+          items: { type: integer }
+          description: The lengths this shape can honestly run at.
+
+    ShapeList:
+      type: object
+      required: [shapes]
+      properties:
+        shapes:
+          type: array
+          items: { $ref: "#/components/schemas/InterviewShape" }
+
+    Persona:
+      type: object
+      required: [id, name, style, voice, description, best_for, shapes]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        style: { type: string }
+        voice: { type: string }
+        description: { type: string }
+        best_for: { type: string }
+        shapes:
+          type: array
+          items: { type: string }
+          description: The shapes this persona runs. Empty means unrestricted.
+
+    PersonaList:
+      type: object
+      required: [personas]
+      properties:
+        personas:
+          type: array
+          items: { $ref: "#/components/schemas/Persona" }
 
     Fact:
       type: object

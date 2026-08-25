@@ -446,6 +446,13 @@ migrate: ## Apply database migrations to the local stack
 	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_MIGRATOR_URL" \
 		PREPEET_APP_DATABASE_PASSWORD="app-password" go run ./cmd/migrate
 
+.PHONY: publish-content
+publish-content: ## Publish git-authored artifacts into the local registry (idempotent)
+	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" \
+		PREPEET_CONTENT_AUTHOR="$${PREPEET_CONTENT_AUTHOR:-00000000-0000-7000-8000-0000000000c9}" \
+		PREPEET_CONTENT_PUBLISHER="$${PREPEET_CONTENT_PUBLISHER:-00000000-0000-7000-8000-0000000000ca}" \
+		go run ./cmd/contentctl -dir ../intelligence/artifacts
+
 # ------------------------------------------------------------------------- ci
 
 .PHONY: ci

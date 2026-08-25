@@ -28,8 +28,10 @@ rather than deletes. Pins are digests over canonical JSON, verified on every rea
 never-mutates-a-session box is the test that publishes v2 and finds a previously pinned digest
 still resolving byte-identical. One registry serves platform and tenant artifacts, with a tenant's
 pointer overriding the platform's for the same reference. What remains for composition to use it:
-CAT-02's composer resolving and pinning from here, and the git-authored loader, which lands with
-the first real artifact content.
+CAT-02's composer resolving and pinning from here - done since - and the git-authored loader,
+which landed with CAT-03's catalogue: `contentctl` walks `services/intelligence/artifacts/`
+through the registry's own lifecycle, idempotently, refusing an edited file that wears an
+already-published version number.
 
 **Spec** [domain-model.md](../../architecture/domain-model.md)
 
@@ -79,9 +81,23 @@ Server-provided metadata with validation and duration limits, so the product is 
 to software roles by a hardcoded list.
 
 **Done when**
-- [ ] Catalogue endpoints serve disciplines, roles, shapes and personas with their valid combinations.
+- [x] Catalogue endpoints serve disciplines, roles, shapes and personas with their valid combinations.
 - [ ] Invalid combinations are rejected server-side with a field-level error, not filtered in the browser.
-- [ ] Adding a profession is a data change, not a deployment.
+- [x] Adding a profession is a data change, not a deployment.
+
+**Serving and data are done; the refusal has its logic and awaits its endpoint.** The catalogue
+is one registry artifact - ADR-0011's first git-authored content, published by `contentctl`
+through the same lifecycle as everything else - so the four endpoints resolve it per tenant (a
+tenant's pointer overrides the platform's) and serve collections nothing in the binary knows the
+names of: six disciplines, eight roles across them, five shapes, four personas, straight from the
+prototype's vocabulary. The combination rules ride the data - a role's shapes, a shape's runnable
+lengths, a persona's shapes with empty meaning unrestricted - and `catalog.Validate` refuses a
+selection field by field with stable codes, proven against every invalid combination. What keeps
+the middle box open is honest: the enforcement point is POST /interviews, which does not exist
+until CAT-04's wizard submits to it; the refusal logic ships now so that endpoint starts life
+unable to accept what the catalogue does not offer. Coherence is checked at the door - a role in
+no discipline, a ghost shape, a duplicated id or a shape with no duration never publishes,
+because the loader runs the reading context's own parse as its validating step.
 
 **Spec** [public-api.md](../../contracts/public-api.md)
 

@@ -21,6 +21,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
@@ -130,6 +131,7 @@ func main() {
 			})},
 		Candidates:  candidates,
 		Documents:   candidates,
+		Catalog:     newCatalogAdapter(content.NewStore(pool)),
 		Environment: cfg.Environment,
 		Health:      checks,
 	})

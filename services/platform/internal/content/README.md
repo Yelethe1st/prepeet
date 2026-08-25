@@ -33,3 +33,20 @@ words into a historical session's record.
 (tenant NULL) is everyone's; a tenant's artifacts are its own by policy, and
 a tenant's pointer overrides the platform's for the same reference without
 hiding the catalogue from anyone else.
+
+## The git-authored loader
+
+`contentctl` (cmd) publishes `services/intelligence/artifacts/` into the
+registry through the same lifecycle as everything else: draft, validating,
+approved, published. It is ADR-0011's publishing tool, not a runtime
+dependency - at runtime nothing reads a file, only the rows this produced.
+
+Idempotent the honest way: a version already published with the same digest
+is a no-op; the same version with a different digest is a refusal
+(ErrArtifactMutated), because an edited file wearing an old version number is
+the in-place mutation this registry exists to prevent. Validation is injected
+per artifact type by cmd - the catalogue's is `catalog.Parse` - because the
+check belongs to the context that reads the type, and this context must not
+import it. The loader drafts as one service principal and publishes as
+another, keeping separation of duties structural even for content whose human
+review happened in the pull request.

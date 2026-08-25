@@ -249,4 +249,39 @@
     white-space: nowrap;
     border: 0;
   }
+
+  /*
+   * The skeleton, ported whole from the prototype's components.css. A class
+   * rather than utilities because the shimmer needs a pseudo-element, and
+   * because the shimmer is decoration: under prefers-reduced-motion it stops
+   * dead and the resting surface still reads as "not yet content".
+   */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--skeleton);
+    border-radius: var(--r-sm);
+    color: transparent !important;
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
+    animation: skeleton-shimmer 1.6s infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton::after {
+      animation: none;
+    }
+  }
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }

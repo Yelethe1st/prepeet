@@ -10,8 +10,8 @@ check.
 Recorded honestly, because a claim about process is worth less than the record.
 
 Test-first: `lib/api/client.ts`, `shared/components/Field.tsx`,
-`features/auth/SignInForm.tsx`, `features/auth/RegisterForm.tsx`. The test was
-written, run red, and then satisfied.
+`features/auth/SignInForm.tsx`, `features/auth/RegisterForm.tsx`, and the whole
+of `shared/states/`. The test was written, run red, and then satisfied.
 
 Written together: `Button.tsx`, `Banner.tsx`.
 

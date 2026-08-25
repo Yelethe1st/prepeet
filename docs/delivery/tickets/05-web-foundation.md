@@ -138,9 +138,26 @@ Loading, empty, error, partial, forbidden, expired, delayed, insufficient eviden
 reconnecting and degraded — as first-class shared states rather than per-page improvisation.
 
 **Done when**
-- [ ] Each state has a shared component and a documented content rule.
-- [ ] Loading skeletons match the shape of the content they replace.
-- [ ] Every error names what failed, what is still safe, the next action, and a reference identifier.
+- [x] Each state has a shared component and a documented content rule.
+- [x] Loading skeletons match the shape of the content they replace.
+- [x] Every error names what failed, what is still safe, the next action, and a reference identifier.
+
+**Done.** `shared/states/` holds the eleven states as components, each content rule enforced by
+required props rather than requested by convention: `ErrorState` cannot be rendered without what
+failed, what is still safe, the next action and a reference identifier, which is the third box held
+at the type level. The rules themselves are documented in the directory's README, in the order the
+copy must run: what is true, what is still safe, what to do next - claiming nothing that is not so.
+The shape rules that cannot be typed are pinned by tests instead: error is the only state that
+interrupts as an alert, insufficient evidence renders no zero and no failure word, empty is never
+announced as a problem, delayed always says nothing is lost and leaving is safe.
+
+Skeletons are the prototype's vocabulary - text lines in its width steps, block, circle, shimmer
+ported whole with a reduced-motion stop - composed per surface into the shape of what they replace,
+which is the only honest reading of the second box since the shape is each surface's own.
+`LoadingSurface` owns the half every screen gets wrong alone: announced once by name, shapes hidden
+from assistive technology. Icons are deliberately absent, as they are from ErrorScreen, until a
+screen needs one. The colour-utility guard learned the theme's own font sizes along the way,
+because `text-md` generates CSS and the guard said it did not.
 
 **Spec** [user-journeys.md](../../product/user-journeys.md)
 

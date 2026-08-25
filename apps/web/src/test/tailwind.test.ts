@@ -24,7 +24,9 @@ const themeCss = readFileSync(join(styles, "theme.css"), "utf8");
 const tokensCss = readFileSync(join(styles, "tokens.css"), "utf8");
 
 /** Every custom property tokens.css declares, in any block. */
-const tokens = new Set([...tokensCss.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1] as string));
+const tokens = new Set(
+  [...tokensCss.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1] as string),
+);
 
 /** The `@theme inline` block, which is the whole of the Tailwind configuration. */
 function themeBlock(): string {
@@ -60,13 +62,17 @@ describe("the Tailwind theme", () => {
    * is `prefers-color-scheme`, which would disagree with that on most machines.
    */
   it("selects dark by the attribute rather than the media query", () => {
-    expect(themeCss).toMatch(/@custom-variant dark \(\[data-theme="dark"\] &\)/);
+    expect(themeCss).toMatch(
+      /@custom-variant dark \(\[data-theme="dark"\] &\)/,
+    );
   });
 
   it("defines no colour of its own", () => {
     // Every value in the theme block is a reference. A literal here would be a
     // colour that exists in Tailwind and not in the design source.
-    const literals = [...themeBlock().matchAll(/:\s*(#[0-9a-fA-F]{3,8}|rgb|hsl)/g)];
+    const literals = [
+      ...themeBlock().matchAll(/:\s*(#[0-9a-fA-F]{3,8}|rgb|hsl)/g),
+    ];
 
     expect(literals.map((match) => match[0])).toEqual([]);
   });
@@ -82,7 +88,8 @@ function markupFiles(): string[] {
         walk(full);
         continue;
       }
-      if (full.endsWith(".tsx") && !full.endsWith(".test.tsx")) found.push(full);
+      if (full.endsWith(".tsx") && !full.endsWith(".test.tsx"))
+        found.push(full);
     }
   };
   walk(resolve(process.cwd(), "src"));
@@ -102,7 +109,9 @@ describe("markup", () => {
       const source = readFileSync(file, "utf8");
       // Tailwind's arbitrary-value syntax is the way a raw colour gets in:
       // bg-[#123456], text-[rgb(...)].
-      for (const match of source.matchAll(/-\[(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))\]/g)) {
+      for (const match of source.matchAll(
+        /-\[(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))\]/g,
+      )) {
         offenders.push(`${relative(process.cwd(), file)}: ${match[0]}`);
       }
     }
@@ -122,37 +131,88 @@ describe("colour utilities resolve to mapped tokens", () => {
    * with the visual baselines regenerated around the broken look.
    */
   it("refuses a text/bg/border colour class the theme does not define", () => {
-    const themeSource = readFileSync(resolve(process.cwd(), "src/shared/styles/theme.css"), "utf8");
+    const themeSource = readFileSync(
+      resolve(process.cwd(), "src/shared/styles/theme.css"),
+      "utf8",
+    );
     const defined = new Set(
-      [...themeSource.matchAll(/--color-([a-z0-9-]+):/g)].map((match) => match[1] ?? ""),
+      [...themeSource.matchAll(/--color-([a-z0-9-]+):/g)].map(
+        (match) => match[1] ?? "",
+      ),
+    );
+    // Font sizes the theme itself defines: `--text-md` emits a `text-md`
+    // utility just as Tailwind's own sizes do, so a theme-defined size is a
+    // utility that generates CSS, not an offence.
+    const themeSizes = new Set(
+      [...themeSource.matchAll(/--text-([a-z0-9-]+):/g)].map(
+        (match) => match[1] ?? "",
+      ),
     );
 
     // Suffixes that share the prefix but are not colours: sizes, alignment,
     // wrapping and the like. A new one belongs here only if Tailwind itself
     // defines it without a colour.
     const notColours = new Set([
-      "2xs", "xs", "sm", "base", "lg", "xl", "2xl", "3xl", // text sizes
-      "left", "right", "center", "justify", "start", "end", // text-align
-      "wrap", "nowrap", "balance", "pretty", "ellipsis", "clip", // wrapping
-      "transparent", "current", "inherit", // real colours Tailwind always has
+      "2xs",
+      "xs",
+      "sm",
+      "base",
+      "lg",
+      "xl",
+      "2xl",
+      "3xl", // text sizes
+      "left",
+      "right",
+      "center",
+      "justify",
+      "start",
+      "end", // text-align
+      "wrap",
+      "nowrap",
+      "balance",
+      "pretty",
+      "ellipsis",
+      "clip", // wrapping
+      "transparent",
+      "current",
+      "inherit", // real colours Tailwind always has
       "none", // border-none, bg-none
-      "t", "b", "l", "r", "x", "y", "s", "e", // border sides: border-t etc.
-      "solid", "dashed", "dotted", "double", // border styles
-      "0", "2", "4", "8", // border widths
+      "t",
+      "b",
+      "l",
+      "r",
+      "x",
+      "y",
+      "s",
+      "e", // border sides: border-t etc.
+      "solid",
+      "dashed",
+      "dotted",
+      "double", // border styles
+      "0",
+      "2",
+      "4",
+      "8", // border widths
     ]);
 
     const offences: string[] = [];
     for (const file of markupFiles()) {
       const source = readFileSync(file, "utf8");
-      for (const match of source.matchAll(/(?:text|bg|border)-([a-z][a-z0-9-]*)/g)) {
+      for (const match of source.matchAll(
+        /(?:text|bg|border)-([a-z][a-z0-9-]*)/g,
+      )) {
         const name = match[1] ?? "";
         if (notColours.has(name)) continue;
+        if (match[0]?.startsWith("text-") && themeSizes.has(name)) continue;
         // A palette shade like stone-900 or a semantic token like fg-2.
         if (defined.has(name)) continue;
         offences.push(`${relative(process.cwd(), file)}: ${match[0]}`);
       }
     }
 
-    expect(offences, "these utilities generate no CSS at all:\n" + offences.join("\n")).toEqual([]);
+    expect(
+      offences,
+      "these utilities generate no CSS at all:\n" + offences.join("\n"),
+    ).toEqual([]);
   });
 });

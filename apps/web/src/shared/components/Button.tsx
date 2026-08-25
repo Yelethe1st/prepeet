@@ -83,3 +83,35 @@ export function Button({
     </button>
   );
 }
+
+/**
+ * A link dressed as a button, for a primary action that is a navigation.
+ *
+ * The prototype puts its `.btn` class on anchors exactly this way. A separate
+ * component rather than an `as` prop on Button, because a button that submits
+ * and a link that navigates differ in every way assistive technology cares
+ * about, and one component pretending to be both hides which one it is.
+ */
+export function ButtonLink({
+  variant = "primary",
+  size = "md",
+  block = false,
+  children,
+  ...rest
+}: {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  block?: boolean;
+  children: React.ReactNode;
+} & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return (
+    <a
+      {...rest}
+      className={[base, variants[variant], sizes[size], block ? "w-full" : ""]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {children}
+    </a>
+  );
+}

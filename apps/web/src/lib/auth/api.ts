@@ -82,3 +82,46 @@ export async function listMemberships(): Promise<MembershipList> {
 export async function signOut(): Promise<void> {
   await apiFetch("/auth/logout", { method: "POST" });
 }
+
+/**
+ * The token flows: IAM-02's four proofs of address control.
+ *
+ * The request half is one call whatever the flow, because the server treats
+ * them identically at the boundary: 202 whether or not the address exists,
+ * and a 429 with a countdown when a recent email is still fresh.
+ */
+export type TokenEmailKind = components["schemas"]["TokenEmailKind"];
+
+/** requestTokenEmail asks for a verification, recovery, sign-in or code email. */
+export async function requestTokenEmail(kind: TokenEmailKind, email: string): Promise<void> {
+  await apiFetch("/auth/email/request", { method: "POST", body: { kind, email } });
+}
+
+/**
+ * confirmEmailVerification consumes a verification link.
+ *
+ * Failures carry the token outcome codes; the caller renders each as its own
+ * state, because the prototype gives each its own screen.
+ */
+export async function confirmEmailVerification(token: string): Promise<void> {
+  await apiFetch("/auth/email/verify", { method: "POST", body: { token } });
+}
+
+/** confirmPasswordReset sets the new password and revokes every session. */
+export async function confirmPasswordReset(token: string, password: string): Promise<void> {
+  await apiFetch("/auth/password/reset", { method: "POST", body: { token, password } });
+}
+
+/**
+ * consumeMagicLink exchanges a sign-in link for a session.
+ *
+ * The cookies arrive exactly as login's do; the body describes the session.
+ */
+export async function consumeMagicLink(token: string): Promise<Session> {
+  return apiFetch<Session>("/auth/magic/consume", { method: "POST", body: { token } });
+}
+
+/** consumeOtp exchanges an emailed six-digit code for a session. */
+export async function consumeOtp(email: string, code: string): Promise<Session> {
+  return apiFetch<Session>("/auth/otp/consume", { method: "POST", body: { email, code } });
+}

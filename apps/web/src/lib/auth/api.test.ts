@@ -134,3 +134,52 @@ describe("workspace selection", () => {
     expect(init.method).toBeUndefined();
   });
 });
+
+describe("token flow api", () => {
+  it("requests a token email with its kind", async () => {
+    const { requestTokenEmail } = await import("./api");
+    await requestTokenEmail("password_reset", "a@b.co");
+
+    const [url, init] = lastCall();
+    expect(url).toContain("/api/v1/auth/email/request");
+    expect(JSON.parse(init.body as string)).toEqual({ kind: "password_reset", email: "a@b.co" });
+  });
+
+  it("confirms a verification token", async () => {
+    const { confirmEmailVerification } = await import("./api");
+    await confirmEmailVerification("vrf_x");
+
+    const [url, init] = lastCall();
+    expect(url).toContain("/api/v1/auth/email/verify");
+    expect(JSON.parse(init.body as string)).toEqual({ token: "vrf_x" });
+  });
+
+  it("resets a password with its token", async () => {
+    const { confirmPasswordReset } = await import("./api");
+    await confirmPasswordReset("rst_x", "a long enough password");
+
+    const [url, init] = lastCall();
+    expect(url).toContain("/api/v1/auth/password/reset");
+    expect(JSON.parse(init.body as string)).toEqual({
+      token: "rst_x",
+      password: "a long enough password",
+    });
+  });
+
+  it("consumes a magic link", async () => {
+    const { consumeMagicLink } = await import("./api");
+    await consumeMagicLink("mgc_x");
+
+    const [url] = lastCall();
+    expect(url).toContain("/api/v1/auth/magic/consume");
+  });
+
+  it("consumes a one-time code with the address it went to", async () => {
+    const { consumeOtp } = await import("./api");
+    await consumeOtp("a@b.co", "123456");
+
+    const [url, init] = lastCall();
+    expect(url).toContain("/api/v1/auth/otp/consume");
+    expect(JSON.parse(init.body as string)).toEqual({ email: "a@b.co", code: "123456" });
+  });
+});

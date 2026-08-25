@@ -15,7 +15,19 @@ import { expect, setTheme, test } from "./fixtures";
  */
 
 /** Every route worth checking. Each new screen is added here as it is ported. */
-const routes = ["/login", "/register"] as const;
+const routes = [
+  "/login",
+  "/register",
+  // IAM-02's screens. The consume pages land on their invalid state without a
+  // token, which is itself a state worth auditing: it is what a truncated
+  // link renders.
+  "/forgot-password",
+  "/check-email",
+  "/reset-password",
+  "/verify-email",
+  "/magic-link",
+  "/otp",
+] as const;
 
 /**
  * WCAG 2.2 AA, which is what the product commits to.

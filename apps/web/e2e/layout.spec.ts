@@ -11,7 +11,26 @@ import { expect, test } from "./fixtures";
  * horizontal scrollbar.
  */
 
-const routes = ["/login", "/register"] as const;
+const routes = [
+  "/login",
+  "/register",
+  // IAM-02's screens. The consume pages land on their invalid state without a
+  // token, which is itself a state worth auditing: it is what a truncated
+  // link renders.
+  "/forgot-password",
+  "/check-email",
+  "/reset-password",
+  "/verify-email",
+  "/magic-link",
+  "/otp",
+] as const;
+
+/**
+ * The routes that show an email input on arrival. reset-password and
+ * verify-email land token-first, check-email echoes rather than asks, and otp
+ * asks only in the tab that has not already requested a code.
+ */
+const routesWithAnEmailInput = new Set(["/login", "/register", "/forgot-password", "/magic-link", "/otp"]);
 
 /** Reads whether the document is wider than the window can show. */
 async function horizontalOverflow(page: import("@playwright/test").Page) {
@@ -55,10 +74,12 @@ test.describe("layout", () => {
      * and they are echoed back in confirmations.
      */
     test(`${route} survives a very long email address`, async ({ page }) => {
+      test.skip(!routesWithAnEmailInput.has(route), "no email input to fill on this route");
       await page.goto(route);
 
       await page
-        .getByLabel(/email/i)
+        .getByLabel(/email address|email/i)
+        .first()
         .fill("daniel.okonkwo.with.an.unusually.long.address@a-very-long-organisation-name.example.com");
 
       const { scrollWidth, clientWidth, widest } = await horizontalOverflow(page);
@@ -69,6 +90,33 @@ test.describe("layout", () => {
       ).toBeLessThanOrEqual(clientWidth);
     });
   }
+
+  /**
+   * check-email has no input, but it echoes the address back, which is the
+   * other way a long one breaks a layout: not typed into a box that scrolls,
+   * but rendered into a definition list that does not.
+   */
+  test("/check-email survives echoing a very long address", async ({ page }) => {
+    await page.goto("/check-email");
+    await page.evaluate(() => {
+      sessionStorage.setItem(
+        "prepeet.sent-email",
+        JSON.stringify({
+          kind: "password_reset",
+          email:
+            "daniel.okonkwo.with.an.unusually.long.address@a-very-long-organisation-name.example.com",
+        }),
+      );
+    });
+    await page.reload();
+    await page.getByText(/@a-very-long-organisation-name/).waitFor();
+
+    const { scrollWidth, clientWidth, widest } = await horizontalOverflow(page);
+    expect(
+      scrollWidth,
+      `the echoed address made the document ${scrollWidth}px wide in ${clientWidth}px; widest is ${widest.selector}`,
+    ).toBeLessThanOrEqual(clientWidth);
+  });
 
   /**
    * The two-panel layout must collapse. If the side panel were shown at this

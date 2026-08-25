@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { MINIMUM_PASSWORD_LENGTH, registerSchema, signInSchema } from "./schemas";
+import {
+  MINIMUM_PASSWORD_LENGTH,
+  forgotPasswordSchema,
+  otpSchema,
+  registerSchema,
+  resetPasswordSchema,
+  signInSchema,
+} from "./schemas";
 
 /**
  * Client-side validation, and what it is deliberately not.
@@ -154,5 +161,48 @@ describe("the password minimum", () => {
     expect(Number(declared?.[1]), `the browser requires ${MINIMUM_PASSWORD_LENGTH}`).toBe(
       MINIMUM_PASSWORD_LENGTH,
     );
+  });
+});
+
+describe("forgotPasswordSchema", () => {
+  it("normalises the address the way the server will", () => {
+    const parsed = forgotPasswordSchema.parse({ email: "  Amara.Eze@Example.COM " });
+    expect(parsed.email).toBe("amara.eze@example.com");
+  });
+
+  it("refuses a non-address", () => {
+    expect(forgotPasswordSchema.safeParse({ email: "not-an-address" }).success).toBe(false);
+  });
+});
+
+describe("resetPasswordSchema", () => {
+  it("holds the new password to the same floor as registration", () => {
+    const short = resetPasswordSchema.safeParse({ password: "eleven chars", confirm: "eleven chars" });
+    // "eleven chars" is 12 characters, which is exactly the floor.
+    expect(short.success).toBe(true);
+
+    const tooShort = resetPasswordSchema.safeParse({ password: "elevenchars", confirm: "elevenchars" });
+    expect(tooShort.success).toBe(false);
+  });
+
+  it("reports a mismatch against the confirmation field", () => {
+    const parsed = resetPasswordSchema.safeParse({
+      password: "a long enough password",
+      confirm: "a different long password",
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0]?.path).toEqual(["confirm"]);
+    }
+  });
+});
+
+describe("otpSchema", () => {
+  it("accepts exactly six digits", () => {
+    expect(otpSchema.safeParse({ code: "123456" }).success).toBe(true);
+  });
+
+  it.each(["12345", "1234567", "12345a", ""])("refuses %j", (code) => {
+    expect(otpSchema.safeParse({ code }).success).toBe(false);
   });
 });

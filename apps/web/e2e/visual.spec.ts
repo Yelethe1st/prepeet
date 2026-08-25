@@ -21,6 +21,12 @@ import { expect, hydrated, setTheme, test } from "./fixtures";
 const routes = [
   { path: "/login", name: "login" },
   { path: "/register", name: "register" },
+  // The two form-heavy recovery screens. The rest of IAM-02's pages are
+  // states of the same card and are covered by the accessibility and layout
+  // sweeps; a baseline pair per state would be maintenance without a matching
+  // chance of catching anything those two do not.
+  { path: "/forgot-password", name: "forgot-password" },
+  { path: "/otp", name: "otp" },
 ] as const;
 
 test.describe("appearance", () => {

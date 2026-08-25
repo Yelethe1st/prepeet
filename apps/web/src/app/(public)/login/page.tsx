@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { AuthCard } from "@/features/auth/AuthCard";
 import { AuthShell } from "@/features/auth/AuthShell";
 import { SignInForm } from "@/features/auth/SignInForm";
 import { signIn } from "@/lib/auth/api";
@@ -23,13 +24,10 @@ export default function LoginPage() {
 
   return (
     <AuthShell>
-      <div className="auth-card">
-        <h1>Sign in to Prepeet</h1>
-        <p className="lead">
-          Practice sessions, screening invitations and your recruiter workspace all live behind one
-          account.
-        </p>
-
+      <AuthCard
+        title="Sign in to Prepeet"
+        lead="Practice sessions, screening invitations and your recruiter workspace all live behind one account."
+      >
         <SignInForm
           signIn={async (credentials) => {
             await signIn(credentials);
@@ -37,14 +35,32 @@ export default function LoginPage() {
           onSignedIn={() => router.push("/practice")}
         />
 
-        <p className="hint" style={{ marginTop: 22 }}>
-          New to Prepeet?{" "}
-          <Link href="/register" style={{ fontWeight: 600 }}>
-            Create an account
-          </Link>{" "}
-          — free for candidates, no card needed.
-        </p>
-      </div>
+        <div className="mt-[22px] space-y-1.5 text-xs leading-[1.45] text-fg-3">
+          <p>
+            <Link className="font-semibold" href="/forgot-password">
+              Forgot your password?
+            </Link>
+          </p>
+          <p>
+            Prefer not to type it?{" "}
+            <Link className="font-semibold" href="/magic-link">
+              Email me a sign-in link
+            </Link>{" "}
+            or{" "}
+            <Link className="font-semibold" href="/otp">
+              a one-time code
+            </Link>
+            .
+          </p>
+          <p>
+            New to Prepeet?{" "}
+            <Link className="font-semibold" href="/register">
+              Create an account
+            </Link>{" "}
+            — free for candidates, no card needed.
+          </p>
+        </div>
+      </AuthCard>
     </AuthShell>
   );
 }

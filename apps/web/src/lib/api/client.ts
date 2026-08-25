@@ -56,6 +56,12 @@ export class ApiError extends Error {
   readonly fieldErrors: Readonly<Record<string, string>>;
   /** The correlation identifier a person can quote to support. */
   readonly requestId: string;
+  /**
+   * Seconds until a retry could succeed, from the Retry-After header, or 0.
+   * Carried so a cooldown can be shown as a countdown rather than a refusal;
+   * the resend button on check-email is the reason it exists.
+   */
+  readonly retryAfterSeconds: number;
   /** True when the request never reached a server, which reads differently. */
   readonly offline: boolean;
 
@@ -67,6 +73,7 @@ export class ApiError extends Error {
     fieldErrors?: Record<string, string>;
     requestId?: string;
     offline?: boolean;
+    retryAfterSeconds?: number;
   }) {
     super(init.message);
     this.name = "ApiError";
@@ -76,6 +83,7 @@ export class ApiError extends Error {
     this.fieldErrors = init.fieldErrors ?? {};
     this.requestId = init.requestId ?? "";
     this.offline = init.offline ?? false;
+    this.retryAfterSeconds = init.retryAfterSeconds ?? 0;
   }
 }
 
@@ -158,7 +166,12 @@ function toApiError(response: Response, payload: unknown): ApiError {
     // Deliberately not the body. An unparsed body here is a proxy's HTML or an
     // upstream's error text, and showing either to a person tells them nothing
     // and may tell them about the deployment.
-    return new ApiError({ status: response.status, message: fallbackMessage, retryable: true });
+    return new ApiError({
+      status: response.status,
+      message: fallbackMessage,
+      retryable: true,
+      retryAfterSeconds: retryAfterOf(response),
+    });
   }
 
   const fieldErrors: Record<string, string> = {};
@@ -173,5 +186,17 @@ function toApiError(response: Response, payload: unknown): ApiError {
     retryable: envelope.retryable,
     fieldErrors,
     requestId: envelope.request_id,
+    retryAfterSeconds: retryAfterOf(response),
   });
+}
+
+/**
+ * retryAfterOf reads the Retry-After header as whole seconds.
+ *
+ * Only the delta-seconds form, because that is what this API sends; the
+ * HTTP-date form comes back as 0 rather than a NaN countdown.
+ */
+function retryAfterOf(response: Response): number {
+  const parsed = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }

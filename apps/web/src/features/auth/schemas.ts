@@ -72,3 +72,48 @@ export const registerSchema = z
   );
 
 export type RegisterValues = z.infer<typeof registerSchema>;
+
+/**
+ * Recovery asks only for the address; everything else the server decides.
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address."),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+/**
+ * The new password, entered twice.
+ *
+ * The rules stated here are exactly the rules the server enforces: length and
+ * agreement. The prototype's requirement list also claimed mixed case, digits
+ * and breach-list checks, which the backend does not enforce; promising a
+ * check that does not happen teaches people the wrong thing about what made
+ * their password acceptable, so those lines did not port.
+ */
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(
+        MINIMUM_PASSWORD_LENGTH,
+        `A password needs at least ${MINIMUM_PASSWORD_LENGTH} characters.`,
+      ),
+    confirm: z.string(),
+  })
+  .refine((value) => value.password === value.confirm, {
+    path: ["confirm"],
+    message: "The two passwords are not the same.",
+  });
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/**
+ * Six digits, exactly. The pattern mirrors the contract's, so a code the
+ * server would refuse is refused before the request.
+ */
+export const otpSchema = z.object({
+  code: z.string().regex(/^[0-9]{6}$/, "The code is the six digits from the email."),
+});
+
+export type OtpInput = z.infer<typeof otpSchema>;

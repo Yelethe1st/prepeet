@@ -7,6 +7,6 @@
  * finds until the first screen.
  */
 export { Banner, type BannerProps, type BannerTone } from "./Banner";
-export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "./Button";
+export { Button, ButtonLink, type ButtonProps, type ButtonSize, type ButtonVariant } from "./Button";
 export { Field, type FieldControlProps, type FieldProps } from "./Field";
 export { Input } from "./Input";

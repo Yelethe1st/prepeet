@@ -101,9 +101,15 @@ The cooldown is charged before the address is looked up, so it cannot become the
 the identical 202s exist to prevent, and the 429 carries Retry-After plus the same number in the
 body for the countdown. Six-digit codes die on the fifth wrong guess.
 
-The web screens (check-email, verify-email, forgot/reset-password, magic-link, otp, auth-expired)
-port with the auth feature work; the contract they need is published and the error codes are
-distinct per state.
+**Screens ported.** forgot-password, check-email, reset-password, verify-email, magic-link and
+otp are routes; auth-expired ported as the shared TokenTrouble component, because it is the same
+screen with six wordings and writing them side by side is what keeps the outcomes honest. Each
+error code renders its own state, every dead state leads with what did not happen, and the resend
+countdown takes its number from the server's Retry-After. Deviations from the prototype, each
+recorded where it lives: the reset screen claims only the rules the server enforces; the OTP entry
+is one input rather than six boxes, because six inputs for one value fight screen readers and the
+phone's code autofill; the attempts counter and recovery-code path did not port because neither
+exists behind them.
 
 **Spec** [user-journeys.md](../../product/user-journeys.md) · [threat-model.md](../../security/threat-model.md)
 

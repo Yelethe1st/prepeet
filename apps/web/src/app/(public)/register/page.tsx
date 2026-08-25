@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { AuthCard } from "@/features/auth/AuthCard";
 import { AuthShell } from "@/features/auth/AuthShell";
 import { RegisterForm } from "@/features/auth/RegisterForm";
 import { register } from "@/lib/auth/api";
@@ -16,23 +17,20 @@ import { register } from "@/lib/auth/api";
 export default function RegisterPage() {
   return (
     <AuthShell>
-      <div className="auth-card">
-        <h1>Create your Prepeet account</h1>
-        <p className="lead">
-          Practise interviews for yourself, or set up a workspace to screen candidates for your
-          organisation.
-        </p>
-
+      <AuthCard
+        title="Create your Prepeet account"
+        lead="Practise interviews for yourself, or set up a workspace to screen candidates for your organisation."
+      >
         <RegisterForm register={register} onRegistered={() => {}} />
 
-        <p className="hint" style={{ marginTop: 22 }}>
+        <p className="mt-[22px] text-xs leading-[1.45] text-fg-3">
           Already have an account?{" "}
-          <Link href="/login" style={{ fontWeight: 600 }}>
+          <Link className="font-semibold" href="/login">
             Sign in
           </Link>
           .
         </p>
-      </div>
+      </AuthCard>
     </AuthShell>
   );
 }

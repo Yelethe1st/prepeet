@@ -110,3 +110,49 @@ describe("markup", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("colour utilities resolve to mapped tokens", () => {
+  /**
+   * Tailwind emits nothing for a class it does not recognise: `text-muted`
+   * renders as the browser default and nothing warns. This walks every
+   * className literal in the tree and refuses a colour-shaped utility whose
+   * name is not in the theme's mapping. It exists because six components
+   * shipped with `text-muted` and `border-line` in one afternoon, and because
+   * `auth-card` had been rendering unstyled since the Tailwind conversion
+   * with the visual baselines regenerated around the broken look.
+   */
+  it("refuses a text/bg/border colour class the theme does not define", () => {
+    const themeSource = readFileSync(resolve(process.cwd(), "src/shared/styles/theme.css"), "utf8");
+    const defined = new Set(
+      [...themeSource.matchAll(/--color-([a-z0-9-]+):/g)].map((match) => match[1] ?? ""),
+    );
+
+    // Suffixes that share the prefix but are not colours: sizes, alignment,
+    // wrapping and the like. A new one belongs here only if Tailwind itself
+    // defines it without a colour.
+    const notColours = new Set([
+      "2xs", "xs", "sm", "base", "lg", "xl", "2xl", "3xl", // text sizes
+      "left", "right", "center", "justify", "start", "end", // text-align
+      "wrap", "nowrap", "balance", "pretty", "ellipsis", "clip", // wrapping
+      "transparent", "current", "inherit", // real colours Tailwind always has
+      "none", // border-none, bg-none
+      "t", "b", "l", "r", "x", "y", "s", "e", // border sides: border-t etc.
+      "solid", "dashed", "dotted", "double", // border styles
+      "0", "2", "4", "8", // border widths
+    ]);
+
+    const offences: string[] = [];
+    for (const file of markupFiles()) {
+      const source = readFileSync(file, "utf8");
+      for (const match of source.matchAll(/(?:text|bg|border)-([a-z][a-z0-9-]*)/g)) {
+        const name = match[1] ?? "";
+        if (notColours.has(name)) continue;
+        // A palette shade like stone-900 or a semantic token like fg-2.
+        if (defined.has(name)) continue;
+        offences.push(`${relative(process.cwd(), file)}: ${match[0]}`);
+      }
+    }
+
+    expect(offences, "these utilities generate no CSS at all:\n" + offences.join("\n")).toEqual([]);
+  });
+});

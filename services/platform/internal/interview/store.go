@@ -1,0 +1,297 @@
+package interview
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	db "github.com/Yelethe1st/prepeet/services/platform/internal/interview/db"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
+)
+
+// The store: SES-01's durable half.
+//
+// Every transition is one transaction holding four things that must not
+// separate: the version-guarded state change, the effects the transition
+// carries (a bundle at readiness, a failure code at failure), the outbox
+// event where the catalogue defines one, and the audit row naming who did it.
+// A transition that commits without its audit row is an authorisation
+// decision nobody can review; an event without its state change announces
+// something that did not happen.
+//
+// The SQL lives in db/queries.sql per ADR-0010. What stays here is the
+// transaction shape and how a zero-row update becomes the right refusal.
+
+// Stable refusals beyond the machine's own. Callers branch on these; the API
+// layer maps them to their own error codes rather than to a 500.
+var (
+	// ErrStaleVersion means somebody else transitioned the session after the
+	// caller read it. The caller re-reads and decides again; overwriting
+	// silently is SES-01's named failure.
+	ErrStaleVersion = errors.New("interview: SESSION_VERSION_STALE: the session changed after it was read")
+	// ErrNotFound means no such session is visible in this scope, which
+	// deliberately covers both absence and somebody else's session.
+	ErrNotFound = errors.New("interview: SESSION_NOT_FOUND: no such session")
+)
+
+// Session is the aggregate as read.
+type Session struct {
+	ID          string
+	Mode        string
+	CandidateID string
+	// TenantID is empty for practice, by the schema's CHECK rather than by
+	// convention.
+	TenantID       string
+	BlueprintID    string
+	State          State
+	Version        int
+	BundleRef      string
+	BundleDigest   string
+	BundleRevision int
+	FailureCode    string
+	CreatedAt      time.Time
+	StateChangedAt time.Time
+}
+
+// Actor is who a command runs as, recorded on every transition's audit row.
+type Actor struct {
+	// ID is the person whose authority the command carries. For an automated
+	// transition this is still the person the workflow acts for, because the
+	// audit policy binds untenanted rows to the acting user and because "the
+	// system did it" answers no question about whose session it was.
+	ID string
+	// Type distinguishes the person acting from automation acting for them:
+	// "user" or "service".
+	Type string
+}
+
+// Effects are what a transition writes beyond the state itself.
+type Effects struct {
+	// The bundle, on the transition to ready. Set exactly once; the store
+	// never overwrites a bundle field that is already set, which is the
+	// immutability half of ADR's session bundle rule at the row level.
+	BundleRef      string
+	BundleDigest   string
+	BundleRevision int
+	// FailureCode, on a transition into a *_failed state: the stable code an
+	// operator reads before deciding whether retry is worth it.
+	FailureCode string
+	// Event, when the catalogue defines one for this transition. Published
+	// through the outbox inside the same transaction.
+	Event *outbox.Event
+}
+
+// Store persists sessions.
+type Store struct {
+	pool   *pgxpool.Pool
+	events *outbox.Store
+}
+
+// NewStore builds the store.
+func NewStore(pool *pgxpool.Pool) *Store {
+	return &Store{pool: pool, events: outbox.New(pool)}
+}
+
+// scope sets the transaction's row-level security context for one session.
+//
+// Practice acts as the candidate in an untenanted transaction; screening acts
+// under the tenant. This is where the activity that transitions a session
+// inherits exactly the authority of the session's owner and no more - there
+// is no service scope that sees everything, on purpose.
+func scope(ctx context.Context, tx pgx.Tx, mode, candidateID, tenantID string) error {
+	if mode == "practice" {
+		return database.SetUser(ctx, tx, candidateID)
+	}
+	return database.SetTenant(ctx, tx, tenantID)
+}
+
+// Create writes a draft session, its catalogue event and its audit row.
+func (s *Store) Create(ctx context.Context, session Session, actor Actor) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("interview: beginning create: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
+		return err
+	}
+
+	if err := db.New(tx).InsertSession(ctx, db.InsertSessionParams{
+		ID:          session.ID,
+		Mode:        session.Mode,
+		CandidateID: session.CandidateID,
+		TenantID:    session.TenantID,
+		BlueprintID: session.BlueprintID,
+	}); err != nil {
+		return fmt.Errorf("interview: inserting session: %w", err)
+	}
+
+	payload, err := json.Marshal(map[string]string{
+		"session_id":   session.ID,
+		"candidate_id": session.CandidateID,
+		"mode":         session.Mode,
+		"blueprint_id": session.BlueprintID,
+	})
+	if err != nil {
+		return fmt.Errorf("interview: encoding the created event: %w", err)
+	}
+	if _, err := s.events.Publish(ctx, tx, outbox.Event{
+		Type:          "interview.session_created.v1",
+		SchemaVersion: "1.0",
+		TenantID:      session.TenantID,
+		Producer:      "interview",
+		Actor:         outbox.Actor{Type: actor.Type, ID: actor.ID},
+		Purpose:       session.Mode,
+		Payload:       payload,
+	}); err != nil {
+		return err
+	}
+
+	if err := s.audit(ctx, tx, session, actor, "interview.session_created", "allowed"); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// Get reads one session under its own scope.
+//
+// Mode and identity come from the caller because they are what decide the
+// scope, and the scope is what decides whether the row is visible at all: a
+// caller that lies about the mode sees nothing rather than someone else's row.
+func (s *Store) Get(ctx context.Context, sessionID, mode, candidateID, tenantID string) (Session, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Session{}, fmt.Errorf("interview: beginning read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := scope(ctx, tx, mode, candidateID, tenantID); err != nil {
+		return Session{}, err
+	}
+	return s.get(ctx, tx, sessionID)
+}
+
+func (s *Store) get(ctx context.Context, tx pgx.Tx, sessionID string) (Session, error) {
+	row, err := db.New(tx).GetSession(ctx, sessionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Session{}, ErrNotFound
+	}
+	if err != nil {
+		return Session{}, fmt.Errorf("interview: reading session: %w", err)
+	}
+	return Session{
+		ID: row.ID, Mode: row.Mode, CandidateID: row.CandidateID, TenantID: row.TenantID,
+		BlueprintID: row.BlueprintID, State: State(row.State), Version: int(row.Version),
+		BundleRef: row.BundleRef, BundleDigest: row.BundleDigest,
+		BundleRevision: int(row.BundleRevision), FailureCode: row.FailureCode,
+		CreatedAt: row.CreatedAt, StateChangedAt: row.StateChangedAt,
+	}, nil
+}
+
+// Transition moves a session from one state to another, or says exactly why
+// not: the machine refuses an illegal edge, a zero-row update becomes stale
+// or not-found by re-reading, and everything the transition carries commits
+// with it or not at all.
+func (s *Store) Transition(ctx context.Context, session Session, to State, effects Effects, actor Actor) (Session, error) {
+	if err := CanTransition(session.State, to); err != nil {
+		return Session{}, err
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Session{}, fmt.Errorf("interview: beginning transition: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
+		return Session{}, err
+	}
+
+	moved, err := db.New(tx).TransitionSession(ctx, db.TransitionSessionParams{
+		ID:              session.ID,
+		FromState:       string(session.State),
+		ToState:         string(to),
+		ExpectedVersion: int32(session.Version),
+		BundleRef:       effects.BundleRef,
+		BundleDigest:    effects.BundleDigest,
+		BundleRevision:  int32(effects.BundleRevision),
+		FailureCode:     effects.FailureCode,
+	})
+	if err != nil {
+		return Session{}, fmt.Errorf("interview: transitioning: %w", err)
+	}
+	if moved == 0 {
+		// The guard refused. Re-read inside the same scope to say which
+		// refusal it was: gone, or moved on since the caller looked.
+		if _, err := s.get(ctx, tx, session.ID); errors.Is(err, ErrNotFound) {
+			return Session{}, ErrNotFound
+		}
+		return Session{}, ErrStaleVersion
+	}
+
+	if effects.Event != nil {
+		if _, err := s.events.Publish(ctx, tx, *effects.Event); err != nil {
+			return Session{}, err
+		}
+	}
+
+	if err := s.audit(ctx, tx, session, actor,
+		fmt.Sprintf("interview.session_%s", to), "allowed"); err != nil {
+		return Session{}, err
+	}
+
+	updated, err := s.get(ctx, tx, session.ID)
+	if err != nil {
+		return Session{}, err
+	}
+	return updated, tx.Commit(ctx)
+}
+
+// audit appends the transition to the audit trail inside the transaction.
+func (s *Store) audit(ctx context.Context, tx pgx.Tx, session Session, actor Actor, action, outcome string) error {
+	if err := db.New(tx).InsertAuditEvent(ctx, db.InsertAuditEventParams{
+		ID:        id.New().String(),
+		TenantID:  session.TenantID,
+		ActorID:   actor.ID,
+		ActorType: actor.Type,
+		Action:    action,
+		SessionID: session.ID,
+		Outcome:   outcome,
+	}); err != nil {
+		return fmt.Errorf("interview: writing audit row: %w", err)
+	}
+	return nil
+}
+
+// ReadyEvent builds the catalogue's session_ready event for a transition to
+// ready. In this package rather than at call sites, because the workflow and
+// any future retry path must publish exactly the same shape, and the payload's
+// required fields are the catalogue's to define, not each caller's to recall.
+func ReadyEvent(session Session, effects Effects, actor Actor) (*outbox.Event, error) {
+	payload, err := json.Marshal(map[string]any{
+		"session_id":      session.ID,
+		"bundle_id":       session.ID,
+		"bundle_digest":   effects.BundleDigest,
+		"bundle_revision": effects.BundleRevision,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("interview: encoding the ready event: %w", err)
+	}
+	return &outbox.Event{
+		Type:          "interview.session_ready.v1",
+		SchemaVersion: "1.0",
+		TenantID:      session.TenantID,
+		Producer:      "interview",
+		Actor:         outbox.Actor{Type: actor.Type, ID: actor.ID},
+		Purpose:       session.Mode,
+		Payload:       payload,
+	}, nil
+}

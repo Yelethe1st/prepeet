@@ -55,6 +55,16 @@ sql:
 
   - engine: postgresql
     schema: *schema
+    queries: internal/interview/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: interviewdb
+        out: internal/interview/db
+        overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
     queries: internal/notification/db/queries.sql
     gen:
       go:

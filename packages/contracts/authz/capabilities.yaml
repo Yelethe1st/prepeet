@@ -218,6 +218,32 @@ capabilities:
   # Separate authority, never a superset of tenant authority. Holding a
   # platform capability grants nothing inside any tenant.
 
+  - name: content.artifact_draft
+    platform: true
+    reason: >-
+      Drafting a platform artifact - a persona, prompt, rubric or policy.
+      Platform authority because these shape every tenant's interviews; a
+      draft changes nothing until somebody else publishes it.
+
+  - name: content.artifact_publish
+    platform: true
+    step_up: true
+    reason: >-
+      Publishing changes how every future candidate is evaluated, which is
+      the definition of what step-up exists for. ADR-0011 adds the structural
+      half: the registry refuses a publish whose actor drafted the version,
+      so this capability alone is never sufficient for one person to ship
+      their own artifact.
+
+  - name: content.artifact_rollback
+    platform: true
+    step_up: true
+    reason: >-
+      Rolling back repoints the current version to an earlier publication.
+      Step-up for publishing's reason, and it is its own capability rather
+      than publish reused, because who may react to a bad artifact is a
+      different and usually wider question than who may ship one.
+
   - name: platform.analytics_read
     platform: true
     reason: >-
@@ -346,6 +372,9 @@ roles:
 # authority rather than a senior form of it. A tenant role that granted one would
 # make the owner of any workspace a member of platform staff.
 unbundled:
+  - content.artifact_draft
+  - content.artifact_publish
+  - content.artifact_rollback
   - evaluation.compare
   - platform.analytics_read
   - platform.audit_read

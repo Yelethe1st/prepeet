@@ -16,9 +16,20 @@ Rubrics, calibrations, prompts, personas and interview blueprints as versioned, 
 artifacts with an approval step and a rollback path.
 
 **Done when**
-- [ ] An artifact can be drafted, reviewed, published, pinned and rolled back.
-- [ ] Published artifacts are immutable; a change creates a new version.
-- [ ] Publication never mutates an in-flight or historical session.
+- [x] An artifact can be drafted, reviewed, published, pinned and rolled back.
+- [x] Published artifacts are immutable; a change creates a new version.
+- [x] Publication never mutates an in-flight or historical session.
+
+**Done, to ADR-0011.** The registry lives in `internal/content`: lifecycle machine held to the
+domain model's chain, immutability and no-deletion by trigger (proven by dropping the trigger and
+watching the suite refuse), separation of duties in the aggregate so the drafter cannot publish
+their own version whatever they hold, and rollback as an audited pointer move that deprecates
+rather than deletes. Pins are digests over canonical JSON, verified on every read; the
+never-mutates-a-session box is the test that publishes v2 and finds a previously pinned digest
+still resolving byte-identical. One registry serves platform and tenant artifacts, with a tenant's
+pointer overriding the platform's for the same reference. What remains for composition to use it:
+CAT-02's composer resolving and pinning from here, and the git-authored loader, which lands with
+the first real artifact content.
 
 **Spec** [domain-model.md](../../architecture/domain-model.md)
 

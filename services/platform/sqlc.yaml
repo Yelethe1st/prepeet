@@ -55,6 +55,16 @@ sql:
 
   - engine: postgresql
     schema: *schema
+    queries: internal/content/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: contentdb
+        out: internal/content/db
+        overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
     queries: internal/interview/db/queries.sql
     gen:
       go:

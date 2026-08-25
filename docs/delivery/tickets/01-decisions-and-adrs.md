@@ -177,8 +177,11 @@ Rubrics, calibrations, prompts, personas and interview blueprints are all versio
 sessions. Decide where they live, who approves publication, and how a bad publication is rolled back.
 
 **Done when**
-- [ ] ADR accepted covering storage, schema versioning, digest, approval roles, and rollback.
-- [ ] Confirmed that publication never mutates an in-flight or historical session.
+- [x] ADR accepted covering storage, schema versioning, digest, approval roles, and rollback.
+- [x] Confirmed that publication never mutates an in-flight or historical session.
+
+Accepted as [ADR-0011](../../architecture/decisions/0011-artifact-registry-review-publication-and-rollback.md);
+the second box is a test in CAT-01's registry rather than a confirmation in prose.
 
 **Spec** [domain-model.md](../../architecture/domain-model.md)
 

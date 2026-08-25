@@ -38,6 +38,24 @@ const (
 	// behalf.
 	CandidateProfileWriteOwn Capability = "candidate.profile.write_own"
 
+	// Drafting a platform artifact - a persona, prompt, rubric or policy.
+	// Platform authority because these shape every tenant's interviews; a
+	// draft changes nothing until somebody else publishes it.
+	ContentArtifactDraft Capability = "content.artifact_draft"
+
+	// Publishing changes how every future candidate is evaluated, which is
+	// the definition of what step-up exists for. ADR-0011 adds the
+	// structural half: the registry refuses a publish whose actor drafted
+	// the version, so this capability alone is never sufficient for one
+	// person to ship their own artifact.
+	ContentArtifactPublish Capability = "content.artifact_publish"
+
+	// Rolling back repoints the current version to an earlier publication.
+	// Step-up for publishing's reason, and it is its own capability rather
+	// than publish reused, because who may react to a bad artifact is a
+	// different and usually wider question than who may ship one.
+	ContentArtifactRollback Capability = "content.artifact_rollback"
+
 	// Comparing candidates. Scoped and step-up: comparison is off by
 	// default under responsible-hiring.md and is the most consequential
 	// thing a recruiter can do.
@@ -137,6 +155,9 @@ var catalogue = map[Capability]Requirement{
 	CandidatePracticeReadOwn:      {Owner: true},
 	CandidateProfileReadOwn:       {Owner: true},
 	CandidateProfileWriteOwn:      {Owner: true},
+	ContentArtifactDraft:          {Platform: true},
+	ContentArtifactPublish:        {Platform: true, StepUp: true},
+	ContentArtifactRollback:       {Platform: true, StepUp: true},
 	EvaluationCompare:             {Tenant: true, Scope: ScopeCampaign},
 	EvaluationReadScreen:          {Tenant: true, Scope: ScopeCampaign},
 	EvaluationReview:              {Tenant: true, Scope: ScopeCampaign},

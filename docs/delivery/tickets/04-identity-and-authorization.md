@@ -236,9 +236,28 @@ A tenant's authority never reaches a candidate's practice history, in either dir
 route, read model, cache, analytics table or export.
 
 **Done when**
-- [ ] Adversarial tests attempt practice reads under tenant authority and fail at both the policy layer and RLS.
-- [ ] Analytics and search projections carry the same separation.
-- [ ] A leak in this path is wired as a stop-ship alert, not a bug report.
+- [x] Adversarial tests attempt practice reads under tenant authority and fail at both the policy layer and RLS.
+- [x] Analytics and search projections carry the same separation.
+- [x] A leak in this path is wired as a stop-ship alert, not a bug report.
+
+**Done, with the alert half stated precisely.** The policy layer's proof iterates every owner
+capability in the generated catalogue against a deliberately over-provisioned tenant subject, so a
+new owner capability is covered the moment it exists. The RLS proof lives in the isolation suite:
+migration 0011 creates the candidate schema's first table with owner-only policy and no tenant
+dimension, and adversarial tests read and write it under every context shape a tenant-side code
+path could run with, including naming the row by id. A write tripwire trigger refuses the one
+shape the policy cannot catch - the owner's own row written inside a transaction that also
+carries tenant context - and its exception says stop-ship, because that is what it is.
+
+Projections carry the separation structurally: the suite refuses any view or materialized view
+joining a candidate table to anything carrying tenant_id, and the detector proves itself against
+a planted offender on every run. Future candidate tables inherit every rule by existing: the
+guards read the catalog, not a table list.
+
+What "stop-ship alert" means today: the adversarial suite is part of the required CI gate, the
+runtime write tripwire fails closed with a message naming the invariant, and reads under tenant
+authority return nothing by construction. The pager rule on the tripwire's log line lands with
+the first practice repository, which is the first code that could trip it.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md) · [responsible-hiring.md](../../security/responsible-hiring.md)
 

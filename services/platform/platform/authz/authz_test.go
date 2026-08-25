@@ -216,8 +216,12 @@ func TestTenantAuthorityCannotReachCandidatePracticeData(t *testing.T) {
 	ctx.Scopes = []authz.Scope{{Kind: authz.ScopeCampaign, Value: "cmp_icu_autumn"}}
 
 	for _, capability := range authz.All() {
-		if !strings.HasPrefix(string(capability), "candidate.") &&
-			!strings.HasPrefix(string(capability), "session.read_own") {
+		requirement, _ := authz.Describe(capability)
+		if !requirement.Owner {
+			// The boundary under test is the owner requirement itself, so the
+			// set comes from the catalogue rather than from a name prefix: a
+			// new owner capability is covered the moment it is generated, and
+			// cannot be missed by being named outside the pattern.
 			continue
 		}
 		decision := ctx.Can(capability, authz.Request{

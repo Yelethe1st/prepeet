@@ -45,6 +45,31 @@ func (f *fakeCandidates) SaveProfile(_ context.Context, _ string, p api.Profile)
 	return p, nil
 }
 
+// fakeDocuments serves the document port; the flows' truth lives in the
+// candidate integration suite, so this only needs to answer.
+type fakeDocuments struct {
+	started api.StartedUpload
+	stored  api.Document
+	listed  []api.Document
+	err     error
+}
+
+func (f *fakeDocuments) StartUpload(_ context.Context, _, _ string, _ int64, _ int) (api.StartedUpload, error) {
+	return f.started, f.err
+}
+
+func (f *fakeDocuments) CompleteUpload(_ context.Context, _, _, _, _ string, _ []api.UploadPart, _ int64) (api.Document, error) {
+	return f.stored, f.err
+}
+
+func (f *fakeDocuments) AbortUpload(_ context.Context, _, _ string) error { return f.err }
+
+func (f *fakeDocuments) DeleteDocument(_ context.Context, _, _ string) error { return f.err }
+
+func (f *fakeDocuments) ListDocuments(_ context.Context, _ string) ([]api.Document, error) {
+	return f.listed, f.err
+}
+
 type fakeIdentity struct {
 	registerErr error
 	registered  []api.Registration
@@ -199,6 +224,7 @@ func serveWith(t *testing.T, identity api.Identity, candidates api.CandidateProf
 	handler, err := api.NewServer(api.ServerConfig{
 		Identity:    identity,
 		Candidates:  candidates,
+		Documents:   &fakeDocuments{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -213,6 +239,7 @@ func serveIn(t *testing.T, identity api.Identity, environment config.Environment
 	handler, err := api.NewServer(api.ServerConfig{
 		Identity:    identity,
 		Candidates:  &fakeCandidates{},
+		Documents:   &fakeDocuments{},
 		Environment: environment,
 	})
 	if err != nil {

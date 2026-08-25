@@ -25,6 +25,22 @@ is CAT-03's, and until then these are the person's own vocabulary.
 submits what it shows, and field-level merges are where two tabs quietly
 assemble a profile neither of them displayed.
 
+## Documents
+
+The CV is versioned, never rewritten: replacement is version n+1 existing.
+The row is the authoritative record - key, type, bytes, digest, state - and
+rows outlive their objects, because the digest a session bundle pinned must
+stay answerable after the bytes are deleted. That is PRO-02's rule that
+deletion never rewrites a session composed from an earlier version, held
+structurally: bundles are written only by the ready transition and are
+immutable by trigger, and document history is never destroyed.
+
+Uploads are browser-direct against presigned URLs; the server never proxies
+a file and the browser never holds a durable credential. A stalled upload
+has its own visible state - uploading, then failed on abort - and recovery
+is simply the next version. Types are allowlisted by name, never sniffed,
+because sniffing is how an SVG with a script becomes "an image".
+
 ## The accessibility promise
 
 extended_time, captions and reduced_motion are stored here so the prepare

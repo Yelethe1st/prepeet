@@ -316,6 +316,23 @@ func (s *S3Store) PresignPlayback(ctx context.Context, key Key, ttl time.Duratio
 }
 
 // Head reports what is stored under key without fetching it.
+// Delete removes one object.
+//
+// Deleting a missing object succeeds, because the caller's intent - this key
+// holds nothing - is already true, and a retry after a half-failure must not
+// be told it failed for having succeeded. The authoritative record of what
+// existed is the database row, which deletion never touches.
+func (s *S3Store) Delete(ctx context.Context, key Key) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key.String()),
+	})
+	if err != nil {
+		return fmt.Errorf("objectstore: deleting %s: %w", key, err)
+	}
+	return nil
+}
+
 func (s *S3Store) Head(ctx context.Context, key Key) (Object, error) {
 	out, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(s.bucket),

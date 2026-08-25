@@ -10,6 +10,53 @@ import (
 	"time"
 )
 
+const getDocument = `-- name: GetDocument :one
+SELECT id::text AS id, user_id::text AS user_id, kind, version, storage_key,
+       media_type, size_bytes, state,
+       coalesce(upload_id, '')::text AS upload_id,
+       coalesce(sha256, '')::text AS sha256,
+       created_at, stored_at, deleted_at
+FROM candidate.documents
+WHERE id = $1::uuid
+`
+
+type GetDocumentRow struct {
+	ID         string
+	UserID     string
+	Kind       string
+	Version    int32
+	StorageKey string
+	MediaType  string
+	SizeBytes  int64
+	State      string
+	UploadID   string
+	Sha256     string
+	CreatedAt  time.Time
+	StoredAt   *time.Time
+	DeletedAt  *time.Time
+}
+
+func (q *Queries) GetDocument(ctx context.Context, id string) (GetDocumentRow, error) {
+	row := q.db.QueryRow(ctx, getDocument, id)
+	var i GetDocumentRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Kind,
+		&i.Version,
+		&i.StorageKey,
+		&i.MediaType,
+		&i.SizeBytes,
+		&i.State,
+		&i.UploadID,
+		&i.Sha256,
+		&i.CreatedAt,
+		&i.StoredAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getProfile = `-- name: GetProfile :one
 
 SELECT user_id::text AS user_id, disciplines, target_roles,
@@ -69,6 +116,182 @@ func (q *Queries) GetProfile(ctx context.Context, userID string) (GetProfileRow,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertDocument = `-- name: InsertDocument :exec
+INSERT INTO candidate.documents
+    (id, user_id, kind, version, storage_key, media_type, size_bytes, upload_id)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::integer, $5::text,
+        $6::text, $7::bigint,
+        $8::text)
+`
+
+type InsertDocumentParams struct {
+	ID         string
+	UserID     string
+	Kind       string
+	Version    int32
+	StorageKey string
+	MediaType  string
+	SizeBytes  int64
+	UploadID   string
+}
+
+func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) error {
+	_, err := q.db.Exec(ctx, insertDocument,
+		arg.ID,
+		arg.UserID,
+		arg.Kind,
+		arg.Version,
+		arg.StorageKey,
+		arg.MediaType,
+		arg.SizeBytes,
+		arg.UploadID,
+	)
+	return err
+}
+
+const listDocuments = `-- name: ListDocuments :many
+SELECT id::text AS id, user_id::text AS user_id, kind, version, storage_key,
+       media_type, size_bytes, state,
+       coalesce(upload_id, '')::text AS upload_id,
+       coalesce(sha256, '')::text AS sha256,
+       created_at, stored_at, deleted_at
+FROM candidate.documents
+WHERE user_id = $1::uuid AND kind = $2::text
+ORDER BY version DESC
+`
+
+type ListDocumentsParams struct {
+	UserID string
+	Kind   string
+}
+
+type ListDocumentsRow struct {
+	ID         string
+	UserID     string
+	Kind       string
+	Version    int32
+	StorageKey string
+	MediaType  string
+	SizeBytes  int64
+	State      string
+	UploadID   string
+	Sha256     string
+	CreatedAt  time.Time
+	StoredAt   *time.Time
+	DeletedAt  *time.Time
+}
+
+// Every version, newest first: the history PRO-02 requires, states included,
+// so a stuck upload is visible beside the version that superseded it.
+func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([]ListDocumentsRow, error) {
+	rows, err := q.db.Query(ctx, listDocuments, arg.UserID, arg.Kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDocumentsRow{}
+	for rows.Next() {
+		var i ListDocumentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Kind,
+			&i.Version,
+			&i.StorageKey,
+			&i.MediaType,
+			&i.SizeBytes,
+			&i.State,
+			&i.UploadID,
+			&i.Sha256,
+			&i.CreatedAt,
+			&i.StoredAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markDocumentDeleted = `-- name: MarkDocumentDeleted :execrows
+UPDATE candidate.documents
+SET state = 'deleted', deleted_at = now()
+WHERE id = $1::uuid AND state = 'stored'
+`
+
+// The row survives its object: the digest record is what a composed bundle
+// pinned, and destroying it would leave a session's provenance unanswerable.
+func (q *Queries) MarkDocumentDeleted(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, markDocumentDeleted, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markDocumentFailed = `-- name: MarkDocumentFailed :execrows
+UPDATE candidate.documents
+SET state = 'failed', upload_id = NULL
+WHERE id = $1::uuid AND state = 'uploading'
+`
+
+func (q *Queries) MarkDocumentFailed(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, markDocumentFailed, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markDocumentStored = `-- name: MarkDocumentStored :execrows
+UPDATE candidate.documents
+SET state = 'stored', sha256 = $1::text,
+    size_bytes = $2::bigint, stored_at = now(), upload_id = NULL
+WHERE id = $3::uuid AND state = 'uploading'
+`
+
+type MarkDocumentStoredParams struct {
+	Sha256    string
+	SizeBytes int64
+	ID        string
+}
+
+// Guarded on the uploading state, so completing twice - or completing an
+// aborted upload - loses on rows affected rather than rewriting history.
+func (q *Queries) MarkDocumentStored(ctx context.Context, arg MarkDocumentStoredParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markDocumentStored, arg.Sha256, arg.SizeBytes, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const nextDocumentVersion = `-- name: NextDocumentVersion :one
+SELECT coalesce(max(version), 0)::integer + 1 AS next_version
+FROM candidate.documents
+WHERE user_id = $1::uuid AND kind = $2::text
+`
+
+type NextDocumentVersionParams struct {
+	UserID string
+	Kind   string
+}
+
+// The next version for one person's document kind, computed under the row
+// lock of the aggregate's own scope so two concurrent uploads cannot both be
+// version 3. Absence is version 1.
+func (q *Queries) NextDocumentVersion(ctx context.Context, arg NextDocumentVersionParams) (int32, error) {
+	row := q.db.QueryRow(ctx, nextDocumentVersion, arg.UserID, arg.Kind)
+	var next_version int32
+	err := row.Scan(&next_version)
+	return next_version, err
 }
 
 const upsertProfile = `-- name: UpsertProfile :exec

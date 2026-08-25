@@ -330,6 +330,19 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		return base
 	}
 
+	switch {
+	case errors.Is(err, ErrDocumentMissing):
+		base.status = http.StatusNotFound
+		base.code = string(prepeetapi.NOTFOUND)
+		base.message = "There is no document at that identifier."
+		return base
+	case errors.Is(err, ErrDocumentConflict):
+		base.status = http.StatusConflict
+		base.code = string(prepeetapi.FORBIDDEN)
+		base.message = "That document is not in a state this operation applies to."
+		return base
+	}
+
 	var cooldown *CooldownError
 	if errors.As(err, &cooldown) {
 		base.status = http.StatusTooManyRequests

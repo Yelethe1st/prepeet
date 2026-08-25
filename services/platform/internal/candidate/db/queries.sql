@@ -46,3 +46,60 @@ ON CONFLICT (user_id) DO UPDATE SET
     notify_product_updates = excluded.notify_product_updates,
     notify_practice_reminders = excluded.notify_practice_reminders,
     updated_at = now();
+
+-- name: NextDocumentVersion :one
+-- The next version for one person's document kind, computed under the row
+-- lock of the aggregate's own scope so two concurrent uploads cannot both be
+-- version 3. Absence is version 1.
+SELECT coalesce(max(version), 0)::integer + 1 AS next_version
+FROM candidate.documents
+WHERE user_id = sqlc.arg(user_id)::uuid AND kind = sqlc.arg(kind)::text;
+
+-- name: InsertDocument :exec
+INSERT INTO candidate.documents
+    (id, user_id, kind, version, storage_key, media_type, size_bytes, upload_id)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(user_id)::uuid, sqlc.arg(kind)::text,
+        sqlc.arg(version)::integer, sqlc.arg(storage_key)::text,
+        sqlc.arg(media_type)::text, sqlc.arg(size_bytes)::bigint,
+        sqlc.arg(upload_id)::text);
+
+-- name: GetDocument :one
+SELECT id::text AS id, user_id::text AS user_id, kind, version, storage_key,
+       media_type, size_bytes, state,
+       coalesce(upload_id, '')::text AS upload_id,
+       coalesce(sha256, '')::text AS sha256,
+       created_at, stored_at, deleted_at
+FROM candidate.documents
+WHERE id = sqlc.arg(id)::uuid;
+
+-- name: ListDocuments :many
+-- Every version, newest first: the history PRO-02 requires, states included,
+-- so a stuck upload is visible beside the version that superseded it.
+SELECT id::text AS id, user_id::text AS user_id, kind, version, storage_key,
+       media_type, size_bytes, state,
+       coalesce(upload_id, '')::text AS upload_id,
+       coalesce(sha256, '')::text AS sha256,
+       created_at, stored_at, deleted_at
+FROM candidate.documents
+WHERE user_id = sqlc.arg(user_id)::uuid AND kind = sqlc.arg(kind)::text
+ORDER BY version DESC;
+
+-- name: MarkDocumentStored :execrows
+-- Guarded on the uploading state, so completing twice - or completing an
+-- aborted upload - loses on rows affected rather than rewriting history.
+UPDATE candidate.documents
+SET state = 'stored', sha256 = sqlc.arg(sha256)::text,
+    size_bytes = sqlc.arg(size_bytes)::bigint, stored_at = now(), upload_id = NULL
+WHERE id = sqlc.arg(id)::uuid AND state = 'uploading';
+
+-- name: MarkDocumentFailed :execrows
+UPDATE candidate.documents
+SET state = 'failed', upload_id = NULL
+WHERE id = sqlc.arg(id)::uuid AND state = 'uploading';
+
+-- name: MarkDocumentDeleted :execrows
+-- The row survives its object: the digest record is what a composed bundle
+-- pinned, and destroying it would leave a session's provenance unanswerable.
+UPDATE candidate.documents
+SET state = 'deleted', deleted_at = now()
+WHERE id = sqlc.arg(id)::uuid AND state = 'stored';

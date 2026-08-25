@@ -25,6 +25,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/ratelimit"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
@@ -94,6 +95,28 @@ func main() {
 		return nil
 	})
 
+	// The document flows need object storage; without a bucket the API
+	// refuses to start, because a candidate offered an upload button wired to
+	// nothing would lose their file politely.
+	if cfg.S3Bucket == "" {
+		log.Error("PREPEET_S3_BUCKET is required: the document surface has nowhere to store")
+		os.Exit(1)
+	}
+	uploads, err := objectstore.NewS3Store(ctx, objectstore.S3Config{
+		Endpoint: cfg.S3Endpoint, Region: cfg.S3Region, Bucket: cfg.S3Bucket,
+		AccessKey: cfg.S3AccessKey, SecretKey: cfg.S3SecretKey,
+		UsePathStyle: cfg.S3UsePathStyle,
+	})
+	if err != nil {
+		log.Error("object storage is not usable", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	candidateStore := candidate.NewStore(pool)
+	candidates := candidateAdapter{
+		service:   candidate.NewService(candidateStore),
+		documents: candidate.NewDocuments(candidateStore, uploads),
+	}
+
 	handler, err := api.NewServer(api.ServerConfig{
 		Identity: identityAdapter{service: identity.NewService(identity.NewRepository(pool), time.Now).
 			WithTokenFlows(identity.TokenFlows{
@@ -104,7 +127,8 @@ func main() {
 				Resend:  ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 1, Window: time.Minute}, time.Now),
 				BaseURL: cfg.WebBaseURL,
 			})},
-		Candidates:  candidateAdapter{service: candidate.NewService(candidate.NewStore(pool))},
+		Candidates:  candidates,
+		Documents:   candidates,
 		Environment: cfg.Environment,
 		Health:      checks,
 	})

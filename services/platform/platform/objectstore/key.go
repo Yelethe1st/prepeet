@@ -113,6 +113,25 @@ func NewKey(parts KeyParts) (Key, error) {
 	)}, nil
 }
 
+// NewCandidateKey derives the key for a candidate-owned document.
+//
+// Candidate documents belong to a person, not to a tenant or a session, so
+// they live under their own root: a CV keyed by tenant would be exactly the
+// linkage IAM-06 forbids, recorded in storage layout. The purpose is fixed to
+// document because that is the only thing a candidate stores directly; the
+// prefix still separates by purpose so DEC-15's lifecycle rules can act.
+func NewCandidateKey(userID, name string) (Key, error) {
+	if userID == "" {
+		return Key{}, fmt.Errorf("%w: user is required", ErrInvalidKey)
+	}
+	if err := validateName(name); err != nil {
+		return Key{}, err
+	}
+	return Key{value: path.Join(
+		"candidate", userID, string(PurposeDocument), name,
+	)}, nil
+}
+
 // Prefix returns the key prefix for one session's objects of one purpose. It is
 // what reconciliation and lifecycle rules operate on.
 func Prefix(tenantID, sessionID string, purpose Purpose) (string, error) {

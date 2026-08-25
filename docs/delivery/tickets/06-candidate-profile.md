@@ -43,9 +43,19 @@ Upload with size and type bounds, content digest, version history, and deletion 
 rewrite a session already composed from an earlier version.
 
 **Done when**
-- [ ] Upload, replace and delete all work, with the digest and version recorded per document.
-- [ ] Deleting or replacing a CV leaves an already-composed session bundle untouched.
-- [ ] Failed and partial uploads have their own recoverable states.
+- [x] Upload, replace and delete all work, with the digest and version recorded per document.
+- [x] Deleting or replacing a CV leaves an already-composed session bundle untouched.
+- [x] Failed and partial uploads have their own recoverable states.
+
+**Done.** Browser-direct upload against presigned URLs - the integration suite PUTs real bytes at
+LocalStack exactly as a browser would - with every upload a new version and the row as the
+authoritative record per data-architecture.md. Rows outlive their objects: after replace and
+delete, the old version's record and digest still answer, which is how a bundle that pinned it
+stays reconstructable, and bundles themselves are written only by the ready transition and frozen
+by trigger, so nothing here can touch one. The states are real: uploading, stored, failed - abort
+gives a stalled upload its visible ending, completing a corpse is refused, and recovery is simply
+the next version. Bounds refuse by name: three media types, 10 MiB, four parts. Another person's
+documents do not exist even by id.
 
 **Spec** [data-architecture.md](../../architecture/data-architecture.md)
 

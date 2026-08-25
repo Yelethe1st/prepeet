@@ -291,6 +291,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the candidate's own documents, every version and state
+         * @description Newest first, states included: a stuck upload is visible beside the
+         *     version that superseded it, and a deleted version's record stands
+         *     because a session bundle may have pinned its digest.
+         */
+        get: operations["listDocuments"];
+        put?: never;
+        /**
+         * Start a CV upload
+         * @description Allocates the next version and returns presigned URLs the browser
+         *     PUTs the bytes to directly; the server never proxies the file and the
+         *     browser never holds a durable credential. Every upload is a new
+         *     version - replacement is version n+1 existing, never version n
+         *     changing.
+         */
+        post: operations["startDocumentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/documents/{documentId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalise an upload
+         * @description The stored size is verified against what actually landed; the digest
+         *     is recorded as the identity extraction and composition will pin.
+         */
+        post: operations["completeDocumentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/documents/{documentId}/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abandon a stalled upload
+         * @description The multipart upload is discarded and the version reads failed,
+         *     visibly - its own recoverable state, recovered by simply uploading
+         *     again as the next version.
+         */
+        post: operations["abortDocumentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/documents/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a stored document
+         * @description The bytes are destroyed; the version's record stands with its digest,
+         *     because a session bundle composed from it must stay answerable.
+         *     Deletion never rewrites a session composed from an earlier version.
+         */
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -467,6 +562,62 @@ export interface components {
             email: string;
             code: string;
         };
+        /** @description One version of one document. Rows outlive their objects. */
+        Document: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "cv";
+            version: number;
+            media_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+            /**
+             * @description Failed and partial uploads keep their own states, recoverably.
+             * @enum {string}
+             */
+            state: "uploading" | "stored" | "failed" | "deleted";
+            /** @description The content digest, present once stored. What extraction pins. */
+            sha256?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            stored_at?: string;
+            /** Format: date-time */
+            deleted_at?: string;
+        };
+        DocumentList: {
+            documents: components["schemas"]["Document"][];
+        };
+        StartUploadRequest: {
+            /** @enum {string} */
+            media_type: "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "text/plain";
+            /** Format: int64 */
+            size_bytes: number;
+            part_count: number;
+        };
+        /** @description What the browser needs to carry the bytes itself. */
+        StartedUpload: {
+            document: components["schemas"]["Document"];
+            upload_id: string;
+            /** @description Presigned PUT URLs, one per part, in part order. */
+            part_urls: string[];
+            /**
+             * Format: date-time
+             * @description When the URLs stop working, shown rather than discovered.
+             */
+            expires_at: string;
+        };
+        CompleteUploadRequest: {
+            upload_id: string;
+            sha256: string;
+            /** Format: int64 */
+            size_bytes: number;
+            parts: {
+                number: number;
+                etag: string;
+            }[];
+        };
         /**
          * @description The candidate's own profile. Every field is optional, and absent
          *     arrays serialise as empty: a partial profile is a profile.
@@ -596,6 +747,20 @@ export interface components {
         };
     };
     responses: {
+        /**
+         * @description Nothing at this identifier in this scope - which deliberately covers
+         *     both absence and somebody else's resource, so an identifier cannot be
+         *     used to test what exists.
+         */
+        NotFound: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description The request was malformed or failed validation. */
         ValidationFailed: {
             headers: {
@@ -669,8 +834,23 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /**
+         * @description The document is not in a state this operation applies to: completing
+         *     an aborted upload, deleting twice. The current state is in the list
+         *     response; nothing was changed.
+         */
+        DocumentStateConflict: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
     parameters: {
+        DocumentId: string;
         /**
          * @description Scoped to tenant, endpoint and key together. A replay carrying the same
          *     body returns the stored response; a replay carrying a different body is
@@ -1072,6 +1252,134 @@ export interface operations {
             };
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
+        };
+    };
+    listDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document history. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    startDocumentUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description The upload, ready for the browser to carry the bytes. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedUpload"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    completeDocumentUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored document. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["DocumentStateConflict"];
+        };
+    };
+    abortDocumentUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The upload is abandoned. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["DocumentStateConflict"];
+        };
+    };
+    deleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The object is deleted; the record remains. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["DocumentStateConflict"];
         };
     };
     getCurrentUser: {

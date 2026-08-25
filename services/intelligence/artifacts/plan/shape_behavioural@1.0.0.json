@@ -1,0 +1,10 @@
+{
+  "type": "plan",
+  "reference": "plan/shape_behavioural",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "shape": "shape_behavioural",
+    "stages": ["intro", "competency_questions", "follow_ups", "close"]
+  }
+}

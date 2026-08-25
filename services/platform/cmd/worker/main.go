@@ -69,10 +69,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// extraction is the document_uploaded route, set only when the candidate
-	// task queue is actually being served; nil leaves the type unregistered
-	// so those events dead letter visibly instead of vanishing.
+	// extraction is the document_uploaded route and composition the
+	// session_created route, each set only when its task queue is actually
+	// being served; nil leaves the type unregistered so those events dead
+	// letter visibly instead of vanishing.
 	var extraction outbox.HandlerFunc
+	var composition outbox.HandlerFunc
 
 	shutdownTelemetry, err := telemetry.Setup(ctx, telemetryConfig)
 	if err != nil {
@@ -150,6 +152,7 @@ func main() {
 				os.Exit(1)
 			}
 			defer interviewWorker.Stop()
+			composition = startComposition(workflows, interview.NewStore(pool))
 			log.Info("interview worker started",
 				slog.String("task_queue", interview.TaskQueue),
 				slog.String("intelligence", cfg.IntelligenceAddress))
@@ -191,7 +194,7 @@ func main() {
 		}
 	}
 
-	router := routes(extraction)
+	router := routes(extraction, composition)
 	for eventType, disposition := range router.Routes() {
 		log.Info("outbox route registered",
 			slog.String("event_type", eventType),
@@ -259,7 +262,7 @@ func main() {
 // Handlers are registered here rather than by the packages that own them,
 // because a bounded context must not know that another one consumes its events.
 // See ADR-0005.
-func routes(extraction outbox.HandlerFunc) *outbox.Router {
+func routes(extraction, composition outbox.HandlerFunc) *outbox.Router {
 	router := outbox.NewRouter()
 
 	// PRO-03: an uploaded document starts its extraction workflow. Registered
@@ -267,6 +270,13 @@ func routes(extraction outbox.HandlerFunc) *outbox.Router {
 	// dead letter, which is the visible form of "extraction is off here".
 	if extraction != nil {
 		router.Handle("candidate.document_uploaded.v1", extraction)
+	}
+
+	// CAT-04: a created session starts its composition workflow, so a crash
+	// between the api's commit and the workflow start retries from the
+	// outbox rather than stranding a session in composing.
+	if composition != nil {
+		router.Handle("interview.session_created.v1", composition)
 	}
 
 	// Further registrations land with the tickets that produce the events:

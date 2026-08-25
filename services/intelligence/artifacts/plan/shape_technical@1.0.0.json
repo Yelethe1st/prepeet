@@ -1,0 +1,10 @@
+{
+  "type": "plan",
+  "reference": "plan/shape_technical",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "shape": "shape_technical",
+    "stages": ["intro", "system_prompt", "trade_off_probes", "failure_modes", "close"]
+  }
+}

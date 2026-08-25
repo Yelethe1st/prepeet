@@ -509,6 +509,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a practice interview from a catalogue selection
+         * @description The selection is validated against the catalogue server-side, field by
+         *     field - the wizard's filtering is a courtesy, never the rule. Only
+         *     practice can be created here: a screening interview is a recruiter's
+         *     act through campaign endpoints, and the mode enum refuses anything
+         *     else at the contract. Creation starts composition; the session answers
+         *     with its state, which the prepare screen polls to ready.
+         */
+        post: operations["createInterview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -717,6 +742,37 @@ export interface components {
         };
         DocumentList: {
             documents: components["schemas"]["Document"][];
+        };
+        CreateInterviewRequest: {
+            /**
+             * @description Only practice. A screening interview is created by a recruiter
+             *     through campaign endpoints; this enum is the refusal.
+             * @enum {string}
+             */
+            mode: "practice";
+            discipline: string;
+            role: string;
+            shape: string;
+            minutes: number;
+            persona: string;
+        };
+        InterviewSession: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            mode: "practice" | "screening";
+            /** @description The lifecycle state, from session-lifecycle.md. */
+            state: string;
+            config: components["schemas"]["InterviewConfig"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        InterviewConfig: {
+            discipline: string;
+            role: string;
+            shape: string;
+            minutes: number;
+            persona: string;
         };
         Discipline: {
             id: string;
@@ -1743,6 +1799,33 @@ export interface operations {
                     "application/json": components["schemas"]["PersonaList"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    createInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInterviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The created session, composing. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewSession"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
         };
     };

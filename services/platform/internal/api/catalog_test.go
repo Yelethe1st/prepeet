@@ -56,6 +56,7 @@ func serveCatalog(t *testing.T, catalog *fakeCatalog) http.Handler {
 		Candidates:  &fakeCandidates{},
 		Documents:   &fakeDocuments{},
 		Catalog:     catalog,
+		Interviews:  &fakeInterviews{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

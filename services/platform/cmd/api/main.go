@@ -21,8 +21,10 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
@@ -129,9 +131,13 @@ func main() {
 				Resend:  ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 1, Window: time.Minute}, time.Now),
 				BaseURL: cfg.WebBaseURL,
 			})},
-		Candidates:  candidates,
-		Documents:   candidates,
-		Catalog:     newCatalogAdapter(content.NewStore(pool)),
+		Candidates: candidates,
+		Documents:  candidates,
+		Catalog:    newCatalogAdapter(content.NewStore(pool)),
+		Interviews: interviewAdapter{
+			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
+			sessions:  interview.NewStore(pool),
+		},
 		Environment: cfg.Environment,
 		Health:      checks,
 	})

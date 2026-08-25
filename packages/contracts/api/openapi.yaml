@@ -37,6 +37,8 @@ tags:
     description: The candidate's own data. Owner-scoped; no tenant authority reaches it.
   - name: catalog
     description: The interview catalogue - disciplines, roles, shapes and personas - served from the artifact registry, never hardcoded.
+  - name: interview
+    description: Interview sessions - creation from a validated catalogue selection; the lifecycle endpoints arrive with the session tickets.
 
 paths:
   /healthz:
@@ -686,6 +688,37 @@ paths:
                 $ref: "#/components/schemas/PersonaList"
         "401": { $ref: "#/components/responses/Unauthenticated" }
 
+  /interviews:
+    post:
+      tags: [interview]
+      operationId: createInterview
+      summary: Create a practice interview from a catalogue selection
+      description: |
+        The selection is validated against the catalogue server-side, field by
+        field - the wizard's filtering is a courtesy, never the rule. Only
+        practice can be created here: a screening interview is a recruiter's
+        act through campaign endpoints, and the mode enum refuses anything
+        else at the contract. Creation starts composition; the session answers
+        with its state, which the prepare screen polls to ready.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInterviewRequest"
+      responses:
+        "201":
+          description: The created session, composing.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewSession"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
   /me:
     get:
       tags: [authentication]
@@ -1137,6 +1170,45 @@ components:
         documents:
           type: array
           items: { $ref: "#/components/schemas/Document" }
+
+    CreateInterviewRequest:
+      type: object
+      required: [mode, discipline, role, shape, minutes, persona]
+      properties:
+        mode:
+          type: string
+          enum: [practice]
+          description: |
+            Only practice. A screening interview is created by a recruiter
+            through campaign endpoints; this enum is the refusal.
+        discipline: { type: string }
+        role: { type: string }
+        shape: { type: string }
+        minutes: { type: integer }
+        persona: { type: string }
+
+    InterviewSession:
+      type: object
+      required: [id, mode, state, config, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        mode: { type: string, enum: [practice, screening] }
+        state:
+          type: string
+          description: The lifecycle state, from session-lifecycle.md.
+        config:
+          $ref: "#/components/schemas/InterviewConfig"
+        created_at: { type: string, format: date-time }
+
+    InterviewConfig:
+      type: object
+      required: [discipline, role, shape, minutes, persona]
+      properties:
+        discipline: { type: string }
+        role: { type: string }
+        shape: { type: string }
+        minutes: { type: integer }
+        persona: { type: string }
 
     Discipline:
       type: object

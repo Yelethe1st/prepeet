@@ -13,7 +13,7 @@ import (
 const getSession = `-- name: GetSession :one
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
-       blueprint_id, state, version,
+       blueprint_id, config, state, version,
        coalesce(bundle_ref, '')::text AS bundle_ref,
        coalesce(bundle_digest, '')::text AS bundle_digest,
        coalesce(bundle_revision, 0)::integer AS bundle_revision,
@@ -29,6 +29,7 @@ type GetSessionRow struct {
 	CandidateID    string
 	TenantID       string
 	BlueprintID    string
+	Config         []byte
 	State          string
 	Version        int32
 	BundleRef      string
@@ -48,6 +49,7 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 		&i.CandidateID,
 		&i.TenantID,
 		&i.BlueprintID,
+		&i.Config,
 		&i.State,
 		&i.Version,
 		&i.BundleRef,
@@ -122,9 +124,10 @@ func (q *Queries) InsertAuditEvent(ctx context.Context, arg InsertAuditEventPara
 
 const insertSession = `-- name: InsertSession :exec
 
-INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, blueprint_id)
+INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, blueprint_id, config)
 VALUES ($1::uuid, $2::text, $3::uuid,
-        nullif($4::text, '')::uuid, $5::text)
+        nullif($4::text, '')::uuid, $5::text,
+        $6::jsonb)
 `
 
 type InsertSessionParams struct {
@@ -133,6 +136,7 @@ type InsertSessionParams struct {
 	CandidateID string
 	TenantID    string
 	BlueprintID string
+	Config      []byte
 }
 
 // The session store's queries. sqlc generates the Go beside this file;
@@ -144,6 +148,7 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.CandidateID,
 		arg.TenantID,
 		arg.BlueprintID,
+		arg.Config,
 	)
 	return err
 }

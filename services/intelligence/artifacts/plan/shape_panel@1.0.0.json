@@ -1,0 +1,10 @@
+{
+  "type": "plan",
+  "reference": "plan/shape_panel",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "shape": "shape_panel",
+    "stages": ["intro", "viewpoint_one", "viewpoint_two", "viewpoint_three", "close"]
+  }
+}

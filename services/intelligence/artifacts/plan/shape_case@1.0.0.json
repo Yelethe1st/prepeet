@@ -1,0 +1,10 @@
+{
+  "type": "plan",
+  "reference": "plan/shape_case",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "shape": "shape_case",
+    "stages": ["intro", "scenario_setup", "working_through", "constraint_escalation", "close"]
+  }
+}

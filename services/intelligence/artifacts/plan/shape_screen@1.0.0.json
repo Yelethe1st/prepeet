@@ -1,0 +1,10 @@
+{
+  "type": "plan",
+  "reference": "plan/shape_screen",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "shape": "shape_screen",
+    "stages": ["intro", "motivation", "logistics", "skills_pass", "close"]
+  }
+}

@@ -82,7 +82,7 @@ to software roles by a hardcoded list.
 
 **Done when**
 - [x] Catalogue endpoints serve disciplines, roles, shapes and personas with their valid combinations.
-- [ ] Invalid combinations are rejected server-side with a field-level error, not filtered in the browser.
+- [x] Invalid combinations are rejected server-side with a field-level error, not filtered in the browser.
 - [x] Adding a profession is a data change, not a deployment.
 
 **Serving and data are done; the refusal has its logic and awaits its endpoint.** The catalogue
@@ -92,10 +92,10 @@ tenant's pointer overrides the platform's) and serve collections nothing in the 
 names of: six disciplines, eight roles across them, five shapes, four personas, straight from the
 prototype's vocabulary. The combination rules ride the data - a role's shapes, a shape's runnable
 lengths, a persona's shapes with empty meaning unrestricted - and `catalog.Validate` refuses a
-selection field by field with stable codes, proven against every invalid combination. What keeps
-the middle box open is honest: the enforcement point is POST /interviews, which does not exist
-until CAT-04's wizard submits to it; the refusal logic ships now so that endpoint starts life
-unable to accept what the catalogue does not offer. Coherence is checked at the door - a role in
+selection field by field with stable codes, proven against every invalid combination. The middle box closed when
+CAT-04 landed POST /interviews: the adapter validates the selection against the catalogue before
+the interview context hears about it, and a refused combination answers 400 with every bad field
+named by its stable code. Coherence is checked at the door - a role in
 no discipline, a ghost shape, a duplicated id or a shape with no duration never publishes,
 because the loader runs the reading context's own parse as its validating step.
 
@@ -111,9 +111,30 @@ Role and focus, shape, interviewer, length and difficulty, review and start — 
 per step, preserving entered data when validation fails.
 
 **Done when**
-- [ ] Each step is addressable, restorable and validated independently.
-- [ ] Failed validation moves focus to the first problem and preserves everything already entered.
-- [ ] The wizard refuses to compose a screening interview, which only a recruiter can create.
+- [x] Each step is addressable, restorable and validated independently.
+- [x] Failed validation moves focus to the first problem and preserves everything already entered.
+- [x] The wizard refuses to compose a screening interview, which only a recruiter can create.
+
+**Done, wizard to workflow.** /practice/new walks the prototype's five steps - role, shape,
+interviewer, length, review - with every option fetched from the catalogue endpoints; nothing in
+the frontend knows a discipline's name either. The URL carries the step and every choice, so a
+copied or reloaded link restores exactly where the person was; each step validates independently
+through the same pure rules the tests pin, an invalid advance names the problem and moves focus
+to it, and a change that invalidates later choices trims exactly those and nothing else. A server
+refusal returns to the offending field's own step, focused, with everything entered intact.
+
+The screening refusal is strongest at the server: the contract's mode enum names practice alone,
+the handler enforces it (the generated decoder does not), and the test proves a screening request
+never reaches the port. Creation is the whole path: the selection is validated against the
+catalogue in the adapter - CAT-03's enforcement point - stored immutably on the session (config
+column, trigger-guarded, proven by attacking it), the session moves straight to composing, and
+the worker turns the session_created event into the composition workflow exactly-once, the same
+outbox-to-workflow shape extraction uses. Five per-shape plan artifacts shipped in git give the
+composer something real to pin for every shape the catalogue offers.
+
+What the wizard deliberately does not yet have: the prototype's job-description paste and focus
+picker (they join when composition consumes them) and the difficulty option (the profile's
+seniority default covers it until then). The prepare screen it hands off to is SES-03.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md)
 

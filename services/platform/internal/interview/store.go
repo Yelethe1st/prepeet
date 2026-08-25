@@ -48,8 +48,12 @@ type Session struct {
 	CandidateID string
 	// TenantID is empty for practice, by the schema's CHECK rather than by
 	// convention.
-	TenantID       string
-	BlueprintID    string
+	TenantID    string
+	BlueprintID string
+	// Config is the validated catalogue selection the session was created
+	// from, immutable by trigger from the moment it is written. The bundle,
+	// not this, records what actually ran.
+	Config         json.RawMessage
 	State          State
 	Version        int
 	BundleRef      string
@@ -127,12 +131,17 @@ func (s *Store) Create(ctx context.Context, session Session, actor Actor) error 
 		return err
 	}
 
+	config := session.Config
+	if len(config) == 0 {
+		config = json.RawMessage(`{}`)
+	}
 	if err := db.New(tx).InsertSession(ctx, db.InsertSessionParams{
 		ID:          session.ID,
 		Mode:        session.Mode,
 		CandidateID: session.CandidateID,
 		TenantID:    session.TenantID,
 		BlueprintID: session.BlueprintID,
+		Config:      config,
 	}); err != nil {
 		return fmt.Errorf("interview: inserting session: %w", err)
 	}
@@ -192,7 +201,8 @@ func (s *Store) get(ctx context.Context, tx pgx.Tx, sessionID string) (Session, 
 	}
 	return Session{
 		ID: row.ID, Mode: row.Mode, CandidateID: row.CandidateID, TenantID: row.TenantID,
-		BlueprintID: row.BlueprintID, State: State(row.State), Version: int(row.Version),
+		BlueprintID: row.BlueprintID, Config: json.RawMessage(row.Config),
+		State: State(row.State), Version: int(row.Version),
 		BundleRef: row.BundleRef, BundleDigest: row.BundleDigest,
 		BundleRevision: int(row.BundleRevision), FailureCode: row.FailureCode,
 		CreatedAt: row.CreatedAt, StateChangedAt: row.StateChangedAt,

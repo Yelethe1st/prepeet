@@ -51,7 +51,13 @@ type fakeDocuments struct {
 	started api.StartedUpload
 	stored  api.Document
 	listed  []api.Document
+	facts   []api.Fact
+	fact    api.Fact
 	err     error
+
+	reviewedID     string
+	reviewedStatus string
+	reviewedValue  json.RawMessage
 }
 
 func (f *fakeDocuments) StartUpload(_ context.Context, _, _ string, _ int64, _ int) (api.StartedUpload, error) {
@@ -68,6 +74,15 @@ func (f *fakeDocuments) DeleteDocument(_ context.Context, _, _ string) error { r
 
 func (f *fakeDocuments) ListDocuments(_ context.Context, _ string) ([]api.Document, error) {
 	return f.listed, f.err
+}
+
+func (f *fakeDocuments) ListFacts(_ context.Context, _, _ string) ([]api.Fact, error) {
+	return f.facts, f.err
+}
+
+func (f *fakeDocuments) ReviewFact(_ context.Context, _, factID, status string, corrected json.RawMessage) (api.Fact, error) {
+	f.reviewedID, f.reviewedStatus, f.reviewedValue = factID, status, corrected
+	return f.fact, f.err
 }
 
 type fakeIdentity struct {

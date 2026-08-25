@@ -386,6 +386,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/documents/{documentId}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List what extraction read from one document
+         * @description Every fact carries the exact source span that produced it, its
+         *     confidence, the extractor version and its review state. Unparsed text
+         *     arrives as facts of kind unparsed rather than silently missing.
+         */
+        get: operations["listDocumentFacts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/facts/{factId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm, correct or reject one extracted fact
+         * @description Correcting records the correction beside the original extraction,
+         *     which is never rewritten; rejecting is a status, not a deletion.
+         *     Downstream reads serve the correction and omit the rejected from the
+         *     moment the review lands.
+         */
+        post: operations["reviewFact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -577,6 +622,12 @@ export interface components {
              * @enum {string}
              */
             state: "uploading" | "stored" | "failed" | "deleted";
+            /**
+             * @description Where extraction stands for this version. Informational always:
+             *     unsupported and failed leave the profile fully usable, manually.
+             * @enum {string}
+             */
+            extraction_state: "none" | "pending" | "extracted" | "unsupported" | "failed";
             /** @description The content digest, present once stored. What extraction pins. */
             sha256?: string;
             /** Format: date-time */
@@ -588,6 +639,55 @@ export interface components {
         };
         DocumentList: {
             documents: components["schemas"]["Document"][];
+        };
+        /**
+         * @description One thing extraction read, with its provenance. The value is what the
+         *     extractor produced and is never rewritten; corrected_value is the
+         *     candidate's version, present exactly while status is corrected.
+         */
+        Fact: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            document_id: string;
+            /** @enum {string} */
+            kind: "role" | "skill" | "date_range" | "achievement" | "unparsed";
+            /** @description The extracted value, shaped per kind. */
+            value: {
+                [key: string]: unknown;
+            };
+            /** @description The candidate's version, only while corrected. */
+            corrected_value?: {
+                [key: string]: unknown;
+            };
+            /** @description Half-open source range, in characters of the extracted text. */
+            span_start: number;
+            span_end: number;
+            confidence: number;
+            extractor_version: string;
+            /** @enum {string} */
+            status: "proposed" | "confirmed" | "corrected" | "rejected";
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When the candidate last acted. Absent while proposed.
+             */
+            reviewed_at?: string;
+        };
+        FactList: {
+            facts: components["schemas"]["Fact"][];
+        };
+        ReviewFactRequest: {
+            /**
+             * @description proposed is the pipeline's word, not a move.
+             * @enum {string}
+             */
+            status: "confirmed" | "corrected" | "rejected";
+            /** @description Required when status is corrected, refused otherwise. */
+            corrected_value?: {
+                [key: string]: unknown;
+            };
         };
         StartUploadRequest: {
             /** @enum {string} */
@@ -851,6 +951,7 @@ export interface components {
     };
     parameters: {
         DocumentId: string;
+        FactId: string;
         /**
          * @description Scoped to tenant, endpoint and key together. A replay carrying the same
          *     body returns the stored response; a replay carrying a different body is
@@ -1380,6 +1481,61 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["DocumentStateConflict"];
+        };
+    };
+    listDocumentFacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document's facts, in span order. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    reviewFact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                factId: components["parameters"]["FactId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewFactRequest"];
+            };
+        };
+        responses: {
+            /** @description The fact after the review. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Fact"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
         };
     };
     getCurrentUser: {

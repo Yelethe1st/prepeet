@@ -10,10 +10,11 @@ check.
 Recorded honestly, because a claim about process is worth less than the record.
 
 Test-first: `lib/api/client.ts`, `shared/components/Field.tsx`,
-`features/auth/SignInForm.tsx`, `features/auth/RegisterForm.tsx`, and the whole
-of `shared/states/`. The test was written, run red, and then satisfied.
+`features/auth/SignInForm.tsx`, `features/auth/RegisterForm.tsx`, the whole of
+`shared/states/`, and `features/profile/facts.ts` and `CvSection.tsx`. The test
+was written, run red, and then satisfied.
 
-Written together: `Button.tsx`, `Banner.tsx`.
+Written together: `Button.tsx`, `Banner.tsx`, `features/profile/api.ts`.
 
 Test-after: `features/auth/api.ts`, `features/auth/AuthShell.tsx`, the stylesheet
 and theme tests, and both route pages. The pages are the worst of these: they

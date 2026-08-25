@@ -138,8 +138,37 @@ VALUES (sqlc.arg(id)::uuid, sqlc.arg(user_id)::uuid, sqlc.arg(document_id)::uuid
 -- In span order, because the facts are read beside the document they came
 -- from and the span is the join.
 SELECT id::text AS id, document_id::text AS document_id, kind, value,
+       coalesce(corrected_value, 'null'::jsonb) AS corrected_value,
        span_start, span_end, confidence::float8 AS confidence,
-       extractor_version, status, created_at
+       extractor_version, status, created_at, reviewed_at
 FROM candidate.extracted_facts
 WHERE document_id = sqlc.arg(document_id)::uuid
 ORDER BY span_start, span_end, kind;
+
+-- name: ReviewFact :one
+-- The candidate's move on one fact, in one statement. The extracted value is
+-- untouched by construction - only status, corrected_value and reviewed_at
+-- change - and the correction is cleared on any move away from corrected, so
+-- the CHECK that a status and its correction agree can never be argued with.
+UPDATE candidate.extracted_facts
+SET status = sqlc.arg(status)::text,
+    corrected_value = CASE WHEN sqlc.arg(status)::text = 'corrected'
+                           THEN sqlc.arg(corrected_value)::jsonb ELSE NULL END,
+    reviewed_at = now()
+WHERE id = sqlc.arg(id)::uuid
+RETURNING id::text AS id, document_id::text AS document_id, kind, value,
+       coalesce(corrected_value, 'null'::jsonb) AS corrected_value,
+       span_start, span_end, confidence::float8 AS confidence,
+       extractor_version, status, created_at, reviewed_at;
+
+-- name: ListEffectiveFacts :many
+-- What downstream consumers read: the correction where one exists, the
+-- extraction otherwise, and no rejected facts at all. This query is the
+-- contract behind PRO-04's third criterion - composition reads facts through
+-- it, so a corrected fact is the one used from the moment it is corrected.
+SELECT f.id::text AS id, f.document_id::text AS document_id, f.kind,
+       coalesce(f.corrected_value, f.value) AS value,
+       f.span_start, f.span_end, f.status, f.extractor_version
+FROM candidate.extracted_facts f
+WHERE f.user_id = sqlc.arg(user_id)::uuid AND f.status <> 'rejected'
+ORDER BY f.span_start, f.span_end, f.kind;

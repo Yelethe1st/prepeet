@@ -101,9 +101,30 @@ spans index back into the uploaded bytes.
 or correction state.*
 
 **Done when**
-- [ ] Every extracted fact shows its source span, its confidence and whether it has been corrected.
-- [ ] Correcting a fact records the correction without destroying the original extraction.
-- [ ] A corrected fact is the one used in composition from that point forward.
+- [x] Every extracted fact shows its source span, its confidence and whether it has been corrected.
+- [x] Correcting a fact records the correction without destroying the original extraction.
+- [x] A corrected fact is the one used in composition from that point forward.
+
+**Done.** The review lifecycle is one guarded move per fact: confirm, correct or reject, each a
+status change that never touches the extracted value. A correction lives in its own column beside
+the original - a CHECK holds that corrected status and corrected value exist exactly together -
+and un-correcting brings the extraction back because it never went anywhere. The wire carries it
+all: GET facts answers span, confidence, extractor version, status and both values; POST review
+refuses by name what it cannot honestly do. The third box is held by the effective read,
+ListEffectiveFacts: corrections win, rejected facts are absent, and it is the one read path a
+facts consumer gets - composition does not pin profile facts into bundles yet, so when that
+ticket lands it inherits the rule rather than choosing it.
+
+The screen is /candidate/profile, built on WEB-04's states: every fact row shows the reading, its
+confidence, the character span it came from and the candidate's act on it; an edit keeps "Parsed
+as ..." visible under the correction; rejecting dims and offers restore, because it is a status
+and not a deletion. The degradation states are PRO-03's, shown: pending says the reading is still
+running and nothing blocks, unsupported offers a different file without an error in sight, failed
+leaves the profile fully usable. The section includes the minimal browser-direct uploader - start,
+PUT at the presigned URL, complete with the real SHA-256, abort on failure - which was PRO-02's
+remaining interface half and is what makes the empty state's "upload your CV" a real action
+rather than a promise. The per-fact confidence, span and correction state the prototype lacked
+are exactly the gap this ticket named.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md)
 

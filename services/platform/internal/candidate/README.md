@@ -60,6 +60,14 @@ partial reading must never present itself as a complete one. Storing is
 idempotent by wholesale replacement of proposals; rows the candidate has
 confirmed or corrected are never extraction's to touch.
 
+The candidate's word is the last one. Reviewing a fact is a status move -
+confirm, correct, reject - that never rewrites the extracted value: a
+correction is a second value beside the first, held to its status by a CHECK,
+and rejection is a status, not a deletion. Downstream consumers read facts
+only through the effective read, where corrections win and rejected facts do
+not appear, so the candidate's version is the one used from the moment they
+give it while the extraction stays auditable underneath.
+
 No extraction outcome blocks anything. A format the extractor cannot read
 leaves extraction_state saying unsupported and the workflow completes; a
 real failure says failed; either way the profile continues manually, which

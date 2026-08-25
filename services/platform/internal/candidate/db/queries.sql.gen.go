@@ -275,10 +275,64 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 	return items, nil
 }
 
+const listEffectiveFacts = `-- name: ListEffectiveFacts :many
+SELECT f.id::text AS id, f.document_id::text AS document_id, f.kind,
+       coalesce(f.corrected_value, f.value) AS value,
+       f.span_start, f.span_end, f.status, f.extractor_version
+FROM candidate.extracted_facts f
+WHERE f.user_id = $1::uuid AND f.status <> 'rejected'
+ORDER BY f.span_start, f.span_end, f.kind
+`
+
+type ListEffectiveFactsRow struct {
+	ID               string
+	DocumentID       string
+	Kind             string
+	Value            []byte
+	SpanStart        int32
+	SpanEnd          int32
+	Status           string
+	ExtractorVersion string
+}
+
+// What downstream consumers read: the correction where one exists, the
+// extraction otherwise, and no rejected facts at all. This query is the
+// contract behind PRO-04's third criterion - composition reads facts through
+// it, so a corrected fact is the one used from the moment it is corrected.
+func (q *Queries) ListEffectiveFacts(ctx context.Context, userID string) ([]ListEffectiveFactsRow, error) {
+	rows, err := q.db.Query(ctx, listEffectiveFacts, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEffectiveFactsRow{}
+	for rows.Next() {
+		var i ListEffectiveFactsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DocumentID,
+			&i.Kind,
+			&i.Value,
+			&i.SpanStart,
+			&i.SpanEnd,
+			&i.Status,
+			&i.ExtractorVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFactsByDocument = `-- name: ListFactsByDocument :many
 SELECT id::text AS id, document_id::text AS document_id, kind, value,
+       coalesce(corrected_value, 'null'::jsonb) AS corrected_value,
        span_start, span_end, confidence::float8 AS confidence,
-       extractor_version, status, created_at
+       extractor_version, status, created_at, reviewed_at
 FROM candidate.extracted_facts
 WHERE document_id = $1::uuid
 ORDER BY span_start, span_end, kind
@@ -289,12 +343,14 @@ type ListFactsByDocumentRow struct {
 	DocumentID       string
 	Kind             string
 	Value            []byte
+	CorrectedValue   []byte
 	SpanStart        int32
 	SpanEnd          int32
 	Confidence       float64
 	ExtractorVersion string
 	Status           string
 	CreatedAt        time.Time
+	ReviewedAt       *time.Time
 }
 
 // In span order, because the facts are read beside the document they came
@@ -313,12 +369,14 @@ func (q *Queries) ListFactsByDocument(ctx context.Context, documentID string) ([
 			&i.DocumentID,
 			&i.Kind,
 			&i.Value,
+			&i.CorrectedValue,
 			&i.SpanStart,
 			&i.SpanEnd,
 			&i.Confidence,
 			&i.ExtractorVersion,
 			&i.Status,
 			&i.CreatedAt,
+			&i.ReviewedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -406,6 +464,64 @@ func (q *Queries) NextDocumentVersion(ctx context.Context, arg NextDocumentVersi
 	var next_version int32
 	err := row.Scan(&next_version)
 	return next_version, err
+}
+
+const reviewFact = `-- name: ReviewFact :one
+UPDATE candidate.extracted_facts
+SET status = $1::text,
+    corrected_value = CASE WHEN $1::text = 'corrected'
+                           THEN $2::jsonb ELSE NULL END,
+    reviewed_at = now()
+WHERE id = $3::uuid
+RETURNING id::text AS id, document_id::text AS document_id, kind, value,
+       coalesce(corrected_value, 'null'::jsonb) AS corrected_value,
+       span_start, span_end, confidence::float8 AS confidence,
+       extractor_version, status, created_at, reviewed_at
+`
+
+type ReviewFactParams struct {
+	Status         string
+	CorrectedValue []byte
+	ID             string
+}
+
+type ReviewFactRow struct {
+	ID               string
+	DocumentID       string
+	Kind             string
+	Value            []byte
+	CorrectedValue   []byte
+	SpanStart        int32
+	SpanEnd          int32
+	Confidence       float64
+	ExtractorVersion string
+	Status           string
+	CreatedAt        time.Time
+	ReviewedAt       *time.Time
+}
+
+// The candidate's move on one fact, in one statement. The extracted value is
+// untouched by construction - only status, corrected_value and reviewed_at
+// change - and the correction is cleared on any move away from corrected, so
+// the CHECK that a status and its correction agree can never be argued with.
+func (q *Queries) ReviewFact(ctx context.Context, arg ReviewFactParams) (ReviewFactRow, error) {
+	row := q.db.QueryRow(ctx, reviewFact, arg.Status, arg.CorrectedValue, arg.ID)
+	var i ReviewFactRow
+	err := row.Scan(
+		&i.ID,
+		&i.DocumentID,
+		&i.Kind,
+		&i.Value,
+		&i.CorrectedValue,
+		&i.SpanStart,
+		&i.SpanEnd,
+		&i.Confidence,
+		&i.ExtractorVersion,
+		&i.Status,
+		&i.CreatedAt,
+		&i.ReviewedAt,
+	)
+	return i, err
 }
 
 const setDocumentExtractionState = `-- name: SetDocumentExtractionState :execrows

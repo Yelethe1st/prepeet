@@ -49,20 +49,37 @@ export const NAVIGATION: readonly NavigationGroup[] = [
         href: "/practice",
         capability: "candidate.practice.read_own",
       },
+      {
+        label: "Profile",
+        href: "/profile",
+        capability: "candidate.profile.read_own",
+      },
     ],
   },
   {
     label: "Recruiting",
     items: [
       { label: "Campaigns", href: "/campaigns", capability: "campaign.read" },
-      { label: "Invitations", href: "/invitations", capability: "invitation.read" },
+      {
+        label: "Invitations",
+        href: "/invitations",
+        capability: "invitation.read",
+      },
     ],
   },
   {
     label: "Workspace",
     items: [
-      { label: "Members", href: "/workspace/members", capability: "tenant.member_manage" },
-      { label: "Settings", href: "/workspace/settings", capability: "tenant.settings_manage" },
+      {
+        label: "Members",
+        href: "/workspace/members",
+        capability: "tenant.member_manage",
+      },
+      {
+        label: "Settings",
+        href: "/workspace/settings",
+        capability: "tenant.settings_manage",
+      },
     ],
   },
 ];

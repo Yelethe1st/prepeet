@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
 
@@ -130,6 +132,55 @@ func (a candidateAdapter) ListDocuments(ctx context.Context, userID string) ([]a
 	return out, nil
 }
 
+func (a candidateAdapter) ListFacts(ctx context.Context, userID, documentID string) ([]api.Fact, error) {
+	stored, err := a.documents.ListFacts(ctx, userID, documentID)
+	if err != nil {
+		return nil, translateFactError(err)
+	}
+	out := make([]api.Fact, 0, len(stored))
+	for _, fact := range stored {
+		out = append(out, toAPIFact(fact))
+	}
+	return out, nil
+}
+
+func (a candidateAdapter) ReviewFact(ctx context.Context, userID, factID, status string, corrected json.RawMessage) (api.Fact, error) {
+	fact, err := a.documents.ReviewFact(ctx, userID, factID, status, corrected)
+	if err != nil {
+		return api.Fact{}, translateFactError(err)
+	}
+	return toAPIFact(fact), nil
+}
+
+func toAPIFact(fact candidate.Fact) api.Fact {
+	return api.Fact{
+		ID: fact.ID, DocumentID: fact.DocumentID, Kind: fact.Kind,
+		Value: fact.Value, CorrectedValue: fact.CorrectedValue,
+		SpanStart: fact.SpanStart, SpanEnd: fact.SpanEnd,
+		Confidence: fact.Confidence, ExtractorVersion: fact.ExtractorVersion,
+		Status: fact.Status, CreatedAt: fact.CreatedAt, ReviewedAt: fact.ReviewedAt,
+	}
+}
+
+// translateFactError maps the review refusals onto the HTTP surface's words.
+func translateFactError(err error) error {
+	switch {
+	case errors.Is(err, candidate.ErrFactNotFound):
+		return api.ErrFactMissing
+	case errors.Is(err, candidate.ErrDocumentNotFound):
+		return api.ErrDocumentMissing
+	case errors.Is(err, candidate.ErrFactReview):
+		// The wrapped message says which half was refused; the field follows
+		// it so the interface can point at the control that needs to change.
+		field := "corrected_value"
+		if strings.Contains(err.Error(), "status") {
+			field = "status"
+		}
+		return api.Invalid(field, "FACT_REVIEW_INVALID", err.Error())
+	}
+	return err
+}
+
 func translateDocumentError(err error) error {
 	switch {
 	case err == nil:
@@ -152,6 +203,7 @@ func toAPIDocument(d candidate.Document) api.Document {
 	return api.Document{
 		ID: d.ID, Kind: d.Kind, Version: d.Version, MediaType: d.MediaType,
 		SizeBytes: d.SizeBytes, State: d.State, SHA256: d.SHA256,
-		CreatedAt: d.CreatedAt, StoredAt: d.StoredAt, DeletedAt: d.DeletedAt,
+		ExtractionState: d.ExtractionState,
+		CreatedAt:       d.CreatedAt, StoredAt: d.StoredAt, DeletedAt: d.DeletedAt,
 	}
 }

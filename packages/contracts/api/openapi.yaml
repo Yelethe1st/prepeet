@@ -552,6 +552,62 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/DocumentStateConflict" }
 
+  /me/documents/{documentId}/facts:
+    get:
+      tags: [candidate]
+      operationId: listDocumentFacts
+      summary: List what extraction read from one document
+      description: |
+        Every fact carries the exact source span that produced it, its
+        confidence, the extractor version and its review state. Unparsed text
+        arrives as facts of kind unparsed rather than silently missing.
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          description: The document's facts, in span order.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FactList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /me/facts/{factId}/review:
+    post:
+      tags: [candidate]
+      operationId: reviewFact
+      summary: Confirm, correct or reject one extracted fact
+      description: |
+        Correcting records the correction beside the original extraction,
+        which is never rewritten; rejecting is a status, not a deletion.
+        Downstream reads serve the correction and omit the rejected from the
+        moment the review lands.
+      parameters:
+        - $ref: "#/components/parameters/FactId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewFactRequest"
+      responses:
+        "200":
+          description: The fact after the review.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fact"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /me:
     get:
       tags: [authentication]
@@ -665,6 +721,11 @@ components:
   parameters:
     DocumentId:
       name: documentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    FactId:
+      name: factId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -967,7 +1028,7 @@ components:
     Document:
       type: object
       description: One version of one document. Rows outlive their objects.
-      required: [id, kind, version, media_type, size_bytes, state, created_at]
+      required: [id, kind, version, media_type, size_bytes, state, extraction_state, created_at]
       properties:
         id: { type: string, format: uuid }
         kind: { type: string, enum: [cv] }
@@ -978,6 +1039,12 @@ components:
           type: string
           enum: [uploading, stored, failed, deleted]
           description: Failed and partial uploads keep their own states, recoverably.
+        extraction_state:
+          type: string
+          enum: [none, pending, extracted, unsupported, failed]
+          description: |
+            Where extraction stands for this version. Informational always:
+            unsupported and failed leave the profile fully usable, manually.
         sha256:
           type: string
           description: The content digest, present once stored. What extraction pins.
@@ -992,6 +1059,66 @@ components:
         documents:
           type: array
           items: { $ref: "#/components/schemas/Document" }
+
+    Fact:
+      type: object
+      description: |
+        One thing extraction read, with its provenance. The value is what the
+        extractor produced and is never rewritten; corrected_value is the
+        candidate's version, present exactly while status is corrected.
+      required:
+        [id, document_id, kind, value, span_start, span_end, confidence,
+         extractor_version, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        document_id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [role, skill, date_range, achievement, unparsed]
+        value:
+          type: object
+          additionalProperties: true
+          description: The extracted value, shaped per kind.
+        corrected_value:
+          type: object
+          additionalProperties: true
+          description: The candidate's version, only while corrected.
+        span_start:
+          type: integer
+          minimum: 0
+          description: Half-open source range, in characters of the extracted text.
+        span_end: { type: integer, minimum: 1 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        extractor_version: { type: string }
+        status:
+          type: string
+          enum: [proposed, confirmed, corrected, rejected]
+        created_at: { type: string, format: date-time }
+        reviewed_at:
+          type: string
+          format: date-time
+          description: When the candidate last acted. Absent while proposed.
+
+    FactList:
+      type: object
+      required: [facts]
+      properties:
+        facts:
+          type: array
+          items: { $ref: "#/components/schemas/Fact" }
+
+    ReviewFactRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [confirmed, corrected, rejected]
+          description: proposed is the pipeline's word, not a move.
+        corrected_value:
+          type: object
+          additionalProperties: true
+          description: Required when status is corrected, refused otherwise.
 
     StartUploadRequest:
       type: object

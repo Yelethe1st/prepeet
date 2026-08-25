@@ -32,9 +32,24 @@ Go accepts the request; a Temporal workflow calls Python to compose the intervie
 persisted as an immutable bundle with every artifact version and input digest recorded.
 
 **Done when**
-- [ ] Composition is idempotent and safe to retry without producing two bundles.
+- [x] Composition is idempotent and safe to retry without producing two bundles.
 - [ ] The bundle records every pinned artifact version, input digest and policy version.
-- [ ] Composition failure is a visible, retryable state rather than a dead session.
+- [x] Composition failure is a visible, retryable state rather than a dead session.
+
+**The floor is in and the walking skeleton crosses it.** The Temporal workflow drives a session
+from composing to ready through a real gRPC call into Python's composer, and the restart proof in
+the interview package shows a worker death mid-composition converging on one bundle, one event and
+one audit row. Idempotency is by construction: composition is deterministic over its pinned
+inputs, tested from both languages, so a retried activity re-presents the same request and arrives
+at the same digest rather than forking the session's identity. Failure lands in
+composition_failed carrying the refusal's own taxonomy code, retryable to composing per the
+machine.
+
+What makes this a floor rather than the ticket: the composer pins only the request's identifiers,
+because the artifacts the middle box names - personas, plans, rules, rubrics, their registry -
+do not exist until CAT-01. The bundle schema version is 0.1 and says so; when artifacts arrive
+they join the canonical digest input and the schema version moves. The response meta already
+carries the reproducibility fields the contract requires.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md)
 

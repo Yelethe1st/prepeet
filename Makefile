@@ -406,8 +406,11 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 		PREPEET_TEMPORAL_ADDRESS="localhost:$${PREPEET_TEMPORAL_PORT:-7233}" \
 		PREPEET_SMTP_ADDRESS="localhost:$${PREPEET_SMTP_PORT:-1025}" \
 		PREPEET_EMAIL_FROM="noreply@prepeet.local" \
+		PREPEET_INTELLIGENCE_ADDRESS="localhost:50051" \
 		go run ./cmd/worker 2>&1 | awk '{ print "[worker] " $$0; fflush() }' ) & \
 	( cd $(WEB_DIR) && pnpm dev 2>&1 | awk '{ print "[web]    " $$0; fflush() }' ) & \
+	( cd $(PY_DIR) && uv run python -m prepeet_ai.transport.server --port 50051 2>&1 \
+		| awk '{ print "[intel]  " $$0; fflush() }' ) & \
 	wait
 
 .PHONY: dev-api

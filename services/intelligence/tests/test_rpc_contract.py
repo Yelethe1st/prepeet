@@ -85,7 +85,7 @@ class TestEveryFailureCodeDeclaresRetryability:
 
         def retryable(name: str) -> bool:
             value = FAILURE_ENUM.values_by_name[name]
-            return value.GetOptions().Extensions[annotations_pb2.retryable]
+            return bool(value.GetOptions().Extensions[annotations_pb2.retryable])
 
         assert retryable("FAILURE_CODE_PROVIDER_UNAVAILABLE")
         assert retryable("FAILURE_CODE_PROVIDER_TIMEOUT")

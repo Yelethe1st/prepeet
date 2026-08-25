@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-__all__ = ["Failure", "FailureCode", "Result"]
+__all__ = ["Failure", "FailureCode", "FailureError", "Result"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,3 +128,18 @@ class Failure:
     def retryable(self) -> bool:
         """Whether the caller should retry. Delegates to the code."""
         return self.code.retryable
+
+
+class FailureError(Exception):
+    """A capability refusing, as control flow.
+
+    Failure is the wire shape; this is how a capability raises one. The
+    transport layer catches it at the boundary and turns it into the gRPC
+    status with the typed detail, so capability code never imports grpc and
+    the taxonomy stays the only vocabulary a refusal can use.
+    """
+
+    def __init__(self, failure: Failure) -> None:
+        """Wrap the typed failure for raising."""
+        super().__init__(str(failure.message))
+        self.failure = failure

@@ -23,6 +23,13 @@ const routes = [
   "/verify-email",
   "/magic-link",
   "/otp",
+  // WEB-05's destinations. The 404 sweep goes through a route that does not
+  // exist, which is how everyone else will reach it too; the 500 boundary
+  // cannot be reached by URL and is covered in the unit suite.
+  "/access-denied",
+  "/session-expired",
+  "/no-workspace",
+  "/this-route-does-not-exist",
 ] as const;
 
 /**

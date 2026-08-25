@@ -154,9 +154,22 @@ reconnecting and degraded — as first-class shared states rather than per-page 
 offering a real way forward.
 
 **Done when**
-- [ ] The five destinations are distinct and never collapse into one generic page.
-- [ ] 403 names the capability required and the one currently held.
-- [ ] 500 carries a correlation identifier the support team can act on.
+- [x] The five destinations are distinct and never collapse into one generic page.
+- [x] 403 names the capability required and the one currently held.
+- [x] 500 carries a correlation identifier the support team can act on.
+
+**Done.** 404 and 500 are the App Router's own conventions (not-found.tsx, error.tsx), so they are
+destinations nothing has to remember to link; /access-denied, /session-expired and /no-workspace
+are routes, on the names information-architecture.md gives them. One shared ErrorScreen frame keeps
+them distinguishable by what they say, and a matrix test renders all five asserting their headlines
+differ, which is the collapse the first criterion forbids. The 403 shows the required capability
+from the refusal and, from the session, the capabilities held in the same area, in capability terms
+rather than a role name because capabilities are what the decision was made on; the error-envelope
+field that will carry the requirement server-side lands with the first capability-gated endpoint.
+The 500's reference is the error digest, which appears beside the stack in the server log. Two
+prototype claims did not port because nothing exists behind them: the screen-index search on the
+404, and the 500's promise that an engineer was already paged - the screen claims only that the
+failure is in the logs under the quoted reference.
 
 **Spec** [information-architecture.md](../../product/information-architecture.md)
 

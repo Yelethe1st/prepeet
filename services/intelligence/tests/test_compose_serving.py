@@ -31,6 +31,24 @@ def stub() -> Iterator[intelligence_pb2_grpc.IntelligenceServiceStub]:
     served.stop(grace=None)
 
 
+def pinned_plan(reference: str = "bp_backend_v1") -> intelligence_pb2.PinnedArtifact:
+    """A pinned plan whose digest genuinely matches its body."""
+    import hashlib as _hashlib
+    import json as _json
+
+    body = _json.dumps(
+        {"stages": ["intro", "core"]}, sort_keys=True, separators=(",", ":")
+    ).encode()
+    return intelligence_pb2.PinnedArtifact(
+        artifact_type="plan",
+        reference=reference,
+        version="1.0.0",
+        schema_version="1.0",
+        digest="sha256:" + _hashlib.sha256(body).hexdigest(),
+        body=body,
+    )
+
+
 def request(
     session_id: str = "ses_1", blueprint: str = "bp_backend_v1"
 ) -> intelligence_pb2.ComposeSessionBundleRequest:
@@ -43,6 +61,7 @@ def request(
         ),
         session_id=session_id,
         blueprint_id=blueprint,
+        pinned_inputs=[pinned_plan(blueprint)],
     )
 
 
@@ -55,12 +74,27 @@ class TestComposeOverTheWire:
         """The response carries the reproducibility contract, filled in."""
         response = stub.ComposeSessionBundle(request())
 
-        assert response.bundle.storage_key == "bundles/ses_1"
+        assert response.bundle.storage_key == "sessions/ses_1/bundle"
         assert response.bundle.digest.startswith("sha256:")
         assert response.bundle_revision == 1
         assert response.meta.schema_version == composer.SCHEMA_VERSION
         assert response.meta.calculation_version == composer.CALCULATION_VERSION
         assert response.meta.output_validated
+
+        # The middle box: the bundle document records every pin.
+        import json as _json
+
+        bundle = _json.loads(response.bundle_body)
+        assert bundle["blueprint_id"] == "bp_backend_v1"
+        assert bundle["pinned_inputs"] == [
+            {
+                "artifact_type": "plan",
+                "reference": "bp_backend_v1",
+                "version": "1.0.0",
+                "schema_version": "1.0",
+                "digest": pinned_plan().digest,
+            }
+        ]
 
     def test_composition_is_deterministic(
         self, stub: intelligence_pb2_grpc.IntelligenceServiceStub
@@ -75,6 +109,41 @@ class TestComposeOverTheWire:
 
         assert first.bundle.digest == second.bundle.digest
 
+    def test_a_pin_whose_body_lies_is_refused(
+        self, stub: intelligence_pb2_grpc.IntelligenceServiceStub
+    ) -> None:
+        """A lying pin is refused.
+
+        A body not matching its digest would make the bundle assert inputs it
+        did not read.
+        """
+        bad = request()
+        bad.pinned_inputs[0].body = b'{"stages":["tampered"]}'
+
+        with pytest.raises(grpc.RpcError) as raised:
+            stub.ComposeSessionBundle(bad)
+
+        assert raised.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+
+    def test_a_missing_plan_is_artifact_not_found(
+        self, stub: intelligence_pb2_grpc.IntelligenceServiceStub
+    ) -> None:
+        """The blueprint must be among the pins as a plan."""
+        unplanned = request()
+        unplanned.pinned_inputs[0].artifact_type = "persona"
+        # The persona's digest still matches its body; only the type is wrong.
+
+        with pytest.raises(grpc.RpcError) as raised:
+            stub.ComposeSessionBundle(unplanned)
+
+        status = rpc_status.from_call(raised.value)
+        failure = failure_pb2.Failure()
+        assert status is not None
+        found = [d for d in status.details if d.Is(failure_pb2.Failure.DESCRIPTOR)]
+        assert found, "no typed Failure detail"
+        found[0].Unpack(failure)
+        assert failure.code == failure_pb2.FAILURE_CODE_ARTIFACT_NOT_FOUND
+
     def test_different_inputs_produce_different_digests(
         self, stub: intelligence_pb2_grpc.IntelligenceServiceStub
     ) -> None:
@@ -85,6 +154,8 @@ class TestComposeOverTheWire:
         """
         one = stub.ComposeSessionBundle(request(blueprint="bp_backend_v1"))
         other = stub.ComposeSessionBundle(request(blueprint="bp_frontend_v1"))
+        # Each request pins its own plan, so the differing input is the pin
+        # itself, which is exactly what the digest must cover.
 
         assert one.bundle.digest != other.bundle.digest
 

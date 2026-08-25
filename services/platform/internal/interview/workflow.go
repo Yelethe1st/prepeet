@@ -46,11 +46,14 @@ type ComposeRequest struct {
 	BlueprintID string
 }
 
-// ComposeResult is the bundle, by reference and digest.
+// ComposeResult is the bundle: its identity, and the document itself.
 type ComposeResult struct {
 	BundleRef      string
 	BundleDigest   string
 	BundleRevision int
+	// BundleBody is the composed bundle document recording every pinned
+	// artifact. Go persists it as the session's authoritative configuration.
+	BundleBody []byte
 }
 
 // ComposeFailure is a typed refusal from the composer.
@@ -140,6 +143,7 @@ func (a *Activities) MarkReady(ctx context.Context, input CompositionInput, resu
 		BundleRef:      result.BundleRef,
 		BundleDigest:   result.BundleDigest,
 		BundleRevision: result.BundleRevision,
+		BundleBody:     result.BundleBody,
 	}
 	event, err := ReadyEvent(session, effects, actor)
 	if err != nil {

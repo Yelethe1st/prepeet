@@ -44,7 +44,7 @@ persisted as an immutable bundle with every artifact version and input digest re
 
 **Done when**
 - [x] Composition is idempotent and safe to retry without producing two bundles.
-- [ ] The bundle records every pinned artifact version, input digest and policy version.
+- [x] The bundle records every pinned artifact version, input digest and policy version.
 - [x] Composition failure is a visible, retryable state rather than a dead session.
 
 **The floor is in and the walking skeleton crosses it.** The Temporal workflow drives a session
@@ -56,11 +56,16 @@ at the same digest rather than forking the session's identity. Failure lands in
 composition_failed carrying the refusal's own taxonomy code, retryable to composing per the
 machine.
 
-What makes this a floor rather than the ticket: the composer pins only the request's identifiers,
-because the artifacts the middle box names - personas, plans, rules, rubrics, their registry -
-do not exist until CAT-01. The bundle schema version is 0.1 and says so; when artifacts arrive
-they join the canonical digest input and the schema version moves. The response meta already
-carries the reproducibility fields the contract requires.
+The middle box closed when CAT-01's registry arrived. Go resolves the blueprint's plan from the
+registry and pins it - reference, version, schema version, digest, body - and Python composes over
+exactly what arrived pinned, verifying each pin's digest against its body first, because a bundle
+asserting inputs it did not read is the reproducibility lie composition exists to prevent. The
+bundle document records every pin and is persisted by Go in the ready transition's transaction,
+immutable and permanent by trigger from that moment. The cross-language test walks the whole
+chain: publish through the registry's own lifecycle, resolve, pin, compose, and the bundle's
+recorded digest equals the registry's published one. What widens later is the pin set - the floor
+pins the plan; personas, rubrics and prompts join as their capabilities arrive - and each addition
+is a new bundle schema version, additively.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md)
 

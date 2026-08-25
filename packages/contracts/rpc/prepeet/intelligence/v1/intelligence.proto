@@ -376,12 +376,46 @@ message ComposeSessionBundleRequest {
   // The session being composed for.
   string session_id = 2;
 
-  // Every input, pinned. Composition reads only these; that the bundle can be
-  // reproduced from this list is the whole immutability guarantee.
+  // Large binary inputs, by reference. Reserved for what genuinely cannot
+  // travel inline; registry artifacts arrive as pinned_inputs instead.
   repeated ObjectRef inputs = 3;
 
   // The blueprint to compose against.
   string blueprint_id = 4;
+
+  // The registry artifacts composition reads, resolved and pinned by the
+  // caller. Go resolves pointers because the registry is Go's; composition
+  // reads only what arrives here, which is what makes the bundle
+  // reproducible from its own record of these pins. Bodies travel inline
+  // because artifacts are small structured documents (ADR-0011) and a
+  // composer that fetched them from somewhere else would be composing
+  // against state this request cannot pin.
+  repeated PinnedArtifact pinned_inputs = 5;
+}
+
+// One registry artifact, pinned: identity, version and content together.
+message PinnedArtifact {
+  // The registry's type: persona, plan, rule_pack, rubric, role_standard,
+  // prompt, model_policy or articulation_policy.
+  string artifact_type = 1;
+
+  // The stable reference the pin was resolved from.
+  string reference = 2;
+
+  // The published version, exactly as the bundle must record it.
+  string version = 3;
+
+  // The version of the shape the body conforms to, recorded beside the
+  // content version because the two evolve independently.
+  string schema_version = 4;
+
+  // The registry digest of the canonical body. Composition includes it in
+  // the bundle's own digest, so a bundle asserts exactly which content of
+  // which artifacts produced it.
+  string digest = 5;
+
+  // The canonical body itself.
+  bytes body = 6;
 }
 
 // The composed, immutable bundle.
@@ -389,13 +423,20 @@ message ComposeSessionBundleResponse {
   // The versions and usage every response carries.
   ResponseMeta meta = 1;
 
-  // The composed bundle, stored by the capability and returned by reference:
-  // it is the one result too large to travel inline, and Go records the
-  // reference and digest as the session's pinned configuration.
+  // The bundle's identity: reference and digest, which is what the session
+  // row pins.
   ObjectRef bundle = 2;
 
   // Which revision this composition produced.
   uint32 bundle_revision = 3;
+
+  // The composed bundle document itself: every pinned artifact's type,
+  // reference, version, schema version and digest, plus the composition's
+  // own provenance. Inline rather than stored by the capability, because Go
+  // owns trusted product state and persists this as the session's
+  // authoritative configuration; Python storing it would make Python an
+  // owner of product state.
+  bytes bundle_body = 4;
 }
 
 // ────────────────────────────────────────────── runtime (provisional)

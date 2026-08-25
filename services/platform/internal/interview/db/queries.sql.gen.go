@@ -60,6 +60,32 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 	return i, err
 }
 
+const getSessionBundle = `-- name: GetSessionBundle :one
+SELECT session_id::text AS session_id, digest, body, created_at
+FROM interview.session_bundles
+WHERE session_id = $1::uuid
+`
+
+type GetSessionBundleRow struct {
+	SessionID string
+	Digest    string
+	Body      []byte
+	CreatedAt time.Time
+}
+
+// What review, replay and audit reconstruct a session's configuration from.
+func (q *Queries) GetSessionBundle(ctx context.Context, sessionID string) (GetSessionBundleRow, error) {
+	row := q.db.QueryRow(ctx, getSessionBundle, sessionID)
+	var i GetSessionBundleRow
+	err := row.Scan(
+		&i.SessionID,
+		&i.Digest,
+		&i.Body,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertAuditEvent = `-- name: InsertAuditEvent :exec
 INSERT INTO audit.events
     (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome)
@@ -119,6 +145,24 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.TenantID,
 		arg.BlueprintID,
 	)
+	return err
+}
+
+const insertSessionBundle = `-- name: InsertSessionBundle :exec
+INSERT INTO interview.session_bundles (session_id, digest, body)
+VALUES ($1::uuid, $2::text, $3::jsonb)
+`
+
+type InsertSessionBundleParams struct {
+	SessionID string
+	Digest    string
+	Body      []byte
+}
+
+// Written in the ready transition's transaction: a session marked ready
+// whose bundle failed to persist would pin a digest nothing can resolve.
+func (q *Queries) InsertSessionBundle(ctx context.Context, arg InsertSessionBundleParams) error {
+	_, err := q.db.Exec(ctx, insertSessionBundle, arg.SessionID, arg.Digest, arg.Body)
 	return err
 }
 

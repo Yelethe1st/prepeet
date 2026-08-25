@@ -80,6 +80,9 @@ type Effects struct {
 	BundleRef      string
 	BundleDigest   string
 	BundleRevision int
+	// BundleBody is the composed bundle document, persisted in the ready
+	// transition's transaction. Empty for transitions that carry no bundle.
+	BundleBody []byte
 	// FailureCode, on a transition into a *_failed state: the stable code an
 	// operator reads before deciding whether retry is worth it.
 	FailureCode string
@@ -235,6 +238,18 @@ func (s *Store) Transition(ctx context.Context, session Session, to State, effec
 			return Session{}, ErrNotFound
 		}
 		return Session{}, ErrStaleVersion
+	}
+
+	if len(effects.BundleBody) > 0 {
+		// The bundle and the ready state commit together: a session marked
+		// ready whose bundle vanished would pin a digest nothing can resolve.
+		if err := db.New(tx).InsertSessionBundle(ctx, db.InsertSessionBundleParams{
+			SessionID: session.ID,
+			Digest:    effects.BundleDigest,
+			Body:      effects.BundleBody,
+		}); err != nil {
+			return Session{}, fmt.Errorf("interview: persisting the bundle: %w", err)
+		}
 	}
 
 	if effects.Event != nil {

@@ -44,3 +44,15 @@ INSERT INTO audit.events
 VALUES (sqlc.arg(id)::uuid, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
         sqlc.arg(actor_id)::uuid, sqlc.arg(actor_type)::text, sqlc.arg(action)::text,
         'session', sqlc.arg(session_id)::text, sqlc.arg(outcome)::text);
+
+-- name: InsertSessionBundle :exec
+-- Written in the ready transition's transaction: a session marked ready
+-- whose bundle failed to persist would pin a digest nothing can resolve.
+INSERT INTO interview.session_bundles (session_id, digest, body)
+VALUES (sqlc.arg(session_id)::uuid, sqlc.arg(digest)::text, sqlc.arg(body)::jsonb);
+
+-- name: GetSessionBundle :one
+-- What review, replay and audit reconstruct a session's configuration from.
+SELECT session_id::text AS session_id, digest, body, created_at
+FROM interview.session_bundles
+WHERE session_id = sqlc.arg(session_id)::uuid;

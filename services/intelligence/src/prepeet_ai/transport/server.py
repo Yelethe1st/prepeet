@@ -80,11 +80,24 @@ class IntelligenceService(intelligence_pb2_grpc.IntelligenceServiceServicer):  #
         """Compose the immutable bundle for one session."""
         purpose = _PURPOSES.get(request.context.purpose, "")
 
+        pinned = [
+            composer.Pinned(
+                artifact_type=pin.artifact_type,
+                reference=pin.reference,
+                version=pin.version,
+                schema_version=pin.schema_version,
+                digest=pin.digest,
+                body=bytes(pin.body),
+            )
+            for pin in request.pinned_inputs
+        ]
+
         try:
             bundle = composer.compose(
                 session_id=request.session_id,
                 blueprint_id=request.blueprint_id,
                 purpose=purpose,
+                pinned=pinned,
             )
         except FailureError as error:
             logger.info(
@@ -108,6 +121,7 @@ class IntelligenceService(intelligence_pb2_grpc.IntelligenceServiceServicer):  #
                 media_type="application/json",
             ),
             bundle_revision=bundle.revision,
+            bundle_body=bundle.body,
         )
 
 

@@ -312,3 +312,57 @@ func TestTheSchemaRefusesAPracticeSessionWithATenant(t *testing.T) {
 		t.Fatal("a practice session with a tenant was inserted; the CHECK is gone")
 	}
 }
+
+func TestTheBundleDocumentPersistsWithReadyAndFreezes(t *testing.T) {
+	// CAT-02's middle box at the aggregate: the ready transition persists the
+	// bundle document in its own transaction, and from that moment the
+	// document is immutable and permanent even to the table's owner.
+	ctx := context.Background()
+	session := createPractice(t)
+	store := interview.NewStore(pool)
+
+	composing, err := store.Transition(ctx, session, interview.StateComposing, interview.Effects{}, candidate)
+	if err != nil {
+		t.Fatalf("to composing: %v", err)
+	}
+
+	effects := interview.Effects{
+		BundleRef:      "sessions/" + session.ID + "/bundle",
+		BundleDigest:   "sha256:bundledoc",
+		BundleRevision: 1,
+		BundleBody:     []byte(`{"pinned_inputs":[{"reference":"bp_backend_v1","digest":"sha256:plan"}]}`),
+	}
+	event, err := interview.ReadyEvent(composing, effects, candidate)
+	if err != nil {
+		t.Fatalf("event: %v", err)
+	}
+	effects.Event = event
+	if _, err := store.Transition(ctx, composing, interview.StateReady, effects, candidate); err != nil {
+		t.Fatalf("to ready: %v", err)
+	}
+
+	conn, err := pgx.Connect(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	var digest, body string
+	if err := conn.QueryRow(ctx,
+		`SELECT digest, body::text FROM interview.session_bundles WHERE session_id = $1`,
+		session.ID).Scan(&digest, &body); err != nil {
+		t.Fatalf("the bundle document was not persisted: %v", err)
+	}
+	if digest != "sha256:bundledoc" || body == "" {
+		t.Fatalf("persisted bundle: digest=%q body=%q", digest, body)
+	}
+
+	if _, err := conn.Exec(ctx,
+		`UPDATE interview.session_bundles SET body = '{}' WHERE session_id = $1`, session.ID); err == nil {
+		t.Fatal("a persisted bundle was edited; what the session ran against just changed after the fact")
+	}
+	if _, err := conn.Exec(ctx,
+		`DELETE FROM interview.session_bundles WHERE session_id = $1`, session.ID); err == nil {
+		t.Fatal("a persisted bundle was deleted; a review has nothing to reconstruct from")
+	}
+}

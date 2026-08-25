@@ -765,11 +765,19 @@ type ComposeSessionBundleRequest struct {
 	Context *RequestContext `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
 	// The session being composed for.
 	SessionId string `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	// Every input, pinned. Composition reads only these; that the bundle can be
-	// reproduced from this list is the whole immutability guarantee.
+	// Large binary inputs, by reference. Reserved for what genuinely cannot
+	// travel inline; registry artifacts arrive as pinned_inputs instead.
 	Inputs []*ObjectRef `protobuf:"bytes,3,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// The blueprint to compose against.
-	BlueprintId   string `protobuf:"bytes,4,opt,name=blueprint_id,json=blueprintId,proto3" json:"blueprint_id,omitempty"`
+	BlueprintId string `protobuf:"bytes,4,opt,name=blueprint_id,json=blueprintId,proto3" json:"blueprint_id,omitempty"`
+	// The registry artifacts composition reads, resolved and pinned by the
+	// caller. Go resolves pointers because the registry is Go's; composition
+	// reads only what arrives here, which is what makes the bundle
+	// reproducible from its own record of these pins. Bodies travel inline
+	// because artifacts are small structured documents (ADR-0011) and a
+	// composer that fetched them from somewhere else would be composing
+	// against state this request cannot pin.
+	PinnedInputs  []*PinnedArtifact `protobuf:"bytes,5,rep,name=pinned_inputs,json=pinnedInputs,proto3" json:"pinned_inputs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -832,24 +840,132 @@ func (x *ComposeSessionBundleRequest) GetBlueprintId() string {
 	return ""
 }
 
+func (x *ComposeSessionBundleRequest) GetPinnedInputs() []*PinnedArtifact {
+	if x != nil {
+		return x.PinnedInputs
+	}
+	return nil
+}
+
+// One registry artifact, pinned: identity, version and content together.
+type PinnedArtifact struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The registry's type: persona, plan, rule_pack, rubric, role_standard,
+	// prompt, model_policy or articulation_policy.
+	ArtifactType string `protobuf:"bytes,1,opt,name=artifact_type,json=artifactType,proto3" json:"artifact_type,omitempty"`
+	// The stable reference the pin was resolved from.
+	Reference string `protobuf:"bytes,2,opt,name=reference,proto3" json:"reference,omitempty"`
+	// The published version, exactly as the bundle must record it.
+	Version string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	// The version of the shape the body conforms to, recorded beside the
+	// content version because the two evolve independently.
+	SchemaVersion string `protobuf:"bytes,4,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	// The registry digest of the canonical body. Composition includes it in
+	// the bundle's own digest, so a bundle asserts exactly which content of
+	// which artifacts produced it.
+	Digest string `protobuf:"bytes,5,opt,name=digest,proto3" json:"digest,omitempty"`
+	// The canonical body itself.
+	Body          []byte `protobuf:"bytes,6,opt,name=body,proto3" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PinnedArtifact) Reset() {
+	*x = PinnedArtifact{}
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PinnedArtifact) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PinnedArtifact) ProtoMessage() {}
+
+func (x *PinnedArtifact) ProtoReflect() protoreflect.Message {
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PinnedArtifact.ProtoReflect.Descriptor instead.
+func (*PinnedArtifact) Descriptor() ([]byte, []int) {
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PinnedArtifact) GetArtifactType() string {
+	if x != nil {
+		return x.ArtifactType
+	}
+	return ""
+}
+
+func (x *PinnedArtifact) GetReference() string {
+	if x != nil {
+		return x.Reference
+	}
+	return ""
+}
+
+func (x *PinnedArtifact) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *PinnedArtifact) GetSchemaVersion() string {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return ""
+}
+
+func (x *PinnedArtifact) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+func (x *PinnedArtifact) GetBody() []byte {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
 // The composed, immutable bundle.
 type ComposeSessionBundleResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The versions and usage every response carries.
 	Meta *ResponseMeta `protobuf:"bytes,1,opt,name=meta,proto3" json:"meta,omitempty"`
-	// The composed bundle, stored by the capability and returned by reference:
-	// it is the one result too large to travel inline, and Go records the
-	// reference and digest as the session's pinned configuration.
+	// The bundle's identity: reference and digest, which is what the session
+	// row pins.
 	Bundle *ObjectRef `protobuf:"bytes,2,opt,name=bundle,proto3" json:"bundle,omitempty"`
 	// Which revision this composition produced.
 	BundleRevision uint32 `protobuf:"varint,3,opt,name=bundle_revision,json=bundleRevision,proto3" json:"bundle_revision,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The composed bundle document itself: every pinned artifact's type,
+	// reference, version, schema version and digest, plus the composition's
+	// own provenance. Inline rather than stored by the capability, because Go
+	// owns trusted product state and persists this as the session's
+	// authoritative configuration; Python storing it would make Python an
+	// owner of product state.
+	BundleBody    []byte `protobuf:"bytes,4,opt,name=bundle_body,json=bundleBody,proto3" json:"bundle_body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ComposeSessionBundleResponse) Reset() {
 	*x = ComposeSessionBundleResponse{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[8]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -861,7 +977,7 @@ func (x *ComposeSessionBundleResponse) String() string {
 func (*ComposeSessionBundleResponse) ProtoMessage() {}
 
 func (x *ComposeSessionBundleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[8]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -874,7 +990,7 @@ func (x *ComposeSessionBundleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComposeSessionBundleResponse.ProtoReflect.Descriptor instead.
 func (*ComposeSessionBundleResponse) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{8}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ComposeSessionBundleResponse) GetMeta() *ResponseMeta {
@@ -896,6 +1012,13 @@ func (x *ComposeSessionBundleResponse) GetBundleRevision() uint32 {
 		return x.BundleRevision
 	}
 	return 0
+}
+
+func (x *ComposeSessionBundleResponse) GetBundleBody() []byte {
+	if x != nil {
+		return x.BundleBody
+	}
+	return nil
 }
 
 // Asks for accepted events to be folded into runtime state.
@@ -921,7 +1044,7 @@ type ReduceInterviewEventsRequest struct {
 
 func (x *ReduceInterviewEventsRequest) Reset() {
 	*x = ReduceInterviewEventsRequest{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[9]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -933,7 +1056,7 @@ func (x *ReduceInterviewEventsRequest) String() string {
 func (*ReduceInterviewEventsRequest) ProtoMessage() {}
 
 func (x *ReduceInterviewEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[9]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -946,7 +1069,7 @@ func (x *ReduceInterviewEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReduceInterviewEventsRequest.ProtoReflect.Descriptor instead.
 func (*ReduceInterviewEventsRequest) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{9}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ReduceInterviewEventsRequest) GetContext() *RequestContext {
@@ -997,7 +1120,7 @@ type ReduceInterviewEventsResponse struct {
 
 func (x *ReduceInterviewEventsResponse) Reset() {
 	*x = ReduceInterviewEventsResponse{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[10]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1009,7 +1132,7 @@ func (x *ReduceInterviewEventsResponse) String() string {
 func (*ReduceInterviewEventsResponse) ProtoMessage() {}
 
 func (x *ReduceInterviewEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[10]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1022,7 +1145,7 @@ func (x *ReduceInterviewEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReduceInterviewEventsResponse.ProtoReflect.Descriptor instead.
 func (*ReduceInterviewEventsResponse) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{10}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ReduceInterviewEventsResponse) GetMeta() *ResponseMeta {
@@ -1057,7 +1180,7 @@ type ProposeNextActionRequest struct {
 
 func (x *ProposeNextActionRequest) Reset() {
 	*x = ProposeNextActionRequest{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[11]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1069,7 +1192,7 @@ func (x *ProposeNextActionRequest) String() string {
 func (*ProposeNextActionRequest) ProtoMessage() {}
 
 func (x *ProposeNextActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[11]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1082,7 +1205,7 @@ func (x *ProposeNextActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProposeNextActionRequest.ProtoReflect.Descriptor instead.
 func (*ProposeNextActionRequest) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{11}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ProposeNextActionRequest) GetContext() *RequestContext {
@@ -1127,7 +1250,7 @@ type ProposeNextActionResponse struct {
 
 func (x *ProposeNextActionResponse) Reset() {
 	*x = ProposeNextActionResponse{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[12]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1139,7 +1262,7 @@ func (x *ProposeNextActionResponse) String() string {
 func (*ProposeNextActionResponse) ProtoMessage() {}
 
 func (x *ProposeNextActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[12]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1152,7 +1275,7 @@ func (x *ProposeNextActionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProposeNextActionResponse.ProtoReflect.Descriptor instead.
 func (*ProposeNextActionResponse) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{12}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ProposeNextActionResponse) GetMeta() *ResponseMeta {
@@ -1201,7 +1324,7 @@ type ActionProposal struct {
 
 func (x *ActionProposal) Reset() {
 	*x = ActionProposal{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[13]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1213,7 +1336,7 @@ func (x *ActionProposal) String() string {
 func (*ActionProposal) ProtoMessage() {}
 
 func (x *ActionProposal) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[13]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1226,7 +1349,7 @@ func (x *ActionProposal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionProposal.ProtoReflect.Descriptor instead.
 func (*ActionProposal) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{13}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ActionProposal) GetProposalId() string {
@@ -1296,7 +1419,7 @@ type EvaluateTurnsRequest struct {
 
 func (x *EvaluateTurnsRequest) Reset() {
 	*x = EvaluateTurnsRequest{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[14]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1308,7 +1431,7 @@ func (x *EvaluateTurnsRequest) String() string {
 func (*EvaluateTurnsRequest) ProtoMessage() {}
 
 func (x *EvaluateTurnsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[14]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1321,7 +1444,7 @@ func (x *EvaluateTurnsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateTurnsRequest.ProtoReflect.Descriptor instead.
 func (*EvaluateTurnsRequest) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{14}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *EvaluateTurnsRequest) GetContext() *RequestContext {
@@ -1367,7 +1490,7 @@ type EvaluateTurnsResponse struct {
 
 func (x *EvaluateTurnsResponse) Reset() {
 	*x = EvaluateTurnsResponse{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[15]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1379,7 +1502,7 @@ func (x *EvaluateTurnsResponse) String() string {
 func (*EvaluateTurnsResponse) ProtoMessage() {}
 
 func (x *EvaluateTurnsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[15]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1392,7 +1515,7 @@ func (x *EvaluateTurnsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateTurnsResponse.ProtoReflect.Descriptor instead.
 func (*EvaluateTurnsResponse) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{15}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *EvaluateTurnsResponse) GetMeta() *ResponseMeta {
@@ -1426,7 +1549,7 @@ type CompetencyObservation struct {
 
 func (x *CompetencyObservation) Reset() {
 	*x = CompetencyObservation{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[16]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1561,7 @@ func (x *CompetencyObservation) String() string {
 func (*CompetencyObservation) ProtoMessage() {}
 
 func (x *CompetencyObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[16]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,7 +1574,7 @@ func (x *CompetencyObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompetencyObservation.ProtoReflect.Descriptor instead.
 func (*CompetencyObservation) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{16}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CompetencyObservation) GetCompetencyId() string {
@@ -1500,7 +1623,7 @@ type EvaluateSessionRequest struct {
 
 func (x *EvaluateSessionRequest) Reset() {
 	*x = EvaluateSessionRequest{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[17]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1512,7 +1635,7 @@ func (x *EvaluateSessionRequest) String() string {
 func (*EvaluateSessionRequest) ProtoMessage() {}
 
 func (x *EvaluateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[17]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1525,7 +1648,7 @@ func (x *EvaluateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateSessionRequest.ProtoReflect.Descriptor instead.
 func (*EvaluateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{17}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *EvaluateSessionRequest) GetContext() *RequestContext {
@@ -1590,7 +1713,7 @@ type EvaluateSessionResponse struct {
 
 func (x *EvaluateSessionResponse) Reset() {
 	*x = EvaluateSessionResponse{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[18]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1602,7 +1725,7 @@ func (x *EvaluateSessionResponse) String() string {
 func (*EvaluateSessionResponse) ProtoMessage() {}
 
 func (x *EvaluateSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[18]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1615,7 +1738,7 @@ func (x *EvaluateSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvaluateSessionResponse.ProtoReflect.Descriptor instead.
 func (*EvaluateSessionResponse) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{18}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *EvaluateSessionResponse) GetMeta() *ResponseMeta {
@@ -1656,7 +1779,7 @@ type AnalyzeArticulationRequest struct {
 
 func (x *AnalyzeArticulationRequest) Reset() {
 	*x = AnalyzeArticulationRequest{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[19]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1668,7 +1791,7 @@ func (x *AnalyzeArticulationRequest) String() string {
 func (*AnalyzeArticulationRequest) ProtoMessage() {}
 
 func (x *AnalyzeArticulationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[19]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1681,7 +1804,7 @@ func (x *AnalyzeArticulationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalyzeArticulationRequest.ProtoReflect.Descriptor instead.
 func (*AnalyzeArticulationRequest) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{19}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AnalyzeArticulationRequest) GetContext() *RequestContext {
@@ -1727,7 +1850,7 @@ type AnalyzeArticulationResponse struct {
 
 func (x *AnalyzeArticulationResponse) Reset() {
 	*x = AnalyzeArticulationResponse{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[20]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1739,7 +1862,7 @@ func (x *AnalyzeArticulationResponse) String() string {
 func (*AnalyzeArticulationResponse) ProtoMessage() {}
 
 func (x *AnalyzeArticulationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[20]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1752,7 +1875,7 @@ func (x *AnalyzeArticulationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalyzeArticulationResponse.ProtoReflect.Descriptor instead.
 func (*AnalyzeArticulationResponse) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{20}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *AnalyzeArticulationResponse) GetMeta() *ResponseMeta {
@@ -1786,7 +1909,7 @@ type GeneratePracticeCoachingRequest struct {
 
 func (x *GeneratePracticeCoachingRequest) Reset() {
 	*x = GeneratePracticeCoachingRequest{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[21]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1798,7 +1921,7 @@ func (x *GeneratePracticeCoachingRequest) String() string {
 func (*GeneratePracticeCoachingRequest) ProtoMessage() {}
 
 func (x *GeneratePracticeCoachingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[21]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1811,7 +1934,7 @@ func (x *GeneratePracticeCoachingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GeneratePracticeCoachingRequest.ProtoReflect.Descriptor instead.
 func (*GeneratePracticeCoachingRequest) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{21}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GeneratePracticeCoachingRequest) GetContext() *RequestContext {
@@ -1855,7 +1978,7 @@ type GeneratePracticeCoachingResponse struct {
 
 func (x *GeneratePracticeCoachingResponse) Reset() {
 	*x = GeneratePracticeCoachingResponse{}
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[22]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1867,7 +1990,7 @@ func (x *GeneratePracticeCoachingResponse) String() string {
 func (*GeneratePracticeCoachingResponse) ProtoMessage() {}
 
 func (x *GeneratePracticeCoachingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[22]
+	mi := &file_prepeet_intelligence_v1_intelligence_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1880,7 +2003,7 @@ func (x *GeneratePracticeCoachingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GeneratePracticeCoachingResponse.ProtoReflect.Descriptor instead.
 func (*GeneratePracticeCoachingResponse) Descriptor() ([]byte, []int) {
-	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{22}
+	return file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GeneratePracticeCoachingResponse) GetMeta() *ResponseMeta {
@@ -1945,17 +2068,27 @@ const file_prepeet_intelligence_v1_intelligence_proto_rawDesc = "" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05value\x12\x1f\n" +
 	"\vsource_span\x18\x03 \x01(\tR\n" +
-	"sourceSpan\"\xde\x01\n" +
+	"sourceSpan\"\xac\x02\n" +
 	"\x1bComposeSessionBundleRequest\x12A\n" +
 	"\acontext\x18\x01 \x01(\v2'.prepeet.intelligence.v1.RequestContextR\acontext\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12:\n" +
 	"\x06inputs\x18\x03 \x03(\v2\".prepeet.intelligence.v1.ObjectRefR\x06inputs\x12!\n" +
-	"\fblueprint_id\x18\x04 \x01(\tR\vblueprintId\"\xbe\x01\n" +
+	"\fblueprint_id\x18\x04 \x01(\tR\vblueprintId\x12L\n" +
+	"\rpinned_inputs\x18\x05 \x03(\v2'.prepeet.intelligence.v1.PinnedArtifactR\fpinnedInputs\"\xc0\x01\n" +
+	"\x0ePinnedArtifact\x12#\n" +
+	"\rartifact_type\x18\x01 \x01(\tR\fartifactType\x12\x1c\n" +
+	"\treference\x18\x02 \x01(\tR\treference\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\x12%\n" +
+	"\x0eschema_version\x18\x04 \x01(\tR\rschemaVersion\x12\x16\n" +
+	"\x06digest\x18\x05 \x01(\tR\x06digest\x12\x12\n" +
+	"\x04body\x18\x06 \x01(\fR\x04body\"\xdf\x01\n" +
 	"\x1cComposeSessionBundleResponse\x129\n" +
 	"\x04meta\x18\x01 \x01(\v2%.prepeet.intelligence.v1.ResponseMetaR\x04meta\x12:\n" +
 	"\x06bundle\x18\x02 \x01(\v2\".prepeet.intelligence.v1.ObjectRefR\x06bundle\x12'\n" +
-	"\x0fbundle_revision\x18\x03 \x01(\rR\x0ebundleRevision\"\xd5\x01\n" +
+	"\x0fbundle_revision\x18\x03 \x01(\rR\x0ebundleRevision\x12\x1f\n" +
+	"\vbundle_body\x18\x04 \x01(\fR\n" +
+	"bundleBody\"\xd5\x01\n" +
 	"\x1cReduceInterviewEventsRequest\x12A\n" +
 	"\acontext\x18\x01 \x01(\v2'.prepeet.intelligence.v1.RequestContextR\acontext\x12\x1d\n" +
 	"\n" +
@@ -2077,7 +2210,7 @@ func file_prepeet_intelligence_v1_intelligence_proto_rawDescGZIP() []byte {
 }
 
 var file_prepeet_intelligence_v1_intelligence_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_prepeet_intelligence_v1_intelligence_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_prepeet_intelligence_v1_intelligence_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_prepeet_intelligence_v1_intelligence_proto_goTypes = []any{
 	(Purpose)(0),                             // 0: prepeet.intelligence.v1.Purpose
 	(ActionKind)(0),                          // 1: prepeet.intelligence.v1.ActionKind
@@ -2089,21 +2222,22 @@ var file_prepeet_intelligence_v1_intelligence_proto_goTypes = []any{
 	(*ExtractCandidateProfileResponse)(nil),  // 7: prepeet.intelligence.v1.ExtractCandidateProfileResponse
 	(*ProfileClaim)(nil),                     // 8: prepeet.intelligence.v1.ProfileClaim
 	(*ComposeSessionBundleRequest)(nil),      // 9: prepeet.intelligence.v1.ComposeSessionBundleRequest
-	(*ComposeSessionBundleResponse)(nil),     // 10: prepeet.intelligence.v1.ComposeSessionBundleResponse
-	(*ReduceInterviewEventsRequest)(nil),     // 11: prepeet.intelligence.v1.ReduceInterviewEventsRequest
-	(*ReduceInterviewEventsResponse)(nil),    // 12: prepeet.intelligence.v1.ReduceInterviewEventsResponse
-	(*ProposeNextActionRequest)(nil),         // 13: prepeet.intelligence.v1.ProposeNextActionRequest
-	(*ProposeNextActionResponse)(nil),        // 14: prepeet.intelligence.v1.ProposeNextActionResponse
-	(*ActionProposal)(nil),                   // 15: prepeet.intelligence.v1.ActionProposal
-	(*EvaluateTurnsRequest)(nil),             // 16: prepeet.intelligence.v1.EvaluateTurnsRequest
-	(*EvaluateTurnsResponse)(nil),            // 17: prepeet.intelligence.v1.EvaluateTurnsResponse
-	(*CompetencyObservation)(nil),            // 18: prepeet.intelligence.v1.CompetencyObservation
-	(*EvaluateSessionRequest)(nil),           // 19: prepeet.intelligence.v1.EvaluateSessionRequest
-	(*EvaluateSessionResponse)(nil),          // 20: prepeet.intelligence.v1.EvaluateSessionResponse
-	(*AnalyzeArticulationRequest)(nil),       // 21: prepeet.intelligence.v1.AnalyzeArticulationRequest
-	(*AnalyzeArticulationResponse)(nil),      // 22: prepeet.intelligence.v1.AnalyzeArticulationResponse
-	(*GeneratePracticeCoachingRequest)(nil),  // 23: prepeet.intelligence.v1.GeneratePracticeCoachingRequest
-	(*GeneratePracticeCoachingResponse)(nil), // 24: prepeet.intelligence.v1.GeneratePracticeCoachingResponse
+	(*PinnedArtifact)(nil),                   // 10: prepeet.intelligence.v1.PinnedArtifact
+	(*ComposeSessionBundleResponse)(nil),     // 11: prepeet.intelligence.v1.ComposeSessionBundleResponse
+	(*ReduceInterviewEventsRequest)(nil),     // 12: prepeet.intelligence.v1.ReduceInterviewEventsRequest
+	(*ReduceInterviewEventsResponse)(nil),    // 13: prepeet.intelligence.v1.ReduceInterviewEventsResponse
+	(*ProposeNextActionRequest)(nil),         // 14: prepeet.intelligence.v1.ProposeNextActionRequest
+	(*ProposeNextActionResponse)(nil),        // 15: prepeet.intelligence.v1.ProposeNextActionResponse
+	(*ActionProposal)(nil),                   // 16: prepeet.intelligence.v1.ActionProposal
+	(*EvaluateTurnsRequest)(nil),             // 17: prepeet.intelligence.v1.EvaluateTurnsRequest
+	(*EvaluateTurnsResponse)(nil),            // 18: prepeet.intelligence.v1.EvaluateTurnsResponse
+	(*CompetencyObservation)(nil),            // 19: prepeet.intelligence.v1.CompetencyObservation
+	(*EvaluateSessionRequest)(nil),           // 20: prepeet.intelligence.v1.EvaluateSessionRequest
+	(*EvaluateSessionResponse)(nil),          // 21: prepeet.intelligence.v1.EvaluateSessionResponse
+	(*AnalyzeArticulationRequest)(nil),       // 22: prepeet.intelligence.v1.AnalyzeArticulationRequest
+	(*AnalyzeArticulationResponse)(nil),      // 23: prepeet.intelligence.v1.AnalyzeArticulationResponse
+	(*GeneratePracticeCoachingRequest)(nil),  // 24: prepeet.intelligence.v1.GeneratePracticeCoachingRequest
+	(*GeneratePracticeCoachingResponse)(nil), // 25: prepeet.intelligence.v1.GeneratePracticeCoachingResponse
 }
 var file_prepeet_intelligence_v1_intelligence_proto_depIdxs = []int32{
 	0,  // 0: prepeet.intelligence.v1.RequestContext.purpose:type_name -> prepeet.intelligence.v1.Purpose
@@ -2114,48 +2248,49 @@ var file_prepeet_intelligence_v1_intelligence_proto_depIdxs = []int32{
 	8,  // 5: prepeet.intelligence.v1.ExtractCandidateProfileResponse.claims:type_name -> prepeet.intelligence.v1.ProfileClaim
 	2,  // 6: prepeet.intelligence.v1.ComposeSessionBundleRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
 	3,  // 7: prepeet.intelligence.v1.ComposeSessionBundleRequest.inputs:type_name -> prepeet.intelligence.v1.ObjectRef
-	5,  // 8: prepeet.intelligence.v1.ComposeSessionBundleResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
-	3,  // 9: prepeet.intelligence.v1.ComposeSessionBundleResponse.bundle:type_name -> prepeet.intelligence.v1.ObjectRef
-	2,  // 10: prepeet.intelligence.v1.ReduceInterviewEventsRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
-	5,  // 11: prepeet.intelligence.v1.ReduceInterviewEventsResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
-	2,  // 12: prepeet.intelligence.v1.ProposeNextActionRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
-	5,  // 13: prepeet.intelligence.v1.ProposeNextActionResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
-	15, // 14: prepeet.intelligence.v1.ProposeNextActionResponse.proposal:type_name -> prepeet.intelligence.v1.ActionProposal
-	1,  // 15: prepeet.intelligence.v1.ActionProposal.action:type_name -> prepeet.intelligence.v1.ActionKind
-	2,  // 16: prepeet.intelligence.v1.EvaluateTurnsRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
-	3,  // 17: prepeet.intelligence.v1.EvaluateTurnsRequest.turns:type_name -> prepeet.intelligence.v1.ObjectRef
-	5,  // 18: prepeet.intelligence.v1.EvaluateTurnsResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
-	18, // 19: prepeet.intelligence.v1.EvaluateTurnsResponse.observations:type_name -> prepeet.intelligence.v1.CompetencyObservation
-	2,  // 20: prepeet.intelligence.v1.EvaluateSessionRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
-	3,  // 21: prepeet.intelligence.v1.EvaluateSessionRequest.manifest:type_name -> prepeet.intelligence.v1.ObjectRef
-	5,  // 22: prepeet.intelligence.v1.EvaluateSessionResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
-	2,  // 23: prepeet.intelligence.v1.AnalyzeArticulationRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
-	3,  // 24: prepeet.intelligence.v1.AnalyzeArticulationRequest.manifest:type_name -> prepeet.intelligence.v1.ObjectRef
-	5,  // 25: prepeet.intelligence.v1.AnalyzeArticulationResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
-	2,  // 26: prepeet.intelligence.v1.GeneratePracticeCoachingRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
-	3,  // 27: prepeet.intelligence.v1.GeneratePracticeCoachingRequest.evaluation:type_name -> prepeet.intelligence.v1.ObjectRef
-	5,  // 28: prepeet.intelligence.v1.GeneratePracticeCoachingResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
-	6,  // 29: prepeet.intelligence.v1.IntelligenceService.ExtractCandidateProfile:input_type -> prepeet.intelligence.v1.ExtractCandidateProfileRequest
-	9,  // 30: prepeet.intelligence.v1.IntelligenceService.ComposeSessionBundle:input_type -> prepeet.intelligence.v1.ComposeSessionBundleRequest
-	11, // 31: prepeet.intelligence.v1.IntelligenceService.ReduceInterviewEvents:input_type -> prepeet.intelligence.v1.ReduceInterviewEventsRequest
-	13, // 32: prepeet.intelligence.v1.IntelligenceService.ProposeNextAction:input_type -> prepeet.intelligence.v1.ProposeNextActionRequest
-	16, // 33: prepeet.intelligence.v1.IntelligenceService.EvaluateTurns:input_type -> prepeet.intelligence.v1.EvaluateTurnsRequest
-	19, // 34: prepeet.intelligence.v1.IntelligenceService.EvaluateSession:input_type -> prepeet.intelligence.v1.EvaluateSessionRequest
-	21, // 35: prepeet.intelligence.v1.IntelligenceService.AnalyzeArticulation:input_type -> prepeet.intelligence.v1.AnalyzeArticulationRequest
-	23, // 36: prepeet.intelligence.v1.IntelligenceService.GeneratePracticeCoaching:input_type -> prepeet.intelligence.v1.GeneratePracticeCoachingRequest
-	7,  // 37: prepeet.intelligence.v1.IntelligenceService.ExtractCandidateProfile:output_type -> prepeet.intelligence.v1.ExtractCandidateProfileResponse
-	10, // 38: prepeet.intelligence.v1.IntelligenceService.ComposeSessionBundle:output_type -> prepeet.intelligence.v1.ComposeSessionBundleResponse
-	12, // 39: prepeet.intelligence.v1.IntelligenceService.ReduceInterviewEvents:output_type -> prepeet.intelligence.v1.ReduceInterviewEventsResponse
-	14, // 40: prepeet.intelligence.v1.IntelligenceService.ProposeNextAction:output_type -> prepeet.intelligence.v1.ProposeNextActionResponse
-	17, // 41: prepeet.intelligence.v1.IntelligenceService.EvaluateTurns:output_type -> prepeet.intelligence.v1.EvaluateTurnsResponse
-	20, // 42: prepeet.intelligence.v1.IntelligenceService.EvaluateSession:output_type -> prepeet.intelligence.v1.EvaluateSessionResponse
-	22, // 43: prepeet.intelligence.v1.IntelligenceService.AnalyzeArticulation:output_type -> prepeet.intelligence.v1.AnalyzeArticulationResponse
-	24, // 44: prepeet.intelligence.v1.IntelligenceService.GeneratePracticeCoaching:output_type -> prepeet.intelligence.v1.GeneratePracticeCoachingResponse
-	37, // [37:45] is the sub-list for method output_type
-	29, // [29:37] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	10, // 8: prepeet.intelligence.v1.ComposeSessionBundleRequest.pinned_inputs:type_name -> prepeet.intelligence.v1.PinnedArtifact
+	5,  // 9: prepeet.intelligence.v1.ComposeSessionBundleResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
+	3,  // 10: prepeet.intelligence.v1.ComposeSessionBundleResponse.bundle:type_name -> prepeet.intelligence.v1.ObjectRef
+	2,  // 11: prepeet.intelligence.v1.ReduceInterviewEventsRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
+	5,  // 12: prepeet.intelligence.v1.ReduceInterviewEventsResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
+	2,  // 13: prepeet.intelligence.v1.ProposeNextActionRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
+	5,  // 14: prepeet.intelligence.v1.ProposeNextActionResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
+	16, // 15: prepeet.intelligence.v1.ProposeNextActionResponse.proposal:type_name -> prepeet.intelligence.v1.ActionProposal
+	1,  // 16: prepeet.intelligence.v1.ActionProposal.action:type_name -> prepeet.intelligence.v1.ActionKind
+	2,  // 17: prepeet.intelligence.v1.EvaluateTurnsRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
+	3,  // 18: prepeet.intelligence.v1.EvaluateTurnsRequest.turns:type_name -> prepeet.intelligence.v1.ObjectRef
+	5,  // 19: prepeet.intelligence.v1.EvaluateTurnsResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
+	19, // 20: prepeet.intelligence.v1.EvaluateTurnsResponse.observations:type_name -> prepeet.intelligence.v1.CompetencyObservation
+	2,  // 21: prepeet.intelligence.v1.EvaluateSessionRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
+	3,  // 22: prepeet.intelligence.v1.EvaluateSessionRequest.manifest:type_name -> prepeet.intelligence.v1.ObjectRef
+	5,  // 23: prepeet.intelligence.v1.EvaluateSessionResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
+	2,  // 24: prepeet.intelligence.v1.AnalyzeArticulationRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
+	3,  // 25: prepeet.intelligence.v1.AnalyzeArticulationRequest.manifest:type_name -> prepeet.intelligence.v1.ObjectRef
+	5,  // 26: prepeet.intelligence.v1.AnalyzeArticulationResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
+	2,  // 27: prepeet.intelligence.v1.GeneratePracticeCoachingRequest.context:type_name -> prepeet.intelligence.v1.RequestContext
+	3,  // 28: prepeet.intelligence.v1.GeneratePracticeCoachingRequest.evaluation:type_name -> prepeet.intelligence.v1.ObjectRef
+	5,  // 29: prepeet.intelligence.v1.GeneratePracticeCoachingResponse.meta:type_name -> prepeet.intelligence.v1.ResponseMeta
+	6,  // 30: prepeet.intelligence.v1.IntelligenceService.ExtractCandidateProfile:input_type -> prepeet.intelligence.v1.ExtractCandidateProfileRequest
+	9,  // 31: prepeet.intelligence.v1.IntelligenceService.ComposeSessionBundle:input_type -> prepeet.intelligence.v1.ComposeSessionBundleRequest
+	12, // 32: prepeet.intelligence.v1.IntelligenceService.ReduceInterviewEvents:input_type -> prepeet.intelligence.v1.ReduceInterviewEventsRequest
+	14, // 33: prepeet.intelligence.v1.IntelligenceService.ProposeNextAction:input_type -> prepeet.intelligence.v1.ProposeNextActionRequest
+	17, // 34: prepeet.intelligence.v1.IntelligenceService.EvaluateTurns:input_type -> prepeet.intelligence.v1.EvaluateTurnsRequest
+	20, // 35: prepeet.intelligence.v1.IntelligenceService.EvaluateSession:input_type -> prepeet.intelligence.v1.EvaluateSessionRequest
+	22, // 36: prepeet.intelligence.v1.IntelligenceService.AnalyzeArticulation:input_type -> prepeet.intelligence.v1.AnalyzeArticulationRequest
+	24, // 37: prepeet.intelligence.v1.IntelligenceService.GeneratePracticeCoaching:input_type -> prepeet.intelligence.v1.GeneratePracticeCoachingRequest
+	7,  // 38: prepeet.intelligence.v1.IntelligenceService.ExtractCandidateProfile:output_type -> prepeet.intelligence.v1.ExtractCandidateProfileResponse
+	11, // 39: prepeet.intelligence.v1.IntelligenceService.ComposeSessionBundle:output_type -> prepeet.intelligence.v1.ComposeSessionBundleResponse
+	13, // 40: prepeet.intelligence.v1.IntelligenceService.ReduceInterviewEvents:output_type -> prepeet.intelligence.v1.ReduceInterviewEventsResponse
+	15, // 41: prepeet.intelligence.v1.IntelligenceService.ProposeNextAction:output_type -> prepeet.intelligence.v1.ProposeNextActionResponse
+	18, // 42: prepeet.intelligence.v1.IntelligenceService.EvaluateTurns:output_type -> prepeet.intelligence.v1.EvaluateTurnsResponse
+	21, // 43: prepeet.intelligence.v1.IntelligenceService.EvaluateSession:output_type -> prepeet.intelligence.v1.EvaluateSessionResponse
+	23, // 44: prepeet.intelligence.v1.IntelligenceService.AnalyzeArticulation:output_type -> prepeet.intelligence.v1.AnalyzeArticulationResponse
+	25, // 45: prepeet.intelligence.v1.IntelligenceService.GeneratePracticeCoaching:output_type -> prepeet.intelligence.v1.GeneratePracticeCoachingResponse
+	38, // [38:46] is the sub-list for method output_type
+	30, // [30:38] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_prepeet_intelligence_v1_intelligence_proto_init() }
@@ -2169,7 +2304,7 @@ func file_prepeet_intelligence_v1_intelligence_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_prepeet_intelligence_v1_intelligence_proto_rawDesc), len(file_prepeet_intelligence_v1_intelligence_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   23,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

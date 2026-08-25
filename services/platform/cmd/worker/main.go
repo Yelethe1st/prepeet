@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	sdkworker "go.temporal.io/sdk/worker"
 
+	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
@@ -124,7 +125,7 @@ func main() {
 		if cfg.IntelligenceAddress == "" {
 			log.Warn("no intelligence address is configured; the interview task queue is not being served")
 		} else {
-			composer, conn, err := newComposer(cfg.IntelligenceAddress)
+			composer, conn, err := newComposer(cfg.IntelligenceAddress, content.NewStore(pool))
 			if err != nil {
 				log.Error("the intelligence plane is not usable", slog.String("error", err.Error()))
 				os.Exit(1)

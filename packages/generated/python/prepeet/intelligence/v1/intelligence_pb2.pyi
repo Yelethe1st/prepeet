@@ -125,26 +125,46 @@ class ProfileClaim(_message.Message):
     def __init__(self, kind: _Optional[str] = ..., value: _Optional[bytes] = ..., source_span: _Optional[str] = ...) -> None: ...
 
 class ComposeSessionBundleRequest(_message.Message):
-    __slots__ = ("context", "session_id", "inputs", "blueprint_id")
+    __slots__ = ("context", "session_id", "inputs", "blueprint_id", "pinned_inputs")
     CONTEXT_FIELD_NUMBER: _ClassVar[int]
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     INPUTS_FIELD_NUMBER: _ClassVar[int]
     BLUEPRINT_ID_FIELD_NUMBER: _ClassVar[int]
+    PINNED_INPUTS_FIELD_NUMBER: _ClassVar[int]
     context: RequestContext
     session_id: str
     inputs: _containers.RepeatedCompositeFieldContainer[ObjectRef]
     blueprint_id: str
-    def __init__(self, context: _Optional[_Union[RequestContext, _Mapping]] = ..., session_id: _Optional[str] = ..., inputs: _Optional[_Iterable[_Union[ObjectRef, _Mapping]]] = ..., blueprint_id: _Optional[str] = ...) -> None: ...
+    pinned_inputs: _containers.RepeatedCompositeFieldContainer[PinnedArtifact]
+    def __init__(self, context: _Optional[_Union[RequestContext, _Mapping]] = ..., session_id: _Optional[str] = ..., inputs: _Optional[_Iterable[_Union[ObjectRef, _Mapping]]] = ..., blueprint_id: _Optional[str] = ..., pinned_inputs: _Optional[_Iterable[_Union[PinnedArtifact, _Mapping]]] = ...) -> None: ...
+
+class PinnedArtifact(_message.Message):
+    __slots__ = ("artifact_type", "reference", "version", "schema_version", "digest", "body")
+    ARTIFACT_TYPE_FIELD_NUMBER: _ClassVar[int]
+    REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_VERSION_FIELD_NUMBER: _ClassVar[int]
+    DIGEST_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    artifact_type: str
+    reference: str
+    version: str
+    schema_version: str
+    digest: str
+    body: bytes
+    def __init__(self, artifact_type: _Optional[str] = ..., reference: _Optional[str] = ..., version: _Optional[str] = ..., schema_version: _Optional[str] = ..., digest: _Optional[str] = ..., body: _Optional[bytes] = ...) -> None: ...
 
 class ComposeSessionBundleResponse(_message.Message):
-    __slots__ = ("meta", "bundle", "bundle_revision")
+    __slots__ = ("meta", "bundle", "bundle_revision", "bundle_body")
     META_FIELD_NUMBER: _ClassVar[int]
     BUNDLE_FIELD_NUMBER: _ClassVar[int]
     BUNDLE_REVISION_FIELD_NUMBER: _ClassVar[int]
+    BUNDLE_BODY_FIELD_NUMBER: _ClassVar[int]
     meta: ResponseMeta
     bundle: ObjectRef
     bundle_revision: int
-    def __init__(self, meta: _Optional[_Union[ResponseMeta, _Mapping]] = ..., bundle: _Optional[_Union[ObjectRef, _Mapping]] = ..., bundle_revision: _Optional[int] = ...) -> None: ...
+    bundle_body: bytes
+    def __init__(self, meta: _Optional[_Union[ResponseMeta, _Mapping]] = ..., bundle: _Optional[_Union[ObjectRef, _Mapping]] = ..., bundle_revision: _Optional[int] = ..., bundle_body: _Optional[bytes] = ...) -> None: ...
 
 class ReduceInterviewEventsRequest(_message.Message):
     __slots__ = ("context", "session_id", "bundle_digest", "events", "cursor")

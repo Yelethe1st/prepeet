@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -47,18 +48,34 @@ func startIntelligence(t *testing.T) string {
 		t.Fatalf("locating the repository: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	command := exec.CommandContext(ctx, "uv", "run", "python", "-m",
+	// The server's stderr goes to a file the test owns, not to the test
+	// binary's own stderr: a leaked child holding that pipe makes `go test`
+	// report the whole package failed on I/O thirty seconds after every test
+	// passed, which is exactly how this arrangement was discovered.
+	stderr, err := os.CreateTemp(t.TempDir(), "intelligence-*.log")
+	if err != nil {
+		t.Fatalf("stderr file: %v", err)
+	}
+
+	command := exec.Command("uv", "run", "python", "-m",
 		"prepeet_ai.transport.server", "--port", fmt.Sprint(port))
 	command.Dir = filepath.Join(root, "services/intelligence")
-	command.Stderr = os.Stderr
+	command.Stderr = stderr
+	command.Stdout = stderr
+	// Its own process group, so cleanup can kill the whole tree. uv runs
+	// python as a child, and killing only uv leaves python alive - serving,
+	// holding pipes, and outliving the test run.
+	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := command.Start(); err != nil {
-		cancel()
 		t.Fatalf("starting the intelligence plane: %v", err)
 	}
 	t.Cleanup(func() {
-		cancel()
+		_ = syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
 		_ = command.Wait()
+		if t.Failed() {
+			log, _ := os.ReadFile(stderr.Name())
+			t.Logf("intelligence plane output:\n%s", log)
+		}
 	})
 
 	address := fmt.Sprintf("127.0.0.1:%d", port)

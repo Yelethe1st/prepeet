@@ -55,6 +55,16 @@ sql:
 
   - engine: postgresql
     schema: *schema
+    queries: internal/candidate/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: candidatedb
+        out: internal/candidate/db
+        overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
     queries: internal/content/db/queries.sql
     gen:
       go:

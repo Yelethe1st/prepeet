@@ -120,6 +120,16 @@ func TestTenantAuthorityReadsNoPracticeRows(t *testing.T) {
 			}
 			return database.SetUser(ctx, tx, priya)
 		},
+		"tenant context with the owner's own id": func(tx pgx.Tx) error {
+			// The shape that leaked from the profiles table before the
+			// absence clause was demanded: the owner's identity, reached
+			// through a code path that also set tenant context. WITH CHECK
+			// caught the write; this is the read half.
+			if err := database.SetTenant(ctx, tx, tenantA); err != nil {
+				return err
+			}
+			return database.SetUser(ctx, tx, amara)
+		},
 		"no context at all": func(pgx.Tx) error { return nil },
 	}
 
@@ -271,8 +281,17 @@ func TestEveryCandidateTableIsOwnerScopedAndTenantFree(t *testing.T) {
 		if !strings.Contains(policies, "app.user_id") {
 			t.Errorf("candidate.%s has no owner-scoped policy", table)
 		}
-		if strings.Contains(policies, "app.tenant_id") {
-			t.Errorf("candidate.%s has a policy that consults tenant context", table)
+		// Tenant context may appear only as a required absence. An equality
+		// would be a tenant path into practice data; NO mention at all leaves
+		// the mixed-context read open - the owner's own rows, reached through
+		// a code path that also set tenant context - which is how the
+		// profiles table leaked before this clause was demanded.
+		if strings.Contains(policies, "app.tenant_id") &&
+			!strings.Contains(policies, "IS NULL") {
+			t.Errorf("candidate.%s has a policy that consults tenant context as an authority", table)
+		}
+		if !strings.Contains(policies, "app.tenant_id") {
+			t.Errorf("candidate.%s does not require tenant-context absence, so a mixed-context transaction reads it", table)
 		}
 	}
 	if checked == 0 {

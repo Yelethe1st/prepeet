@@ -261,6 +261,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the candidate's own profile
+         * @description The profile is the candidate's alone; the session decides whose it is
+         *     and there is no way to name anybody else's. A candidate who never
+         *     saved gets the empty profile rather than an error, because a partial
+         *     profile is usable and the first visit must not look broken.
+         */
+        get: operations["getProfile"];
+        /**
+         * Replace the candidate's own profile
+         * @description Whole-record replace: the profile is one screen, the screen submits
+         *     what it shows, and field-level merges are where two tabs quietly
+         *     assemble a profile neither displayed. Every field is optional;
+         *     nothing is blocked behind completeness.
+         */
+        put: operations["saveProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -436,6 +466,30 @@ export interface components {
             /** Format: email */
             email: string;
             code: string;
+        };
+        /**
+         * @description The candidate's own profile. Every field is optional, and absent
+         *     arrays serialise as empty: a partial profile is a profile.
+         */
+        CandidateProfile: {
+            /** @description What they practise for, in their own words until the catalogue exists. */
+            disciplines: string[];
+            target_roles: string[];
+            seniority?: string;
+            /** @description Their own account of where they are and where they are going. */
+            career_context?: string;
+            /** @description Applied when creating a practice session; overridable there. */
+            default_duration_minutes?: number;
+            default_style?: string;
+            /** @enum {string} */
+            default_pressure?: "low" | "standard" | "high";
+            /** @description Accessibility preference the prepare and live screens honour by default. */
+            extended_time: boolean;
+            captions: boolean;
+            reduced_motion: boolean;
+            accessibility_notes?: string;
+            notify_product_updates: boolean;
+            notify_practice_reminders: boolean;
         };
         RegisterRequest: {
             /** Format: email */
@@ -969,6 +1023,55 @@ export interface operations {
             };
             400: components["responses"]["ValidationFailed"];
             422: components["responses"]["TokenRefused"];
+        };
+    };
+    getProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile, possibly empty. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateProfile"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    saveProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateProfile"];
+            };
+        };
+        responses: {
+            /** @description The profile as stored, after normalisation. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateProfile"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     getCurrentUser: {

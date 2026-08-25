@@ -24,6 +24,27 @@ import (
 
 // ─────────────────────────────────────────────────────────────── the fake
 
+// fakeCandidates serves the profile port for tests, recording and scripted
+// like the identity fake.
+type fakeCandidates struct {
+	profile api.Profile
+	saved   []api.Profile
+	err     error
+}
+
+func (f *fakeCandidates) GetProfile(_ context.Context, _ string) (api.Profile, error) {
+	return f.profile, f.err
+}
+
+func (f *fakeCandidates) SaveProfile(_ context.Context, _ string, p api.Profile) (api.Profile, error) {
+	if f.err != nil {
+		return api.Profile{}, f.err
+	}
+	f.saved = append(f.saved, p)
+	f.profile = p
+	return p, nil
+}
+
 type fakeIdentity struct {
 	registerErr error
 	registered  []api.Registration
@@ -173,11 +194,25 @@ func serve(t *testing.T, identity api.Identity) http.Handler {
 	return serveIn(t, identity, config.EnvironmentLocal)
 }
 
+func serveWith(t *testing.T, identity api.Identity, candidates api.CandidateProfiles) http.Handler {
+	t.Helper()
+	handler, err := api.NewServer(api.ServerConfig{
+		Identity:    identity,
+		Candidates:  candidates,
+		Environment: config.EnvironmentLocal,
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	return handler
+}
+
 func serveIn(t *testing.T, identity api.Identity, environment config.Environment) http.Handler {
 	t.Helper()
 
 	handler, err := api.NewServer(api.ServerConfig{
 		Identity:    identity,
+		Candidates:  &fakeCandidates{},
 		Environment: environment,
 	})
 	if err != nil {

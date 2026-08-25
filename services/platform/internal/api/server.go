@@ -20,7 +20,10 @@ const basePath = "/api/v1"
 
 // ServerConfig is what the API layer needs to serve.
 type ServerConfig struct {
-	Identity    Identity
+	Identity Identity
+	// Candidates serves the profile operations; owner-scoped by construction,
+	// since the port takes only the session's own user.
+	Candidates  CandidateProfiles
 	Environment config.Environment
 	// Health is consulted by the readiness probe. Optional: a nil registry
 	// reports ready, which is correct for a process with no dependencies.
@@ -36,6 +39,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Identity == nil {
 		return nil, errors.New("api: an Identity is required")
 	}
+	if cfg.Candidates == nil {
+		return nil, errors.New("api: a CandidateProfiles is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -43,6 +49,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 			environment: cfg.Environment,
 		},
 		health: cfg.Health,
+	}
+	handlers.profile = profile{
+		authentication: &handlers.authentication,
+		candidates:     cfg.Candidates,
 	}
 
 	strict := prepeetapi.NewStrictHandlerWithOptions(handlers,
@@ -103,6 +113,7 @@ func carryCredentials(f prepeetapi.StrictHandlerFunc, _ string) prepeetapi.Stric
 // type that serves authentication.
 type server struct {
 	authentication
+	profile
 	health *health.Registry
 }
 

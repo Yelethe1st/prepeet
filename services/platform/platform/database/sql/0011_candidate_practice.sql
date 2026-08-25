@@ -49,9 +49,15 @@ ALTER TABLE candidate.practice_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE candidate.practice_sessions FORCE ROW LEVEL SECURITY;
 
 -- The whole policy. No tenant branch, no role branch: the person, or nothing.
+-- Owner, in a transaction carrying no tenant context at all. The absence
+-- clause closes the read half of what the write tripwire closes: the owner's
+-- own rows, reached through a code path that also set tenant context. Found
+-- by the profiles table leaking exactly that shape.
 CREATE POLICY practice_owner ON candidate.practice_sessions
-    USING (user_id = NULLIF(current_setting('app.user_id', true), '')::uuid)
-    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::uuid);
+    USING (user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+           AND NULLIF(current_setting('app.tenant_id', true), '') IS NULL)
+    WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+           AND NULLIF(current_setting('app.tenant_id', true), '') IS NULL);
 
 -- The tripwire. SECURITY DEFINER is not needed; the function reads only its
 -- own transaction's settings. The exception message names the invariant and

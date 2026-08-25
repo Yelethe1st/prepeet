@@ -166,6 +166,9 @@ TOOLS_BIN := $(CURDIR)/.tools
 GENERATED_PATHS := packages/generated \
 	packages/generated/typescript/events.gen.ts \
 	services/platform/platform/authz/catalogue.gen.go \
+	services/platform/internal/candidate/db \
+	services/platform/internal/content/db \
+	services/platform/internal/interview/db \
 	services/platform/internal/identity/db \
 	services/platform/internal/notification/db \
 	services/platform/platform/outbox/db \

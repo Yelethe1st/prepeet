@@ -33,6 +33,8 @@ tags:
     description: Deployment probes. Unauthenticated.
   - name: authentication
     description: Registration, login, logout and session refresh.
+  - name: candidate
+    description: The candidate's own data. Owner-scoped; no tenant authority reaches it.
 
 paths:
   /healthz:
@@ -377,6 +379,55 @@ paths:
                 $ref: "#/components/schemas/Session"
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "422": { $ref: "#/components/responses/TokenRefused" }
+
+  /me/profile:
+    get:
+      tags: [candidate]
+      operationId: getProfile
+      summary: Read the candidate's own profile
+      description: |
+        The profile is the candidate's alone; the session decides whose it is
+        and there is no way to name anybody else's. A candidate who never
+        saved gets the empty profile rather than an error, because a partial
+        profile is usable and the first visit must not look broken.
+      responses:
+        "200":
+          description: The profile, possibly empty.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateProfile"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+    put:
+      tags: [candidate]
+      operationId: saveProfile
+      summary: Replace the candidate's own profile
+      description: |
+        Whole-record replace: the profile is one screen, the screen submits
+        what it shows, and field-level merges are where two tabs quietly
+        assemble a profile neither displayed. Every field is optional;
+        nothing is blocked behind completeness.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateProfile"
+      responses:
+        "200":
+          description: The profile as stored, after normalisation.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateProfile"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
 
   /me:
     get:
@@ -758,6 +809,57 @@ components:
           minLength: 6
           maxLength: 6
           pattern: "^[0-9]{6}$"
+
+    CandidateProfile:
+      type: object
+      description: |
+        The candidate's own profile. Every field is optional, and absent
+        arrays serialise as empty: a partial profile is a profile.
+      required:
+        [disciplines, target_roles, extended_time, captions, reduced_motion,
+         notify_product_updates, notify_practice_reminders]
+      properties:
+        disciplines:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 80 }
+          description: What they practise for, in their own words until the catalogue exists.
+        target_roles:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 80 }
+        seniority:
+          type: string
+          maxLength: 80
+        career_context:
+          type: string
+          maxLength: 4000
+          description: Their own account of where they are and where they are going.
+        default_duration_minutes:
+          type: integer
+          minimum: 10
+          maximum: 90
+          description: Applied when creating a practice session; overridable there.
+        default_style:
+          type: string
+          maxLength: 80
+        default_pressure:
+          type: string
+          enum: [low, standard, high]
+        extended_time:
+          type: boolean
+          description: Accessibility preference the prepare and live screens honour by default.
+        captions:
+          type: boolean
+        reduced_motion:
+          type: boolean
+        accessibility_notes:
+          type: string
+          maxLength: 2000
+        notify_product_updates:
+          type: boolean
+        notify_practice_reminders:
+          type: boolean
 
     RegisterRequest:
       type: object

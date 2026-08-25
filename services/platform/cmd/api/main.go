@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
@@ -103,6 +104,7 @@ func main() {
 				Resend:  ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 1, Window: time.Minute}, time.Now),
 				BaseURL: cfg.WebBaseURL,
 			})},
+		Candidates:  candidateAdapter{service: candidate.NewService(candidate.NewStore(pool))},
 		Environment: cfg.Environment,
 		Health:      checks,
 	})

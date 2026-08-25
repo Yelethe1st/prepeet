@@ -16,9 +16,20 @@ Disciplines, target roles, seniority, career context, interview defaults, access
 notification settings.
 
 **Done when**
-- [ ] Profile reads and writes are scoped to the owning candidate and nobody else.
+- [x] Profile reads and writes are scoped to the owning candidate and nobody else.
 - [ ] Accessibility preferences set here are honoured by the prepare and live screens by default.
-- [ ] Partial profiles are usable; nothing is blocked behind a completeness score.
+- [x] Partial profiles are usable; nothing is blocked behind a completeness score.
+
+**Backend and contract complete.** The profile lives in the candidate schema, where IAM-06's
+structural guards apply by existing, and the leak hunt for this table found a real gap in the
+schema's own discipline: the owner policies lacked the tenant-absence clause, so the owner's
+rows were readable through a code path that also set tenant context. Both candidate tables now
+carry the clause, the structural guard demands it of every future one, and the adversarial matrix
+pins the exact shape that leaked. Owner scoping at the HTTP surface is the absence of a
+parameter: /me/profile has no way to name anybody else. The empty profile is the valid zero
+value, first reads return it rather than an error, and every bound refuses with a field-level
+code. The middle box stays open until SES-03's prepare screen exists to do the honouring; the
+columns are explicit and the contract exposes them so that screen has one obvious source.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md)
 

@@ -68,7 +68,7 @@ SELECT id::text AS id, user_id::text AS user_id, kind, version, storage_key,
        media_type, size_bytes, state,
        coalesce(upload_id, '')::text AS upload_id,
        coalesce(sha256, '')::text AS sha256,
-       created_at, stored_at, deleted_at
+       extraction_state, created_at, stored_at, deleted_at
 FROM candidate.documents
 WHERE id = sqlc.arg(id)::uuid;
 
@@ -79,7 +79,7 @@ SELECT id::text AS id, user_id::text AS user_id, kind, version, storage_key,
        media_type, size_bytes, state,
        coalesce(upload_id, '')::text AS upload_id,
        coalesce(sha256, '')::text AS sha256,
-       created_at, stored_at, deleted_at
+       extraction_state, created_at, stored_at, deleted_at
 FROM candidate.documents
 WHERE user_id = sqlc.arg(user_id)::uuid AND kind = sqlc.arg(kind)::text
 ORDER BY version DESC;
@@ -87,9 +87,13 @@ ORDER BY version DESC;
 -- name: MarkDocumentStored :execrows
 -- Guarded on the uploading state, so completing twice - or completing an
 -- aborted upload - loses on rows affected rather than rewriting history.
+-- Storing also queues extraction: pending is set here, in the same statement
+-- that records the digest, so there is no stored document whose extraction
+-- state nobody decided.
 UPDATE candidate.documents
 SET state = 'stored', sha256 = sqlc.arg(sha256)::text,
-    size_bytes = sqlc.arg(size_bytes)::bigint, stored_at = now(), upload_id = NULL
+    size_bytes = sqlc.arg(size_bytes)::bigint, stored_at = now(), upload_id = NULL,
+    extraction_state = 'pending'
 WHERE id = sqlc.arg(id)::uuid AND state = 'uploading';
 
 -- name: MarkDocumentFailed :execrows
@@ -103,3 +107,39 @@ WHERE id = sqlc.arg(id)::uuid AND state = 'uploading';
 UPDATE candidate.documents
 SET state = 'deleted', deleted_at = now()
 WHERE id = sqlc.arg(id)::uuid AND state = 'stored';
+
+-- name: SetDocumentExtractionState :execrows
+-- Moves extraction to its outcome. The guard admits pending - the normal
+-- path - and the target state itself, so a workflow activity replayed after
+-- its commit lands on success rather than on a refusal it must special-case.
+UPDATE candidate.documents
+SET extraction_state = sqlc.arg(state)::text
+WHERE id = sqlc.arg(id)::uuid
+  AND extraction_state IN ('pending', sqlc.arg(state)::text);
+
+-- name: DeleteProposedFacts :exec
+-- The idempotency half of storing an extraction: proposals for this document
+-- are replaced wholesale, so a replayed StoreFacts converges instead of
+-- duplicating. Rows the candidate has already acted on keep their status and
+-- are left alone.
+DELETE FROM candidate.extracted_facts
+WHERE document_id = sqlc.arg(document_id)::uuid AND status = 'proposed';
+
+-- name: InsertFact :exec
+INSERT INTO candidate.extracted_facts
+    (id, user_id, document_id, kind, value, span_start, span_end,
+     confidence, extractor_version)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(user_id)::uuid, sqlc.arg(document_id)::uuid,
+        sqlc.arg(kind)::text, sqlc.arg(value)::jsonb,
+        sqlc.arg(span_start)::integer, sqlc.arg(span_end)::integer,
+        sqlc.arg(confidence)::float8, sqlc.arg(extractor_version)::text);
+
+-- name: ListFactsByDocument :many
+-- In span order, because the facts are read beside the document they came
+-- from and the span is the join.
+SELECT id::text AS id, document_id::text AS document_id, kind, value,
+       span_start, span_end, confidence::float8 AS confidence,
+       extractor_version, status, created_at
+FROM candidate.extracted_facts
+WHERE document_id = sqlc.arg(document_id)::uuid
+ORDER BY span_start, span_end, kind;

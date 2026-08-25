@@ -3,8 +3,9 @@
 ## What this owns
 
 The profile: disciplines, target roles, seniority, career context, interview
-defaults, accessibility preferences and notification settings. Later tickets
-add documents, extracted facts and the private evidence bank.
+defaults, accessibility preferences and notification settings. Documents (the
+versioned CV) and the facts extraction reads from them live here too. Later
+tickets add the private evidence bank.
 
 ## What this must never do
 
@@ -40,6 +41,31 @@ a file and the browser never holds a durable credential. A stalled upload
 has its own visible state - uploading, then failed on abort - and recovery
 is simply the next version. Types are allowlisted by name, never sniffed,
 because sniffing is how an SVG with a script becomes "an image".
+
+## Extraction
+
+Completing an upload publishes candidate.document_uploaded.v1 in the same
+transaction that marks the document stored, and the worker turns that event
+into an ExtractionWorkflow keyed by the document id, so at-least-once
+delivery becomes exactly-one-extraction. The intelligence plane reads the
+document through a short-lived presigned URL and verifies the recorded
+digest itself before extracting: a fact never claims provenance in bytes
+nobody checked.
+
+Every fact stores the exact half-open span of source text that produced it -
+NOT NULL, because a fact that cannot say where it came from is not stored -
+plus a confidence, the extractor version and a proposed status PRO-04 moves.
+Text no rule matched is stored as kind unparsed rather than dropped: a
+partial reading must never present itself as a complete one. Storing is
+idempotent by wholesale replacement of proposals; rows the candidate has
+confirmed or corrected are never extraction's to touch.
+
+No extraction outcome blocks anything. A format the extractor cannot read
+leaves extraction_state saying unsupported and the workflow completes; a
+real failure says failed; either way the profile continues manually, which
+is PRO-03's degradation promise. The current extractor is extract-1:
+deterministic rules over text/plain only. A model-backed reader is a later
+swap behind the same port and failure taxonomy.
 
 ## The accessibility promise
 

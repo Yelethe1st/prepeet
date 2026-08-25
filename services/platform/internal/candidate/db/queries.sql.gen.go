@@ -10,30 +10,45 @@ import (
 	"time"
 )
 
+const deleteProposedFacts = `-- name: DeleteProposedFacts :exec
+DELETE FROM candidate.extracted_facts
+WHERE document_id = $1::uuid AND status = 'proposed'
+`
+
+// The idempotency half of storing an extraction: proposals for this document
+// are replaced wholesale, so a replayed StoreFacts converges instead of
+// duplicating. Rows the candidate has already acted on keep their status and
+// are left alone.
+func (q *Queries) DeleteProposedFacts(ctx context.Context, documentID string) error {
+	_, err := q.db.Exec(ctx, deleteProposedFacts, documentID)
+	return err
+}
+
 const getDocument = `-- name: GetDocument :one
 SELECT id::text AS id, user_id::text AS user_id, kind, version, storage_key,
        media_type, size_bytes, state,
        coalesce(upload_id, '')::text AS upload_id,
        coalesce(sha256, '')::text AS sha256,
-       created_at, stored_at, deleted_at
+       extraction_state, created_at, stored_at, deleted_at
 FROM candidate.documents
 WHERE id = $1::uuid
 `
 
 type GetDocumentRow struct {
-	ID         string
-	UserID     string
-	Kind       string
-	Version    int32
-	StorageKey string
-	MediaType  string
-	SizeBytes  int64
-	State      string
-	UploadID   string
-	Sha256     string
-	CreatedAt  time.Time
-	StoredAt   *time.Time
-	DeletedAt  *time.Time
+	ID              string
+	UserID          string
+	Kind            string
+	Version         int32
+	StorageKey      string
+	MediaType       string
+	SizeBytes       int64
+	State           string
+	UploadID        string
+	Sha256          string
+	ExtractionState string
+	CreatedAt       time.Time
+	StoredAt        *time.Time
+	DeletedAt       *time.Time
 }
 
 func (q *Queries) GetDocument(ctx context.Context, id string) (GetDocumentRow, error) {
@@ -50,6 +65,7 @@ func (q *Queries) GetDocument(ctx context.Context, id string) (GetDocumentRow, e
 		&i.State,
 		&i.UploadID,
 		&i.Sha256,
+		&i.ExtractionState,
 		&i.CreatedAt,
 		&i.StoredAt,
 		&i.DeletedAt,
@@ -152,12 +168,49 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 	return err
 }
 
+const insertFact = `-- name: InsertFact :exec
+INSERT INTO candidate.extracted_facts
+    (id, user_id, document_id, kind, value, span_start, span_end,
+     confidence, extractor_version)
+VALUES ($1::uuid, $2::uuid, $3::uuid,
+        $4::text, $5::jsonb,
+        $6::integer, $7::integer,
+        $8::float8, $9::text)
+`
+
+type InsertFactParams struct {
+	ID               string
+	UserID           string
+	DocumentID       string
+	Kind             string
+	Value            []byte
+	SpanStart        int32
+	SpanEnd          int32
+	Confidence       float64
+	ExtractorVersion string
+}
+
+func (q *Queries) InsertFact(ctx context.Context, arg InsertFactParams) error {
+	_, err := q.db.Exec(ctx, insertFact,
+		arg.ID,
+		arg.UserID,
+		arg.DocumentID,
+		arg.Kind,
+		arg.Value,
+		arg.SpanStart,
+		arg.SpanEnd,
+		arg.Confidence,
+		arg.ExtractorVersion,
+	)
+	return err
+}
+
 const listDocuments = `-- name: ListDocuments :many
 SELECT id::text AS id, user_id::text AS user_id, kind, version, storage_key,
        media_type, size_bytes, state,
        coalesce(upload_id, '')::text AS upload_id,
        coalesce(sha256, '')::text AS sha256,
-       created_at, stored_at, deleted_at
+       extraction_state, created_at, stored_at, deleted_at
 FROM candidate.documents
 WHERE user_id = $1::uuid AND kind = $2::text
 ORDER BY version DESC
@@ -169,19 +222,20 @@ type ListDocumentsParams struct {
 }
 
 type ListDocumentsRow struct {
-	ID         string
-	UserID     string
-	Kind       string
-	Version    int32
-	StorageKey string
-	MediaType  string
-	SizeBytes  int64
-	State      string
-	UploadID   string
-	Sha256     string
-	CreatedAt  time.Time
-	StoredAt   *time.Time
-	DeletedAt  *time.Time
+	ID              string
+	UserID          string
+	Kind            string
+	Version         int32
+	StorageKey      string
+	MediaType       string
+	SizeBytes       int64
+	State           string
+	UploadID        string
+	Sha256          string
+	ExtractionState string
+	CreatedAt       time.Time
+	StoredAt        *time.Time
+	DeletedAt       *time.Time
 }
 
 // Every version, newest first: the history PRO-02 requires, states included,
@@ -206,9 +260,65 @@ func (q *Queries) ListDocuments(ctx context.Context, arg ListDocumentsParams) ([
 			&i.State,
 			&i.UploadID,
 			&i.Sha256,
+			&i.ExtractionState,
 			&i.CreatedAt,
 			&i.StoredAt,
 			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFactsByDocument = `-- name: ListFactsByDocument :many
+SELECT id::text AS id, document_id::text AS document_id, kind, value,
+       span_start, span_end, confidence::float8 AS confidence,
+       extractor_version, status, created_at
+FROM candidate.extracted_facts
+WHERE document_id = $1::uuid
+ORDER BY span_start, span_end, kind
+`
+
+type ListFactsByDocumentRow struct {
+	ID               string
+	DocumentID       string
+	Kind             string
+	Value            []byte
+	SpanStart        int32
+	SpanEnd          int32
+	Confidence       float64
+	ExtractorVersion string
+	Status           string
+	CreatedAt        time.Time
+}
+
+// In span order, because the facts are read beside the document they came
+// from and the span is the join.
+func (q *Queries) ListFactsByDocument(ctx context.Context, documentID string) ([]ListFactsByDocumentRow, error) {
+	rows, err := q.db.Query(ctx, listFactsByDocument, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFactsByDocumentRow{}
+	for rows.Next() {
+		var i ListFactsByDocumentRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DocumentID,
+			&i.Kind,
+			&i.Value,
+			&i.SpanStart,
+			&i.SpanEnd,
+			&i.Confidence,
+			&i.ExtractorVersion,
+			&i.Status,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -253,7 +363,8 @@ func (q *Queries) MarkDocumentFailed(ctx context.Context, id string) (int64, err
 const markDocumentStored = `-- name: MarkDocumentStored :execrows
 UPDATE candidate.documents
 SET state = 'stored', sha256 = $1::text,
-    size_bytes = $2::bigint, stored_at = now(), upload_id = NULL
+    size_bytes = $2::bigint, stored_at = now(), upload_id = NULL,
+    extraction_state = 'pending'
 WHERE id = $3::uuid AND state = 'uploading'
 `
 
@@ -265,6 +376,9 @@ type MarkDocumentStoredParams struct {
 
 // Guarded on the uploading state, so completing twice - or completing an
 // aborted upload - loses on rows affected rather than rewriting history.
+// Storing also queues extraction: pending is set here, in the same statement
+// that records the digest, so there is no stored document whose extraction
+// state nobody decided.
 func (q *Queries) MarkDocumentStored(ctx context.Context, arg MarkDocumentStoredParams) (int64, error) {
 	result, err := q.db.Exec(ctx, markDocumentStored, arg.Sha256, arg.SizeBytes, arg.ID)
 	if err != nil {
@@ -292,6 +406,29 @@ func (q *Queries) NextDocumentVersion(ctx context.Context, arg NextDocumentVersi
 	var next_version int32
 	err := row.Scan(&next_version)
 	return next_version, err
+}
+
+const setDocumentExtractionState = `-- name: SetDocumentExtractionState :execrows
+UPDATE candidate.documents
+SET extraction_state = $1::text
+WHERE id = $2::uuid
+  AND extraction_state IN ('pending', $1::text)
+`
+
+type SetDocumentExtractionStateParams struct {
+	State string
+	ID    string
+}
+
+// Moves extraction to its outcome. The guard admits pending - the normal
+// path - and the target state itself, so a workflow activity replayed after
+// its commit lands on success rather than on a refusal it must special-case.
+func (q *Queries) SetDocumentExtractionState(ctx context.Context, arg SetDocumentExtractionStateParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setDocumentExtractionState, arg.State, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertProfile = `-- name: UpsertProfile :exec

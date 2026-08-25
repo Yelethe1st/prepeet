@@ -16,6 +16,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 )
 
 // PRO-02 against real PostgreSQL and real S3 semantics: the browser's own
@@ -73,7 +74,7 @@ func startS3(t *testing.T) *objectstore.S3Store {
 
 func documents(t *testing.T) *candidate.Documents {
 	t.Helper()
-	return candidate.NewDocuments(candidate.NewStore(pool), startS3(t))
+	return candidate.NewDocuments(candidate.NewStore(pool), startS3(t), outbox.New(pool))
 }
 
 // uploadCV walks the browser's whole path and returns the stored document.

@@ -2,6 +2,7 @@ package candidate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 )
 
 // The CV: uploaded browser-direct against presigned URLs, versioned rather
@@ -62,9 +64,14 @@ type Document struct {
 	SizeBytes int64
 	State     string
 	SHA256    string
-	CreatedAt time.Time
-	StoredAt  *time.Time
-	DeletedAt *time.Time
+	// ExtractionState is where PRO-03's reading of this version stands: none
+	// until stored, pending while the workflow runs, then extracted,
+	// unsupported or failed. Informational always - no extraction outcome
+	// blocks the document or the profile.
+	ExtractionState string
+	CreatedAt       time.Time
+	StoredAt        *time.Time
+	DeletedAt       *time.Time
 }
 
 // StartedUpload is what the browser needs to carry the bytes itself.
@@ -90,11 +97,17 @@ type Uploads interface {
 type Documents struct {
 	pool    *Store
 	uploads Uploads
+	events  *outbox.Store
 }
 
 // NewDocuments wires the document flows.
-func NewDocuments(store *Store, uploads Uploads) *Documents {
-	return &Documents{pool: store, uploads: uploads}
+//
+// The outbox is a direct dependency rather than a port because publication is
+// not optional behaviour to substitute: candidate.document_uploaded.v1 leaves
+// in the same transaction that marks the document stored, or the document is
+// not stored. Tests get the real outbox against the test database.
+func NewDocuments(store *Store, uploads Uploads, events *outbox.Store) *Documents {
+	return &Documents{pool: store, uploads: uploads, events: events}
 }
 
 // StartUpload allocates the next version and presigns the upload.
@@ -193,7 +206,7 @@ func (d *Documents) CompleteUpload(ctx context.Context, userID, documentID, uplo
 		return Document{}, fmt.Errorf("candidate: completing the upload: %w", err)
 	}
 
-	if err := d.markStored(ctx, userID, documentID, object.SHA256, object.SizeBytes); err != nil {
+	if err := d.markStored(ctx, userID, row, object.SHA256, object.SizeBytes); err != nil {
 		return Document{}, err
 	}
 	return d.get(ctx, documentID, userID)
@@ -301,12 +314,53 @@ func (d *Documents) getRow(ctx context.Context, documentID, userID string) (Docu
 	return documentFrom(row), row, nil
 }
 
-func (d *Documents) markStored(ctx context.Context, userID, documentID, sha256 string, sizeBytes int64) error {
-	return d.transition(ctx, userID, func(q *db.Queries) (int64, error) {
-		return q.MarkDocumentStored(ctx, db.MarkDocumentStoredParams{
-			ID: documentID, Sha256: sha256, SizeBytes: sizeBytes,
-		})
+// markStored records the digest and publishes the fact, atomically.
+//
+// The event rides the same transaction as the state change: if the outbox
+// refuses the event, the document is not stored, because a stored document
+// whose upload was never announced is a CV extraction silently never reads.
+func (d *Documents) markStored(ctx context.Context, userID string, row db.GetDocumentRow, sha256 string, sizeBytes int64) error {
+	tx, err := d.pool.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("candidate: beginning store: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := database.SetUser(ctx, tx, userID); err != nil {
+		return err
+	}
+
+	moved, err := db.New(tx).MarkDocumentStored(ctx, db.MarkDocumentStoredParams{
+		ID: row.ID, Sha256: sha256, SizeBytes: sizeBytes,
 	})
+	if err != nil {
+		return fmt.Errorf("candidate: marking stored: %w", err)
+	}
+	if moved == 0 {
+		return ErrDocumentState
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"document_id":  row.ID,
+		"candidate_id": userID,
+		"storage_key":  row.StorageKey,
+		"media_type":   row.MediaType,
+		"byte_size":    sizeBytes,
+	})
+	if err != nil {
+		return fmt.Errorf("candidate: encoding the uploaded event: %w", err)
+	}
+	if _, err := d.events.Publish(ctx, tx, outbox.Event{
+		Type:          "candidate.document_uploaded.v1",
+		SchemaVersion: "1.0",
+		// No tenant: the CV belongs to the person, per ADR-0002.
+		Producer: "candidate",
+		Actor:    outbox.Actor{Type: "user", ID: userID},
+		Purpose:  "profile",
+		Payload:  payload,
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (d *Documents) transition(ctx context.Context, userID string, change func(*db.Queries) (int64, error)) error {
@@ -343,7 +397,8 @@ func documentFrom(row db.GetDocumentRow) Document {
 	return Document{
 		ID: row.ID, Kind: row.Kind, Version: int(row.Version),
 		MediaType: row.MediaType, SizeBytes: row.SizeBytes, State: row.State,
-		SHA256: row.Sha256, CreatedAt: row.CreatedAt,
-		StoredAt: row.StoredAt, DeletedAt: row.DeletedAt,
+		SHA256: row.Sha256, ExtractionState: row.ExtractionState,
+		CreatedAt: row.CreatedAt,
+		StoredAt:  row.StoredAt, DeletedAt: row.DeletedAt,
 	}
 }

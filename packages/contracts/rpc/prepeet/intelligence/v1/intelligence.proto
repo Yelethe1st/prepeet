@@ -108,6 +108,15 @@ message ObjectRef {
   // The declared media type, so a capability can refuse what it cannot read
   // before fetching it.
   string media_type = 3;
+
+  // A short-lived, purpose-scoped URL the capability fetches the object
+  // through, set on request-direction references. This is the envelope's
+  // "short-lived, purpose-scoped object reference" made concrete: the caller
+  // presigns exactly this object for minutes, so the capability holds no
+  // storage credential and can read nothing else. The capability verifies
+  // the digest after fetching; a mismatch is ARTIFACT_NOT_FOUND, because the
+  // pinned content is what was asked for and it no longer exists.
+  string fetch_url = 4;
 }
 
 // What answering cost.

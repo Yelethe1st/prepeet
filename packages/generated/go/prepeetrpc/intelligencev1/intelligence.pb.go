@@ -314,7 +314,15 @@ type ObjectRef struct {
 	Digest string `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
 	// The declared media type, so a capability can refuse what it cannot read
 	// before fetching it.
-	MediaType     string `protobuf:"bytes,3,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	MediaType string `protobuf:"bytes,3,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	// A short-lived, purpose-scoped URL the capability fetches the object
+	// through, set on request-direction references. This is the envelope's
+	// "short-lived, purpose-scoped object reference" made concrete: the caller
+	// presigns exactly this object for minutes, so the capability holds no
+	// storage credential and can read nothing else. The capability verifies
+	// the digest after fetching; a mismatch is ARTIFACT_NOT_FOUND, because the
+	// pinned content is what was asked for and it no longer exists.
+	FetchUrl      string `protobuf:"bytes,4,opt,name=fetch_url,json=fetchUrl,proto3" json:"fetch_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -366,6 +374,13 @@ func (x *ObjectRef) GetDigest() string {
 func (x *ObjectRef) GetMediaType() string {
 	if x != nil {
 		return x.MediaType
+	}
+	return ""
+}
+
+func (x *ObjectRef) GetFetchUrl() string {
+	if x != nil {
+		return x.FetchUrl
 	}
 	return ""
 }
@@ -2034,13 +2049,14 @@ const file_prepeet_intelligence_v1_intelligence_proto_rawDesc = "" +
 	"\x0ecorrelation_id\x18\x05 \x01(\tR\rcorrelationId\x12!\n" +
 	"\fcausation_id\x18\x06 \x01(\tR\vcausationId\x12*\n" +
 	"\x11budget_cost_units\x18\a \x01(\rR\x0fbudgetCostUnits\x12-\n" +
-	"\x12approved_providers\x18\b \x03(\tR\x11approvedProviders\"c\n" +
+	"\x12approved_providers\x18\b \x03(\tR\x11approvedProviders\"\x80\x01\n" +
 	"\tObjectRef\x12\x1f\n" +
 	"\vstorage_key\x18\x01 \x01(\tR\n" +
 	"storageKey\x12\x16\n" +
 	"\x06digest\x18\x02 \x01(\tR\x06digest\x12\x1d\n" +
 	"\n" +
-	"media_type\x18\x03 \x01(\tR\tmediaType\"l\n" +
+	"media_type\x18\x03 \x01(\tR\tmediaType\x12\x1b\n" +
+	"\tfetch_url\x18\x04 \x01(\tR\bfetchUrl\"l\n" +
 	"\x05Usage\x12\x1d\n" +
 	"\n" +
 	"cost_units\x18\x01 \x01(\rR\tcostUnits\x12%\n" +

@@ -69,9 +69,25 @@ Python extracts roles, dates, skills and achievements. Every fact records the so
 a confidence, the extraction version, and its processing status.
 
 **Done when**
-- [ ] Each fact links to the exact source span that produced it.
-- [ ] Text the extractor could not parse is surfaced honestly rather than dropped.
-- [ ] Extraction failure degrades to a manually completed profile rather than blocking the journey.
+- [x] Each fact links to the exact source span that produced it.
+- [x] Text the extractor could not parse is surfaced honestly rather than dropped.
+- [x] Extraction failure degrades to a manually completed profile rather than blocking the journey.
+
+**Done, at the honest floor.** The pipeline is complete end to end: completing an upload publishes
+candidate.document_uploaded.v1 in the same transaction that marks the document stored, the outbox
+routes it into an ExtractionWorkflow keyed by document id, and Go's adapter presigns a short-lived
+fetch URL that Python reads the document through - verifying the recorded digest itself before
+extracting, so a fact can never claim provenance in bytes nobody checked. Facts land in
+candidate.extracted_facts with NOT NULL half-open spans (a fact that cannot say where it came from
+is not stored), confidence, extractor version and a proposed status for PRO-04; storage is
+idempotent by wholesale replacement of proposals, sparing rows the candidate has acted on. Text no
+rule matched is stored as kind unparsed rather than dropped. The extractor itself is the floor:
+extract-1, deterministic rules over text/plain only - roles, date ranges, skills, achievements.
+PDF and DOCX refuse with UNASSESSABLE_INPUT, which the workflow records as extraction_state
+unsupported and completes cleanly: the profile continues manually, exactly the degradation the
+third criterion asks for. A model-backed extractor is a later ticket's swap behind the same port
+and taxonomy. The cross-language test uploads a real text CV to a real bucket and asserts the
+spans index back into the uploaded bytes.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md)
 

@@ -26,6 +26,7 @@ from prepeet.intelligence.v1 import intelligence_pb2, intelligence_pb2_grpc
 from prepeet.rpc.v1 import failure_pb2
 
 from prepeet_ai.composition import composer
+from prepeet_ai.extraction import service as extraction
 from prepeet_ai.transport.envelope import FailureError
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,45 @@ class IntelligenceService(intelligence_pb2_grpc.IntelligenceServiceServicer):  #
     Capabilities not yet built answer UNIMPLEMENTED, which is the honest
     gRPC vocabulary for exactly that.
     """
+
+    def ExtractCandidateProfile(  # noqa: N802 - the generated stub's casing
+        self,
+        request: intelligence_pb2.ExtractCandidateProfileRequest,
+        context: grpc.ServicerContext,
+    ) -> intelligence_pb2.ExtractCandidateProfileResponse:
+        """Read a candidate document into span-linked structured facts."""
+        try:
+            claims = extraction.extract_document(
+                fetch_url=request.document.fetch_url,
+                media_type=request.document.media_type,
+                digest=request.document.digest,
+            )
+        except FailureError as error:
+            logger.info(
+                "extraction refused",
+                extra={"code": error.failure.code.code},
+            )
+            _abort_with(context, error)
+            raise AssertionError("abort returns") from None
+
+        return intelligence_pb2.ExtractCandidateProfileResponse(
+            meta=intelligence_pb2.ResponseMeta(
+                schema_version=extraction.SCHEMA_VERSION,
+                calculation_version=extraction.EXTRACTOR_VERSION,
+                policy_version="none",
+                input_digest=request.document.digest,
+                output_validated=True,
+                usage=intelligence_pb2.Usage(cost_units=0, provider_calls=0),
+            ),
+            claims=[
+                intelligence_pb2.ProfileClaim(
+                    kind=claim.kind,
+                    value=claim.value,
+                    source_span=claim.source_span,
+                )
+                for claim in claims
+            ],
+        )
 
     def ComposeSessionBundle(  # noqa: N802 - the generated stub's casing
         self,

@@ -26,6 +26,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/ratelimit"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
@@ -114,7 +115,7 @@ func main() {
 	candidateStore := candidate.NewStore(pool)
 	candidates := candidateAdapter{
 		service:   candidate.NewService(candidateStore),
-		documents: candidate.NewDocuments(candidateStore, uploads),
+		documents: candidate.NewDocuments(candidateStore, uploads, outbox.New(pool)),
 	}
 
 	handler, err := api.NewServer(api.ServerConfig{

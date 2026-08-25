@@ -24,12 +24,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	sdkworker "go.temporal.io/sdk/worker"
 
+	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/email"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/temporal"
@@ -66,6 +68,11 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// extraction is the document_uploaded route, set only when the candidate
+	// task queue is actually being served; nil leaves the type unregistered
+	// so those events dead letter visibly instead of vanishing.
+	var extraction outbox.HandlerFunc
 
 	shutdownTelemetry, err := telemetry.Setup(ctx, telemetryConfig)
 	if err != nil {
@@ -146,10 +153,45 @@ func main() {
 			log.Info("interview worker started",
 				slog.String("task_queue", interview.TaskQueue),
 				slog.String("intelligence", cfg.IntelligenceAddress))
+
+			// The candidate task queue: CV extraction. It additionally needs
+			// object storage, because the adapter presigns the fetch URL the
+			// capability reads the document through. Without a bucket the
+			// queue is not served and document_uploaded events dead letter,
+			// which is the visible version of "extraction is off".
+			if cfg.S3Bucket == "" {
+				log.Warn("no S3 bucket is configured; the candidate task queue is not being served")
+			} else {
+				documents, err := objectstore.NewS3Store(ctx, objectstore.S3Config{
+					Endpoint: cfg.S3Endpoint, Region: cfg.S3Region, Bucket: cfg.S3Bucket,
+					AccessKey: cfg.S3AccessKey, SecretKey: cfg.S3SecretKey,
+					UsePathStyle: cfg.S3UsePathStyle,
+				})
+				if err != nil {
+					log.Error("object storage is not usable", slog.String("error", err.Error()))
+					os.Exit(1)
+				}
+
+				candidateWorker := sdkworker.New(workflows, candidate.ExtractionTaskQueue, sdkworker.Options{})
+				candidateWorker.RegisterWorkflow(candidate.ExtractionWorkflow)
+				extractionActivities := candidate.NewExtractionActivities(
+					candidate.NewStore(pool), newExtractor(conn, documents))
+				candidateWorker.RegisterActivity(extractionActivities.Extract)
+				candidateWorker.RegisterActivity(extractionActivities.StoreFacts)
+				candidateWorker.RegisterActivity(extractionActivities.MarkExtractionOutcome)
+				if err := candidateWorker.Start(); err != nil {
+					log.Error("the candidate worker did not start", slog.String("error", err.Error()))
+					os.Exit(1)
+				}
+				defer candidateWorker.Stop()
+				extraction = startExtraction(workflows)
+				log.Info("candidate worker started",
+					slog.String("task_queue", candidate.ExtractionTaskQueue))
+			}
 		}
 	}
 
-	router := routes()
+	router := routes(extraction)
 	for eventType, disposition := range router.Routes() {
 		log.Info("outbox route registered",
 			slog.String("event_type", eventType),
@@ -210,7 +252,6 @@ func main() {
 
 // routes is the composition root for event delivery.
 //
-// It is empty, and that is the correct state: nothing publishes an event yet.
 // The router fails on an unregistered type rather than treating it as nothing
 // to do, so the first person to add a producer cannot forget the consumer. The
 // event dead letters and somebody sees it.
@@ -218,10 +259,17 @@ func main() {
 // Handlers are registered here rather than by the packages that own them,
 // because a bounded context must not know that another one consumes its events.
 // See ADR-0005.
-func routes() *outbox.Router {
+func routes(extraction outbox.HandlerFunc) *outbox.Router {
 	router := outbox.NewRouter()
 
-	// Registrations land with the tickets that produce the events:
+	// PRO-03: an uploaded document starts its extraction workflow. Registered
+	// only when the candidate task queue is being served; otherwise the events
+	// dead letter, which is the visible form of "extraction is off here".
+	if extraction != nil {
+		router.Handle("candidate.document_uploaded.v1", extraction)
+	}
+
+	// Further registrations land with the tickets that produce the events:
 	//   INT-03 webhook delivery, PRC-02 processing, SCR-04 screening.
 
 	return router

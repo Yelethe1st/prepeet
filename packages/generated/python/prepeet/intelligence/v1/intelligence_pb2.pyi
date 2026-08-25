@@ -55,14 +55,16 @@ class RequestContext(_message.Message):
     def __init__(self, schema_version: _Optional[str] = ..., request_id: _Optional[str] = ..., tenant_id: _Optional[str] = ..., purpose: _Optional[_Union[Purpose, str]] = ..., correlation_id: _Optional[str] = ..., causation_id: _Optional[str] = ..., budget_cost_units: _Optional[int] = ..., approved_providers: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ObjectRef(_message.Message):
-    __slots__ = ("storage_key", "digest", "media_type")
+    __slots__ = ("storage_key", "digest", "media_type", "fetch_url")
     STORAGE_KEY_FIELD_NUMBER: _ClassVar[int]
     DIGEST_FIELD_NUMBER: _ClassVar[int]
     MEDIA_TYPE_FIELD_NUMBER: _ClassVar[int]
+    FETCH_URL_FIELD_NUMBER: _ClassVar[int]
     storage_key: str
     digest: str
     media_type: str
-    def __init__(self, storage_key: _Optional[str] = ..., digest: _Optional[str] = ..., media_type: _Optional[str] = ...) -> None: ...
+    fetch_url: str
+    def __init__(self, storage_key: _Optional[str] = ..., digest: _Optional[str] = ..., media_type: _Optional[str] = ..., fetch_url: _Optional[str] = ...) -> None: ...
 
 class Usage(_message.Message):
     __slots__ = ("cost_units", "provider_calls", "latency_ms")

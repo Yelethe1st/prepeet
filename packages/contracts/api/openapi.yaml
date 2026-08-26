@@ -688,6 +688,29 @@ paths:
                 $ref: "#/components/schemas/PersonaList"
         "401": { $ref: "#/components/responses/Unauthenticated" }
 
+  /interviews/practice-consent:
+    get:
+      tags: [interview]
+      operationId: getPracticeConsent
+      summary: The current practice recording consent text, versioned
+      description: |
+        What the wizard shows beside the recording choice. The version is
+        what creation must echo back: a session stores the version it
+        presented, so "what did this person agree to" resolves to exact
+        words forever. A stale version at creation is refused, and the
+        wizard refetches.
+      responses:
+        "200":
+          description: The current consent document.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeConsent"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
   /interviews:
     post:
       tags: [interview]
@@ -1173,7 +1196,7 @@ components:
 
     CreateInterviewRequest:
       type: object
-      required: [mode, discipline, role, shape, minutes, persona]
+      required: [mode, discipline, role, shape, minutes, persona, recording]
       properties:
         mode:
           type: string
@@ -1186,10 +1209,54 @@ components:
         shape: { type: string }
         minutes: { type: integer }
         persona: { type: string }
+        recording:
+          $ref: "#/components/schemas/RecordingConsent"
+
+    RecordingConsent:
+      type: object
+      description: |
+        What the session keeps, and which consent text the choice was made
+        against. The version must be the currently published one; a stale
+        version is refused so nobody consents to words they were not shown.
+      required: [preference, consent_version]
+      properties:
+        preference:
+          type: string
+          enum: [audio_and_transcript, transcript_only]
+        consent_version: { type: string }
+
+    PracticeConsent:
+      type: object
+      required: [version, title, statements, choices]
+      properties:
+        version: { type: string }
+        title: { type: string }
+        statements:
+          type: array
+          items: { type: string }
+        choices:
+          type: object
+          required: [audio_and_transcript, transcript_only]
+          properties:
+            audio_and_transcript:
+              $ref: "#/components/schemas/ConsentChoice"
+            transcript_only:
+              $ref: "#/components/schemas/ConsentChoice"
+
+    ConsentChoice:
+      type: object
+      required: [label, explanation]
+      properties:
+        label: { type: string }
+        explanation: { type: string }
+        forfeits:
+          type: array
+          items: { type: string }
+          description: What choosing this visibly costs. Named, never implied.
 
     InterviewSession:
       type: object
-      required: [id, mode, state, config, created_at]
+      required: [id, mode, state, config, recording_preference, consent_version, created_at]
       properties:
         id: { type: string, format: uuid }
         mode: { type: string, enum: [practice, screening] }
@@ -1198,6 +1265,12 @@ components:
           description: The lifecycle state, from session-lifecycle.md.
         config:
           $ref: "#/components/schemas/InterviewConfig"
+        recording_preference:
+          type: string
+          enum: [audio_and_transcript, transcript_only]
+        consent_version:
+          type: string
+          description: The consent text version the preference was chosen against.
         created_at: { type: string, format: date-time }
 
     InterviewConfig:

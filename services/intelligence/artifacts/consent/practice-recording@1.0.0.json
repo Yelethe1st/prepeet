@@ -1,0 +1,27 @@
+{
+  "type": "consent_text",
+  "reference": "consent/practice-recording",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "title": "What we keep from this session",
+    "statements": [
+      "This is a practice session. The recording, transcript and scores are visible only to you, are never sent to an employer, and you can delete them at any time from privacy and data settings.",
+      "Either way, you agree to recording once more on the device-check screen. Nothing is captured before that."
+    ],
+    "choices": {
+      "audio_and_transcript": {
+        "label": "The audio and the transcript",
+        "explanation": "Needed for replay and for delivery coaching - pace, pauses and fillers can only be measured from the recording."
+      },
+      "transcript_only": {
+        "label": "The transcript only",
+        "explanation": "Audio is discarded the moment the session ends. You keep your score, evidence and coaching.",
+        "forfeits": [
+          "Replay of this session",
+          "Delivery measurement - pace, pauses and fillers - for this session"
+        ]
+      }
+    }
+  }
+}

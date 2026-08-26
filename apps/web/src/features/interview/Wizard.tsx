@@ -13,8 +13,8 @@ import {
   SkeletonText,
 } from "@/shared/states";
 
-import { createInterview, fetchCatalogue } from "./api";
-import type { CreateInterviewRequest } from "./api";
+import { createInterview, fetchCatalogue, fetchPracticeConsent } from "./api";
+import type { CreateInterviewRequest, PracticeConsent } from "./api";
 import {
   STEPS,
   disciplineOf,
@@ -51,6 +51,10 @@ export function Wizard({
     queryKey: ["catalogue"],
     queryFn: fetchCatalogue,
   });
+  const consent = useQuery({
+    queryKey: ["practice-consent"],
+    queryFn: fetchPracticeConsent,
+  });
 
   const [step, setStep] = useState(boundStep(initialStep));
   const [selection, setSelection] = useState<Selection>(() => ({
@@ -63,6 +67,12 @@ export function Wizard({
   }));
   const [problem, setProblem] = useState<string | null>(null);
   const problemRef = useRef<HTMLParagraphElement>(null);
+  // The recording choice, defaulting to the prototype's: audio and
+  // transcript. The consent text beside it is what makes the default a
+  // choice rather than a silence.
+  const [recording, setRecording] = useState<
+    "audio_and_transcript" | "transcript_only"
+  >("audio_and_transcript");
 
   // The URL mirrors the state so the step is addressable and a reload or a
   // shared link restores everything entered. Replace rather than push: the
@@ -92,7 +102,12 @@ export function Wizard({
         const [field, message] = Object.entries(error.fieldErrors)[0] ?? [];
         if (field && message) {
           // The server refused a combination: return to the field's own
-          // step with the refusal focused and everything else preserved.
+          // step with the refusal focused and everything else preserved. A
+          // stale consent version additionally refetches the text, so what
+          // is shown is what the next attempt agrees to.
+          if (field === "recording.consent_version") {
+            void consent.refetch();
+          }
           setStep(stepFor(field));
           setProblem(message);
           return;
@@ -104,7 +119,7 @@ export function Wizard({
     },
   });
 
-  if (catalogue.isPending) {
+  if (catalogue.isPending || consent.isPending) {
     return (
       <LoadingSurface label="the catalogue">
         <SkeletonText width="50" />
@@ -113,8 +128,8 @@ export function Wizard({
       </LoadingSurface>
     );
   }
-  if (catalogue.isError) {
-    const failure = catalogue.error;
+  if (catalogue.isError || consent.isError) {
+    const failure = catalogue.isError ? catalogue.error : consent.error;
     return (
       <ErrorState
         what="The catalogue could not be loaded"
@@ -133,6 +148,7 @@ export function Wizard({
     );
   }
   const data = catalogue.data;
+  const consentDocument = consent.data;
 
   if (create.isSuccess) {
     return (
@@ -177,6 +193,10 @@ export function Wizard({
       shape: selection.shape ?? "",
       minutes: selection.minutes ?? 0,
       persona: selection.persona ?? "",
+      recording: {
+        preference: recording,
+        consent_version: consentDocument.version,
+      },
     });
   };
 
@@ -212,7 +232,13 @@ export function Wizard({
           <LengthStep catalogue={data} selection={selection} choose={choose} />
         ) : null}
         {step === 5 ? (
-          <ReviewStep catalogue={data} selection={selection} />
+          <ReviewStep
+            catalogue={data}
+            selection={selection}
+            consent={consentDocument}
+            recording={recording}
+            onRecording={setRecording}
+          />
         ) : null}
       </div>
 
@@ -443,9 +469,15 @@ function LengthStep({
 function ReviewStep({
   catalogue,
   selection,
+  consent,
+  recording,
+  onRecording,
 }: {
   catalogue: Catalogue;
   selection: Selection;
+  consent: PracticeConsent;
+  recording: "audio_and_transcript" | "transcript_only";
+  onRecording: (preference: "audio_and_transcript" | "transcript_only") => void;
 }) {
   const role = catalogue.roles.find((each) => each.id === selection.role);
   const shape = catalogue.shapes.find((each) => each.id === selection.shape);
@@ -453,25 +485,93 @@ function ReviewStep({
     (each) => each.id === selection.persona,
   );
   return (
-    <dl className="space-y-2 text-sm">
-      <div className="flex justify-between gap-4">
-        <dt className="text-fg-2">Role</dt>
-        <dd className="text-right font-semibold">{role?.title}</dd>
+    <div className="space-y-6">
+      <dl className="space-y-2 text-sm">
+        <div className="flex justify-between gap-4">
+          <dt className="text-fg-2">Role</dt>
+          <dd className="text-right font-semibold">{role?.title}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-fg-2">Shape</dt>
+          <dd className="text-right font-semibold">{shape?.name}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-fg-2">Interviewer</dt>
+          <dd className="text-right font-semibold">{persona?.name}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-fg-2">Length</dt>
+          <dd className="text-right font-semibold">
+            {selection.minutes} minutes
+          </dd>
+        </div>
+      </dl>
+
+      <div className="rounded-md border border-info-border bg-info-soft px-4 py-3 text-sm text-info-fg">
+        {consent.statements.map((statement) => (
+          <p key={statement} className="mt-1 first:mt-0">
+            {statement}
+          </p>
+        ))}
       </div>
-      <div className="flex justify-between gap-4">
-        <dt className="text-fg-2">Shape</dt>
-        <dd className="text-right font-semibold">{shape?.name}</dd>
-      </div>
-      <div className="flex justify-between gap-4">
-        <dt className="text-fg-2">Interviewer</dt>
-        <dd className="text-right font-semibold">{persona?.name}</dd>
-      </div>
-      <div className="flex justify-between gap-4">
-        <dt className="text-fg-2">Length</dt>
-        <dd className="text-right font-semibold">
-          {selection.minutes} minutes
-        </dd>
-      </div>
-    </dl>
+
+      <fieldset className="rounded-md border border-border bg-surface px-4 py-3">
+        <legend className="px-1 text-sm font-semibold">{consent.title}</legend>
+        <div className="space-y-2">
+          <label className="flex cursor-pointer gap-3">
+            <input
+              type="radio"
+              name="recording"
+              value="audio_and_transcript"
+              checked={recording === "audio_and_transcript"}
+              onChange={() => onRecording("audio_and_transcript")}
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-semibold">
+                {consent.choices.audio_and_transcript.label}
+              </span>
+              <span className="block text-sm text-fg-2">
+                {consent.choices.audio_and_transcript.explanation}
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer gap-3">
+            <input
+              type="radio"
+              name="recording"
+              value="transcript_only"
+              checked={recording === "transcript_only"}
+              onChange={() => onRecording("transcript_only")}
+              className="mt-1"
+            />
+            <span>
+              <span className="block text-sm font-semibold">
+                {consent.choices.transcript_only.label}
+              </span>
+              <span className="block text-sm text-fg-2">
+                {consent.choices.transcript_only.explanation}
+              </span>
+            </span>
+          </label>
+          {recording === "transcript_only" &&
+          consent.choices.transcript_only.forfeits ? (
+            <div
+              role="status"
+              className="rounded-md border border-warning-border bg-warning-soft px-3 py-2 text-sm text-warning-fg"
+            >
+              <p className="font-semibold">
+                You are choosing to lose, for this session:
+              </p>
+              <ul className="mt-1 list-disc pl-5">
+                {consent.choices.transcript_only.forfeits.map((forfeit) => (
+                  <li key={forfeit}>{forfeit}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </fieldset>
+    </div>
   );
 }

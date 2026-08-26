@@ -25,6 +25,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 )
 
 func main() {
@@ -62,6 +63,10 @@ func run(ctx context.Context) error {
 	validators := map[string]content.Validator{
 		"catalogue": func(body json.RawMessage) error {
 			_, err := catalog.Parse(body)
+			return err
+		},
+		"consent_text": func(body json.RawMessage) error {
+			_, err := interview.ParseConsent(body)
 			return err
 		},
 	}

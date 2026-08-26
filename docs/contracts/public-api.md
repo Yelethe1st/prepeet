@@ -93,6 +93,7 @@ POST   /api/v1/me/consents
 POST   /api/v1/me/data-requests
 
 # Catalog/session
+GET  /api/v1/interviews/practice-consent
 GET  /api/v1/catalog/disciplines
 GET  /api/v1/catalog/roles
 GET  /api/v1/catalog/interview-shapes

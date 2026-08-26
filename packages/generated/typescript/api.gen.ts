@@ -509,6 +509,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/practice-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The current practice recording consent text, versioned
+         * @description What the wizard shows beside the recording choice. The version is
+         *     what creation must echo back: a session stores the version it
+         *     presented, so "what did this person agree to" resolves to exact
+         *     words forever. A stale version at creation is refused, and the
+         *     wizard refetches.
+         */
+        get: operations["getPracticeConsent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews": {
         parameters: {
             query?: never;
@@ -755,6 +779,32 @@ export interface components {
             shape: string;
             minutes: number;
             persona: string;
+            recording: components["schemas"]["RecordingConsent"];
+        };
+        /**
+         * @description What the session keeps, and which consent text the choice was made
+         *     against. The version must be the currently published one; a stale
+         *     version is refused so nobody consents to words they were not shown.
+         */
+        RecordingConsent: {
+            /** @enum {string} */
+            preference: "audio_and_transcript" | "transcript_only";
+            consent_version: string;
+        };
+        PracticeConsent: {
+            version: string;
+            title: string;
+            statements: string[];
+            choices: {
+                audio_and_transcript: components["schemas"]["ConsentChoice"];
+                transcript_only: components["schemas"]["ConsentChoice"];
+            };
+        };
+        ConsentChoice: {
+            label: string;
+            explanation: string;
+            /** @description What choosing this visibly costs. Named, never implied. */
+            forfeits?: string[];
         };
         InterviewSession: {
             /** Format: uuid */
@@ -764,6 +814,10 @@ export interface components {
             /** @description The lifecycle state, from session-lifecycle.md. */
             state: string;
             config: components["schemas"]["InterviewConfig"];
+            /** @enum {string} */
+            recording_preference: "audio_and_transcript" | "transcript_only";
+            /** @description The consent text version the preference was chosen against. */
+            consent_version: string;
             /** Format: date-time */
             created_at: string;
         };
@@ -1797,6 +1851,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersonaList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    getPracticeConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current consent document. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeConsent"];
                 };
             };
             401: components["responses"]["Unauthenticated"];

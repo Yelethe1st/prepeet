@@ -13,7 +13,7 @@ import (
 const getSession = `-- name: GetSession :one
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
-       blueprint_id, config, state, version,
+       blueprint_id, config, recording_preference, consent_version, state, version,
        coalesce(bundle_ref, '')::text AS bundle_ref,
        coalesce(bundle_digest, '')::text AS bundle_digest,
        coalesce(bundle_revision, 0)::integer AS bundle_revision,
@@ -24,20 +24,22 @@ WHERE id = $1::uuid
 `
 
 type GetSessionRow struct {
-	ID             string
-	Mode           string
-	CandidateID    string
-	TenantID       string
-	BlueprintID    string
-	Config         []byte
-	State          string
-	Version        int32
-	BundleRef      string
-	BundleDigest   string
-	BundleRevision int32
-	FailureCode    string
-	CreatedAt      time.Time
-	StateChangedAt time.Time
+	ID                  string
+	Mode                string
+	CandidateID         string
+	TenantID            string
+	BlueprintID         string
+	Config              []byte
+	RecordingPreference string
+	ConsentVersion      string
+	State               string
+	Version             int32
+	BundleRef           string
+	BundleDigest        string
+	BundleRevision      int32
+	FailureCode         string
+	CreatedAt           time.Time
+	StateChangedAt      time.Time
 }
 
 func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, error) {
@@ -50,6 +52,8 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 		&i.TenantID,
 		&i.BlueprintID,
 		&i.Config,
+		&i.RecordingPreference,
+		&i.ConsentVersion,
 		&i.State,
 		&i.Version,
 		&i.BundleRef,
@@ -124,19 +128,23 @@ func (q *Queries) InsertAuditEvent(ctx context.Context, arg InsertAuditEventPara
 
 const insertSession = `-- name: InsertSession :exec
 
-INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, blueprint_id, config)
+INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, blueprint_id, config,
+                                recording_preference, consent_version)
 VALUES ($1::uuid, $2::text, $3::uuid,
         nullif($4::text, '')::uuid, $5::text,
-        $6::jsonb)
+        $6::jsonb,
+        $7::text, $8::text)
 `
 
 type InsertSessionParams struct {
-	ID          string
-	Mode        string
-	CandidateID string
-	TenantID    string
-	BlueprintID string
-	Config      []byte
+	ID                  string
+	Mode                string
+	CandidateID         string
+	TenantID            string
+	BlueprintID         string
+	Config              []byte
+	RecordingPreference string
+	ConsentVersion      string
 }
 
 // The session store's queries. sqlc generates the Go beside this file;
@@ -149,6 +157,8 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.TenantID,
 		arg.BlueprintID,
 		arg.Config,
+		arg.RecordingPreference,
+		arg.ConsentVersion,
 	)
 	return err
 }

@@ -84,11 +84,35 @@ const catalogue: Catalogue = {
   ],
 };
 
+const consent = {
+  version: "1.0.0",
+  title: "What we keep from this session",
+  statements: [
+    "This is a practice session. The recording, transcript and scores are visible only to you.",
+    "Either way, you agree to recording once more on the device-check screen.",
+  ],
+  choices: {
+    audio_and_transcript: {
+      label: "The audio and the transcript",
+      explanation: "Needed for replay and for delivery coaching.",
+    },
+    transcript_only: {
+      label: "The transcript only",
+      explanation: "Audio is discarded the moment the session ends.",
+      forfeits: [
+        "Replay of this session",
+        "Delivery measurement for this session",
+      ],
+    },
+  },
+};
+
 function renderWizard(initial?: {
   step?: number;
   selection?: Record<string, string>;
 }) {
   vi.mocked(api.fetchCatalogue).mockResolvedValue(catalogue);
+  vi.mocked(api.fetchPracticeConsent).mockResolvedValue(consent);
   return render(
     <Wizard
       initialStep={initial?.step}
@@ -104,6 +128,7 @@ function renderWizard(initial?: {
 
 afterEach(() => {
   vi.mocked(api.fetchCatalogue).mockReset();
+  vi.mocked(api.fetchPracticeConsent).mockReset();
   vi.mocked(api.createInterview).mockReset();
 });
 
@@ -211,6 +236,8 @@ describe("review and creation", () => {
         minutes: 40,
         persona: "per_ama",
       },
+      recording_preference: "audio_and_transcript",
+      consent_version: "1.0.0",
       created_at: "2026-08-25T10:00:00Z",
     });
     renderWizard();
@@ -227,8 +254,93 @@ describe("review and creation", () => {
       shape: "shape_technical",
       minutes: 40,
       persona: "per_ama",
+      recording: {
+        preference: "audio_and_transcript",
+        consent_version: "1.0.0",
+      },
     });
     expect(await screen.findByText(/being composed/i)).toBeInTheDocument();
+  });
+
+  it("shows the consent text beside the choice, and audio is the prototype's default", async () => {
+    renderWizard();
+    const user = userEvent.setup();
+
+    await walkToReview(user);
+
+    expect(
+      screen.getByText(/what we keep from this session/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/visible only to you/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/once more on the device-check screen/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /audio and the transcript/i }),
+    ).toBeChecked();
+  });
+
+  it("choosing transcript-only names what it forfeits, visibly", async () => {
+    vi.mocked(api.createInterview).mockResolvedValue({
+      id: "00000000-0000-7000-8000-0000000000e1",
+      mode: "practice",
+      state: "composing",
+      config: {
+        discipline: "software-engineering",
+        role: "rl_swe",
+        shape: "shape_technical",
+        minutes: 40,
+        persona: "per_ama",
+      },
+      recording_preference: "transcript_only",
+      consent_version: "1.0.0",
+      created_at: "2026-08-26T10:00:00Z",
+    });
+    renderWizard();
+    const user = userEvent.setup();
+
+    await walkToReview(user);
+    await user.click(screen.getByRole("radio", { name: /transcript only/i }));
+
+    // The second criterion: the forfeit is named at the moment of choosing,
+    // not implied - replay and delivery measurement, by name.
+    expect(screen.getByText(/you are choosing to lose/i)).toBeInTheDocument();
+    expect(screen.getByText(/replay of this session/i)).toBeInTheDocument();
+    expect(screen.getByText(/delivery measurement/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /start composing/i }));
+    expect(api.createInterview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recording: { preference: "transcript_only", consent_version: "1.0.0" },
+      }),
+    );
+  });
+
+  it("a stale consent refusal stays on review with the current text refetched", async () => {
+    vi.mocked(api.createInterview).mockRejectedValue(
+      new ApiError({
+        status: 400,
+        message: "Some of the details were not accepted.",
+        fieldErrors: {
+          "recording.consent_version":
+            "The consent text has changed since it was shown. Review the current text and choose again.",
+        },
+      }),
+    );
+    renderWizard();
+    const user = userEvent.setup();
+
+    await walkToReview(user);
+    vi.mocked(api.fetchPracticeConsent).mockClear();
+    await user.click(screen.getByRole("button", { name: /start composing/i }));
+
+    expect(
+      await screen.findByText(/consent text has changed/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /review/i }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(api.fetchPracticeConsent).toHaveBeenCalled());
   });
 
   it("returns to the refused field's own step with everything preserved and the error focused", async () => {

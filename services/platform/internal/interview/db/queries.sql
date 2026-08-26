@@ -2,15 +2,17 @@
 -- ADR-0010 records why no SQL lives in Go source.
 
 -- name: InsertSession :exec
-INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, blueprint_id, config)
+INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, blueprint_id, config,
+                                recording_preference, consent_version)
 VALUES (sqlc.arg(id)::uuid, sqlc.arg(mode)::text, sqlc.arg(candidate_id)::uuid,
         nullif(sqlc.arg(tenant_id)::text, '')::uuid, sqlc.arg(blueprint_id)::text,
-        sqlc.arg(config)::jsonb);
+        sqlc.arg(config)::jsonb,
+        sqlc.arg(recording_preference)::text, sqlc.arg(consent_version)::text);
 
 -- name: GetSession :one
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
-       blueprint_id, config, state, version,
+       blueprint_id, config, recording_preference, consent_version, state, version,
        coalesce(bundle_ref, '')::text AS bundle_ref,
        coalesce(bundle_digest, '')::text AS bundle_digest,
        coalesce(bundle_revision, 0)::integer AS bundle_revision,

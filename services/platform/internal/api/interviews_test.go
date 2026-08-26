@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 
 type fakeInterviews struct {
 	created   api.InterviewSession
+	consent   api.PracticeConsent
 	err       error
 	selection *api.InterviewSelection
 	users     []string
@@ -27,6 +29,10 @@ func (f *fakeInterviews) CreatePractice(_ context.Context, userID string, select
 	f.users = append(f.users, userID)
 	f.selection = &selection
 	return f.created, f.err
+}
+
+func (f *fakeInterviews) PracticeConsent(_ context.Context) (api.PracticeConsent, error) {
+	return f.consent, f.err
 }
 
 func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
@@ -45,7 +51,8 @@ func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
 	return handler
 }
 
-const validCreate = `{"mode":"practice","discipline":"software-engineering","role":"rl_swe","shape":"shape_technical","minutes":40,"persona":"per_ravi"}`
+const validCreate = `{"mode":"practice","discipline":"software-engineering","role":"rl_swe","shape":"shape_technical","minutes":40,"persona":"per_ravi",` +
+	`"recording":{"preference":"transcript_only","consent_version":"1.0.0"}}`
 
 func TestCreatingAnInterviewNeedsASession(t *testing.T) {
 	handler := serveInterviews(t, &fakeInterviews{})
@@ -62,7 +69,9 @@ func TestTheSelectionReachesThePortUnderTheSessionsOwnUser(t *testing.T) {
 		Config: api.InterviewSelection{
 			Discipline: "software-engineering", Role: "rl_swe",
 			Shape: "shape_technical", Minutes: 40, Persona: "per_ravi",
+			Recording: api.RecordingConsent{Preference: "transcript_only", ConsentVersion: "1.0.0"},
 		},
+		RecordingPreference: "transcript_only", ConsentVersion: "1.0.0",
 		CreatedAt: time.Date(2026, 8, 25, 10, 0, 0, 0, time.UTC),
 	}}
 	handler := serveInterviews(t, interviews)
@@ -75,6 +84,10 @@ func TestTheSelectionReachesThePortUnderTheSessionsOwnUser(t *testing.T) {
 	if interviews.selection == nil || interviews.selection.Persona != "per_ravi" || interviews.selection.Minutes != 40 {
 		t.Fatalf("the selection arrived as %+v", interviews.selection)
 	}
+	if interviews.selection.Recording.Preference != "transcript_only" ||
+		interviews.selection.Recording.ConsentVersion != "1.0.0" {
+		t.Fatalf("the recording choice arrived as %+v", interviews.selection.Recording)
+	}
 	if interviews.users[0] != "00000000-0000-7000-8000-0000000000f9" {
 		t.Fatalf("the port saw user %s", interviews.users[0])
 	}
@@ -84,10 +97,15 @@ func TestTheSelectionReachesThePortUnderTheSessionsOwnUser(t *testing.T) {
 		Config struct {
 			Shape string `json:"shape"`
 		} `json:"config"`
+		RecordingPreference string `json:"recording_preference"`
+		ConsentVersion      string `json:"consent_version"`
 	}
 	decodeInto(t, response, &body)
 	if body.State != "composing" || body.Config.Shape != "shape_technical" {
 		t.Fatalf("body = %+v", body)
+	}
+	if body.RecordingPreference != "transcript_only" || body.ConsentVersion != "1.0.0" {
+		t.Fatalf("the session does not answer what it keeps: %+v", body)
 	}
 }
 
@@ -98,7 +116,8 @@ func TestScreeningCannotBeAskedForAtAll(t *testing.T) {
 	handler := serveInterviews(t, interviews)
 
 	response := post(t, handler, "/api/v1/interviews",
-		`{"mode":"screening","discipline":"software-engineering","role":"rl_swe","shape":"shape_technical","minutes":40,"persona":"per_ravi"}`,
+		`{"mode":"screening","discipline":"software-engineering","role":"rl_swe","shape":"shape_technical","minutes":40,"persona":"per_ravi",`+
+			`"recording":{"preference":"transcript_only","consent_version":"1.0.0"}}`,
 		sessionCookie())
 
 	if response.Code != http.StatusBadRequest {
@@ -130,5 +149,62 @@ func TestACatalogueRefusalComesBackFieldByField(t *testing.T) {
 	decodeInto(t, response, &body)
 	if len(body.Error.FieldErrors) != 2 || body.Error.FieldErrors[0].Field != "shape" || body.Error.FieldErrors[1].Code != "DURATION_NOT_OFFERED" {
 		t.Fatalf("field errors = %+v", body.Error.FieldErrors)
+	}
+}
+
+func TestTheConsentTextIsServedWithItsVersion(t *testing.T) {
+	interviews := &fakeInterviews{consent: api.PracticeConsent{
+		Version: "1.0.0", Title: "What we keep from this session",
+		Statements: []string{"practice only"},
+		AudioAndTranscript: api.ConsentChoiceView{
+			Label: "The audio and the transcript", Explanation: "replay and delivery",
+		},
+		TranscriptOnly: api.ConsentChoiceView{
+			Label: "The transcript only", Explanation: "audio discarded",
+			Forfeits: []string{"Replay of this session", "Delivery measurement for this session"},
+		},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/interviews/practice-consent", nil)
+	request.AddCookie(sessionCookie())
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+
+	var body struct {
+		Version string `json:"version"`
+		Choices struct {
+			TranscriptOnly struct {
+				Forfeits []string `json:"forfeits"`
+			} `json:"transcript_only"`
+		} `json:"choices"`
+	}
+	decodeInto(t, response, &body)
+	if body.Version != "1.0.0" {
+		t.Fatalf("version = %q", body.Version)
+	}
+	// The second criterion at the wire: the forfeits travel by name.
+	if len(body.Choices.TranscriptOnly.Forfeits) != 2 {
+		t.Fatalf("forfeits = %v", body.Choices.TranscriptOnly.Forfeits)
+	}
+}
+
+func TestARecordingPreferenceOutsideTheEnumIsRefused(t *testing.T) {
+	interviews := &fakeInterviews{}
+	handler := serveInterviews(t, interviews)
+
+	response := post(t, handler, "/api/v1/interviews",
+		`{"mode":"practice","discipline":"software-engineering","role":"rl_swe","shape":"shape_technical","minutes":40,"persona":"per_ravi",`+
+			`"recording":{"preference":"everything_forever","consent_version":"1.0.0"}}`,
+		sessionCookie())
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("an unknown preference got %d, want 400", response.Code)
+	}
+	if interviews.selection != nil {
+		t.Fatal("the unknown preference reached the port")
 	}
 }

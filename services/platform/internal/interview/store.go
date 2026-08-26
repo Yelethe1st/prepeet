@@ -53,7 +53,15 @@ type Session struct {
 	// Config is the validated catalogue selection the session was created
 	// from, immutable by trigger from the moment it is written. The bundle,
 	// not this, records what actually ran.
-	Config         json.RawMessage
+	Config json.RawMessage
+	// RecordingPreference is what this session keeps - audio_and_transcript
+	// or transcript_only - chosen at composition, honoured at capture,
+	// immutable by the same trigger as config.
+	RecordingPreference string
+	// ConsentVersion is the published version of the consent text the
+	// preference was chosen against, so "what did this person agree to"
+	// resolves to exact words forever.
+	ConsentVersion string
 	State          State
 	Version        int
 	BundleRef      string
@@ -135,13 +143,21 @@ func (s *Store) Create(ctx context.Context, session Session, actor Actor) error 
 	if len(config) == 0 {
 		config = json.RawMessage(`{}`)
 	}
+	preference := session.RecordingPreference
+	if preference == "" {
+		// The data-minimising reading is the only defensible default: a
+		// session that never stated a preference keeps the least.
+		preference = RecordingTranscriptOnly
+	}
 	if err := db.New(tx).InsertSession(ctx, db.InsertSessionParams{
-		ID:          session.ID,
-		Mode:        session.Mode,
-		CandidateID: session.CandidateID,
-		TenantID:    session.TenantID,
-		BlueprintID: session.BlueprintID,
-		Config:      config,
+		ID:                  session.ID,
+		Mode:                session.Mode,
+		CandidateID:         session.CandidateID,
+		TenantID:            session.TenantID,
+		BlueprintID:         session.BlueprintID,
+		Config:              config,
+		RecordingPreference: preference,
+		ConsentVersion:      session.ConsentVersion,
 	}); err != nil {
 		return fmt.Errorf("interview: inserting session: %w", err)
 	}
@@ -202,6 +218,7 @@ func (s *Store) get(ctx context.Context, tx pgx.Tx, sessionID string) (Session, 
 	return Session{
 		ID: row.ID, Mode: row.Mode, CandidateID: row.CandidateID, TenantID: row.TenantID,
 		BlueprintID: row.BlueprintID, Config: json.RawMessage(row.Config),
+		RecordingPreference: row.RecordingPreference, ConsentVersion: row.ConsentVersion,
 		State: State(row.State), Version: int(row.Version),
 		BundleRef: row.BundleRef, BundleDigest: row.BundleDigest,
 		BundleRevision: int(row.BundleRevision), FailureCode: row.FailureCode,

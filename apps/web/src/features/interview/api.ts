@@ -9,6 +9,7 @@ import type { Catalogue } from "./rules";
 export type CreateInterviewRequest =
   components["schemas"]["CreateInterviewRequest"];
 export type InterviewSession = components["schemas"]["InterviewSession"];
+export type PracticeConsent = components["schemas"]["PracticeConsent"];
 
 /**
  * The four catalogue collections, together: the wizard needs them all
@@ -37,4 +38,13 @@ export async function createInterview(
     method: "POST",
     body: request,
   });
+}
+
+/**
+ * The current consent text with its version. The version is what creation
+ * echoes back, so the stored agreement points at words the person was
+ * actually shown; the server refuses a stale one.
+ */
+export async function fetchPracticeConsent(): Promise<PracticeConsent> {
+  return apiFetch<PracticeConsent>("/interviews/practice-consent");
 }

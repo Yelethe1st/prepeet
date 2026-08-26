@@ -15,6 +15,15 @@ vi.mock("@/features/interview/api");
  */
 describe("NewPracticeInterviewPage", () => {
   async function renderAt(parameters: Record<string, string>): Promise<void> {
+    vi.mocked(api.fetchPracticeConsent).mockResolvedValue({
+      version: "1.0.0",
+      title: "What we keep from this session",
+      statements: ["practice only"],
+      choices: {
+        audio_and_transcript: { label: "A", explanation: "e" },
+        transcript_only: { label: "B", explanation: "e", forfeits: ["replay"] },
+      },
+    });
     vi.mocked(api.fetchCatalogue).mockResolvedValue({
       disciplines: [{ id: "d", name: "D" }],
       roles: [

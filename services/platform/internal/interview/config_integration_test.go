@@ -27,6 +27,8 @@ func TestTheSelectionIsStoredWholeAndImmutable(t *testing.T) {
 	session := interview.Session{
 		ID: id.New().String(), Mode: "practice", CandidateID: candidateID,
 		BlueprintID: "plan/shape_technical", Config: config,
+		RecordingPreference: interview.RecordingAudioAndTranscript,
+		ConsentVersion:      "1.0.0",
 	}
 	if err := store.Create(ctx, session, candidate); err != nil {
 		t.Fatalf("create: %v", err)
@@ -43,6 +45,9 @@ func TestTheSelectionIsStoredWholeAndImmutable(t *testing.T) {
 	if stored["persona"] != "per_ravi" || stored["minutes"] != float64(40) {
 		t.Fatalf("config = %s", created.Config)
 	}
+	if created.RecordingPreference != "audio_and_transcript" || created.ConsentVersion != "1.0.0" {
+		t.Fatalf("recording consent = %q against %q", created.RecordingPreference, created.ConsentVersion)
+	}
 
 	// The guard, attacked directly: an update that rewrites config is
 	// refused by the trigger whatever role attempts it.
@@ -51,6 +56,14 @@ func TestTheSelectionIsStoredWholeAndImmutable(t *testing.T) {
 		t.Fatalf("admin connect: %v", err)
 	}
 	defer admin.Close(ctx)
+
+	// The recording consent is under the same trigger: what a person agreed
+	// to keep cannot be rewritten after the fact.
+	_, err = admin.Exec(ctx,
+		`UPDATE interview.sessions SET recording_preference = 'audio_and_transcript', consent_version = '9.9.9' WHERE id = $1`, session.ID)
+	if err == nil || !strings.Contains(err.Error(), "immutable") {
+		t.Fatalf("rewriting the consent = %v, want the trigger's refusal", err)
+	}
 	_, err = admin.Exec(ctx,
 		`UPDATE interview.sessions SET config = '{"persona":"rewritten"}' WHERE id = $1`, session.ID)
 	if err == nil || !strings.Contains(err.Error(), "immutable") {

@@ -149,8 +149,25 @@ transcript, or transcript only — and understands what each choice costs them.
 
 **Done when**
 - [ ] The recording preference is stored on the session and honoured by RTC-05.
-- [ ] Choosing transcript-only visibly forfeits replay and delivery measurement for that session.
-- [ ] The preference is versioned with the consent text presented alongside it.
+- [x] Choosing transcript-only visibly forfeits replay and delivery measurement for that session.
+- [x] The preference is versioned with the consent text presented alongside it.
+
+**Stored, versioned, refused when stale; the honouring is RTC-05's.** The consent text itself is
+a registry artifact - consent/practice-recording, the versioning with the strongest requirement
+in the product, because a session stores the version it presented and that pointer must resolve
+to identical words forever. The loader runs the interview context's own parse as its validating
+step, and the parse refuses a text whose transcript-only choice names no forfeit: an unnamed cost
+is one nobody agreed to. The wizard's review step shows the statements and both choices from the
+served document (GET /interviews/practice-consent), audio pre-checked as the prototype has it,
+and choosing transcript-only surfaces "you are choosing to lose" with replay and delivery
+measurement by name, at the moment of choosing.
+
+Creation echoes the version back and the adapter refuses a stale one (CONSENT_STALE, field
+error) - nobody consents to words they were not shown; the wizard refetches and re-presents. The
+preference and version land on the session under the same immutability trigger as config, proven
+by attacking it, with transcript_only as the schema's legacy default because data-minimising is
+the only defensible reading of a silence. The first box stays half-open honestly: the row is
+what RTC-05 reads when media capture exists, and nothing captures anything today.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md) · [retention-and-deletion.md](../../security/retention-and-deletion.md)
 

@@ -7,6 +7,7 @@ import (
 
 	api "github.com/Yelethe1st/prepeet/services/platform/internal/api"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 )
@@ -18,6 +19,44 @@ import (
 type interviewAdapter struct {
 	catalogue *catalog.Service
 	sessions  *interview.Store
+	registry  *content.Store
+}
+
+// PracticeConsent answers the currently published consent text.
+func (a interviewAdapter) PracticeConsent(ctx context.Context) (api.PracticeConsent, error) {
+	document, version, err := a.currentConsent(ctx)
+	if err != nil {
+		return api.PracticeConsent{}, err
+	}
+	return api.PracticeConsent{
+		Version:    version,
+		Title:      document.Title,
+		Statements: document.Statements,
+		AudioAndTranscript: api.ConsentChoiceView{
+			Label:       document.Choices.AudioAndTranscript.Label,
+			Explanation: document.Choices.AudioAndTranscript.Explanation,
+			Forfeits:    document.Choices.AudioAndTranscript.Forfeits,
+		},
+		TranscriptOnly: api.ConsentChoiceView{
+			Label:       document.Choices.TranscriptOnly.Label,
+			Explanation: document.Choices.TranscriptOnly.Explanation,
+			Forfeits:    document.Choices.TranscriptOnly.Forfeits,
+		},
+	}, nil
+}
+
+// currentConsent resolves and parses the published consent text. Platform
+// content: practice has no tenant, so no tenant override applies.
+func (a interviewAdapter) currentConsent(ctx context.Context) (interview.ConsentDocument, string, error) {
+	artifact, err := a.registry.Resolve(ctx, interview.ConsentReference, "")
+	if err != nil {
+		return interview.ConsentDocument{}, "", fmt.Errorf("resolving the consent text: %w", err)
+	}
+	document, err := interview.ParseConsent(artifact.Body)
+	if err != nil {
+		return interview.ConsentDocument{}, "", err
+	}
+	return document, artifact.Version, nil
 }
 
 func (a interviewAdapter) CreatePractice(ctx context.Context, userID string, selection api.InterviewSelection) (api.InterviewSession, error) {
@@ -29,6 +68,20 @@ func (a interviewAdapter) CreatePractice(ctx context.Context, userID string, sel
 	}
 	if refused := selectionErrors(catalogue, selection); refused != nil {
 		return api.InterviewSession{}, refused
+	}
+
+	// The consent version must be the one currently published: a session may
+	// only record a version whose exact words the person was actually shown,
+	// and a stale one means the text changed under them - the wizard
+	// refetches and shows the new words rather than silently upgrading the
+	// agreement.
+	_, currentVersion, err := a.currentConsent(ctx)
+	if err != nil {
+		return api.InterviewSession{}, err
+	}
+	if selection.Recording.ConsentVersion != currentVersion {
+		return api.InterviewSession{}, api.Invalid("recording.consent_version", "CONSENT_STALE",
+			"The consent text has changed since it was shown. Review the current text and choose again.")
 	}
 
 	config, err := json.Marshal(map[string]any{
@@ -49,8 +102,10 @@ func (a interviewAdapter) CreatePractice(ctx context.Context, userID string, sel
 		// The blueprint is the shape's plan artifact: what composition will
 		// resolve and pin. The full selection rides the bundle through the
 		// session's own config.
-		BlueprintID: "plan/" + selection.Shape,
-		Config:      config,
+		BlueprintID:         "plan/" + selection.Shape,
+		Config:              config,
+		RecordingPreference: selection.Recording.Preference,
+		ConsentVersion:      selection.Recording.ConsentVersion,
 	}
 	actor := interview.Actor{ID: userID, Type: "user"}
 	if err := a.sessions.Create(ctx, session, actor); err != nil {
@@ -73,8 +128,10 @@ func (a interviewAdapter) CreatePractice(ctx context.Context, userID string, sel
 
 	return api.InterviewSession{
 		ID: composing.ID, Mode: composing.Mode, State: string(composing.State),
-		Config:    selection,
-		CreatedAt: composing.CreatedAt,
+		Config:              selection,
+		RecordingPreference: composing.RecordingPreference,
+		ConsentVersion:      composing.ConsentVersion,
+		CreatedAt:           composing.CreatedAt,
 	}, nil
 }
 

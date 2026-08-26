@@ -137,6 +137,7 @@ func main() {
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),
+			registry:  content.NewStore(pool),
 		},
 		Environment: cfg.Environment,
 		Health:      checks,

@@ -157,47 +157,46 @@ const (
 
 	// Tenant configuration.
 	TenantSettingsManage Capability = "tenant.settings_manage"
-
 )
 
 // catalogue maps every capability to what it requires.
 var catalogue = map[Capability]Requirement{
-	AppealManage: {Tenant: true, Scope: ScopeCampaign},
-	AppealRaise: {Tenant: true, Scope: ScopeCampaign},
-	CampaignManage: {Tenant: true, Scope: ScopeCampaign},
-	CampaignRead: {Tenant: true},
-	CandidatePracticeDeleteOwn: {Owner: true, StepUp: true},
-	CandidatePracticeReadOwn: {Owner: true},
-	CandidateProfileReadOwn: {Owner: true},
-	CandidateProfileWriteOwn: {Owner: true},
-	ContentArtifactDraft: {Platform: true},
-	ContentArtifactPublish: {Platform: true, StepUp: true},
-	ContentArtifactRollback: {Platform: true, StepUp: true},
-	EvaluationCompare: {Tenant: true, Scope: ScopeCampaign},
-	EvaluationReadScreen: {Tenant: true, Scope: ScopeCampaign},
-	EvaluationReview: {Tenant: true, Scope: ScopeCampaign},
-	InvitationManage: {Tenant: true},
-	InvitationRead: {Tenant: true},
-	PlatformAnalyticsRead: {Platform: true},
-	PlatformAuditRead: {Platform: true, Privileged: true},
-	PlatformOperationsExecute: {Platform: true, Privileged: true},
-	PlatformOperationsRead: {Platform: true},
-	PlatformPrivilegedElevate: {Platform: true, StepUp: true},
-	PlatformQuotaManage: {Platform: true, Privileged: true, StepUp: true},
-	RubricDraft: {Tenant: true},
-	RubricPublish: {Tenant: true, StepUp: true},
-	RubricRead: {Tenant: true},
-	SessionAcceptInvitation: {Owner: true},
-	SessionCreatePractice: {Owner: true},
-	SessionParticipate: {Owner: true},
-	SessionReadOwnPractice: {Owner: true},
+	AppealManage:                  {Tenant: true, Scope: ScopeCampaign},
+	AppealRaise:                   {Tenant: true, Scope: ScopeCampaign},
+	CampaignManage:                {Tenant: true, Scope: ScopeCampaign},
+	CampaignRead:                  {Tenant: true},
+	CandidatePracticeDeleteOwn:    {Owner: true, StepUp: true},
+	CandidatePracticeReadOwn:      {Owner: true},
+	CandidateProfileReadOwn:       {Owner: true},
+	CandidateProfileWriteOwn:      {Owner: true},
+	ContentArtifactDraft:          {Platform: true},
+	ContentArtifactPublish:        {Platform: true, StepUp: true},
+	ContentArtifactRollback:       {Platform: true, StepUp: true},
+	EvaluationCompare:             {Tenant: true, Scope: ScopeCampaign},
+	EvaluationReadScreen:          {Tenant: true, Scope: ScopeCampaign},
+	EvaluationReview:              {Tenant: true, Scope: ScopeCampaign},
+	InvitationManage:              {Tenant: true},
+	InvitationRead:                {Tenant: true},
+	PlatformAnalyticsRead:         {Platform: true},
+	PlatformAuditRead:             {Platform: true, Privileged: true},
+	PlatformOperationsExecute:     {Platform: true, Privileged: true},
+	PlatformOperationsRead:        {Platform: true},
+	PlatformPrivilegedElevate:     {Platform: true, StepUp: true},
+	PlatformQuotaManage:           {Platform: true, Privileged: true, StepUp: true},
+	RubricDraft:                   {Tenant: true},
+	RubricPublish:                 {Tenant: true, StepUp: true},
+	RubricRead:                    {Tenant: true},
+	SessionAcceptInvitation:       {Owner: true},
+	SessionCreatePractice:         {Owner: true},
+	SessionParticipate:            {Owner: true},
+	SessionReadOwnPractice:        {Owner: true},
 	SessionReadScreenConfirmation: {Owner: true},
-	TenantBillingRead: {Tenant: true},
-	TenantIntegrationManage: {Tenant: true, StepUp: true},
-	TenantMemberManage: {Tenant: true, StepUp: true},
-	TenantMemberRead: {Tenant: true},
-	TenantRetentionManage: {Tenant: true, StepUp: true},
-	TenantSettingsManage: {Tenant: true},
+	TenantBillingRead:             {Tenant: true},
+	TenantIntegrationManage:       {Tenant: true, StepUp: true},
+	TenantMemberManage:            {Tenant: true, StepUp: true},
+	TenantMemberRead:              {Tenant: true},
+	TenantRetentionManage:         {Tenant: true, StepUp: true},
+	TenantSettingsManage:          {Tenant: true},
 }
 
 // Role is a bundle of capabilities.
@@ -240,7 +239,6 @@ const (
 	// are scoped to, and cannot record a decision, send an invitation or
 	// change anything - the role for oversight without authority.
 	RoleViewer Role = "viewer"
-
 )
 
 // bundles maps a role to what it grants.

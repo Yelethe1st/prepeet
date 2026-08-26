@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/billing"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
@@ -135,6 +136,7 @@ func main() {
 		Documents:  candidates,
 		Catalog:    newCatalogAdapter(content.NewStore(pool)),
 		Members:    membersAdapter{members: identity.NewMembers(identity.NewRepository(pool))},
+		Billing:    billingAdapter{ledger: billing.NewLedger(pool)},
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

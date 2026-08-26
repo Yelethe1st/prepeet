@@ -49,6 +49,7 @@ func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
 		Catalog:     &fakeCatalog{},
 		Interviews:  interviews,
 		Members:     &fakeMembers{},
+		Billing:     &fakeBilling{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

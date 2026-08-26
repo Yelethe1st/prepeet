@@ -31,7 +31,9 @@ type ServerConfig struct {
 	// Interviews serves session creation from a validated selection.
 	Interviews Interviews
 	// Members serves workspace member administration.
-	Members     TenantMembers
+	Members TenantMembers
+	// Billing serves the usage and quota reads.
+	Billing     TenantBilling
 	Environment config.Environment
 	// Health is consulted by the readiness probe. Optional: a nil registry
 	// reports ready, which is correct for a process with no dependencies.
@@ -62,6 +64,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Members == nil {
 		return nil, errors.New("api: a TenantMembers is required")
 	}
+	if cfg.Billing == nil {
+		return nil, errors.New("api: a TenantBilling is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -89,6 +94,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	handlers.members = members{
 		authentication: &handlers.authentication,
 		flows:          cfg.Members,
+	}
+	handlers.billingHandlers = billingHandlers{
+		authentication: &handlers.authentication,
+		ledger:         cfg.Billing,
 	}
 
 	strict := prepeetapi.NewStrictHandlerWithOptions(handlers,
@@ -154,6 +163,7 @@ type server struct {
 	catalog
 	interviews
 	members
+	billingHandlers
 	health *health.Registry
 }
 

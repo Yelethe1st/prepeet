@@ -164,14 +164,28 @@ expiry and review.
 
 ### TEN-08 · Implement usage, quota and billing visibility
 
-**Depends on** DEC-16 · **Blocks** SES-02, OPS-05
+**Depends on** DEC-16 · **Blocks** SES-02, OPS-05 · **In progress**
 
 What the tenant has used, what remains, and what happens at the limit — in the same terms the invoice
 uses.
 
 **Done when**
-- [ ] Usage counts match the billing unit decided in DEC-16 exactly.
-- [ ] Approaching and reaching the limit both produce a warning before anything is blocked.
-- [ ] A candidate is never interrupted mid-interview by a quota event.
+- [x] Usage counts match the billing unit decided in DEC-16 exactly.
+- [x] Approaching and reaching the limit both produce a warning before anything is blocked.
+- [x] A candidate is never interrupted mid-interview by a quota event.
+
+**The ledger, the boundary and the warning are in; SES-02 consumes them next.** The unit is
+ADR-0014's, held structurally: billing.usage_entries is append-only by trigger (proven by
+attacking it), one start and at most one credit per session by unique constraint, and the
+invoice is a sum - the boundary test shows a platform-interruption credit reopening exactly the
+capacity it returns. Reservation locks the quota row, so eight concurrent starts at a limit of
+one admit exactly one. The warning ladder is proven in order: none, approaching at the
+threshold while starts still succeed (nobody's first notice is a refusal), reached at the
+limit; and shrinking a quota below usage refuses new starts while rewriting nothing. Nothing
+anywhere consults quota after a start, which is the third box as structure; SES-02 wires
+ReserveStart into the start flow and the sixty-second early-abandon credit into completion.
+GET /tenant/usage and /tenant/quota serve the same numbers under tenant.billing_read. What
+remains here: administrator notification when the warning trips (with the notification epic),
+and OPS-05's quota-setting surface.
 
 **Spec** [cost-and-capacity-model.md](../../operations/cost-and-capacity-model.md)

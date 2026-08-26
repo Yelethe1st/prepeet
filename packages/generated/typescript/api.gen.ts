@@ -638,6 +638,50 @@ export interface paths {
         patch: operations["changeMemberRole"];
         trace?: never;
     };
+    "/tenant/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the workspace has used, in the invoice's own terms
+         * @description Counts from the append-only ledger: started sessions, credits (early
+         *     abandons and platform interruptions, per ADR-0014), and the billable
+         *     difference. Needs tenant.billing_read.
+         */
+        get: operations["getTenantUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenant/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The limit, what remains, and where the warning stands
+         * @description Approaching and reaching the limit both warn here before anything is
+         *     blocked; at the limit only new starts are refused, and an interview
+         *     already running is never touched. Needs tenant.billing_read.
+         */
+        get: operations["getTenantQuota"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -846,6 +890,23 @@ export interface components {
         };
         DocumentList: {
             documents: components["schemas"]["Document"][];
+        };
+        TenantUsage: {
+            started: number;
+            /** @description Early abandons and platform interruptions, per ADR-0014. */
+            credited: number;
+            /** @description Started minus credited; the number the unit prices. */
+            billable: number;
+        };
+        TenantQuota: {
+            billable: number;
+            /** @description Absent when no limit is configured. */
+            session_limit?: number;
+            /** @description Absent when no limit is configured. Never negative. */
+            remaining?: number;
+            warn_threshold: number;
+            /** @enum {string} */
+            warning: "none" | "approaching" | "reached";
         };
         Member: {
             /** Format: uuid */
@@ -2176,6 +2237,52 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["MemberConflict"];
+        };
+    };
+    getTenantUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The usage counts. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantUsage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getTenantQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The quota position. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantQuota"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getCurrentUser: {

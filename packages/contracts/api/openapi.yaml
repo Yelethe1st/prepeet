@@ -877,6 +877,50 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/MemberConflict" }
 
+  /tenant/usage:
+    get:
+      tags: [tenant]
+      operationId: getTenantUsage
+      summary: What the workspace has used, in the invoice's own terms
+      description: |
+        Counts from the append-only ledger: started sessions, credits (early
+        abandons and platform interruptions, per ADR-0014), and the billable
+        difference. Needs tenant.billing_read.
+      responses:
+        "200":
+          description: The usage counts.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantUsage"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /tenant/quota:
+    get:
+      tags: [tenant]
+      operationId: getTenantQuota
+      summary: The limit, what remains, and where the warning stands
+      description: |
+        Approaching and reaching the limit both warn here before anything is
+        blocked; at the limit only new starts are refused, and an interview
+        already running is never touched. Needs tenant.billing_read.
+      responses:
+        "200":
+          description: The quota position.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantQuota"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /me:
     get:
       tags: [authentication]
@@ -1358,6 +1402,34 @@ components:
         documents:
           type: array
           items: { $ref: "#/components/schemas/Document" }
+
+    TenantUsage:
+      type: object
+      required: [started, credited, billable]
+      properties:
+        started: { type: integer }
+        credited:
+          type: integer
+          description: Early abandons and platform interruptions, per ADR-0014.
+        billable:
+          type: integer
+          description: Started minus credited; the number the unit prices.
+
+    TenantQuota:
+      type: object
+      required: [billable, warn_threshold, warning]
+      properties:
+        billable: { type: integer }
+        session_limit:
+          type: integer
+          description: Absent when no limit is configured.
+        remaining:
+          type: integer
+          description: Absent when no limit is configured. Never negative.
+        warn_threshold: { type: number }
+        warning:
+          type: string
+          enum: [none, approaching, reached]
 
     Member:
       type: object

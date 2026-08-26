@@ -250,6 +250,7 @@ func serveWith(t *testing.T, identity api.Identity, candidates api.CandidateProf
 		Catalog:     &fakeCatalog{},
 		Interviews:  &fakeInterviews{},
 		Members:     &fakeMembers{},
+		Billing:     &fakeBilling{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -268,6 +269,7 @@ func serveIn(t *testing.T, identity api.Identity, environment config.Environment
 		Catalog:     &fakeCatalog{},
 		Interviews:  &fakeInterviews{},
 		Members:     &fakeMembers{},
+		Billing:     &fakeBilling{},
 		Environment: environment,
 	})
 	if err != nil {

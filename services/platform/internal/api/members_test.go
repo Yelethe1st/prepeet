@@ -76,6 +76,7 @@ func serveMembers(t *testing.T, identity *authorizingIdentity, members *fakeMemb
 		Catalog:     &fakeCatalog{},
 		Interviews:  &fakeInterviews{},
 		Members:     members,
+		Billing:     &fakeBilling{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -220,4 +221,71 @@ func doJSON(t *testing.T, handler http.Handler, method, path, body string, cooki
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	return response
+}
+
+// fakeBilling serves the ledger port.
+type fakeBilling struct {
+	usage api.TenantUsage
+	err   error
+}
+
+func (f *fakeBilling) Usage(_ context.Context, _ string) (api.TenantUsage, error) {
+	return f.usage, f.err
+}
+
+func TestUsageAndQuotaAskForBillingRead(t *testing.T) {
+	limit, remaining := 50, 10
+	identity := adminIdentity()
+	handler, billing := serveBilling(t, identity, &fakeBilling{usage: api.TenantUsage{
+		Started: 42, Credited: 2, Billable: 40,
+		Limit: &limit, Remaining: &remaining, WarnThreshold: 0.8, Warning: "approaching",
+	}})
+	_ = billing
+
+	response := doJSON(t, handler, http.MethodGet, "/api/v1/tenant/usage", "", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("usage status %d: %s", response.Code, response.Body)
+	}
+	if identity.asked[0] != "tenant.billing_read" {
+		t.Fatalf("usage asked for %v", identity.asked)
+	}
+	var usage struct {
+		Billable int `json:"billable"`
+	}
+	decodeInto(t, response, &usage)
+	if usage.Billable != 40 {
+		t.Fatalf("usage = %+v", usage)
+	}
+
+	response = doJSON(t, handler, http.MethodGet, "/api/v1/tenant/quota", "", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("quota status %d: %s", response.Code, response.Body)
+	}
+	var quota struct {
+		SessionLimit int    `json:"session_limit"`
+		Remaining    int    `json:"remaining"`
+		Warning      string `json:"warning"`
+	}
+	decodeInto(t, response, &quota)
+	if quota.SessionLimit != 50 || quota.Remaining != 10 || quota.Warning != "approaching" {
+		t.Fatalf("quota = %+v", quota)
+	}
+}
+
+func serveBilling(t *testing.T, identity *authorizingIdentity, billing *fakeBilling) (http.Handler, *fakeBilling) {
+	t.Helper()
+	handler, err := api.NewServer(api.ServerConfig{
+		Identity:    identity,
+		Candidates:  &fakeCandidates{},
+		Documents:   &fakeDocuments{},
+		Catalog:     &fakeCatalog{},
+		Interviews:  &fakeInterviews{},
+		Members:     &fakeMembers{},
+		Billing:     billing,
+		Environment: config.EnvironmentLocal,
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	return handler, billing
 }

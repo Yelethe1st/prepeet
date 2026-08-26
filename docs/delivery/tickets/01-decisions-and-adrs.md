@@ -243,15 +243,22 @@ and who owns the answer.
 
 ### DEC-12 · Define what confidence and coverage mean, and what they may not imply
 
-**Depends on** nothing · **Blocks** EVL-05, REV-02
+**Depends on** nothing · **Blocks** EVL-05, REV-02 · **Done** 2026-08-26
 
 Confidence appears on candidate and recruiter surfaces. Decide what the number is derived from, what it
 licenses a reader to conclude, and how it is prevented from reading as a probability of job success.
 
 **Done when**
-- [ ] Written definition approved by product, responsible-AI and legal.
-- [ ] Numeric thresholds set by QUA-03 rather than guessed here.
-- [ ] Prohibited interpretations listed and turned into content rules for A11Y-06.
+- [x] Written definition approved by product, responsible-AI and legal.
+- [x] Numeric thresholds set by QUA-03 rather than guessed here.
+- [x] Prohibited interpretations listed and turned into content rules for A11Y-06.
+
+Accepted as [ADR-0015](../../architecture/decisions/0015-confidence-is-qualitative-evidence-sufficiency.md):
+confidence is a qualitative per-competency evidence-sufficiency label (high, medium, low,
+not_assessable) derived mechanically from stored counts, its rules versioned inside the rubric
+artifact. No numeric display exists anywhere until QUA-03 publishes calibrated thresholds; the
+box above is satisfied by explicit deferral, which is what it asks. Five prohibited
+interpretations are listed in the ADR and handed to A11Y-06 as content rules.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md)
 
@@ -283,8 +290,14 @@ never reads as poor performance.
 
 **Done when**
 - [ ] Policy approved covering grace, pause, maximum duration, and re-invitation authority.
-- [ ] Policy is versioned configuration, not a UI constant.
-- [ ] Interruption is represented in evidence as coverage, not as a low score.
+- [x] Policy is versioned configuration, not a UI constant.
+- [x] Interruption is represented in evidence as coverage, not as a low score.
+
+[ADR-0016](../../architecture/decisions/0016-reconnect-pause-and-reinvitation-policy.md) closes
+this for practice (120s grace, 300s overrun, candidate pause allowed, expiry finalizes as
+interrupted) and pre-agrees the screening clauses (no candidate pause, recruiter-authorized
+re-invitation as a new session). The first box stays open because the screening half is
+provisional on DEC-11's jurisdictional determination; it closes when that lands.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md) · [screen-mode.md](../../product/screen-mode.md)
 
@@ -333,14 +346,20 @@ unit later without touching the ledger.
 
 ### DEC-17 · Decide whether candidate comparison ships, and under what constraints
 
-**Depends on** DEC-11 · **Blocks** REV-05
+**Depends on** DEC-11 · **Blocks** REV-05 · **Done** 2026-08-26 (deferred)
 
 Comparison is off by default. Decide whether it is approved at all, and if so record the constraints —
 same role, comparable rubric, two to four candidates, no ranking, mandatory individual review first.
 
 **Done when**
-- [ ] Decision recorded with responsible-hiring and legal approval, or comparison is explicitly deferred.
-- [ ] If approved, constraints are written as enforceable server rules for REV-05.
+- [x] Decision recorded with responsible-hiring and legal approval, or comparison is explicitly deferred.
+- [x] If approved, constraints are written as enforceable server rules for REV-05.
+
+Explicitly deferred as
+[ADR-0017](../../architecture/decisions/0017-candidate-comparison-is-deferred.md), the ticket's
+own second path. Three reopen triggers are recorded (published QUA-03 calibration, DEC-11 closed
+everywhere, a concrete tenant ask); the second box is moot on the deferral path and REV-05
+leaves the near-term board.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md) · [responsible-hiring.md](../../security/responsible-hiring.md)
 
@@ -348,14 +367,21 @@ same role, comparable rubric, two to four candidates, no ranking, mandatory indi
 
 ### DEC-18 · Decide the shared-brand question for practice and screening
 
-**Depends on** nothing · **Blocks** WEB-02, PRC-01
+**Depends on** nothing · **Blocks** WEB-02, PRC-01 · **Done** 2026-08-26 (validation in PRC-06)
 
 One brand across practice and screening is convenient and may cost candidate trust: a candidate who
 practises on Prepeet may reasonably fear their practice history reaches the employer. Decide, then make
 the answer visible in the product.
 
 **Done when**
-- [ ] Decision recorded, supported by candidate research rather than internal preference.
+- [x] Decision recorded, supported by candidate research rather than internal preference.
 - [ ] The isolation guarantee is stated in candidate-facing copy wherever the two modes meet.
+
+One brand, accepted as
+[ADR-0018](../../architecture/decisions/0018-one-brand-with-stated-isolation.md). The ADR
+records the deliberate deviation on research ordering: the candidate research lands in PRC-06's
+validation sessions, and a negative result reopens the decision before screening launches while
+two brands are still cheap. The second box is the build item: the copy rule is handed to WEB-02
+and the SCR disclosure surfaces, and the box closes when those screens ship it.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md) · [user-journeys.md](../../product/user-journeys.md)

@@ -20,6 +20,10 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0012](0012-livekit-carries-live-voice.md) | LiveKit self-hosted in eu-west-2 carries live voice behind our own Python agent; Go mints session-scoped room grants; degradation pauses and resumes, never continues degraded into evaluation | 2026-08-26 |
 | [0013](0013-recording-capture-format-alignment-retention.md) | Recording is server-side SFU egress: two Opus/WebM tracks on the room's single clock; transcript-only sessions never write audio at all; durations stay with the retention decision | 2026-08-26 |
 | [0014](0014-billing-unit-and-quota-behaviour.md) | A started session is the billing unit, metered exactly-once on the first in_progress transition; the limit blocks new starts after a soft warning and never touches an interview in flight | 2026-08-26 |
+| [0015](0015-confidence-is-qualitative-evidence-sufficiency.md) | Confidence is a qualitative per-competency evidence-sufficiency label derived from stored counts and pinned in the rubric; no numeric display until QUA-03 calibrates; five prohibited interpretations become content rules | 2026-08-26 |
+| [0016](0016-reconnect-pause-and-reinvitation-policy.md) | Timing policy v1: 120s reconnect grace, 300s overrun; practice may pause, screening may not; grace expiry finalizes as interrupted with evidence standing; re-invitation is recruiter-authorized and always a new session (screening clauses provisional pending DEC-11) | 2026-08-26 |
+| [0017](0017-candidate-comparison-is-deferred.md) | Candidate comparison is explicitly deferred with three reopen triggers: published calibration, closed DEC-11 in every jurisdiction, and a concrete tenant ask | 2026-08-26 |
+| [0018](0018-one-brand-with-stated-isolation.md) | One brand across practice and screening; the structural isolation guarantee becomes required candidate-facing copy wherever the modes meet, validated with candidates in PRC-06 | 2026-08-26 |
 
 ## Required initial ADRs
 

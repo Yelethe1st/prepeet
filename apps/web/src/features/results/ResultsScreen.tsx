@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
@@ -114,6 +115,7 @@ export function ResultsScreen({ sessionId }: { sessionId: string }) {
 
   return (
     <ResultsBody
+      sessionId={sessionId}
       result={results.data}
       segments={transcript.data.segments.filter((s) => !s.superseded)}
     />
@@ -121,9 +123,11 @@ export function ResultsScreen({ sessionId }: { sessionId: string }) {
 }
 
 function ResultsBody({
+  sessionId,
   result,
   segments,
 }: {
+  sessionId: string;
   result: EvaluationResult;
   segments: TranscriptSegment[];
 }) {
@@ -284,6 +288,12 @@ function ResultsBody({
           ))}
         </div>
       </section>
+
+      <p className="text-sm">
+        <Link className="underline" href={`/session/${sessionId}/review`}>
+          See the coaching on these answers
+        </Link>
+      </p>
 
       {result.coverage.not_reached.length > 0 && (
         <section

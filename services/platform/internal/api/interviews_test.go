@@ -29,6 +29,7 @@ type fakeInterviews struct {
 	replayed   []api.ControlEventOut
 	transcript api.TranscriptView
 	result     api.EvaluationResultView
+	review     api.ReviewView
 	receipt    api.CompletionReceiptView
 	consent    api.PracticeConsent
 	err        error
@@ -76,6 +77,11 @@ func (f *fakeInterviews) Transcript(_ context.Context, userID, sessionID string)
 func (f *fakeInterviews) Results(_ context.Context, userID, sessionID string) (api.EvaluationResultView, error) {
 	f.users = append(f.users, "results:"+userID+":"+sessionID)
 	return f.result, f.err
+}
+
+func (f *fakeInterviews) Review(_ context.Context, userID, sessionID string) (api.ReviewView, error) {
+	f.users = append(f.users, "review:"+userID+":"+sessionID)
+	return f.review, f.err
 }
 
 func (f *fakeInterviews) CompleteInterview(_ context.Context, userID, sessionID string, epoch, finalSequence int) (api.CompletionReceiptView, error) {
@@ -791,5 +797,98 @@ func TestContradictionsArriveWithBothSidesAndTheFraming(t *testing.T) {
 		if strings.Contains(serialized, forbidden) {
 			t.Fatalf("the response contains %q", forbidden)
 		}
+	}
+}
+
+// PRC-02's surface: the rewrite arrives as typed parts so a placeholder
+// can never render as a fact, and a coaching failure is a stated absence
+// with the evaluation intact, not an error.
+
+func TestTheReviewArrivesWithTypedRewriteParts(t *testing.T) {
+	interviews := &fakeInterviews{review: api.ReviewView{
+		SessionID:         "00000000-0000-7000-8000-0000000000e1",
+		CoachingVersion:   "coaching-1",
+		CoachingAvailable: true,
+		Answers: []api.AnswerCoachingView{{
+			Sequence:  5,
+			Strengths: []api.CoachingPointView{},
+			Gaps: []api.CoachingPointView{{
+				Statement: "This is a claim about yourself with nothing a listener could check.",
+				Quote:     "I am usually good at tradeoffs.",
+			}},
+			Rewrite: []api.RewritePartView{
+				{Kind: "quote", Text: "I am usually good at tradeoffs."},
+				{Kind: "placeholder", Text: "[Which project or moment shows this? Name it, and what happened.]"},
+			},
+		}},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/review", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+
+	var body struct {
+		CoachingAvailable bool `json:"coaching_available"`
+		Answers           []struct {
+			Sequence int `json:"sequence"`
+			Gaps     []struct {
+				Statement string `json:"statement"`
+				Quote     string `json:"quote"`
+			} `json:"gaps"`
+			Rewrite []struct {
+				Kind string `json:"kind"`
+				Text string `json:"text"`
+			} `json:"rewrite"`
+		} `json:"answers"`
+	}
+	decodeInto(t, response, &body)
+	if !body.CoachingAvailable || len(body.Answers) != 1 {
+		t.Fatalf("body = %+v", body)
+	}
+	answer := body.Answers[0]
+	if answer.Gaps[0].Quote != "I am usually good at tradeoffs." {
+		t.Fatalf("the gap lost its quote: %+v", answer.Gaps)
+	}
+	if answer.Rewrite[0].Kind != "quote" || answer.Rewrite[1].Kind != "placeholder" {
+		t.Fatalf("rewrite kinds = %+v", answer.Rewrite)
+	}
+}
+
+func TestACoachingFailureIsAStatedAbsenceNotAnError(t *testing.T) {
+	interviews := &fakeInterviews{review: api.ReviewView{
+		SessionID:         "00000000-0000-7000-8000-0000000000e1",
+		CoachingVersion:   "coaching-1",
+		CoachingAvailable: false,
+		Note:              "Coaching could not be derived for this session. Your evaluation is complete and unaffected.",
+		Answers:           []api.AnswerCoachingView{},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/review", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("a coaching failure must not fail the request: %d", response.Code)
+	}
+	var body struct {
+		CoachingAvailable bool    `json:"coaching_available"`
+		Note              *string `json:"note"`
+	}
+	decodeInto(t, response, &body)
+	if body.CoachingAvailable || body.Note == nil || *body.Note == "" {
+		t.Fatalf("the absence is not stated: %+v", body)
+	}
+}
+
+func TestReviewBeforeEvaluationSaysNotReady(t *testing.T) {
+	interviews := &fakeInterviews{err: api.ErrResultNotReady}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/review", sessionCookie())
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status %d, want 409", response.Code)
 	}
 }

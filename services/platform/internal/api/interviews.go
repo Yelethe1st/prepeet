@@ -53,6 +53,39 @@ type Interviews interface {
 	// evaluation has not landed; ErrSessionMissing when the session is
 	// not the caller's to see.
 	Results(ctx context.Context, userID, sessionID string) (EvaluationResultView, error)
+	// Review answers the derived coaching. Same refusals as Results; a
+	// coaching failure is NOT an error here - it arrives as a view with
+	// CoachingAvailable false, because the evaluation stands either way.
+	Review(ctx context.Context, userID, sessionID string) (ReviewView, error)
+}
+
+// ReviewView mirrors the contract at the port.
+type ReviewView struct {
+	SessionID         string
+	CoachingVersion   string
+	CoachingAvailable bool
+	Note              string
+	Answers           []AnswerCoachingView
+}
+
+// AnswerCoachingView is one answer's coaching.
+type AnswerCoachingView struct {
+	Sequence  int
+	Strengths []CoachingPointView
+	Gaps      []CoachingPointView
+	Rewrite   []RewritePartView
+}
+
+// CoachingPointView is one statement about one exact quote.
+type CoachingPointView struct {
+	Statement string
+	Quote     string
+}
+
+// RewritePartView is a candidate quote or a bracketed question.
+type RewritePartView struct {
+	Kind string
+	Text string
 }
 
 // ErrResultNotReady says evaluation has not landed yet: the session is
@@ -804,6 +837,69 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 	}, nil
 }
 
+// GetReview answers the derived coaching review.
+func (i *interviews) GetReview(ctx context.Context, request prepeetapi.GetReviewRequestObject) (prepeetapi.GetReviewResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	review, err := i.flows.Review(ctx, principal.UserID, request.SessionID.String())
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	sessionID, err := uuid.Parse(review.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("api: the review's session id is not a uuid: %w", err)
+	}
+
+	body := prepeetapi.ReviewView{
+		SessionID:         sessionID,
+		CoachingVersion:   review.CoachingVersion,
+		CoachingAvailable: review.CoachingAvailable,
+		Answers:           make([]prepeetapi.AnswerCoachingView, 0, len(review.Answers)),
+	}
+	if review.Note != "" {
+		note := review.Note
+		body.Note = &note
+	}
+	points := func(from []CoachingPointView) []prepeetapi.CoachingPointView {
+		out := make([]prepeetapi.CoachingPointView, 0, len(from))
+		for _, point := range from {
+			out = append(out, prepeetapi.CoachingPointView{Statement: point.Statement, Quote: point.Quote})
+		}
+		return out
+	}
+	for _, answer := range review.Answers {
+		encoded := prepeetapi.AnswerCoachingView{
+			Sequence:  answer.Sequence,
+			Strengths: points(answer.Strengths),
+			Gaps:      points(answer.Gaps),
+		}
+		for _, part := range answer.Rewrite {
+			encoded.Rewrite = append(encoded.Rewrite, struct {
+				Kind prepeetapi.AnswerCoachingViewRewriteKind `json:"kind"`
+				Text string                                   `json:"text"`
+			}{Kind: prepeetapi.AnswerCoachingViewRewriteKind(part.Kind), Text: part.Text})
+		}
+		if encoded.Rewrite == nil {
+			encoded.Rewrite = []struct {
+				Kind prepeetapi.AnswerCoachingViewRewriteKind `json:"kind"`
+				Text string                                   `json:"text"`
+			}{}
+		}
+		body.Answers = append(body.Answers, encoded)
+	}
+	return prepeetapi.GetReview200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.GetReview200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetPracticeConsent answers the current consent text with its version.
 func (i *interviews) GetPracticeConsent(ctx context.Context, _ prepeetapi.GetPracticeConsentRequestObject) (prepeetapi.GetPracticeConsentResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -854,6 +950,7 @@ var (
 	_ prepeetapi.ReplayControlEventsResponseObject = failure{}
 	_ prepeetapi.GetTranscriptResponseObject       = failure{}
 	_ prepeetapi.GetResultsResponseObject          = failure{}
+	_ prepeetapi.GetReviewResponseObject           = failure{}
 	_ prepeetapi.CompleteInterviewResponseObject   = failure{}
 )
 
@@ -865,4 +962,5 @@ func (f failure) VisitIngestControlEventsResponse(w http.ResponseWriter) error {
 func (f failure) VisitReplayControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       { return f.write(w) }
 func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          { return f.write(w) }
+func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
 func (f failure) VisitCompleteInterviewResponse(w http.ResponseWriter) error   { return f.write(w) }

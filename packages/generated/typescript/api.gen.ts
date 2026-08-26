@@ -790,6 +790,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The coaching review, derived and fact-preserving
+         * @description Per-answer strengths, gaps and a suggested rewrite assembled only
+         *     from the candidate's own sentences plus bracketed questions where
+         *     information is missing - a rewrite never adds a fact. Coaching is
+         *     derived from the stored evidence, so a coaching failure leaves the
+         *     evaluation untouched: coaching_available says so honestly and the
+         *     results endpoint keeps answering.
+         */
+        get: operations["getReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews/{sessionId}/complete": {
         parameters: {
             query?: never;
@@ -1146,6 +1171,35 @@ export interface components {
             warnings: string[];
             /** Format: date-time */
             created_at: string;
+        };
+        ReviewView: {
+            /** Format: uuid */
+            session_id: string;
+            coaching_version: string;
+            /**
+             * @description False when coaching could not be derived or failed its
+             *     fact-preservation gate. The evaluation is intact either way.
+             */
+            coaching_available: boolean;
+            /** @description Why coaching is unavailable, when it is. */
+            note?: string;
+            answers: components["schemas"]["AnswerCoachingView"][];
+        };
+        AnswerCoachingView: {
+            sequence: number;
+            strengths: components["schemas"]["CoachingPointView"][];
+            gaps: components["schemas"]["CoachingPointView"][];
+            /** @description Empty when nothing useful would change. */
+            rewrite: {
+                /** @enum {string} */
+                kind: "quote" | "placeholder";
+                text: string;
+            }[];
+        };
+        CoachingPointView: {
+            statement: string;
+            /** @description The exact words the statement is about. */
+            quote: string;
         };
         EvidenceSpanView: {
             id: string;
@@ -2788,6 +2842,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvaluationResultView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description RESULT_NOT_READY while evaluation has not landed. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The review, or the honest absence of one. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewView"];
                 };
             };
             401: components["responses"]["Unauthenticated"];

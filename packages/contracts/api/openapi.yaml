@@ -1096,6 +1096,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /interviews/{sessionId}/review:
+    get:
+      tags: [interview]
+      operationId: getReview
+      summary: The coaching review, derived and fact-preserving
+      description: |
+        Per-answer strengths, gaps and a suggested rewrite assembled only
+        from the candidate's own sentences plus bracketed questions where
+        information is missing - a rewrite never adds a fact. Coaching is
+        derived from the stored evidence, so a coaching failure leaves the
+        evaluation untouched: coaching_available says so honestly and the
+        results endpoint keeps answering.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: The review, or the honest absence of one.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewView"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: RESULT_NOT_READY while evaluation has not landed.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /interviews/{sessionId}/complete:
     post:
       tags: [interview]
@@ -1802,6 +1838,56 @@ components:
           type: array
           items: { type: string }
         created_at: { type: string, format: date-time }
+
+    ReviewView:
+      type: object
+      required: [session_id, coaching_version, coaching_available, answers]
+      properties:
+        session_id: { type: string, format: uuid }
+        coaching_version: { type: string }
+        coaching_available:
+          type: boolean
+          description: |
+            False when coaching could not be derived or failed its
+            fact-preservation gate. The evaluation is intact either way.
+        note:
+          type: string
+          description: Why coaching is unavailable, when it is.
+        answers:
+          type: array
+          items: { $ref: "#/components/schemas/AnswerCoachingView" }
+
+    AnswerCoachingView:
+      type: object
+      required: [sequence, strengths, gaps, rewrite]
+      properties:
+        sequence: { type: integer }
+        strengths:
+          type: array
+          items: { $ref: "#/components/schemas/CoachingPointView" }
+        gaps:
+          type: array
+          items: { $ref: "#/components/schemas/CoachingPointView" }
+        rewrite:
+          type: array
+          description: Empty when nothing useful would change.
+          items:
+            type: object
+            required: [kind, text]
+            properties:
+              kind:
+                type: string
+                enum: [quote, placeholder]
+              text: { type: string }
+
+    CoachingPointView:
+      type: object
+      required: [statement, quote]
+      properties:
+        statement: { type: string }
+        quote:
+          type: string
+          description: The exact words the statement is about.
 
     EvidenceSpanView:
       type: object

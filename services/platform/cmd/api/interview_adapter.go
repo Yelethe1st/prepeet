@@ -14,6 +14,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/realtime"
 )
 
@@ -29,6 +30,86 @@ type interviewAdapter struct {
 	events    *interview.Events
 	completer *interview.Completer
 	results   *evaluation.Store
+	documents *objectstore.S3Store
+}
+
+// Review derives the coaching for the owner's evaluated session. The
+// derivation is pure and gated: coaching-1 over the stored evidence and
+// the sealed input, held to the fact-preservation gate before serving. A
+// gate refusal or a missing input is a stated absence with the evaluation
+// intact, exactly as PRC-02's third box demands - never a failed request.
+func (a interviewAdapter) Review(ctx context.Context, userID, sessionID string) (api.ReviewView, error) {
+	if _, err := a.sessions.Get(ctx, sessionID, "practice", userID, ""); err != nil {
+		if errors.Is(err, interview.ErrNotFound) {
+			return api.ReviewView{}, api.ErrSessionMissing
+		}
+		return api.ReviewView{}, err
+	}
+	ref := evaluation.SessionRef{SessionID: sessionID, Mode: "practice", CandidateID: userID}
+	if _, err := a.results.ResultOf(ctx, ref); err != nil {
+		if errors.Is(err, evaluation.ErrNoResult) {
+			return api.ReviewView{}, api.ErrResultNotReady
+		}
+		return api.ReviewView{}, err
+	}
+
+	unavailable := func(note string) api.ReviewView {
+		return api.ReviewView{
+			SessionID: sessionID, CoachingVersion: evaluation.CoachingVersion,
+			CoachingAvailable: false, Note: note,
+			Answers: []api.AnswerCoachingView{},
+		}
+	}
+	intact := "Coaching could not be derived for this session. Your evaluation is complete and unaffected."
+
+	key, err := objectstore.SealedInputKey("practice", "", userID, sessionID)
+	if err != nil {
+		return unavailable(intact), nil
+	}
+	body, err := a.documents.Fetch(ctx, key)
+	if err != nil {
+		return unavailable(intact), nil
+	}
+	sealed, err := evaluation.DecodeSealedInput(body)
+	if err != nil {
+		return unavailable(intact), nil
+	}
+	spans, err := a.results.List(ctx, ref)
+	if err != nil {
+		return api.ReviewView{}, err
+	}
+
+	review := evaluation.Coach(sealed, spans)
+	if err := evaluation.ValidateCoaching(sealed, review); err != nil {
+		// The gate refused its own floor: a bug worth logging loudly, but
+		// never one that touches the stored evaluation.
+		return unavailable(intact), nil
+	}
+
+	view := api.ReviewView{
+		SessionID: review.SessionID, CoachingVersion: review.CoachingVersion,
+		CoachingAvailable: true, Answers: make([]api.AnswerCoachingView, 0, len(review.Answers)),
+	}
+	points := func(from []evaluation.CoachingPoint) []api.CoachingPointView {
+		out := make([]api.CoachingPointView, 0, len(from))
+		for _, point := range from {
+			out = append(out, api.CoachingPointView{Statement: point.Statement, Quote: point.Quote})
+		}
+		return out
+	}
+	for _, answer := range review.Answers {
+		encoded := api.AnswerCoachingView{
+			Sequence:  answer.Sequence,
+			Strengths: points(answer.Strengths),
+			Gaps:      points(answer.Gaps),
+			Rewrite:   make([]api.RewritePartView, 0, len(answer.Rewrite)),
+		}
+		for _, part := range answer.Rewrite {
+			encoded.Rewrite = append(encoded.Rewrite, api.RewritePartView{Kind: part.Kind, Text: part.Text})
+		}
+		view.Answers = append(view.Answers, encoded)
+	}
+	return view, nil
 }
 
 // Results answers the owner's stored evaluation. The session is confirmed

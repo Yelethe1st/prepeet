@@ -51,9 +51,27 @@ Per-answer strengths, gaps, rationale and next action, a fact-preserving model r
 patterns across sessions, and the drills that follow from them.
 
 **Done when**
-- [ ] Every coaching statement traces to something the candidate said.
-- [ ] A rewrite never adds a fact; missing information appears as a placeholder or question.
-- [ ] Coaching failure leaves the evaluation intact and says so.
+- [x] Every coaching statement traces to something the candidate said.
+- [x] A rewrite never adds a fact; missing information appears as a placeholder or question.
+- [x] Coaching failure leaves the evaluation intact and says so.
+
+**Done at the coaching-1 floor, where fact preservation is structural.** Coaching is derived,
+never stored: a pure function (coaching-1) of the sealed input and the stored evidence spans,
+served by GET /interviews/{id}/review, so it re-derives identically forever and a model coach
+replaces it behind the same shape. Every statement carries the exact quote it is about;
+strengths come from supporting spans, gaps from unverified claims, acknowledged limits and
+contradictions, each with its own neutral wording. The rewrite is typed parts on the wire -
+quote or placeholder - assembled ONLY from the candidate's own sentences plus bracketed
+questions, and a strong answer earns silence, never filler.
+
+ValidateCoaching is the gate that outlives the floor: every quote must be an exact substring of
+its own candidate turn, and a placeholder must be a bracketed question containing no digits,
+because a number inside brackets is a fact wearing them. Attacked three ways (invented sentence,
+smuggled fact, foreign quote), each refused wholesale. A gate refusal or a missing input serves
+coaching_available false with the note that the evaluation is complete and unaffected - a 200,
+never an error - and the screen renders that as its own state linking back to results. The
+screen marks placeholders in the DOM (data-part), not just by styling, so a placeholder can
+never render as a fact; per-session patterns and drills are PRC-04's with progression.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md)
 

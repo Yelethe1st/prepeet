@@ -284,7 +284,7 @@ const (
 `)
 	for _, role := range doc.Roles {
 		fmt.Fprintf(&out, "%s\n\tRole%s Role = %q\n\n",
-			comment(role.Reason, "\t"), strings.ToUpper(role.Name[:1])+role.Name[1:], role.Name)
+			comment(role.Reason, "\t"), identifier(role.Name), role.Name)
 	}
 	out.WriteString(")\n\n")
 
@@ -292,7 +292,7 @@ const (
 var bundles = map[Role][]Capability{
 `)
 	for _, role := range doc.Roles {
-		fmt.Fprintf(&out, "\tRole%s: {\n", strings.ToUpper(role.Name[:1])+role.Name[1:])
+		fmt.Fprintf(&out, "\tRole%s: {\n", identifier(role.Name))
 		granted := append([]string(nil), role.Capabilities...)
 		sort.Strings(granted)
 		for _, name := range granted {

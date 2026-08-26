@@ -11,8 +11,16 @@ package authz
 const CatalogueVersion = 1
 
 const (
-	// Handling a candidate's appeal against an evaluation.
+	// Handling a candidate's appeal against an evaluation, resolving a
+	// re-review included. Wider than raising one, because changing an
+	// evaluation's standing answers for the workspace.
 	AppealManage Capability = "appeal.manage"
+
+	// Raising a re-review of an evaluation. Asking the question is
+	// separate from answering it: anyone doing the recruiting work can
+	// flag an evaluation they can already read, and appeal.manage decides
+	// what happens to it.
+	AppealRaise Capability = "appeal.raise"
 
 	// Changing a campaign needs an explicit assignment to it. Tenant
 	// membership is not authority over every campaign in the tenant.
@@ -149,6 +157,7 @@ const (
 // catalogue maps every capability to what it requires.
 var catalogue = map[Capability]Requirement{
 	AppealManage:                  {Tenant: true, Scope: ScopeCampaign},
+	AppealRaise:                   {Tenant: true, Scope: ScopeCampaign},
 	CampaignManage:                {Tenant: true, Scope: ScopeCampaign},
 	CampaignRead:                  {Tenant: true},
 	CandidatePracticeDeleteOwn:    {Owner: true, StepUp: true},
@@ -191,49 +200,46 @@ var catalogue = map[Capability]Requirement{
 type Role string
 
 const (
+	// The tenant administrator: full access to every candidate in the
+	// workspace and to all configuration - rubrics, members, integrations,
+	// retention and billing. Granted sparingly, and identical in
+	// capability to owner: what distinguishes an owner is being anchored
+	// to the workspace's creation, not holding more.
+	RoleAdmin Role = "admin"
+
 	// What somebody holds with no tenant membership. Every capability here
 	// is owner-scoped, so it reaches that person's own data and nothing
 	// else. No tenant authority can satisfy any of them, which is what
 	// keeps practice private from employers.
 	RoleCandidate Role = "candidate"
 
-	// Somebody invited to a workspace to do the recruiting work. They can
-	// see what exists and act on the campaigns they are assigned to, and
-	// they cannot change how the workspace itself is configured.
-	RoleMember Role = "member"
+	// A recruiter who additionally answers for outcomes: everything the
+	// recruiting work needs, plus resolving the re-reviews recruiters
+	// raise. Still scoped, still no workspace configuration.
+	RoleHiringManager Role = "hiring_manager"
 
-	// Whoever created the workspace, and anybody they make an owner.
-	// Everything a member holds, plus configuring the workspace itself:
-	// who belongs to it, what it retains, what it is billed for, and which
-	// rubrics are published.
+	// Whoever created the workspace, and anybody they make an owner. The
+	// same capabilities as admin; the anchor exists so a workspace always
+	// has an administrator nobody inside it can remove.
 	RoleOwner Role = "owner"
+
+	// Somebody invited to a workspace to do the recruiting work. They can
+	// see what exists and act on the campaigns they are assigned to, raise
+	// a re-review but not resolve one, and they cannot change how the
+	// workspace itself is configured.
+	RoleRecruiter Role = "recruiter"
+
+	// Read-only. Can see campaigns, invitations and the evaluations they
+	// are scoped to, and cannot record a decision, send an invitation or
+	// change anything - the role for oversight without authority.
+	RoleViewer Role = "viewer"
 )
 
 // bundles maps a role to what it grants.
 var bundles = map[Role][]Capability{
-	RoleCandidate: {
-		CandidatePracticeDeleteOwn,
-		CandidatePracticeReadOwn,
-		CandidateProfileReadOwn,
-		CandidateProfileWriteOwn,
-		SessionAcceptInvitation,
-		SessionCreatePractice,
-		SessionParticipate,
-		SessionReadOwnPractice,
-		SessionReadScreenConfirmation,
-	},
-	RoleMember: {
+	RoleAdmin: {
 		AppealManage,
-		CampaignManage,
-		CampaignRead,
-		EvaluationReadScreen,
-		EvaluationReview,
-		InvitationManage,
-		InvitationRead,
-		RubricRead,
-	},
-	RoleOwner: {
-		AppealManage,
+		AppealRaise,
 		CampaignManage,
 		CampaignRead,
 		EvaluationReadScreen,
@@ -248,5 +254,61 @@ var bundles = map[Role][]Capability{
 		TenantMemberManage,
 		TenantRetentionManage,
 		TenantSettingsManage,
+	},
+	RoleCandidate: {
+		CandidatePracticeDeleteOwn,
+		CandidatePracticeReadOwn,
+		CandidateProfileReadOwn,
+		CandidateProfileWriteOwn,
+		SessionAcceptInvitation,
+		SessionCreatePractice,
+		SessionParticipate,
+		SessionReadOwnPractice,
+		SessionReadScreenConfirmation,
+	},
+	RoleHiringManager: {
+		AppealManage,
+		AppealRaise,
+		CampaignManage,
+		CampaignRead,
+		EvaluationReadScreen,
+		EvaluationReview,
+		InvitationManage,
+		InvitationRead,
+		RubricRead,
+	},
+	RoleOwner: {
+		AppealManage,
+		AppealRaise,
+		CampaignManage,
+		CampaignRead,
+		EvaluationReadScreen,
+		EvaluationReview,
+		InvitationManage,
+		InvitationRead,
+		RubricDraft,
+		RubricPublish,
+		RubricRead,
+		TenantBillingRead,
+		TenantIntegrationManage,
+		TenantMemberManage,
+		TenantRetentionManage,
+		TenantSettingsManage,
+	},
+	RoleRecruiter: {
+		AppealRaise,
+		CampaignManage,
+		CampaignRead,
+		EvaluationReadScreen,
+		EvaluationReview,
+		InvitationManage,
+		InvitationRead,
+		RubricRead,
+	},
+	RoleViewer: {
+		CampaignRead,
+		EvaluationReadScreen,
+		InvitationRead,
+		RubricRead,
 	},
 }

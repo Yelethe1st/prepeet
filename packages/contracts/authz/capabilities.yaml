@@ -157,11 +157,22 @@ capabilities:
       Recording a human review of an evaluation. Step-up, because it changes
       how a candidate is assessed.
 
+  - name: appeal.raise
+    tenant: true
+    scope: campaign
+    reason: >-
+      Raising a re-review of an evaluation. Asking the question is separate
+      from answering it: anyone doing the recruiting work can flag an
+      evaluation they can already read, and appeal.manage decides what
+      happens to it.
+
   - name: appeal.manage
     tenant: true
     scope: campaign
     reason: >-
-      Handling a candidate's appeal against an evaluation.
+      Handling a candidate's appeal against an evaluation, resolving a
+      re-review included. Wider than raising one, because changing an
+      evaluation's standing answers for the workspace.
 
   # ── Tenant configuration
   # Held by a tenant administrator.
@@ -323,12 +334,20 @@ roles:
       - session.read_own_practice
       - session.read_screen_confirmation
 
-  - name: member
+  # The tenant role vocabulary is TEN-02's, taken from the prototype's own
+  # permission matrix: recruiter, hiring manager, tenant admin and read-only,
+  # beside the owner that IAM-01 anchored to whoever created the workspace.
+  # Every scoped capability in these bundles still needs an assignment
+  # covering the resource, so a recruiter's generous-looking bundle grants
+  # nothing outside the campaigns they are scoped to.
+
+  - name: recruiter
     membership: true
     reason: >-
       Somebody invited to a workspace to do the recruiting work. They can see
-      what exists and act on the campaigns they are assigned to, and they cannot
-      change how the workspace itself is configured.
+      what exists and act on the campaigns they are assigned to, raise a
+      re-review but not resolve one, and they cannot change how the workspace
+      itself is configured.
     capabilities:
       - campaign.read
       - campaign.manage
@@ -336,15 +355,70 @@ roles:
       - invitation.manage
       - evaluation.read_screen
       - evaluation.review
+      - appeal.raise
+      - rubric.read
+
+  - name: hiring_manager
+    membership: true
+    reason: >-
+      A recruiter who additionally answers for outcomes: everything the
+      recruiting work needs, plus resolving the re-reviews recruiters raise.
+      Still scoped, still no workspace configuration.
+    capabilities:
+      - campaign.read
+      - campaign.manage
+      - invitation.read
+      - invitation.manage
+      - evaluation.read_screen
+      - evaluation.review
+      - appeal.raise
       - appeal.manage
       - rubric.read
+
+  - name: viewer
+    membership: true
+    reason: >-
+      Read-only. Can see campaigns, invitations and the evaluations they are
+      scoped to, and cannot record a decision, send an invitation or change
+      anything - the role for oversight without authority.
+    capabilities:
+      - campaign.read
+      - invitation.read
+      - evaluation.read_screen
+      - rubric.read
+
+  - name: admin
+    membership: true
+    reason: >-
+      The tenant administrator: full access to every candidate in the
+      workspace and to all configuration - rubrics, members, integrations,
+      retention and billing. Granted sparingly, and identical in capability
+      to owner: what distinguishes an owner is being anchored to the
+      workspace's creation, not holding more.
+    capabilities:
+      - campaign.read
+      - campaign.manage
+      - invitation.read
+      - invitation.manage
+      - evaluation.read_screen
+      - evaluation.review
+      - appeal.raise
+      - appeal.manage
+      - rubric.read
+      - rubric.draft
+      - rubric.publish
+      - tenant.member_manage
+      - tenant.settings_manage
+      - tenant.retention_manage
+      - tenant.billing_read
+      - tenant.integration_manage
 
   - name: owner
     membership: true
     reason: >-
-      Whoever created the workspace, and anybody they make an owner. Everything
-      a member holds, plus configuring the workspace itself: who belongs to it,
-      what it retains, what it is billed for, and which rubrics are published.
+      Whoever created the workspace, and anybody they make an owner. The same
+      capabilities as admin; the anchor exists so a workspace always has an
+      administrator nobody inside it can remove.
     capabilities:
       - campaign.read
       - campaign.manage
@@ -352,6 +426,7 @@ roles:
       - invitation.manage
       - evaluation.read_screen
       - evaluation.review
+      - appeal.raise
       - appeal.manage
       - rubric.read
       - rubric.draft

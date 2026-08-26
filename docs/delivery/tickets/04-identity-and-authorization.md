@@ -179,7 +179,7 @@ and the role bundles themselves, which need the tenant role model.
 - [x] Privileged platform capabilities require an active elevation carrying a reason and a ticket.
 - [x] Destructive and evaluation-changing capabilities require recent authentication.
 - [x] A subject cannot grant authority it does not hold.
-- [ ] Roles are defined as capability bundles, which needs the tenant role model in TEN-02.
+- [x] Roles are defined as capability bundles, which needs the tenant role model in TEN-02.
 - [x] The catalogue is published as a versioned machine-readable contract alongside the API.
 
 **The contract is now the source, and the Go is generated from it.** Which authority reaches a
@@ -204,6 +204,14 @@ forbidding it would forbid the vocabulary the product is written in.
 
 TypeScript names are generated alongside, which is what [CTR-01](03-contracts-and-codegen.md) needs to
 declare a required capability per operation and what WEB-02 needs to render navigation.
+
+The last box closed when TEN-02's role model landed: the tenant vocabulary is recruiter,
+hiring_manager, viewer, admin and owner, each a bundle in the contract with its reason, derived
+from the prototype's own permission matrix. The property tests grew with it: the administrator
+holds everything any membership role does, owner and admin are capability-identical (what
+distinguishes an owner is the anchor to the workspace's creation, not holding more), the viewer
+holds only reads, and a recruiter raises re-reviews but can never resolve one - the matrix's one
+asymmetric row, carried by the new appeal.raise capability.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md)
 

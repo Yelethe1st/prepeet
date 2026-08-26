@@ -13,8 +13,16 @@
 export const CATALOGUE_VERSION = 1;
 
 export const CAPABILITIES = [
-  // Handling a candidate's appeal against an evaluation.
+  // Handling a candidate's appeal against an evaluation, resolving a
+  // re-review included. Wider than raising one, because changing an
+  // evaluation's standing answers for the workspace.
   "appeal.manage",
+
+  // Raising a re-review of an evaluation. Asking the question is
+  // separate from answering it: anyone doing the recruiting work can
+  // flag an evaluation they can already read, and appeal.manage decides
+  // what happens to it.
+  "appeal.raise",
 
   // Changing a campaign needs an explicit assignment to it. Tenant
   // membership is not authority over every campaign in the tenant.
@@ -160,9 +168,12 @@ export type Capability = (typeof CAPABILITIES)[number];
  * the server built that list.
  */
 export const ROLES = [
+  "admin",
   "candidate",
-  "member",
+  "hiring_manager",
   "owner",
+  "recruiter",
+  "viewer",
 ] as const;
 
 export type Role = (typeof ROLES)[number];

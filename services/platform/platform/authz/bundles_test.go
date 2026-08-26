@@ -110,16 +110,68 @@ func TestNoRoleGrantsPlatformAuthority(t *testing.T) {
 // An owner administers the workspace, so anything a member can do they can do.
 // A member holding something an owner does not would be a privilege a workspace
 // administrator cannot exercise or revoke.
-func TestAnOwnerHoldsEverythingAMemberDoes(t *testing.T) {
+func TestTheAdministratorHoldsEverythingAnyMembershipRoleDoes(t *testing.T) {
+	t.Parallel()
+
+	admin := authz.CapabilitiesOf(authz.RoleAdmin)
+
+	for _, role := range []authz.Role{authz.RoleRecruiter, authz.RoleHiringManager, authz.RoleViewer} {
+		for _, capability := range authz.CapabilitiesOf(role) {
+			if !slices.Contains(admin, capability) {
+				t.Errorf("a %s holds %q and the administrator does not, so the workspace "+
+					"administrator cannot exercise or revoke it", role, capability)
+			}
+		}
+	}
+}
+
+func TestOwnerAndAdminHoldIdenticalCapability(t *testing.T) {
+	// What distinguishes an owner is being anchored to the workspace's
+	// creation, not holding more: a capability only one of them held would
+	// be authority that appears or vanishes on a rename.
 	t.Parallel()
 
 	owner := authz.CapabilitiesOf(authz.RoleOwner)
-
-	for _, capability := range authz.CapabilitiesOf(authz.RoleMember) {
-		if !slices.Contains(owner, capability) {
-			t.Errorf("a member holds %q and an owner does not, so the workspace administrator "+
-				"cannot exercise or revoke it", capability)
+	admin := authz.CapabilitiesOf(authz.RoleAdmin)
+	if len(owner) != len(admin) {
+		t.Fatalf("owner holds %d capabilities and admin %d", len(owner), len(admin))
+	}
+	for _, capability := range owner {
+		if !slices.Contains(admin, capability) {
+			t.Errorf("owner holds %q and admin does not", capability)
 		}
+	}
+}
+
+func TestTheViewerCanChangeNothing(t *testing.T) {
+	// Read-only means read-only: a viewer capability that manages, reviews,
+	// raises or publishes would make oversight indistinguishable from
+	// authority - the prototype's matrix shows the row as all reads.
+	t.Parallel()
+
+	for _, capability := range authz.CapabilitiesOf(authz.RoleViewer) {
+		name := string(capability)
+		if !strings.HasSuffix(name, ".read") && !strings.HasSuffix(name, ".read_screen") {
+			t.Errorf("the viewer holds %q, which is not a read", name)
+		}
+	}
+}
+
+func TestARecruiterRaisesButNeverResolves(t *testing.T) {
+	// The matrix's one asymmetric row: raising a re-review is asking a
+	// question; resolving one answers for the workspace and needs the
+	// hiring manager or above.
+	t.Parallel()
+
+	recruiter := authz.CapabilitiesOf(authz.RoleRecruiter)
+	if !slices.Contains(recruiter, authz.AppealRaise) {
+		t.Error("a recruiter cannot raise a re-review")
+	}
+	if slices.Contains(recruiter, authz.AppealManage) {
+		t.Error("a recruiter can resolve the re-reviews they raise")
+	}
+	if !slices.Contains(authz.CapabilitiesOf(authz.RoleHiringManager), authz.AppealManage) {
+		t.Error("nobody below admin can resolve a re-review")
 	}
 }
 
@@ -143,14 +195,14 @@ func TestComparisonIsInNoBundle(t *testing.T) {
 func TestCapabilitiesOfReturnsACopy(t *testing.T) {
 	t.Parallel()
 
-	granted := authz.CapabilitiesOf(authz.RoleMember)
+	granted := authz.CapabilitiesOf(authz.RoleRecruiter)
 	if len(granted) == 0 {
 		t.Fatal("member grants nothing")
 	}
 
 	granted[0] = "tampered"
 
-	if authz.CapabilitiesOf(authz.RoleMember)[0] == "tampered" {
+	if authz.CapabilitiesOf(authz.RoleRecruiter)[0] == "tampered" {
 		t.Error("the caller was handed the package's own slice, so a caller can rewrite a role")
 	}
 }

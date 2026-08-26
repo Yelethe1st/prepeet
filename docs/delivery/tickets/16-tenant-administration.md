@@ -36,6 +36,17 @@ role can actually do.
 - [ ] Removing a member revokes access immediately, including active sessions.
 - [ ] Scope changes are audited and take effect without a redeploy.
 
+**In progress: the role model is in.** The vocabulary from the prototype's matrix - recruiter,
+hiring_manager, viewer, admin, beside the creator-anchored owner - lives in the capability
+contract as bundles with reasons, generated into both languages, with 0006's deliberate
+two-value floor widened by migration ('member' rows became 'recruiter', the rename lifted FORCE
+row security for exactly one statement so a non-superuser migrator cannot silently update
+nothing). appeal.raise joined the catalogue so the matrix's one asymmetric row - recruiters
+raise re-reviews, hiring managers resolve them - is a capability difference rather than an
+interface promise. What remains is the surface: the members endpoints, immediate revocation
+proven against a live session, the audit of role changes with previous value, and the matrix
+screen generated from the catalogue.
+
 **Spec** [authorization-model.md](../../architecture/authorization-model.md)
 
 ---

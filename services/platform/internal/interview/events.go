@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -233,7 +234,11 @@ func (e *Events) Ingest(ctx context.Context, sessionID, mode, candidateID, tenan
 	// machine's own guard: a session already in progress stays there.
 	if sawEstablished && session.State == StateConnecting {
 		actor := Actor{ID: candidateID, Type: "user"}
-		if _, err := e.store.Transition(ctx, session, StateInProgress, Effects{}, actor); err != nil &&
+		event, err := startedEvent(session)
+		if err != nil {
+			return Acknowledgment{}, err
+		}
+		if _, err := e.store.Transition(ctx, session, StateInProgress, Effects{Event: event}, actor); err != nil &&
 			!errors.Is(err, ErrStaleVersion) {
 			return Acknowledgment{}, err
 		}
@@ -366,4 +371,27 @@ func isUniqueViolation(err error) bool {
 		return pgErr.SQLState() == "23505"
 	}
 	return errors.Is(err, pgx.ErrTxCommitRollback)
+}
+
+// startedEvent is the catalogue's session_started notification, published
+// atomically with the in_progress transition, carrying exactly what its
+// contract names. The media consumer reads the recording preference from
+// the session row it fetches anyway (RTC-05).
+func startedEvent(session Session) (*outbox.Event, error) {
+	payload, err := json.Marshal(map[string]any{
+		"session_id":    session.ID,
+		"bundle_digest": session.BundleDigest,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("interview: encoding the started event: %w", err)
+	}
+	return &outbox.Event{
+		Type:          "interview.session_started.v1",
+		SchemaVersion: "1.0",
+		TenantID:      session.TenantID,
+		Producer:      "interview",
+		Actor:         outbox.Actor{Type: "user", ID: session.CandidateID},
+		Purpose:       session.Mode,
+		Payload:       payload,
+	}, nil
 }

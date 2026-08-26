@@ -147,3 +147,18 @@ func signHS256(header map[string]string, claims map[string]any, secret string) (
 	mac.Write([]byte(signing))
 	return signing + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
+
+// mintService signs a short-lived token carrying exactly the given video
+// claims: the egress client's credential, minted per call, never stored.
+func (g *Grants) mintService(video map[string]any, ttl time.Duration) (string, error) {
+	issued := g.now().Truncate(time.Second)
+	header := map[string]string{"alg": "HS256", "typ": "JWT"}
+	claims := map[string]any{
+		"iss":   g.config.APIKey,
+		"sub":   "prepeet-egress",
+		"nbf":   issued.Add(-10 * time.Second).Unix(),
+		"exp":   issued.Add(ttl).Unix(),
+		"video": video,
+	}
+	return signHS256(header, claims, g.config.APISecret)
+}

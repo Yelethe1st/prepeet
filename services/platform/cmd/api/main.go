@@ -156,12 +156,9 @@ func main() {
 			registry:  content.NewStore(pool),
 			starter: interview.NewStarter(interview.NewStore(pool),
 				ledgerPort{ledger: billing.NewLedger(pool)}, grantsPort{grants: grants}),
-			events: interview.NewEvents(interview.NewStore(pool)),
-			completer: interview.NewCompleter(interview.NewStore(pool)).WithEvaluationInput(
-				sealedInputWriter{store: uploads},
-				competencySource(catalog.NewService(registrySource{registry: content.NewStore(pool)})),
-			),
-			results: evaluation.NewStore(pool),
+			events:    interview.NewEvents(interview.NewStore(pool)),
+			completer: completerWith(cfg, grants, uploads, pool),
+			results:   evaluation.NewStore(pool),
 		},
 		Environment: cfg.Environment,
 		Health:      checks,
@@ -210,4 +207,27 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("api stopped")
+}
+
+// completerWith wires completion's optional pipelines: the evaluation
+// input always, and the media reconciliation whenever the egress API is
+// configured (RTC-05). Without it, completion honestly records media as
+// missing rather than pretending a recorder ran.
+func completerWith(cfg config.Config, grants *realtime.Grants, uploads *objectstore.S3Store, pool *pgxpool.Pool) *interview.Completer {
+	completer := interview.NewCompleter(interview.NewStore(pool)).WithEvaluationInput(
+		sealedInputWriter{store: uploads},
+		competencySource(catalog.NewService(registrySource{registry: content.NewStore(pool)})),
+	)
+	if cfg.LiveKitAPIURL != "" {
+		egress := realtime.NewEgress(grants, realtime.EgressConfig{
+			APIURL: cfg.LiveKitAPIURL,
+			S3: realtime.EgressS3{
+				AccessKey: cfg.S3AccessKey, Secret: cfg.S3SecretKey,
+				Region: cfg.S3Region, Endpoint: cfg.S3Endpoint,
+				Bucket: cfg.S3Bucket, ForcePathStyle: cfg.S3UsePathStyle,
+			},
+		})
+		completer = completer.WithMedia(egress, mediaProber{store: uploads})
+	}
+	return completer
 }

@@ -297,6 +297,45 @@ func (q *Queries) InsertControlEvent(ctx context.Context, arg InsertControlEvent
 	return err
 }
 
+const insertMediaTrack = `-- name: InsertMediaTrack :execrows
+INSERT INTO interview.media_tracks
+    (id, session_id, mode, candidate_id, tenant_id, track, storage_key, egress_id)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::uuid, nullif($5::text, '')::uuid,
+        $6::text, $7::text, $8::text)
+ON CONFLICT (session_id, track) DO NOTHING
+`
+
+type InsertMediaTrackParams struct {
+	ID          string
+	SessionID   string
+	Mode        string
+	CandidateID string
+	TenantID    string
+	Track       string
+	StorageKey  string
+	EgressID    string
+}
+
+// Idempotent per (session, track): a reconnection retrying the start must
+// converge on the one egress already running, never begin a second.
+func (q *Queries) InsertMediaTrack(ctx context.Context, arg InsertMediaTrackParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertMediaTrack,
+		arg.ID,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.Track,
+		arg.StorageKey,
+		arg.EgressID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertSeal = `-- name: InsertSeal :exec
 
 INSERT INTO interview.seals
@@ -400,6 +439,56 @@ func (q *Queries) InsertSessionBundle(ctx context.Context, arg InsertSessionBund
 	return err
 }
 
+const listMediaTracks = `-- name: ListMediaTracks :many
+SELECT id::text AS id, track, storage_key, egress_id, state, digest,
+       size_bytes, created_at, resolved_at
+FROM interview.media_tracks
+WHERE session_id = $1::uuid
+ORDER BY track
+`
+
+type ListMediaTracksRow struct {
+	ID         string
+	Track      string
+	StorageKey string
+	EgressID   string
+	State      string
+	Digest     string
+	SizeBytes  int64
+	CreatedAt  time.Time
+	ResolvedAt *time.Time
+}
+
+func (q *Queries) ListMediaTracks(ctx context.Context, sessionID string) ([]ListMediaTracksRow, error) {
+	rows, err := q.db.Query(ctx, listMediaTracks, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMediaTracksRow{}
+	for rows.Next() {
+		var i ListMediaTracksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Track,
+			&i.StorageKey,
+			&i.EgressID,
+			&i.State,
+			&i.Digest,
+			&i.SizeBytes,
+			&i.CreatedAt,
+			&i.ResolvedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const persistCursor = `-- name: PersistCursor :execrows
 UPDATE interview.sessions
 SET accepted_sequence = $1::integer
@@ -476,6 +565,40 @@ func (q *Queries) ReplayControlEvents(ctx context.Context, arg ReplayControlEven
 		return nil, err
 	}
 	return items, nil
+}
+
+const resolveMediaTrack = `-- name: ResolveMediaTrack :execrows
+UPDATE interview.media_tracks
+SET state = $1::text,
+    digest = $2::text,
+    size_bytes = $3::bigint,
+    resolved_at = now()
+WHERE session_id = $4::uuid
+  AND track = $5::text
+  AND state = 'recording'
+`
+
+type ResolveMediaTrackParams struct {
+	State     string
+	Digest    string
+	SizeBytes int64
+	SessionID string
+	Track     string
+}
+
+// One-way: only a recording row resolves, to finalized or missing, once.
+func (q *Queries) ResolveMediaTrack(ctx context.Context, arg ResolveMediaTrackParams) (int64, error) {
+	result, err := q.db.Exec(ctx, resolveMediaTrack,
+		arg.State,
+		arg.Digest,
+		arg.SizeBytes,
+		arg.SessionID,
+		arg.Track,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const stampTimingPolicy = `-- name: StampTimingPolicy :exec

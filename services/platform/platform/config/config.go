@@ -82,6 +82,9 @@ type Config struct {
 	LiveKitURL       string
 	LiveKitAPIKey    string
 	LiveKitAPISecret string
+	// LiveKitAPIURL is the server's HTTP address for control-plane calls
+	// (egress); distinct from the ws URL browsers dial.
+	LiveKitAPIURL string
 
 	S3Endpoint     string
 	S3Region       string
@@ -170,6 +173,7 @@ func Load(lookup Lookup) (Config, error) {
 		LiveKitURL:          value(lookup, "PREPEET_LIVEKIT_URL", ""),
 		LiveKitAPIKey:       value(lookup, "PREPEET_LIVEKIT_API_KEY", ""),
 		LiveKitAPISecret:    value(lookup, "PREPEET_LIVEKIT_API_SECRET", ""),
+		LiveKitAPIURL:       value(lookup, "PREPEET_LIVEKIT_API_URL", ""),
 		S3Endpoint:          value(lookup, "PREPEET_S3_ENDPOINT", ""),
 		S3Region:            value(lookup, "PREPEET_S3_REGION", "eu-west-2"),
 		S3Bucket:            value(lookup, "PREPEET_S3_BUCKET", ""),

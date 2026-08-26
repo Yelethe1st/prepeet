@@ -156,3 +156,31 @@ LIMIT 1;
 UPDATE interview.sessions
 SET timing_policy_version = sqlc.arg(version)::integer
 WHERE id = sqlc.arg(id)::uuid AND timing_policy_version IS NULL;
+
+-- name: InsertMediaTrack :execrows
+-- Idempotent per (session, track): a reconnection retrying the start must
+-- converge on the one egress already running, never begin a second.
+INSERT INTO interview.media_tracks
+    (id, session_id, mode, candidate_id, tenant_id, track, storage_key, egress_id)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text,
+        sqlc.arg(candidate_id)::uuid, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        sqlc.arg(track)::text, sqlc.arg(storage_key)::text, sqlc.arg(egress_id)::text)
+ON CONFLICT (session_id, track) DO NOTHING;
+
+-- name: ListMediaTracks :many
+SELECT id::text AS id, track, storage_key, egress_id, state, digest,
+       size_bytes, created_at, resolved_at
+FROM interview.media_tracks
+WHERE session_id = sqlc.arg(session_id)::uuid
+ORDER BY track;
+
+-- name: ResolveMediaTrack :execrows
+-- One-way: only a recording row resolves, to finalized or missing, once.
+UPDATE interview.media_tracks
+SET state = sqlc.arg(state)::text,
+    digest = sqlc.arg(digest)::text,
+    size_bytes = sqlc.arg(size_bytes)::bigint,
+    resolved_at = now()
+WHERE session_id = sqlc.arg(session_id)::uuid
+  AND track = sqlc.arg(track)::text
+  AND state = 'recording';

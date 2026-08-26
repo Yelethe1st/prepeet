@@ -138,9 +138,29 @@ Chunked upload during the session, finalization at the end, and reconciliation t
 object matches what the client sent.
 
 **Done when**
-- [ ] Upload survives a network interruption and resumes.
-- [ ] Finalization verifies the manifest and digest before the session is marked complete.
-- [ ] A failed or partial upload marks media as missing rather than pretending it arrived.
+- [x] Upload survives a network interruption and resumes.
+- [x] Finalization verifies the manifest and digest before the session is marked complete.
+- [x] A failed or partial upload marks media as missing rather than pretending it arrived.
+
+**Done at the platform layer, per ADR-0013's reinterpretation of the ticket's upload language.**
+There is no client upload to resume: recording is server-side SFU egress, so what must survive
+interruption is the recording itself. Egress starts from interview.session_started.v1 (published
+atomically with the in_progress transition, carrying exactly the fields its contract names) and
+is idempotent by the UNIQUE (session, track) row: three starts or a reconnection begin exactly
+one egress per track, proven. Transcript-only sessions return before any recorder call, so
+durable audio never exists to discard.
+
+Completion stops egress and reconciles BEFORE the seal: each track's artifact is read back from
+the object store, its size and sha256 recorded on the track row, and only then does the seal say
+finalized. One absent artifact makes the recording missing with the MEDIA_MISSING warning; the
+absent track's row says missing while the landed one keeps its digest, and finalized or missing
+rows are immutable by trigger. The Recorder and Prober are consumer-defined ports; the
+reconciliation semantics are proven against fakes, and the real LiveKit egress client (Twirp
+over HTTP with the same stdlib HS256 tokens the grants use, S3 output into the platform bucket)
+is wired behind PREPEET_LIVEKIT_API_URL. End-to-end egress against a live room is exercised when
+the voice agent lands, since a room with no publishing agent records nothing; the candidate
+playback surface (presigned GET) arrives with the results screen's player when ART-01 needs the
+same artifacts.
 
 **Spec** [data-architecture.md](../../architecture/data-architecture.md)
 

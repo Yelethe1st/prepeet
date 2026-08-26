@@ -34,6 +34,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/platform/email"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/realtime"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/temporal"
 )
@@ -79,6 +80,7 @@ func main() {
 	var evidence outbox.HandlerFunc
 	var evaluationFailure outbox.HandlerFunc
 	var evaluationCompleted outbox.HandlerFunc
+	var mediaStart outbox.HandlerFunc
 
 	shutdownTelemetry, err := telemetry.Setup(ctx, telemetryConfig)
 	if err != nil {
@@ -159,6 +161,24 @@ func main() {
 			composition = startComposition(workflows, interview.NewStore(pool))
 			evaluationFailure = recordEvaluationFailure(interview.NewStore(pool))
 			evaluationCompleted = recordEvaluationCompleted(interview.NewStore(pool))
+			if cfg.LiveKitAPIURL != "" {
+				recorderGrants, err := realtime.NewGrants(realtime.Config{
+					URL: cfg.LiveKitURL, APIKey: cfg.LiveKitAPIKey, APISecret: cfg.LiveKitAPISecret,
+				})
+				if err != nil {
+					log.Error("the egress signer is not usable", slog.String("error", err.Error()))
+					os.Exit(1)
+				}
+				egress := realtime.NewEgress(recorderGrants, realtime.EgressConfig{
+					APIURL: cfg.LiveKitAPIURL,
+					S3: realtime.EgressS3{
+						AccessKey: cfg.S3AccessKey, Secret: cfg.S3SecretKey,
+						Region: cfg.S3Region, Endpoint: cfg.S3Endpoint,
+						Bucket: cfg.S3Bucket, ForcePathStyle: cfg.S3UsePathStyle,
+					},
+				})
+				mediaStart = startRecording(interview.NewStore(pool), egress)
+			}
 			log.Info("interview worker started",
 				slog.String("task_queue", interview.TaskQueue),
 				slog.String("intelligence", cfg.IntelligenceAddress))
@@ -218,7 +238,7 @@ func main() {
 		}
 	}
 
-	router := routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted)
+	router := routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted, mediaStart)
 	for eventType, disposition := range router.Routes() {
 		log.Info("outbox route registered",
 			slog.String("event_type", eventType),
@@ -286,7 +306,7 @@ func main() {
 // Handlers are registered here rather than by the packages that own them,
 // because a bounded context must not know that another one consumes its events.
 // See ADR-0005.
-func routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted outbox.HandlerFunc) *outbox.Router {
+func routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted, mediaStart outbox.HandlerFunc) *outbox.Router {
 	router := outbox.NewRouter()
 
 	// PRO-03: an uploaded document starts its extraction workflow. Registered
@@ -314,6 +334,9 @@ func routes(extraction, composition, evidence, evaluationFailure, evaluationComp
 	}
 	if evaluationCompleted != nil {
 		router.Handle("evaluation.completed.v1", evaluationCompleted)
+	}
+	if mediaStart != nil {
+		router.Handle("interview.session_started.v1", mediaStart)
 	}
 
 	// Further registrations land with the tickets that produce the events:

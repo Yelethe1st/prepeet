@@ -3,6 +3,8 @@ package objectstore
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -446,4 +448,15 @@ func (s *S3Store) ListIncompleteUploads(ctx context.Context, prefix string) ([]I
 		}
 		keyMarker, uploadMark = out.NextKeyMarker, out.NextUploadIdMarker
 	}
+}
+
+// StatDigest reads an object back and answers its size and sha256 digest:
+// reconciliation from the stored bytes themselves, never from a claim.
+func (s *S3Store) StatDigest(ctx context.Context, key Key) (int64, string, error) {
+	body, err := s.Fetch(ctx, key)
+	if err != nil {
+		return 0, "", err
+	}
+	sum := sha256.Sum256(body)
+	return int64(len(body)), "sha256:" + hex.EncodeToString(sum[:]), nil
 }

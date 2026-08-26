@@ -106,6 +106,8 @@ type Completer struct {
 	// wires both.
 	writer       EvaluationInputWriter
 	competencies CompetencySource
+	recorder     Recorder
+	prober       Prober
 }
 
 // NewCompleter wires the command.
@@ -117,6 +119,15 @@ func NewCompleter(store *Store) *Completer {
 func (c *Completer) WithEvaluationInput(writer EvaluationInputWriter, competencies CompetencySource) *Completer {
 	c.writer = writer
 	c.competencies = competencies
+	return c
+}
+
+// WithMedia adds the recording pipeline: egress stopped and every track
+// reconciled against the object store BEFORE the seal records a media
+// status (RTC-05's second box).
+func (c *Completer) WithMedia(recorder Recorder, prober Prober) *Completer {
+	c.recorder = recorder
+	c.prober = prober
 	return c
 }
 
@@ -172,6 +183,17 @@ func (c *Completer) Complete(ctx context.Context, sessionID, mode, candidateID, 
 		// No media, by the candidate's own recorded choice: a fact, not a
 		// warning.
 		mediaStatus = "none_by_choice"
+	} else if c.recorder != nil && c.prober != nil {
+		// Stop egress and reconcile every track against what the object
+		// store actually holds, before the seal says anything: finalized
+		// only when each artifact was read back and its digest recorded.
+		mediaStatus, err = c.store.FinalizeRecording(ctx, c.recorder, c.prober, session)
+		if err != nil {
+			return Receipt{}, err
+		}
+		if mediaStatus != "finalized" {
+			warnings = append(warnings, WarningMediaMissing)
+		}
 	} else {
 		warnings = append(warnings, WarningMediaMissing)
 	}

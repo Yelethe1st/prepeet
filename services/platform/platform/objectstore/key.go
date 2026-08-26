@@ -215,3 +215,26 @@ func SealedInputKey(mode, tenantID, candidateID, sessionID string) (Key, error) 
 		Purpose: PurposeTranscript, Name: "evaluation-input.json",
 	})
 }
+
+// SealedInputSiblingKey derives a session artifact key beside the sealed
+// input: the same mode split, a caller-chosen purpose and name. Media
+// tracks live here (ADR-0013: session-keyed objects, rows outliving them).
+func SealedInputSiblingKey(mode, tenantID, candidateID, sessionID string, purpose Purpose, name string) (Key, error) {
+	if mode == "practice" {
+		return NewPracticeSessionKey(candidateID, sessionID, purpose, name)
+	}
+	return NewKey(KeyParts{
+		TenantID: tenantID, SessionID: sessionID,
+		Purpose: purpose, Name: name,
+	})
+}
+
+// ParseKey re-admits a key the platform itself derived and stored, such as
+// a media track's storage_key read back from its row. It refuses shapes no
+// derivation here produces; it is not a general path parser.
+func ParseKey(value string) (Key, error) {
+	if value == "" || strings.HasPrefix(value, "/") || strings.Contains(value, "..") {
+		return Key{}, fmt.Errorf("%w: %q is not a stored key", ErrInvalidKey, value)
+	}
+	return Key{value: value}, nil
+}

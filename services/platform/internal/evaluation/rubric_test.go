@@ -258,3 +258,26 @@ func hasReason(result evaluation.CompetencyResult, code string) bool {
 	}
 	return false
 }
+
+func TestResponseLatencyIsInvisibleToScoring(t *testing.T) {
+	// SES-05's third box, on the aggregation path: two candidates give the
+	// same answers, one after long pauses. Every span differs only in its
+	// clock values, and the aggregation must be identical - timing is
+	// provenance for replay, never an input to a score.
+	rubric := rubricFixture(t)
+	competencies := []evaluation.Competency{{ID: "systems-design", Name: "Systems design"}}
+
+	prompt := evidence("systems-design", "supporting", 3)
+	delayed := make([]evaluation.Span, len(prompt))
+	copy(delayed, prompt)
+	for i := range delayed {
+		delayed[i].StartMs += 90_000
+		delayed[i].EndMs += 240_000
+	}
+
+	fast := evaluation.Aggregate(rubric, competencies, prompt)
+	slow := evaluation.Aggregate(rubric, competencies, delayed)
+	if !reflect.DeepEqual(fast, slow) {
+		t.Fatalf("latency changed the aggregation:\nfast %+v\nslow %+v", fast, slow)
+	}
+}

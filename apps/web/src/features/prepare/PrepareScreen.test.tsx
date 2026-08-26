@@ -362,6 +362,11 @@ describe("starting", () => {
         token: "tok-live",
         expires_at: new Date(Date.now() + 120_000).toISOString(),
       },
+      timing: {
+        policy_version: 1,
+        reconnect_grace_seconds: 120,
+        max_overrun_seconds: 300,
+      },
     });
     const user = userEvent.setup();
     renderPrepare();

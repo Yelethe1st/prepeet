@@ -73,8 +73,11 @@ type Session struct {
 	BundleDigest     string
 	BundleRevision   int
 	FailureCode      string
-	CreatedAt        time.Time
-	StateChangedAt   time.Time
+	// TimingPolicyVersion is the timing policy stamped at start; zero
+	// before the session has started.
+	TimingPolicyVersion int
+	CreatedAt           time.Time
+	StateChangedAt      time.Time
 }
 
 // Actor is who a command runs as, recorded on every transition's audit row.
@@ -228,7 +231,8 @@ func (s *Store) get(ctx context.Context, tx pgx.Tx, sessionID string) (Session, 
 		State: State(row.State), Version: int(row.Version),
 		BundleRef: row.BundleRef, BundleDigest: row.BundleDigest,
 		BundleRevision: int(row.BundleRevision), FailureCode: row.FailureCode,
-		CreatedAt: row.CreatedAt, StateChangedAt: row.StateChangedAt,
+		TimingPolicyVersion: int(row.TimingPolicyVersion),
+		CreatedAt:           row.CreatedAt, StateChangedAt: row.StateChangedAt,
 	}, nil
 }
 
@@ -362,4 +366,37 @@ func (s *Store) Bundle(ctx context.Context, sessionID, mode, candidateID, tenant
 		return nil, fmt.Errorf("interview: reading bundle: %w", err)
 	}
 	return row.Body, nil
+}
+
+// CurrentTimingPolicy answers the timing rules in force now.
+func (s *Store) CurrentTimingPolicy(ctx context.Context) (TimingPolicy, error) {
+	row, err := db.New(s.pool).CurrentTimingPolicy(ctx)
+	if err != nil {
+		return TimingPolicy{}, fmt.Errorf("interview: reading the timing policy: %w", err)
+	}
+	return TimingPolicy{
+		Version:               int(row.Version),
+		ReconnectGraceSeconds: int(row.ReconnectGraceSeconds),
+		MaxOverrunSeconds:     int(row.MaxOverrunSeconds),
+	}, nil
+}
+
+// StampTimingPolicy records which policy governs a session, once: the
+// stamp is first-write-wins so a later policy publish never rewrites a
+// session already running.
+func (s *Store) StampTimingPolicy(ctx context.Context, session Session, policy TimingPolicy) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("interview: beginning stamp: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
+		return err
+	}
+	if err := db.New(tx).StampTimingPolicy(ctx, db.StampTimingPolicyParams{
+		ID: session.ID, Version: int32(policy.Version),
+	}); err != nil {
+		return fmt.Errorf("interview: stamping the timing policy: %w", err)
+	}
+	return tx.Commit(ctx)
 }

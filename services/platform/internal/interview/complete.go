@@ -423,10 +423,10 @@ func completedEvent(session Session, transcript Transcript) (*outbox.Event, erro
 			turns++
 		}
 	}
-	duration := 0
-	if segments := transcript.EffectiveText(); len(segments) > 0 {
-		duration = (segments[len(segments)-1].EndMs - segments[0].StartMs) / 1000
-	}
+	// SES-05: duration is ACTIVE time, summed per connection epoch, so
+	// the room-clock gap a reconnection leaves never counts against the
+	// candidate.
+	duration := ActiveSeconds(transcript.EffectiveText())
 	payload, err := json.Marshal(map[string]any{
 		"session_id":       session.ID,
 		"completion":       "completed",

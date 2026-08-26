@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -294,5 +295,100 @@ func TestConcurrentCompletionsConvergeOnOneSeal(t *testing.T) {
 			receipts[i].SealedSequence != receipts[0].SealedSequence {
 			t.Fatalf("racer %d got a different seal", i)
 		}
+	}
+}
+
+// epochSegment is finalSegment with the epoch chosen: reconnection tests
+// speak across two epochs.
+func epochSegment(epoch, sequence int, speaker, text string, startMs int) interview.ControlEvent {
+	payload, _ := json.Marshal(map[string]any{
+		"speaker": speaker, "text": text,
+		"start_ms": startMs, "end_ms": startMs + 3000,
+		"confidence": 0.9,
+		"words": []map[string]any{{
+			"w": text, "start_ms": startMs, "end_ms": startMs + 2900, "confidence": 0.9,
+		}},
+	})
+	return interview.ControlEvent{
+		EventID: id.New().String(), Epoch: epoch, Sequence: sequence,
+		Type: "transcript.segment.final", Payload: payload,
+		OccurredAt: time.Date(2026, 8, 26, 13, 0, sequence, 0, time.UTC),
+	}
+}
+
+func TestReconnectionDoesNotConsumeCandidateTime(t *testing.T) {
+	// SES-05's first box, end to end: the conversation spans two epochs
+	// with ten dead minutes of room clock between them. The completed
+	// event's duration is the active time only.
+	ctx := context.Background()
+	store := interview.NewStore(pool)
+	events := interview.NewEvents(store)
+	completer := interview.NewCompleter(store)
+	session := startedPractice(t)
+
+	// Epoch one: two minutes of conversation, then the connection dies.
+	ingest := func(epoch int, batch []interview.ControlEvent) {
+		t.Helper()
+		ack, err := events.Ingest(ctx, session.ID, "practice", candidateID, "", epoch, batch)
+		if err != nil {
+			t.Fatalf("epoch %d: %v", epoch, err)
+		}
+		for _, outcome := range ack.Outcomes {
+			if outcome.Status != "accepted" {
+				t.Fatalf("epoch %d refused an event: %+v", epoch, outcome)
+			}
+		}
+	}
+	ingest(1, []interview.ControlEvent{
+		event(1, "connection.established"),
+		epochSegment(1, 2, "interviewer", "Tell me about the migration", 0),
+		epochSegment(1, 3, "candidate", "I led it end to end", 117_000),
+	})
+
+	current, err := store.Get(ctx, session.ID, "practice", candidateID, "")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	epoch, err := events.BeginAttempt(ctx, current)
+	if err != nil {
+		t.Fatalf("reconnect: %v", err)
+	}
+	if epoch != 2 {
+		t.Fatalf("epoch = %d", epoch)
+	}
+
+	// Epoch two opens ten minutes later on the room clock: one more
+	// minute of conversation.
+	ingest(2, []interview.ControlEvent{
+		event(1, "connection.established"),
+		epochSegment(2, 2, "candidate", "Picking up where we stopped", 720_000),
+		epochSegment(2, 3, "candidate", "The rollout finished on time", 777_000),
+	})
+
+	receipt, err := completer.Complete(ctx, session.ID, "practice", candidateID, "", 2, 3)
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if receipt.State != interview.StateEvaluating {
+		t.Fatalf("state = %s", receipt.State)
+	}
+
+	admin, err := pgx.Connect(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("admin: %v", err)
+	}
+	defer admin.Close(ctx)
+	var duration int
+	if err := admin.QueryRow(ctx, `
+		SELECT (payload->>'duration_seconds')::int FROM integration.outbox
+		WHERE event_type = 'interview.session_completed.v1'
+		  AND payload->>'session_id' = $1`, session.ID).Scan(&duration); err != nil {
+		t.Fatalf("reading the completed event: %v", err)
+	}
+	// Epoch one spans 0 to 120s active; epoch two 720s to 780s: three
+	// active minutes. Thirteen minutes would mean the reconnection gap
+	// was billed to the candidate.
+	if duration != 180 {
+		t.Fatalf("duration_seconds = %d, want 180", duration)
 	}
 }

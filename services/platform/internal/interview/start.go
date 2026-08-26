@@ -68,6 +68,9 @@ var (
 type Started struct {
 	Session Session
 	Grant   RoomGrant
+	// Timing is the policy stamped on this session at start. The client
+	// renders grace countdowns from these values; it compiles in none.
+	Timing TimingPolicy
 }
 
 // Starter runs the start command.
@@ -138,11 +141,23 @@ func (s *Starter) Start(ctx context.Context, sessionID, mode, candidateID, tenan
 	}
 	started.ConnectionEpoch = epoch
 
+	// SES-05: stamp the timing rules in force, first-write-wins, so a
+	// policy published mid-session never changes a session already
+	// running. A crash after the transition retries into the same stamp.
+	policy, err := s.store.CurrentTimingPolicy(ctx)
+	if err != nil {
+		return Started{}, err
+	}
+	if err := s.store.StampTimingPolicy(ctx, started, policy); err != nil {
+		return Started{}, err
+	}
+	started.TimingPolicyVersion = policy.Version
+
 	grant, err := s.grants.MintJoin(started.ID, candidateID, startJoinWindow)
 	if err != nil {
 		return Started{}, fmt.Errorf("interview: minting the room grant: %w", err)
 	}
-	return Started{Session: started, Grant: grant}, nil
+	return Started{Session: started, Grant: grant, Timing: policy}, nil
 }
 
 // translateLedger keeps the quota refusal's identity without interview

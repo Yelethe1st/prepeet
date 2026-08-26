@@ -18,6 +18,7 @@ SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(bundle_digest, '')::text AS bundle_digest,
        coalesce(bundle_revision, 0)::integer AS bundle_revision,
        coalesce(failure_code, '')::text AS failure_code,
+       coalesce(timing_policy_version, 0)::integer AS timing_policy_version,
        created_at, state_changed_at
 FROM interview.sessions
 WHERE id = sqlc.arg(id)::uuid;
@@ -142,3 +143,16 @@ SELECT session_id::text AS session_id, sealed_epoch, sealed_sequence,
        evaluation_input_digest, created_at
 FROM interview.seals
 WHERE session_id = sqlc.arg(session_id)::uuid;
+
+-- name: CurrentTimingPolicy :one
+-- The rules in force now: the highest published version. Sessions stamp
+-- it at start so later policy changes never rewrite a running session.
+SELECT version, reconnect_grace_seconds, max_overrun_seconds
+FROM interview.timing_policies
+ORDER BY version DESC
+LIMIT 1;
+
+-- name: StampTimingPolicy :exec
+UPDATE interview.sessions
+SET timing_policy_version = sqlc.arg(version)::integer
+WHERE id = sqlc.arg(id)::uuid AND timing_policy_version IS NULL;

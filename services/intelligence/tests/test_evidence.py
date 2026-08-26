@@ -362,3 +362,39 @@ class TestContradictionsOverTheWire:
         serialized = jsonlib.dumps(pair).lower()
         for forbidden in ("honest", "integrity", "credib", "lie", "decept", "truth"):
             assert forbidden not in serialized
+
+
+class TestLatencyIsInvisibleToExtraction:
+    """SES-05 on the extraction path: pauses shift clocks, nothing else."""
+
+    def test_response_latency_changes_only_provenance_clocks(self) -> None:
+        """The same words after a long pause read identically."""
+        import dataclasses
+
+        prompt_turns = [dict(turn) for turn in TURNS]
+        delayed_turns = []
+        for turn in TURNS:
+            shifted = dict(turn)
+            shifted["start_ms"] = int(turn["start_ms"]) + 90_000
+            shifted["end_ms"] = int(turn["end_ms"]) + 90_000
+            if "words" in shifted:
+                shifted["words"] = [
+                    {
+                        **word,
+                        "start_ms": word["start_ms"] + 90_000,
+                        "end_ms": word["end_ms"] + 90_000,
+                    }
+                    for word in shifted["words"]
+                ]
+            delayed_turns.append(shifted)
+
+        prompt = extract_evidence(prompt_turns, COMPETENCIES)
+        delayed = extract_evidence(delayed_turns, COMPETENCIES)
+
+        assert len(prompt) == len(delayed) > 0
+        for a, b in zip(prompt, delayed, strict=True):
+            fast = dataclasses.asdict(a)
+            slow = dataclasses.asdict(b)
+            fast.pop("start_ms"), fast.pop("end_ms")
+            slow.pop("start_ms"), slow.pop("end_ms")
+            assert fast == slow

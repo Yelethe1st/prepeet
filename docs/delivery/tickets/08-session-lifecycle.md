@@ -156,9 +156,28 @@ Duration counts active interview time. Connecting, reconnecting, finalization an
 count against the candidate, and accommodations may change pacing without changing anchors.
 
 **Done when**
-- [ ] Reconnection provably does not consume candidate time.
-- [ ] Grace and maximum duration are versioned policy values, not constants in the client.
-- [ ] Response latency is excluded from every scoring path, verified by test.
+- [x] Reconnection provably does not consume candidate time.
+- [x] Grace and maximum duration are versioned policy values, not constants in the client.
+- [x] Response latency is excluded from every scoring path, verified by test.
+
+**Done.** Duration is now active time by arithmetic over the durable timeline: per connection
+epoch, the span from its first conversational segment to its last; in total, the sum. The
+room-clock gap a reconnection leaves between epochs cannot appear in the sum by construction,
+and the end-to-end proof completes a session whose two epochs bracket ten dead minutes and reads
+180 seconds off the completed event, not 780. That proof also caught its own fixture being
+silently refused at ingest (final segments require word timing), so it now asserts every ack.
+
+Timing rules live in interview.timing_policies: versioned immutable rows (new values are new
+versions, the trigger refuses edits), stamped on the session at start first-write-wins so a
+policy published mid-session never changes a running one - the same reconstructability the
+rubric pin gives evaluation. The start response carries the stamped values, so the client
+compiles in no grace constant. Seeded v1 (120s grace, 300s overrun) is explicitly marked
+pending DEC-14; enforcement of grace expiry is SES-06's.
+
+Latency exclusion is proven on both scoring paths: the Python extractor reads the same words
+identically after a 90-second pause (only provenance clocks shift), and Go aggregation is
+DeepEqual-identical across spans differing only in clock values. Timing is provenance for
+replay, never an input to a score.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md)
 

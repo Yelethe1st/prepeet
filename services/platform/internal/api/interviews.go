@@ -216,6 +216,15 @@ func (e *StartRefusedError) Error() string { return "api: start refused: " + e.C
 type StartedInterview struct {
 	Session  InterviewSession
 	Realtime RoomGrantView
+	Timing   TimingPolicyView
+}
+
+// TimingPolicyView is the versioned timing rules stamped at start. The
+// client renders grace countdowns from these; it compiles in none.
+type TimingPolicyView struct {
+	PolicyVersion         int
+	ReconnectGraceSeconds int
+	MaxOverrunSeconds     int
 }
 
 // RoomGrantView mirrors the contract's RoomGrant.
@@ -411,6 +420,11 @@ func (i *interviews) StartInterview(ctx context.Context, request prepeetapi.Star
 				Room:      started.Realtime.Room,
 				Token:     started.Realtime.Token,
 				ExpiresAt: started.Realtime.ExpiresAt,
+			},
+			Timing: prepeetapi.TimingPolicyView{
+				PolicyVersion:         started.Timing.PolicyVersion,
+				ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+				MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
 			},
 		},
 		Headers: prepeetapi.StartInterview200ResponseHeaders{CacheControl: NoStore},

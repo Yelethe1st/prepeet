@@ -44,6 +44,28 @@ func (q *Queries) ControlEventExists(ctx context.Context, eventID string) (bool,
 	return present, err
 }
 
+const currentTimingPolicy = `-- name: CurrentTimingPolicy :one
+SELECT version, reconnect_grace_seconds, max_overrun_seconds
+FROM interview.timing_policies
+ORDER BY version DESC
+LIMIT 1
+`
+
+type CurrentTimingPolicyRow struct {
+	Version               int32
+	ReconnectGraceSeconds int32
+	MaxOverrunSeconds     int32
+}
+
+// The rules in force now: the highest published version. Sessions stamp
+// it at start so later policy changes never rewrite a running session.
+func (q *Queries) CurrentTimingPolicy(ctx context.Context) (CurrentTimingPolicyRow, error) {
+	row := q.db.QueryRow(ctx, currentTimingPolicy)
+	var i CurrentTimingPolicyRow
+	err := row.Scan(&i.Version, &i.ReconnectGraceSeconds, &i.MaxOverrunSeconds)
+	return i, err
+}
+
 const getSeal = `-- name: GetSeal :one
 SELECT session_id::text AS session_id, sealed_epoch, sealed_sequence,
        gaps, transcript_digest, bundle_digest, media_status, warnings,
@@ -92,6 +114,7 @@ SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(bundle_digest, '')::text AS bundle_digest,
        coalesce(bundle_revision, 0)::integer AS bundle_revision,
        coalesce(failure_code, '')::text AS failure_code,
+       coalesce(timing_policy_version, 0)::integer AS timing_policy_version,
        created_at, state_changed_at
 FROM interview.sessions
 WHERE id = $1::uuid
@@ -114,6 +137,7 @@ type GetSessionRow struct {
 	BundleDigest        string
 	BundleRevision      int32
 	FailureCode         string
+	TimingPolicyVersion int32
 	CreatedAt           time.Time
 	StateChangedAt      time.Time
 }
@@ -138,6 +162,7 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 		&i.BundleDigest,
 		&i.BundleRevision,
 		&i.FailureCode,
+		&i.TimingPolicyVersion,
 		&i.CreatedAt,
 		&i.StateChangedAt,
 	)
@@ -451,6 +476,22 @@ func (q *Queries) ReplayControlEvents(ctx context.Context, arg ReplayControlEven
 		return nil, err
 	}
 	return items, nil
+}
+
+const stampTimingPolicy = `-- name: StampTimingPolicy :exec
+UPDATE interview.sessions
+SET timing_policy_version = $1::integer
+WHERE id = $2::uuid AND timing_policy_version IS NULL
+`
+
+type StampTimingPolicyParams struct {
+	Version int32
+	ID      string
+}
+
+func (q *Queries) StampTimingPolicy(ctx context.Context, arg StampTimingPolicyParams) error {
+	_, err := q.db.Exec(ctx, stampTimingPolicy, arg.Version, arg.ID)
+	return err
 }
 
 const storedSequences = `-- name: StoredSequences :many

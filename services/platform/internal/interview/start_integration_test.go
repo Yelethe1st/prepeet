@@ -147,6 +147,20 @@ func TestStartMovesAReadySessionAndMintsItsGrant(t *testing.T) {
 	if len(ledger.reserved) != 0 {
 		t.Fatal("a practice start reserved tenant quota")
 	}
+
+	// SES-05: the start stamped the timing policy in force and answered
+	// its values, so the client compiles in no grace constant and the
+	// session stays reconstructable after the policy moves on.
+	if started.Timing.Version != 1 || started.Timing.ReconnectGraceSeconds != 120 || started.Timing.MaxOverrunSeconds != 300 {
+		t.Fatalf("timing = %+v, want the seeded v1 policy", started.Timing)
+	}
+	stamped, err := interview.NewStore(pool).Get(ctx, session.ID, "practice", candidateID, "")
+	if err != nil {
+		t.Fatalf("reread: %v", err)
+	}
+	if stamped.TimingPolicyVersion != 1 {
+		t.Fatalf("the session's stamp is %d, want 1", stamped.TimingPolicyVersion)
+	}
 }
 
 func TestEachRefusalIsItsOwn(t *testing.T) {

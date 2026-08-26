@@ -325,6 +325,9 @@ func TestStartAnswersWithTheScopedGrant(t *testing.T) {
 			URL: "wss://rtc.local", Room: "00000000-0000-7000-8000-0000000000e1",
 			Token: "tok-1", ExpiresAt: expires,
 		},
+		Timing: api.TimingPolicyView{
+			PolicyVersion: 1, ReconnectGraceSeconds: 120, MaxOverrunSeconds: 300,
+		},
 	}}
 	handler := serveInterviews(t, interviews)
 
@@ -343,11 +346,21 @@ func TestStartAnswersWithTheScopedGrant(t *testing.T) {
 			Room  string `json:"room"`
 			Token string `json:"token"`
 		} `json:"realtime"`
+		Timing struct {
+			PolicyVersion         int `json:"policy_version"`
+			ReconnectGraceSeconds int `json:"reconnect_grace_seconds"`
+			MaxOverrunSeconds     int `json:"max_overrun_seconds"`
+		} `json:"timing"`
 	}
 	decodeInto(t, response, &body)
 	if body.Session.State != "connecting" || body.Realtime.Token != "tok-1" ||
 		body.Realtime.Room != "00000000-0000-7000-8000-0000000000e1" {
 		t.Fatalf("body = %+v", body)
+	}
+	// SES-05: the grace window arrives from the server's versioned policy,
+	// never from a constant compiled into the client.
+	if body.Timing.PolicyVersion != 1 || body.Timing.ReconnectGraceSeconds != 120 || body.Timing.MaxOverrunSeconds != 300 {
+		t.Fatalf("timing = %+v", body.Timing)
 	}
 	if interviews.users[0] != "start:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1" {
 		t.Fatalf("the port saw %v", interviews.users)

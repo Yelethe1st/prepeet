@@ -260,28 +260,68 @@ func (a interviewAdapter) StartPractice(ctx context.Context, userID, sessionID s
 	started, err := a.starter.Start(ctx, sessionID, "practice", userID, "")
 	switch {
 	case errors.Is(err, interview.ErrNotFound):
-		return api.StartedInterview{}, api.ErrSessionMissing
+		return api.StartedInterview{
+			Timing: api.TimingPolicyView{
+				PolicyVersion:         started.Timing.Version,
+				ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+				MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
+			}}, api.ErrSessionMissing
 	case errors.Is(err, interview.ErrStartExpired):
-		return api.StartedInterview{}, &api.StartRefusedError{Code: "SESSION_EXPIRED",
-			Message: "This session has expired. Set up a fresh interview; nothing you configured is lost."}
+		return api.StartedInterview{
+				Timing: api.TimingPolicyView{
+					PolicyVersion:         started.Timing.Version,
+					ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+					MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
+				}}, &api.StartRefusedError{Code: "SESSION_EXPIRED",
+				Message: "This session has expired. Set up a fresh interview; nothing you configured is lost."}
 	case errors.Is(err, interview.ErrStartAlreadyStarted):
-		return api.StartedInterview{}, &api.StartRefusedError{Code: "SESSION_ALREADY_STARTED",
-			Message: "This session has already started."}
+		return api.StartedInterview{
+				Timing: api.TimingPolicyView{
+					PolicyVersion:         started.Timing.Version,
+					ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+					MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
+				}}, &api.StartRefusedError{Code: "SESSION_ALREADY_STARTED",
+				Message: "This session has already started."}
 	case errors.Is(err, interview.ErrStartNotReady):
-		return api.StartedInterview{}, &api.StartRefusedError{Code: "SESSION_NOT_READY",
-			Message: "This session is not ready to start yet."}
+		return api.StartedInterview{
+				Timing: api.TimingPolicyView{
+					PolicyVersion:         started.Timing.Version,
+					ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+					MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
+				}}, &api.StartRefusedError{Code: "SESSION_NOT_READY",
+				Message: "This session is not ready to start yet."}
 	case errors.Is(err, interview.ErrStartQuotaExhausted):
-		return api.StartedInterview{}, &api.StartRefusedError{Code: "QUOTA_EXHAUSTED",
-			Message: "This workspace is at capacity right now. The hiring team has been told; nothing you did caused this."}
+		return api.StartedInterview{
+				Timing: api.TimingPolicyView{
+					PolicyVersion:         started.Timing.Version,
+					ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+					MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
+				}}, &api.StartRefusedError{Code: "QUOTA_EXHAUSTED",
+				Message: "This workspace is at capacity right now. The hiring team has been told; nothing you did caused this."}
 	case err != nil:
-		return api.StartedInterview{}, err
+		return api.StartedInterview{
+			Timing: api.TimingPolicyView{
+				PolicyVersion:         started.Timing.Version,
+				ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+				MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
+			}}, err
 	}
 
 	session, err := a.GetPractice(ctx, userID, sessionID)
 	if err != nil {
-		return api.StartedInterview{}, err
+		return api.StartedInterview{
+			Timing: api.TimingPolicyView{
+				PolicyVersion:         started.Timing.Version,
+				ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+				MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
+			}}, err
 	}
 	return api.StartedInterview{
+		Timing: api.TimingPolicyView{
+			PolicyVersion:         started.Timing.Version,
+			ReconnectGraceSeconds: started.Timing.ReconnectGraceSeconds,
+			MaxOverrunSeconds:     started.Timing.MaxOverrunSeconds,
+		},
 		Session: session,
 		Realtime: api.RoomGrantView{
 			URL:       started.Grant.URL,

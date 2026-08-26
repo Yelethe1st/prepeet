@@ -1952,12 +1952,27 @@ components:
 
     StartedInterview:
       type: object
-      required: [session, realtime]
+      required: [session, realtime, timing]
       properties:
         session:
           $ref: "#/components/schemas/InterviewSession"
         realtime:
           $ref: "#/components/schemas/RoomGrant"
+        timing:
+          $ref: "#/components/schemas/TimingPolicyView"
+
+    TimingPolicyView:
+      type: object
+      description: |
+        The timing rules stamped on this session at start, versioned in
+        the database and served here so no grace window or ceiling is
+        ever a constant compiled into a client. Reconnecting does not
+        consume interview time.
+      required: [policy_version, reconnect_grace_seconds, max_overrun_seconds]
+      properties:
+        policy_version: { type: integer }
+        reconnect_grace_seconds: { type: integer }
+        max_overrun_seconds: { type: integer }
 
     RoomGrant:
       type: object

@@ -1243,6 +1243,18 @@ export interface components {
         StartedInterview: {
             session: components["schemas"]["InterviewSession"];
             realtime: components["schemas"]["RoomGrant"];
+            timing: components["schemas"]["TimingPolicyView"];
+        };
+        /**
+         * @description The timing rules stamped on this session at start, versioned in
+         *     the database and served here so no grace window or ceiling is
+         *     ever a constant compiled into a client. Reconnecting does not
+         *     consume interview time.
+         */
+        TimingPolicyView: {
+            policy_version: number;
+            reconnect_grace_seconds: number;
+            max_overrun_seconds: number;
         };
         /**
          * @description Short-lived, scoped to one room and one identity, never reusable

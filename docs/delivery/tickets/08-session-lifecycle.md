@@ -49,9 +49,27 @@ Start checks readiness, expiry, authorization and quota, reserves capacity, and 
 provider credentials scoped to this session and this attempt.
 
 **Done when**
-- [ ] Start is refused for an expired, unauthorized, already-started or over-quota session, each distinctly.
-- [ ] Realtime credentials are short-lived, session-scoped and non-reusable.
-- [ ] A quota change after start never interrupts an interview already running.
+- [x] Start is refused for an expired, unauthorized, already-started or over-quota session, each distinctly.
+- [x] Realtime credentials are short-lived, session-scoped and non-reusable.
+- [x] A quota change after start never interrupts an interview already running.
+
+**Done.** POST /interviews/{id}/start runs one ordered command: quota reserved first (screening
+only; practice has no tenant quota per ADR-0014), the ready-to-connecting transition second, the
+room grant minted last, so a refusal happens before anything spends, a token never exists for a
+session that did not move, and a crash between reserve and transition converges on the retried
+start through the ledger's already-metered answer rather than double-billing. Each refusal is
+its own code on the wire - SESSION_EXPIRED, SESSION_ALREADY_STARTED, SESSION_NOT_READY,
+QUOTA_EXHAUSTED, all 409 - and unauthorized is this product's not-found, because existence is
+not answered across owners. Six concurrent starts on one session admit exactly one through the
+machine's version guard.
+
+The grant is ADR-0012's, minted by platform/realtime as a stdlib HS256 JWT whose claims are
+verified from the outside in tests: one room (the session id), one identity, roomJoin and
+nothing wider - no create, no admin, no list - with a two-minute join window. Non-reusable
+across attempts because reconnection mints a fresh grant through its own flow (RTC-03), and the
+refused quota path leaves the session ready, so quota arriving later makes it startable without
+repair. The third box is structure plus proof: nothing after start consults the ledger, and the
+test collapses the quota behind a running interview and watches its transitions keep working.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md)
 

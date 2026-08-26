@@ -682,6 +682,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a ready session and receive the room grant
+         * @description Quota is reserved before anything spends (screening only; practice
+         *     has no tenant quota), the session moves to connecting, and the
+         *     response carries a short-lived room grant scoped to exactly this
+         *     session and this identity. Each refusal is its own code: an expired
+         *     session, one already started, one not yet ready, and a workspace at
+         *     its limit are different situations with different next actions.
+         *     Somebody else's session is not found, because existence is not
+         *     answered across owners.
+         */
+        post: operations["startInterview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -940,6 +967,22 @@ export interface components {
             /** @enum {string} */
             role: "admin" | "recruiter" | "hiring_manager" | "viewer";
             expected_version: number;
+        };
+        StartedInterview: {
+            session: components["schemas"]["InterviewSession"];
+            realtime: components["schemas"]["RoomGrant"];
+        };
+        /**
+         * @description Short-lived, scoped to one room and one identity, never reusable
+         *     across attempts: reconnection mints a fresh grant. The browser
+         *     presents it to the SFU and holds no durable media credential.
+         */
+        RoomGrant: {
+            url: string;
+            room: string;
+            token: string;
+            /** Format: date-time */
+            expires_at: string;
         };
         CreateInterviewRequest: {
             /**
@@ -2283,6 +2326,44 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    startInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session, connecting, with its join grant. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedInterview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description Refused with a distinct code: SESSION_EXPIRED,
+             *     SESSION_ALREADY_STARTED, SESSION_NOT_READY or QUOTA_EXHAUSTED.
+             */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getCurrentUser: {

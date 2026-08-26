@@ -19,6 +19,7 @@ import (
 
 type fakeInterviews struct {
 	created   api.InterviewSession
+	started   api.StartedInterview
 	consent   api.PracticeConsent
 	err       error
 	selection *api.InterviewSelection
@@ -38,6 +39,11 @@ func (f *fakeInterviews) PracticeConsent(_ context.Context) (api.PracticeConsent
 func (f *fakeInterviews) GetPractice(_ context.Context, userID, sessionID string) (api.InterviewSession, error) {
 	f.users = append(f.users, userID+":"+sessionID)
 	return f.created, f.err
+}
+
+func (f *fakeInterviews) StartPractice(_ context.Context, userID, sessionID string) (api.StartedInterview, error) {
+	f.users = append(f.users, "start:"+userID+":"+sessionID)
+	return f.started, f.err
 }
 
 func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
@@ -266,5 +272,78 @@ func TestSomebodyElsesSessionIsNotFound(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status %d, want 404: %s", response.Code, response.Body)
+	}
+}
+
+func TestStartAnswersWithTheScopedGrant(t *testing.T) {
+	expires := time.Date(2026, 8, 26, 12, 2, 0, 0, time.UTC)
+	interviews := &fakeInterviews{started: api.StartedInterview{
+		Session: api.InterviewSession{
+			ID: "00000000-0000-7000-8000-0000000000e1", Mode: "practice", State: "connecting",
+			Config:              api.InterviewSelection{Discipline: "d", Role: "r", Shape: "s", Minutes: 40, Persona: "p"},
+			RecordingPreference: "audio_and_transcript", ConsentVersion: "1.0.0",
+			CreatedAt: time.Date(2026, 8, 26, 10, 0, 0, 0, time.UTC),
+		},
+		Realtime: api.RoomGrantView{
+			URL: "wss://rtc.local", Room: "00000000-0000-7000-8000-0000000000e1",
+			Token: "tok-1", ExpiresAt: expires,
+		},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := doJSON(t, handler, http.MethodPost,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/start", "", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+
+	var body struct {
+		Session struct {
+			State string `json:"state"`
+		} `json:"session"`
+		Realtime struct {
+			URL   string `json:"url"`
+			Room  string `json:"room"`
+			Token string `json:"token"`
+		} `json:"realtime"`
+	}
+	decodeInto(t, response, &body)
+	if body.Session.State != "connecting" || body.Realtime.Token != "tok-1" ||
+		body.Realtime.Room != "00000000-0000-7000-8000-0000000000e1" {
+		t.Fatalf("body = %+v", body)
+	}
+	if interviews.users[0] != "start:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1" {
+		t.Fatalf("the port saw %v", interviews.users)
+	}
+}
+
+func TestEachStartRefusalKeepsItsCodeOnTheWire(t *testing.T) {
+	cases := []struct {
+		err  error
+		want string
+	}{
+		{&api.StartRefusedError{Code: "SESSION_EXPIRED", Message: "m"}, "SESSION_EXPIRED"},
+		{&api.StartRefusedError{Code: "SESSION_ALREADY_STARTED", Message: "m"}, "SESSION_ALREADY_STARTED"},
+		{&api.StartRefusedError{Code: "SESSION_NOT_READY", Message: "m"}, "SESSION_NOT_READY"},
+		{&api.StartRefusedError{Code: "QUOTA_EXHAUSTED", Message: "m"}, "QUOTA_EXHAUSTED"},
+	}
+	for _, test := range cases {
+		handler := serveInterviews(t, &fakeInterviews{err: test.err})
+
+		response := doJSON(t, handler, http.MethodPost,
+			"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/start", "", sessionCookie())
+		if response.Code != http.StatusConflict {
+			t.Errorf("%s answered %d, want 409", test.want, response.Code)
+			continue
+		}
+		var body struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		decodeInto(t, response, &body)
+		if body.Error.Code != test.want {
+			t.Errorf("code = %q, want %q", body.Error.Code, test.want)
+		}
 	}
 }

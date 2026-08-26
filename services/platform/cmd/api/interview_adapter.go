@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	api "github.com/Yelethe1st/prepeet/services/platform/internal/api"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/billing"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/realtime"
 )
 
 // interviewAdapter presents session creation as the port the API declared.
@@ -21,6 +24,77 @@ type interviewAdapter struct {
 	catalogue *catalog.Service
 	sessions  *interview.Store
 	registry  *content.Store
+	starter   *interview.Starter
+}
+
+// ledgerPort narrows billing to the port interview declares, translating
+// the sentinels so interview never imports billing.
+type ledgerPort struct {
+	ledger *billing.Ledger
+}
+
+func (l ledgerPort) ReserveStart(ctx context.Context, tenantID, sessionID, mode string) error {
+	err := l.ledger.ReserveStart(ctx, tenantID, sessionID, mode)
+	switch {
+	case errors.Is(err, billing.ErrQuotaExhausted):
+		return interview.ErrStartQuotaExhausted
+	case errors.Is(err, billing.ErrAlreadyMetered):
+		return interview.ErrLedgerAlreadyMetered
+	}
+	return err
+}
+
+// grantsPort narrows the realtime signer to the port interview declares.
+type grantsPort struct {
+	grants *realtime.Grants
+}
+
+func (g grantsPort) MintJoin(room, identity string, ttl time.Duration) (interview.RoomGrant, error) {
+	grant, err := g.grants.MintJoin(realtime.JoinRequest{Room: room, Identity: identity, TTL: ttl})
+	if err != nil {
+		return interview.RoomGrant{}, err
+	}
+	return interview.RoomGrant{
+		URL: grant.URL, Room: grant.Room, Token: grant.Token, ExpiresAt: grant.ExpiresAt,
+	}, nil
+}
+
+// StartPractice runs the start command for the owner's practice session and
+// translates each distinct refusal onto the wire's stable codes.
+func (a interviewAdapter) StartPractice(ctx context.Context, userID, sessionID string) (api.StartedInterview, error) {
+	started, err := a.starter.Start(ctx, sessionID, "practice", userID, "")
+	switch {
+	case errors.Is(err, interview.ErrNotFound):
+		return api.StartedInterview{}, api.ErrSessionMissing
+	case errors.Is(err, interview.ErrStartExpired):
+		return api.StartedInterview{}, &api.StartRefusedError{Code: "SESSION_EXPIRED",
+			Message: "This session has expired. Set up a fresh interview; nothing you configured is lost."}
+	case errors.Is(err, interview.ErrStartAlreadyStarted):
+		return api.StartedInterview{}, &api.StartRefusedError{Code: "SESSION_ALREADY_STARTED",
+			Message: "This session has already started."}
+	case errors.Is(err, interview.ErrStartNotReady):
+		return api.StartedInterview{}, &api.StartRefusedError{Code: "SESSION_NOT_READY",
+			Message: "This session is not ready to start yet."}
+	case errors.Is(err, interview.ErrStartQuotaExhausted):
+		return api.StartedInterview{}, &api.StartRefusedError{Code: "QUOTA_EXHAUSTED",
+			Message: "This workspace is at capacity right now. The hiring team has been told; nothing you did caused this."}
+	case err != nil:
+		return api.StartedInterview{}, err
+	}
+
+	session, err := a.GetPractice(ctx, userID, sessionID)
+	if err != nil {
+		return api.StartedInterview{}, err
+	}
+	return api.StartedInterview{
+		Session: session,
+		Realtime: api.RoomGrantView{
+			URL:       started.Grant.URL,
+			Room:      started.Grant.Room,
+			Token:     started.Grant.Token,
+			ExpiresAt: started.Grant.ExpiresAt,
+		},
+	}, nil
 }
 
 // PracticeConsent answers the currently published consent text.

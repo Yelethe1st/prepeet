@@ -330,6 +330,16 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		return base
 	}
 
+	// Start's refusals each carry their own stable code; the person's next
+	// action differs per code, which is the whole reason they are distinct.
+	var startRefused *StartRefusedError
+	if errors.As(err, &startRefused) {
+		base.status = http.StatusConflict
+		base.code = startRefused.Code
+		base.message = startRefused.Message
+		return base
+	}
+
 	switch {
 	case errors.Is(err, ErrDocumentMissing):
 		base.status = http.StatusNotFound

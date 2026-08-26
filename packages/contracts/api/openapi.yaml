@@ -921,6 +921,46 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /interviews/{sessionId}/start:
+    post:
+      tags: [interview]
+      operationId: startInterview
+      summary: Start a ready session and receive the room grant
+      description: |
+        Quota is reserved before anything spends (screening only; practice
+        has no tenant quota), the session moves to connecting, and the
+        response carries a short-lived room grant scoped to exactly this
+        session and this identity. Each refusal is its own code: an expired
+        session, one already started, one not yet ready, and a workspace at
+        its limit are different situations with different next actions.
+        Somebody else's session is not found, because existence is not
+        answered across owners.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: The session, connecting, with its join grant.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartedInterview"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            Refused with a distinct code: SESSION_EXPIRED,
+            SESSION_ALREADY_STARTED, SESSION_NOT_READY or QUOTA_EXHAUSTED.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /me:
     get:
       tags: [authentication]
@@ -1478,6 +1518,28 @@ components:
           type: string
           enum: [admin, recruiter, hiring_manager, viewer]
         expected_version: { type: integer }
+
+    StartedInterview:
+      type: object
+      required: [session, realtime]
+      properties:
+        session:
+          $ref: "#/components/schemas/InterviewSession"
+        realtime:
+          $ref: "#/components/schemas/RoomGrant"
+
+    RoomGrant:
+      type: object
+      description: |
+        Short-lived, scoped to one room and one identity, never reusable
+        across attempts: reconnection mints a fresh grant. The browser
+        presents it to the SFU and holds no durable media credential.
+      required: [url, room, token, expires_at]
+      properties:
+        url: { type: string }
+        room: { type: string }
+        token: { type: string }
+        expires_at: { type: string, format: date-time }
 
     CreateInterviewRequest:
       type: object

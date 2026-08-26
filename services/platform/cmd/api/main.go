@@ -32,6 +32,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/ratelimit"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/realtime"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/telemetry"
 )
 
@@ -116,6 +117,17 @@ func main() {
 		log.Error("object storage is not usable", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+	// The room grant signer. Required for the same reason the bucket is: a
+	// start button wired to a signer that cannot sign refuses politely at
+	// the worst possible moment.
+	grants, err := realtime.NewGrants(realtime.Config{
+		URL: cfg.LiveKitURL, APIKey: cfg.LiveKitAPIKey, APISecret: cfg.LiveKitAPISecret,
+	})
+	if err != nil {
+		log.Error("the realtime signer is not usable", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
 	candidateStore := candidate.NewStore(pool)
 	candidates := candidateAdapter{
 		service:   candidate.NewService(candidateStore),
@@ -141,6 +153,8 @@ func main() {
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),
 			registry:  content.NewStore(pool),
+			starter: interview.NewStarter(interview.NewStore(pool),
+				ledgerPort{ledger: billing.NewLedger(pool)}, grantsPort{grants: grants}),
 		},
 		Environment: cfg.Environment,
 		Health:      checks,

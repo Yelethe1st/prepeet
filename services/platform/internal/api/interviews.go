@@ -33,6 +33,32 @@ type Interviews interface {
 	// Somebody else's session fails with ErrSessionMissing, exactly like
 	// none: existence is not answered across owners.
 	GetPractice(ctx context.Context, userID, sessionID string) (InterviewSession, error)
+	// StartPractice starts a ready session and mints its room grant. Each
+	// refusal is a *StartRefusedError with its own stable code.
+	StartPractice(ctx context.Context, userID, sessionID string) (StartedInterview, error)
+}
+
+// StartRefusedError is one of start's distinct refusals, carried with the
+// stable code the response repeats.
+type StartRefusedError struct {
+	Code    string
+	Message string
+}
+
+func (e *StartRefusedError) Error() string { return "api: start refused: " + e.Code }
+
+// StartedInterview is the start command's answer at the port.
+type StartedInterview struct {
+	Session  InterviewSession
+	Realtime RoomGrantView
+}
+
+// RoomGrantView mirrors the contract's RoomGrant.
+type RoomGrantView struct {
+	URL       string
+	Room      string
+	Token     string
+	ExpiresAt time.Time
 }
 
 // ErrSessionMissing covers absence and somebody else's session alike.
@@ -193,6 +219,39 @@ func (i *interviews) GetInterview(ctx context.Context, request prepeetapi.GetInt
 	}, nil
 }
 
+// StartInterview starts a ready session and answers with its room grant.
+func (i *interviews) StartInterview(ctx context.Context, request prepeetapi.StartInterviewRequestObject) (prepeetapi.StartInterviewResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	started, err := i.flows.StartPractice(ctx, principal.UserID, request.SessionID.String())
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	session, err := interviewSessionBody(started.Session)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	return prepeetapi.StartInterview200JSONResponse{
+		Body: prepeetapi.StartedInterview{
+			Session: session,
+			Realtime: prepeetapi.RoomGrant{
+				URL:       started.Realtime.URL,
+				Room:      started.Realtime.Room,
+				Token:     started.Realtime.Token,
+				ExpiresAt: started.Realtime.ExpiresAt,
+			},
+		},
+		Headers: prepeetapi.StartInterview200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetPracticeConsent answers the current consent text with its version.
 func (i *interviews) GetPracticeConsent(ctx context.Context, _ prepeetapi.GetPracticeConsentRequestObject) (prepeetapi.GetPracticeConsentResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -238,8 +297,10 @@ var (
 	_ prepeetapi.CreateInterviewResponseObject    = failure{}
 	_ prepeetapi.GetPracticeConsentResponseObject = failure{}
 	_ prepeetapi.GetInterviewResponseObject       = failure{}
+	_ prepeetapi.StartInterviewResponseObject     = failure{}
 )
 
 func (f failure) VisitCreateInterviewResponse(w http.ResponseWriter) error    { return f.write(w) }
 func (f failure) VisitGetPracticeConsentResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitGetInterviewResponse(w http.ResponseWriter) error       { return f.write(w) }
+func (f failure) VisitStartInterviewResponse(w http.ResponseWriter) error     { return f.write(w) }

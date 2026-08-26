@@ -405,6 +405,9 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 	( cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" \
 		PREPEET_WEB_BASE_URL="http://localhost:3000" \
 		PREPEET_S3_ENDPOINT="http://localhost:$${PREPEET_LOCALSTACK_PORT:-4566}" \
+		PREPEET_LIVEKIT_URL="ws://localhost:7880" \
+		PREPEET_LIVEKIT_API_KEY="devkey" \
+		PREPEET_LIVEKIT_API_SECRET="devsecret-devsecret-devsecret" \
 		PREPEET_S3_BUCKET="prepeet-documents" \
 		PREPEET_S3_ACCESS_KEY="test" PREPEET_S3_SECRET_KEY="test" \
 		PREPEET_S3_PATH_STYLE="true" \
@@ -426,6 +429,9 @@ dev-api: ## Run the Go API alone
 		PREPEET_OTLP_ENDPOINT="$$PREPEET_OTLP_ENDPOINT" \
 		PREPEET_WEB_BASE_URL="http://localhost:3000" \
 		PREPEET_S3_ENDPOINT="http://localhost:$${PREPEET_LOCALSTACK_PORT:-4566}" \
+		PREPEET_LIVEKIT_URL="ws://localhost:7880" \
+		PREPEET_LIVEKIT_API_KEY="devkey" \
+		PREPEET_LIVEKIT_API_SECRET="devsecret-devsecret-devsecret" \
 		PREPEET_S3_BUCKET="prepeet-documents" \
 		PREPEET_S3_ACCESS_KEY="test" PREPEET_S3_SECRET_KEY="test" \
 		PREPEET_S3_PATH_STYLE="true" go run ./cmd/api

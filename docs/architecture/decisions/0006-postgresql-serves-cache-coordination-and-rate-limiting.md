@@ -143,6 +143,7 @@ and [OPS-02](../../delivery/tickets/18-platform-operations.md).
 | Session lookup or authorization context dominating latency | Share of p99 attributable to the lookup span, connection pool saturation | Sustained 1,000 requests per second, probably later | PgBouncer first, since pool exhaustion is a pooling problem before it is a caching problem. Then an in-process cache, which needs the fan-out trigger above to invalidate correctly |
 | Immutable artifact and catalogue reads costing measurable latency | Share of p99 attributable to artifact loading | Whenever it is measurable, which may be soon | An in-process cache keyed by version, which needs no invalidation and no new infrastructure. `ETag` on the catalogue endpoints, which removes the request |
 | Provider concurrency capped across workers | In-flight model calls per provider | When the cap must span work Temporal is not orchestrating | Temporal task queue concurrency, which expresses this directly |
+| LiveKit outgrows one node (ADR-0012) | Concurrent interview load against one SFU node's measured ceiling | A few hundred concurrent interviews, to be replaced by load-test measurement | Vertical headroom first; the Redis this trigger brings is LiveKit's own coordination store, not an application cache, and it arrives scoped to media |
 
 The most likely first trigger is fan-out, not any of the three uses Redis was originally proposed for.
 

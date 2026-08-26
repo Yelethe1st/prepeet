@@ -117,15 +117,26 @@ set per transaction with `SET LOCAL`, and three roles none of which can bypass t
 
 ### DEC-06 · Choose the realtime provider, media topology and outage fallback
 
-**Depends on** DEC-01 · **Blocks** RTC-01, RTC-07
+**Depends on** DEC-01 · **Blocks** RTC-01, RTC-07 · **Done** 2026-08-26
 
 Browser-direct WebRTC to a provider is the proposal. Decide the provider, what happens to an
 in-progress interview when it degrades, and whether a fallback path exists at all.
 
 **Done when**
-- [ ] ADR accepted covering provider, topology, authorization model for media, and degradation behaviour.
-- [ ] Position recorded on whether a degraded session continues, pauses, or ends.
-- [ ] Provider terms reviewed against [data-classification.md](../../security/data-classification.md).
+- [x] ADR accepted covering provider, topology, authorization model for media, and degradation behaviour.
+- [x] Position recorded on whether a degraded session continues, pauses, or ends.
+- [x] Provider terms reviewed against [data-classification.md](../../security/data-classification.md).
+
+**[ADR-0012](../../architecture/decisions/0012-livekit-carries-live-voice.md).** LiveKit,
+self-hosted in eu-west-2, the loop on our own Python agent, STT/LLM/TTS behind adapters for
+DEC-10 to fill. Browser to our SFU to the agent; Go mints the room grant at start, scoped to one
+session and one attempt. Degradation is three tiers ending in pause-with-resume through the
+state machine's own reconnecting and interrupted states; continue-degraded is not offered,
+because degraded audio silently entering evaluation is the one conversion practice-mode.md
+forbids. Self-hosting collapses the terms review to the AWS terms ADR-0001 covers; LiveKit
+Cloud is the named exit, gated behind its own review before any activation. The prototype's
+device-capture reconnect copy is recorded as a deviation and will be amended with the RTC
+screens.
 
 **Spec** [realtime-protocol.md](../../architecture/realtime-protocol.md)
 
@@ -133,14 +144,23 @@ in-progress interview when it degrades, and whether a fallback path exists at al
 
 ### DEC-07 · Decide the recording source, format, alignment and retention
 
-**Depends on** DEC-06 · **Blocks** RTC-05, ART-01
+**Depends on** DEC-06 · **Blocks** RTC-05, ART-01 · **Done** 2026-08-26
 
 Word-level timing is what makes articulation measurable and evidence playable. Decide where audio is
 captured, in what format, how it is aligned to the transcript, and how long each artifact lives.
 
 **Done when**
-- [ ] ADR accepted covering capture point, container/codec, alignment method, and per-artifact retention.
-- [ ] Consequence recorded for candidates who decline audio retention.
+- [x] ADR accepted covering capture point, container/codec, alignment method, and per-artifact retention.
+- [x] Consequence recorded for candidates who decline audio retention.
+
+**[ADR-0013](../../architecture/decisions/0013-recording-capture-format-alignment-retention.md).**
+Server-side SFU egress only, two tracks (candidate and interviewer separate, mixed at playback),
+Opus in WebM so egress is a remux and replay is a presigned GET. One clock: every artifact
+carries room-time, so evidence spans locate the same moment in transcript and audio by
+arithmetic. Transcript-only sessions never start egress, exceeding the consent text's promise
+structurally: durable audio never exists. Declining audio keeps score, evidence and coaching and
+permanently forfeits replay and delivery measurement, said in those words at choosing and on
+results. Durations stay with DEC-15.
 
 **Spec** [articulation-system.md](../../architecture/articulation-system.md) · [retention-and-deletion.md](../../security/retention-and-deletion.md)
 

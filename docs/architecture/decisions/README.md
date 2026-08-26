@@ -17,6 +17,8 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0009](0009-dark-is-the-default-theme.md) | Dark is the default theme against the prototype's light, and the operating system's preference is deliberately not consulted | 2026-08-24 |
 | [0010](0010-sqlc-generates-the-repositories-sql-access.md) | sqlc generates every query from SQL beside each module, checked against the real migrations; what stays hand-written is only what cannot be generated | 2026-08-24 |
 | [0011](0011-artifact-registry-review-publication-and-rollback.md) | Artifacts: git authors, the database registry publishes immutably by trigger, sessions pin digests, rollback is a pointer move, and the publisher must not be the drafter | 2026-08-26 |
+| [0012](0012-livekit-carries-live-voice.md) | LiveKit self-hosted in eu-west-2 carries live voice behind our own Python agent; Go mints session-scoped room grants; degradation pauses and resumes, never continues degraded into evaluation | 2026-08-26 |
+| [0013](0013-recording-capture-format-alignment-retention.md) | Recording is server-side SFU egress: two Opus/WebM tracks on the room's single clock; transcript-only sessions never write audio at all; durations stay with the retention decision | 2026-08-26 |
 
 ## Required initial ADRs
 
@@ -25,8 +27,8 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 3. ~~Go modular-monolith boundary and extraction criteria.~~ Accepted as [ADR-0005](0005-module-boundaries-and-extraction.md).
 4. ~~Temporal hosting and workflow ownership.~~ Accepted as [ADR-0007](0007-durable-execution-with-self-hosted-temporal.md).
 5. ~~PostgreSQL schemas, row-level security, and connection roles.~~ Accepted as [ADR-0002](0002-postgresql-schema-rls-and-connection-roles.md).
-6. Realtime provider, media topology, and outage fallback.
-7. Recording source, format, alignment, and retention.
+6. ~~Realtime provider, media topology, and outage fallback.~~ Accepted as [ADR-0012](0012-livekit-carries-live-voice.md).
+7. ~~Recording source, format, alignment, and retention.~~ Accepted as [ADR-0013](0013-recording-capture-format-alignment-retention.md).
 8. ~~REST, gRPC, event, and generated-contract conventions.~~ Accepted as [ADR-0004](0004-contract-conventions-and-code-generation.md).
 9. ~~Artifact registry, review, publication, and rollback.~~ Accepted as [ADR-0011](0011-artifact-registry-review-publication-and-rollback.md).
 10. Model providers, routing, regional policy, fallback, and budgets.

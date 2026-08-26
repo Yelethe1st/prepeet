@@ -1116,12 +1116,40 @@ export interface components {
                 reached: string[];
                 not_reached: string[];
             };
+            /**
+             * @description Pairs of statements that appear to conflict, both sides quoted
+             *     with timestamps. Clarification prompts, never judgments: no
+             *     honesty, integrity or credibility inference exists anywhere in
+             *     this pipeline.
+             */
+            contradictions: components["schemas"]["ContradictionView"][];
+            /**
+             * @description Server-supplied copy every surface must show beside these
+             *     concepts. Unverified does not mean untrue; a contradiction is
+             *     something to ask about.
+             */
+            framing: {
+                unverified: string;
+                contradictions: string;
+            };
             covered_competencies: number;
             total_competencies: number;
             result_digest: string;
             warnings: string[];
             /** Format: date-time */
             created_at: string;
+        };
+        ContradictionView: {
+            /** @description The shared subject tokens that made the pair. */
+            topic: string[];
+            side_a: components["schemas"]["ContradictionSideView"];
+            side_b: components["schemas"]["ContradictionSideView"];
+        };
+        ContradictionSideView: {
+            segment_sequence: number;
+            quote: string;
+            start_ms: number;
+            end_ms: number;
         };
         CompetencyResultView: {
             competency_id: string;

@@ -16,6 +16,7 @@ Implements the serving half of CTR-02 and the floor of CAT-02.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
 from concurrent import futures
@@ -95,8 +96,11 @@ class IntelligenceService(intelligence_pb2_grpc.IntelligenceServiceServicer):  #
 
         try:
             spans = []
+            contradictions = []
             for ref in request.turns:
-                spans.extend(evidence.evidence_from_ref(ref.fetch_url, ref.digest))
+                ref_spans, ref_pairs = evidence.evidence_from_ref(ref.fetch_url, ref.digest)
+                spans.extend(ref_spans)
+                contradictions.extend(ref_pairs)
         except FailureError as error:
             logger.info(
                 "evidence extraction refused",
@@ -125,6 +129,30 @@ class IntelligenceService(intelligence_pb2_grpc.IntelligenceServiceServicer):  #
                 intelligence_pb2.CompetencyObservation(
                     competency_id=span.competency_id,
                     turn_id=str(span.segment_sequence),
+                    observation=observation,
+                )
+            )
+
+        for pair in contradictions:
+            # A contradiction binds two statements, not a competency: the
+            # observation rides with an empty competency id and the kind
+            # as its discriminator. The framing is descriptive throughout;
+            # nothing in this stream judges the person.
+            observation = json.dumps(
+                {
+                    "kind": "contradiction",
+                    "topic": list(pair.topic),
+                    "side_a": dataclasses.asdict(pair.side_a),
+                    "side_b": dataclasses.asdict(pair.side_b),
+                    "extraction_version": pair.extraction_version,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            observations.append(
+                intelligence_pb2.CompetencyObservation(
+                    competency_id="",
+                    turn_id=str(pair.side_a.segment_sequence),
                     observation=observation,
                 )
             )

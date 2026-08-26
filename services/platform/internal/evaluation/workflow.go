@@ -29,7 +29,7 @@ const TaskQueue = "prepeet-evaluation"
 // here per ADR-0005 and wired in cmd: the sealed input document and the
 // spans the capability read from it.
 type Extractor interface {
-	Extract(ctx context.Context, ref SessionRef) (SealedInput, []Span, error)
+	Extract(ctx context.Context, ref SessionRef) (SealedInput, []Span, []Contradiction, error)
 }
 
 // RubricSource answers the rubric exactly as the session's bundle pinned
@@ -92,7 +92,7 @@ func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (
 		CandidateID: input.CandidateID, TenantID: input.TenantID,
 	}
 
-	sealed, spans, err := a.extractor.Extract(ctx, ref)
+	sealed, spans, pairs, err := a.extractor.Extract(ctx, ref)
 	if err != nil {
 		var failure *ExtractFailure
 		if errors.As(err, &failure) && !failure.Retryable {
@@ -107,12 +107,21 @@ func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (
 		return ExtractOutcome{}, temporal.NewNonRetryableApplicationError(
 			err.Error(), "FAILURE_CODE_SCHEMA_VALIDATION_FAILED", err)
 	}
+	// Contradiction pairs pass the same gate: each side must be an exact
+	// slice of a real candidate turn, or the whole batch refuses.
+	if err := ValidateContradictions(sealed, pairs); err != nil {
+		return ExtractOutcome{}, temporal.NewNonRetryableApplicationError(
+			err.Error(), "FAILURE_CODE_SCHEMA_VALIDATION_FAILED", err)
+	}
 
 	version := "evidence-unknown"
 	if len(spans) > 0 {
 		version = spans[0].ExtractionVersion
 	}
-	if err := a.store.Replace(ctx, ref, version, spans); err != nil {
+	if len(spans) == 0 && len(pairs) > 0 {
+		version = pairs[0].ExtractionVersion
+	}
+	if err := a.store.Replace(ctx, ref, version, spans, pairs); err != nil {
 		return ExtractOutcome{}, err
 	}
 	// Turn text stays out of the workflow history: only the competency

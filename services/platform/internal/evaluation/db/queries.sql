@@ -52,3 +52,35 @@ SELECT id::text AS id, session_id::text AS session_id,
        warnings, created_at
 FROM evaluation.results
 WHERE session_id = sqlc.arg(session_id)::uuid;
+
+-- name: DeleteContradictions :exec
+-- Wholesale with the spans, same reason: the retried stage converges.
+DELETE FROM evaluation.contradictions
+WHERE session_id = sqlc.arg(session_id)::uuid
+  AND extraction_version = sqlc.arg(extraction_version)::text;
+
+-- name: InsertContradiction :exec
+INSERT INTO evaluation.contradictions
+    (id, session_id, mode, candidate_id, tenant_id, topic,
+     a_segment_sequence, a_quote, a_char_start, a_char_end, a_start_ms, a_end_ms,
+     b_segment_sequence, b_quote, b_char_start, b_char_end, b_start_ms, b_end_ms,
+     extraction_version)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text,
+        sqlc.arg(candidate_id)::uuid, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        sqlc.arg(topic)::jsonb,
+        sqlc.arg(a_segment_sequence)::integer, sqlc.arg(a_quote)::text,
+        sqlc.arg(a_char_start)::integer, sqlc.arg(a_char_end)::integer,
+        sqlc.arg(a_start_ms)::integer, sqlc.arg(a_end_ms)::integer,
+        sqlc.arg(b_segment_sequence)::integer, sqlc.arg(b_quote)::text,
+        sqlc.arg(b_char_start)::integer, sqlc.arg(b_char_end)::integer,
+        sqlc.arg(b_start_ms)::integer, sqlc.arg(b_end_ms)::integer,
+        sqlc.arg(extraction_version)::text);
+
+-- name: ListContradictions :many
+SELECT id::text AS id, topic,
+       a_segment_sequence, a_quote, a_char_start, a_char_end, a_start_ms, a_end_ms,
+       b_segment_sequence, b_quote, b_char_start, b_char_end, b_start_ms, b_end_ms,
+       extraction_version, created_at
+FROM evaluation.contradictions
+WHERE session_id = sqlc.arg(session_id)::uuid
+ORDER BY a_segment_sequence, a_char_start, b_segment_sequence, b_char_start;

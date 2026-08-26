@@ -10,6 +10,23 @@ import (
 	"time"
 )
 
+const deleteContradictions = `-- name: DeleteContradictions :exec
+DELETE FROM evaluation.contradictions
+WHERE session_id = $1::uuid
+  AND extraction_version = $2::text
+`
+
+type DeleteContradictionsParams struct {
+	SessionID         string
+	ExtractionVersion string
+}
+
+// Wholesale with the spans, same reason: the retried stage converges.
+func (q *Queries) DeleteContradictions(ctx context.Context, arg DeleteContradictionsParams) error {
+	_, err := q.db.Exec(ctx, deleteContradictions, arg.SessionID, arg.ExtractionVersion)
+	return err
+}
+
 const deleteEvidence = `-- name: DeleteEvidence :exec
 
 DELETE FROM evaluation.evidence_spans
@@ -80,6 +97,71 @@ func (q *Queries) GetResult(ctx context.Context, sessionID string) (GetResultRow
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const insertContradiction = `-- name: InsertContradiction :exec
+INSERT INTO evaluation.contradictions
+    (id, session_id, mode, candidate_id, tenant_id, topic,
+     a_segment_sequence, a_quote, a_char_start, a_char_end, a_start_ms, a_end_ms,
+     b_segment_sequence, b_quote, b_char_start, b_char_end, b_start_ms, b_end_ms,
+     extraction_version)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::uuid, nullif($5::text, '')::uuid,
+        $6::jsonb,
+        $7::integer, $8::text,
+        $9::integer, $10::integer,
+        $11::integer, $12::integer,
+        $13::integer, $14::text,
+        $15::integer, $16::integer,
+        $17::integer, $18::integer,
+        $19::text)
+`
+
+type InsertContradictionParams struct {
+	ID                string
+	SessionID         string
+	Mode              string
+	CandidateID       string
+	TenantID          string
+	Topic             []byte
+	ASegmentSequence  int32
+	AQuote            string
+	ACharStart        int32
+	ACharEnd          int32
+	AStartMs          int32
+	AEndMs            int32
+	BSegmentSequence  int32
+	BQuote            string
+	BCharStart        int32
+	BCharEnd          int32
+	BStartMs          int32
+	BEndMs            int32
+	ExtractionVersion string
+}
+
+func (q *Queries) InsertContradiction(ctx context.Context, arg InsertContradictionParams) error {
+	_, err := q.db.Exec(ctx, insertContradiction,
+		arg.ID,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.Topic,
+		arg.ASegmentSequence,
+		arg.AQuote,
+		arg.ACharStart,
+		arg.ACharEnd,
+		arg.AStartMs,
+		arg.AEndMs,
+		arg.BSegmentSequence,
+		arg.BQuote,
+		arg.BCharStart,
+		arg.BCharEnd,
+		arg.BStartMs,
+		arg.BEndMs,
+		arg.ExtractionVersion,
+	)
+	return err
 }
 
 const insertEvidenceSpan = `-- name: InsertEvidenceSpan :exec
@@ -191,6 +273,72 @@ func (q *Queries) InsertResult(ctx context.Context, arg InsertResultParams) erro
 		arg.Warnings,
 	)
 	return err
+}
+
+const listContradictions = `-- name: ListContradictions :many
+SELECT id::text AS id, topic,
+       a_segment_sequence, a_quote, a_char_start, a_char_end, a_start_ms, a_end_ms,
+       b_segment_sequence, b_quote, b_char_start, b_char_end, b_start_ms, b_end_ms,
+       extraction_version, created_at
+FROM evaluation.contradictions
+WHERE session_id = $1::uuid
+ORDER BY a_segment_sequence, a_char_start, b_segment_sequence, b_char_start
+`
+
+type ListContradictionsRow struct {
+	ID                string
+	Topic             []byte
+	ASegmentSequence  int32
+	AQuote            string
+	ACharStart        int32
+	ACharEnd          int32
+	AStartMs          int32
+	AEndMs            int32
+	BSegmentSequence  int32
+	BQuote            string
+	BCharStart        int32
+	BCharEnd          int32
+	BStartMs          int32
+	BEndMs            int32
+	ExtractionVersion string
+	CreatedAt         time.Time
+}
+
+func (q *Queries) ListContradictions(ctx context.Context, sessionID string) ([]ListContradictionsRow, error) {
+	rows, err := q.db.Query(ctx, listContradictions, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListContradictionsRow{}
+	for rows.Next() {
+		var i ListContradictionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Topic,
+			&i.ASegmentSequence,
+			&i.AQuote,
+			&i.ACharStart,
+			&i.ACharEnd,
+			&i.AStartMs,
+			&i.AEndMs,
+			&i.BSegmentSequence,
+			&i.BQuote,
+			&i.BCharStart,
+			&i.BCharEnd,
+			&i.BStartMs,
+			&i.BEndMs,
+			&i.ExtractionVersion,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listEvidence = `-- name: ListEvidence :many

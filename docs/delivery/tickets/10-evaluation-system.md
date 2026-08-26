@@ -122,9 +122,29 @@ Surface claims that could not be verified and statements that conflict — frame
 never as accusations of dishonesty.
 
 **Done when**
-- [ ] Both sides of a contradiction are quoted with timestamps.
-- [ ] Copy states that unverified does not mean untrue, everywhere the concept appears.
-- [ ] No honesty, integrity or credibility inference is produced anywhere in the pipeline.
+- [x] Both sides of a contradiction are quoted with timestamps.
+- [x] Copy states that unverified does not mean untrue, everywhere the concept appears.
+- [x] No honesty, integrity or credibility inference is produced anywhere in the pipeline.
+
+**Done, at the evidence-1 floor.** The detector is deterministic and deliberately narrow: two
+candidate sentences sharing at least two subject tokens, each stating a number, with nothing in
+common between their numbers - a restated figure is consistency, unrelated measurements never
+pair, and the interviewer's words can never form a side. Each pair carries both exact quotes
+with character ranges and room-clock timestamps plus the shared topic tokens that made it, rides
+the observation stream as its own kind (no contract change - the observation schema was built to
+evolve), passes the same Go honesty gate as spans (each side must slice a real candidate turn
+exactly or the whole batch refuses), and is stored one row per pair in evaluation.contradictions
+with both sides intact, replaced wholesale on retry, never edited (trigger attacked from inside
+the owner scope).
+
+The results endpoint serves the pairs with both sides and server-supplied framing copy -
+"unverified does not mean the claim is untrue", "something to ask about, not a conclusion about
+the person" - so no consumer can drop or reword it; the copy lives beside the unverified count
+because that is where the concept appears today, and PRC/REV screens inherit it from the same
+field. The third box is held by test in three places: the Python detector's serialized output,
+the Go pipeline's closed vocabulary (kinds, reason codes, statuses), and the whole wire response,
+each asserted to contain no honesty, integrity or credibility language. Detection quality beyond
+numeric conflicts is a model's job later, behind the same validation gate.
 
 **Spec** [responsible-hiring.md](../../security/responsible-hiring.md)
 

@@ -68,6 +68,7 @@ type EvaluationResultView struct {
 	ModelVersion        string
 	PolicyVersion       string
 	Competencies        []CompetencyResultView
+	Contradictions      []ContradictionView
 	CoverageReached     []string
 	CoverageNotReached  []string
 	CoveredCompetencies int
@@ -83,6 +84,31 @@ type RubricPinView struct {
 	Reference string
 	Version   string
 	Digest    string
+}
+
+// FramingUnverified ships beside every unverified count. Server-supplied
+// so no consumer can drop or reword it: unverified does not mean untrue.
+const FramingUnverified = "Unverified means nobody checked this claim during the session. " +
+	"It does not mean the claim is untrue."
+
+// FramingContradictions ships beside every contradiction pair.
+const FramingContradictions = "These statements appear to conflict. " +
+	"Treat this as something to ask about, not as a conclusion about the person."
+
+// ContradictionView pairs two statements that appear to conflict, both
+// sides quoted with timestamps. A clarification prompt, never a judgment.
+type ContradictionView struct {
+	Topic []string
+	SideA ContradictionSideView
+	SideB ContradictionSideView
+}
+
+// ContradictionSideView is one quoted side on the room clock.
+type ContradictionSideView struct {
+	SegmentSequence int
+	Quote           string
+	StartMs         int
+	EndMs           int
 }
 
 // CompetencyResultView is one competency's outcome. Band is empty
@@ -684,6 +710,27 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 	if body.Warnings == nil {
 		body.Warnings = []string{}
 	}
+	body.Contradictions = make([]prepeetapi.ContradictionView, 0, len(result.Contradictions))
+	for _, pair := range result.Contradictions {
+		encoded := prepeetapi.ContradictionView{Topic: pair.Topic}
+		if encoded.Topic == nil {
+			encoded.Topic = []string{}
+		}
+		encoded.SideA = prepeetapi.ContradictionSideView{
+			SegmentSequence: pair.SideA.SegmentSequence, Quote: pair.SideA.Quote,
+			StartMs: pair.SideA.StartMs, EndMs: pair.SideA.EndMs,
+		}
+		encoded.SideB = prepeetapi.ContradictionSideView{
+			SegmentSequence: pair.SideB.SegmentSequence, Quote: pair.SideB.Quote,
+			StartMs: pair.SideB.StartMs, EndMs: pair.SideB.EndMs,
+		}
+		body.Contradictions = append(body.Contradictions, encoded)
+	}
+	// The framing ships from the server so no consumer can drop or reword
+	// it: unverified does not mean untrue, and a contradiction is a
+	// question, not a conclusion.
+	body.Framing.Unverified = FramingUnverified
+	body.Framing.Contradictions = FramingContradictions
 	for _, competency := range result.Competencies {
 		encoded := prepeetapi.CompetencyResultView{
 			CompetencyID:  competency.CompetencyID,

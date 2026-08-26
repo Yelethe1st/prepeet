@@ -38,13 +38,13 @@ func newEvidence(conn *grpc.ClientConn, store *objectstore.S3Store, completer *i
 	}
 }
 
-func (e *grpcEvidence) Extract(ctx context.Context, ref evaluation.SessionRef) (evaluation.SealedInput, []evaluation.Span, error) {
+func (e *grpcEvidence) Extract(ctx context.Context, ref evaluation.SessionRef) (evaluation.SealedInput, []evaluation.Span, []evaluation.Contradiction, error) {
 	seal, err := e.completer.SealOf(ctx, ref.SessionID, ref.Mode, ref.CandidateID, ref.TenantID)
 	if err != nil {
-		return evaluation.SealedInput{}, nil, fmt.Errorf("reading the seal: %w", err)
+		return evaluation.SealedInput{}, nil, nil, fmt.Errorf("reading the seal: %w", err)
 	}
 	if seal.EvaluationInputDigest == "" {
-		return evaluation.SealedInput{}, nil, &evaluation.ExtractFailure{
+		return evaluation.SealedInput{}, nil, nil, &evaluation.ExtractFailure{
 			Code: "FAILURE_CODE_ARTIFACT_NOT_FOUND", Retryable: false,
 			Message: "the seal records no evaluation input object",
 		}
@@ -52,11 +52,11 @@ func (e *grpcEvidence) Extract(ctx context.Context, ref evaluation.SessionRef) (
 
 	key, err := objectstore.SealedInputKey(ref.Mode, ref.TenantID, ref.CandidateID, ref.SessionID)
 	if err != nil {
-		return evaluation.SealedInput{}, nil, err
+		return evaluation.SealedInput{}, nil, nil, err
 	}
 	fetchURL, err := e.store.PresignPlayback(ctx, key, evidenceFetchTTL)
 	if err != nil {
-		return evaluation.SealedInput{}, nil, fmt.Errorf("presigning the sealed input: %w", err)
+		return evaluation.SealedInput{}, nil, nil, fmt.Errorf("presigning the sealed input: %w", err)
 	}
 
 	response, err := e.client.EvaluateTurns(ctx, &intelligencev1.EvaluateTurnsRequest{
@@ -75,26 +75,37 @@ func (e *grpcEvidence) Extract(ctx context.Context, ref evaluation.SessionRef) (
 		}},
 	})
 	if err != nil {
-		return evaluation.SealedInput{}, nil, translateEvidenceFailure(err)
+		return evaluation.SealedInput{}, nil, nil, translateEvidenceFailure(err)
 	}
 
 	spans := make([]evaluation.Span, 0, len(response.GetObservations()))
+	pairs := []evaluation.Contradiction{}
 	for _, observation := range response.GetObservations() {
 		var decoded struct {
-			Kind              string `json:"kind"`
-			Quote             string `json:"quote"`
-			SegmentSequence   int    `json:"segment_sequence"`
-			CharStart         int    `json:"char_start"`
-			CharEnd           int    `json:"char_end"`
-			StartMs           int    `json:"start_ms"`
-			EndMs             int    `json:"end_ms"`
-			ExtractionVersion string `json:"extraction_version"`
+			Kind              string                       `json:"kind"`
+			Quote             string                       `json:"quote"`
+			SegmentSequence   int                          `json:"segment_sequence"`
+			CharStart         int                          `json:"char_start"`
+			CharEnd           int                          `json:"char_end"`
+			StartMs           int                          `json:"start_ms"`
+			EndMs             int                          `json:"end_ms"`
+			Topic             []string                     `json:"topic"`
+			SideA             evaluation.ContradictionSide `json:"side_a"`
+			SideB             evaluation.ContradictionSide `json:"side_b"`
+			ExtractionVersion string                       `json:"extraction_version"`
 		}
 		if err := json.Unmarshal(observation.GetObservation(), &decoded); err != nil {
-			return evaluation.SealedInput{}, nil, &evaluation.ExtractFailure{
+			return evaluation.SealedInput{}, nil, nil, &evaluation.ExtractFailure{
 				Code: "FAILURE_CODE_SCHEMA_VALIDATION_FAILED", Retryable: false,
 				Message: fmt.Sprintf("an observation does not decode: %v", err),
 			}
+		}
+		if decoded.Kind == "contradiction" {
+			pairs = append(pairs, evaluation.Contradiction{
+				Topic: decoded.Topic, SideA: decoded.SideA, SideB: decoded.SideB,
+				ExtractionVersion: decoded.ExtractionVersion,
+			})
+			continue
 		}
 		spans = append(spans, evaluation.Span{
 			CompetencyID: observation.GetCompetencyId(), Kind: decoded.Kind,
@@ -109,13 +120,13 @@ func (e *grpcEvidence) Extract(ctx context.Context, ref evaluation.SessionRef) (
 	// digest pinned, so the honesty gate judges what Python actually read.
 	body, err := e.store.Fetch(ctx, key)
 	if err != nil {
-		return evaluation.SealedInput{}, nil, fmt.Errorf("fetching the sealed input: %w", err)
+		return evaluation.SealedInput{}, nil, nil, fmt.Errorf("fetching the sealed input: %w", err)
 	}
 	sealed, err := evaluation.DecodeSealedInput(body)
 	if err != nil {
-		return evaluation.SealedInput{}, nil, err
+		return evaluation.SealedInput{}, nil, nil, err
 	}
-	return sealed, spans, nil
+	return sealed, spans, pairs, nil
 }
 
 // translateEvidenceFailure carries the contract's own retry decision.

@@ -133,3 +133,115 @@ def extract_evidence(
         key=lambda span: (span.segment_sequence, span.char_start, span.competency_id, span.kind)
     )
     return spans
+
+
+@dataclass(frozen=True)
+class ContradictionSide:
+    """One of the two statements, quoted exactly on the room clock."""
+
+    segment_sequence: int
+    quote: str
+    char_start: int
+    char_end: int
+    start_ms: int
+    end_ms: int
+
+
+@dataclass(frozen=True)
+class Contradiction:
+    """Two candidate statements about one subject whose numbers conflict.
+
+    The vocabulary is deliberately descriptive: a contradiction is a
+    prompt for clarification, and nothing here infers anything about the
+    person. Topic tokens name what the statements share, so a reviewer
+    can see WHY the pair was made.
+    """
+
+    topic: tuple[str, ...]
+    side_a: ContradictionSide
+    side_b: ContradictionSide
+    extraction_version: str
+
+
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+_MIN_SHARED_TOKENS = 2
+"""Two shared subject tokens before numbers are comparable at all: one
+shared word pairs unrelated measurements and turns coincidence into a
+question the candidate never earned."""
+
+
+def _candidate_sentences(turns: list[dict[str, Any]]) -> list[tuple[dict[str, Any], int, int, str]]:
+    """Every candidate sentence with its turn and character range."""
+    sentences: list[tuple[dict[str, Any], int, int, str]] = []
+    for turn in turns:
+        if turn.get("speaker") != "candidate":
+            continue
+        text: str = turn["text"]
+        for match in _SENTENCE.finditer(text):
+            raw = match.group(0)
+            stripped = raw.strip()
+            if not stripped:
+                continue
+            begin = match.start() + (len(raw) - len(raw.lstrip()))
+            sentences.append((turn, begin, begin + len(stripped), stripped))
+    return sentences
+
+
+def extract_contradictions(turns: list[dict[str, Any]]) -> list[Contradiction]:
+    """Pair candidate statements whose numbers disagree, deterministically.
+
+    The rule is the floor's: two sentences must share at least two
+    significant subject tokens, both must state a number, and their
+    numbers must have nothing in common. A restated number is
+    consistency; unrelated measurements never meet the shared-token bar.
+    """
+    sentences = _candidate_sentences(turns)
+    pairs: list[Contradiction] = []
+
+    for i, (turn_a, start_a, end_a, text_a) in enumerate(sentences):
+        numbers_a = set(_NUMBER.findall(text_a))
+        if not numbers_a:
+            continue
+        tokens_a = set(_tokens(text_a))
+        for turn_b, start_b, end_b, text_b in sentences[i + 1 :]:
+            numbers_b = set(_NUMBER.findall(text_b))
+            if not numbers_b or numbers_a & numbers_b:
+                continue
+            shared = tokens_a & set(_tokens(text_b))
+            if len(shared) < _MIN_SHARED_TOKENS:
+                continue
+            side_a = ContradictionSide(
+                segment_sequence=int(turn_a["sequence"]),
+                quote=turn_a["text"][start_a:end_a],
+                char_start=start_a,
+                char_end=end_a,
+                start_ms=_sentence_clock(turn_a, start_a, end_a)[0],
+                end_ms=_sentence_clock(turn_a, start_a, end_a)[1],
+            )
+            side_b = ContradictionSide(
+                segment_sequence=int(turn_b["sequence"]),
+                quote=turn_b["text"][start_b:end_b],
+                char_start=start_b,
+                char_end=end_b,
+                start_ms=_sentence_clock(turn_b, start_b, end_b)[0],
+                end_ms=_sentence_clock(turn_b, start_b, end_b)[1],
+            )
+            pairs.append(
+                Contradiction(
+                    topic=tuple(sorted(shared)),
+                    side_a=side_a,
+                    side_b=side_b,
+                    extraction_version=EXTRACTION_VERSION,
+                )
+            )
+
+    pairs.sort(
+        key=lambda pair: (
+            pair.side_a.segment_sequence,
+            pair.side_a.char_start,
+            pair.side_b.segment_sequence,
+            pair.side_b.char_start,
+        )
+    )
+    return pairs

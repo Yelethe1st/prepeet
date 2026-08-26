@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -560,6 +561,17 @@ func resultFixture() api.EvaluationResultView {
 				ReasonCodes: []string{},
 			},
 		},
+		Contradictions: []api.ContradictionView{{
+			Topic: []string{"migration", "payments", "team"},
+			SideA: api.ContradictionSideView{
+				SegmentSequence: 3, Quote: "I led the payments migration team of 5 engineers.",
+				StartMs: 5000, EndMs: 9000,
+			},
+			SideB: api.ContradictionSideView{
+				SegmentSequence: 5, Quote: "The payments migration team I led was 12 people.",
+				StartMs: 15000, EndMs: 19000,
+			},
+		}},
 		CoverageReached:     []string{"clinical-reasoning", "systems-design"},
 		CoverageNotReached:  []string{"never-raised"},
 		CoveredCompetencies: 2, TotalCompetencies: 3,
@@ -681,5 +693,65 @@ func TestSomeoneElsesResultsDoNotExist(t *testing.T) {
 		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results", sessionCookie())
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status %d, want 404", response.Code)
+	}
+}
+
+func TestContradictionsArriveWithBothSidesAndTheFraming(t *testing.T) {
+	// EVL-04's surface: both sides quoted with timestamps, and the neutral
+	// copy shipped by the server so no consumer can drop it.
+	interviews := &fakeInterviews{result: resultFixture()}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+
+	var body struct {
+		Contradictions []struct {
+			Topic []string `json:"topic"`
+			SideA struct {
+				SegmentSequence int    `json:"segment_sequence"`
+				Quote           string `json:"quote"`
+				StartMs         int    `json:"start_ms"`
+				EndMs           int    `json:"end_ms"`
+			} `json:"side_a"`
+			SideB struct {
+				SegmentSequence int    `json:"segment_sequence"`
+				Quote           string `json:"quote"`
+				StartMs         int    `json:"start_ms"`
+				EndMs           int    `json:"end_ms"`
+			} `json:"side_b"`
+		} `json:"contradictions"`
+		Framing struct {
+			Unverified     string `json:"unverified"`
+			Contradictions string `json:"contradictions"`
+		} `json:"framing"`
+	}
+	decodeInto(t, response, &body)
+
+	if len(body.Contradictions) != 1 {
+		t.Fatalf("contradictions = %+v", body.Contradictions)
+	}
+	pair := body.Contradictions[0]
+	if pair.SideA.Quote == "" || pair.SideB.Quote == "" {
+		t.Fatalf("a side arrived unquoted: %+v", pair)
+	}
+	if pair.SideA.StartMs != 5000 || pair.SideB.EndMs != 19000 {
+		t.Fatalf("timestamps did not survive: %+v", pair)
+	}
+	if !strings.Contains(body.Framing.Unverified, "does not mean") {
+		t.Fatalf("the unverified framing does not disclaim: %q", body.Framing.Unverified)
+	}
+	if body.Framing.Contradictions == "" {
+		t.Fatal("the contradiction framing is missing")
+	}
+	// Neutral on the wire: the whole response carries no judgment words.
+	serialized := strings.ToLower(response.Body.String())
+	for _, forbidden := range []string{"honest", "integrity", "credib", "lying", "deceit", "decept"} {
+		if strings.Contains(serialized, forbidden) {
+			t.Fatalf("the response contains %q", forbidden)
+		}
 	}
 }

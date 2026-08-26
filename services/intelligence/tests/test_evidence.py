@@ -175,3 +175,190 @@ class TestOverTheWire:
             turn = by_sequence[span["segment_sequence"]]
             assert turn["text"][span["char_start"] : span["char_end"]] == span["quote"]
             assert observation.turn_id == str(span["segment_sequence"])
+
+
+CONTRADICTING_TURNS = [
+    {
+        "sequence": 3,
+        "speaker": "candidate",
+        "text": "I led the payments migration team of 5 engineers.",
+        "start_ms": 5000,
+        "end_ms": 9000,
+    },
+    {
+        "sequence": 5,
+        "speaker": "candidate",
+        "text": "The payments migration team I led was 12 people.",
+        "start_ms": 15000,
+        "end_ms": 19000,
+    },
+]
+
+
+class TestContradictionsAreNeutralPairs:
+    """EVL-04's detector: neutral pairs, both sides quoted on the clock."""
+
+    def test_both_sides_are_quoted_exactly_with_timing_inside_their_turns(self) -> None:
+        """Each side slices its own turn and sits on its clock."""
+        from prepeet_ai.evaluation.evidence import extract_contradictions
+
+        pairs = extract_contradictions(CONTRADICTING_TURNS)
+
+        assert len(pairs) == 1
+        pair = pairs[0]
+        sides = ((pair.side_a, CONTRADICTING_TURNS[0]), (pair.side_b, CONTRADICTING_TURNS[1]))
+        for side, turn in sides:
+            assert side.segment_sequence == turn["sequence"]
+            assert turn["text"][side.char_start : side.char_end] == side.quote
+            assert turn["start_ms"] <= side.start_ms <= side.end_ms <= turn["end_ms"]
+        assert pair.extraction_version == EXTRACTION_VERSION
+
+    def test_a_restated_number_is_consistency_not_contradiction(self) -> None:
+        """The same number twice is agreement."""
+        from prepeet_ai.evaluation.evidence import extract_contradictions
+
+        turns = [
+            dict(CONTRADICTING_TURNS[0]),
+            {
+                "sequence": 5,
+                "speaker": "candidate",
+                "text": "The payments migration team had 5 engineers as I said.",
+                "start_ms": 15000,
+                "end_ms": 19000,
+            },
+        ]
+        assert extract_contradictions(turns) == []
+
+    def test_unrelated_numbers_do_not_pair(self) -> None:
+        """Different measurements about different subjects stay apart."""
+        from prepeet_ai.evaluation.evidence import extract_contradictions
+
+        turns = [
+            dict(CONTRADICTING_TURNS[0]),
+            {
+                "sequence": 5,
+                "speaker": "candidate",
+                "text": "Latency dropped 40 percent after the cache rollout.",
+                "start_ms": 15000,
+                "end_ms": 19000,
+            },
+        ]
+        assert extract_contradictions(turns) == []
+
+    def test_interviewer_statements_never_form_a_side(self) -> None:
+        """Only the candidate's own words can conflict."""
+        from prepeet_ai.evaluation.evidence import extract_contradictions
+
+        turns = [
+            {**CONTRADICTING_TURNS[0], "speaker": "interviewer"},
+            dict(CONTRADICTING_TURNS[1]),
+        ]
+        assert extract_contradictions(turns) == []
+
+    def test_detection_is_deterministic(self) -> None:
+        """Same turns, same pairs, always."""
+        from prepeet_ai.evaluation.evidence import extract_contradictions
+
+        first = extract_contradictions(CONTRADICTING_TURNS)
+        second = extract_contradictions(list(CONTRADICTING_TURNS))
+        assert first == second
+
+    def test_the_vocabulary_never_judges_the_person(self) -> None:
+        """The pair describes two statements, never a character."""
+        import dataclasses
+        import json as jsonlib
+
+        from prepeet_ai.evaluation.evidence import extract_contradictions
+
+        pairs = extract_contradictions(CONTRADICTING_TURNS)
+        serialized = jsonlib.dumps([dataclasses.asdict(pair) for pair in pairs]).lower()
+        forbidden_terms = (
+            "honest",
+            "dishonest",
+            "integrity",
+            "credib",
+            "lie",
+            "lying",
+            "deceit",
+            "decept",
+            "truth",
+        )
+        for forbidden in forbidden_terms:
+            assert forbidden not in serialized
+
+
+class TestContradictionsOverTheWire:
+    """The pair reaches the observation stream, both sides intact."""
+
+    def test_a_contradiction_arrives_as_its_own_observation_kind(self, tmp_path) -> None:
+        """The pair reaches the stream with kind contradiction."""
+        import hashlib
+        import http.server
+        import json as jsonlib
+        import threading
+
+        import grpc
+        from prepeet.intelligence.v1 import intelligence_pb2, intelligence_pb2_grpc
+
+        from prepeet_ai.transport import server as transport
+
+        turns = CONTRADICTING_TURNS
+        document = jsonlib.dumps(
+            {"session_id": "ses-2", "competencies": COMPETENCIES, "turns": turns}
+        ).encode()
+        digest = "sha256:" + hashlib.sha256(document).hexdigest()
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(document)))
+                self.end_headers()
+                self.wfile.write(document)
+
+            def log_message(self, *args: object) -> None:
+                """Quiet."""
+
+        httpd = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        served, port = transport.serve(port=0)
+        channel = grpc.insecure_channel(f"localhost:{port}")
+        stub = intelligence_pb2_grpc.IntelligenceServiceStub(channel)
+        try:
+            response = stub.EvaluateTurns(
+                intelligence_pb2.EvaluateTurnsRequest(
+                    context=intelligence_pb2.RequestContext(
+                        schema_version="1.0", request_id="ses-2"
+                    ),
+                    session_id="ses-2",
+                    bundle_digest="sha256:bundle",
+                    turns=[
+                        intelligence_pb2.ObjectRef(
+                            storage_key="candidate/u/session/s/transcript/evaluation-input.json",
+                            digest=digest,
+                            media_type="application/json",
+                            fetch_url=f"http://127.0.0.1:{httpd.server_port}/input.json",
+                        )
+                    ],
+                )
+            )
+        finally:
+            channel.close()
+            served.stop(grace=None)
+            httpd.shutdown()
+
+        contradictions = [
+            jsonlib.loads(observation.observation)
+            for observation in response.observations
+            if jsonlib.loads(observation.observation)["kind"] == "contradiction"
+        ]
+        assert len(contradictions) == 1
+        pair = contradictions[0]
+        by_sequence = {turn["sequence"]: turn for turn in turns}
+        for side in (pair["side_a"], pair["side_b"]):
+            turn = by_sequence[side["segment_sequence"]]
+            assert turn["text"][side["char_start"] : side["char_end"]] == side["quote"]
+            assert turn["start_ms"] <= side["start_ms"] <= side["end_ms"] <= turn["end_ms"]
+        # Neutral at the wire too: two statements, no verdict on a person.
+        serialized = jsonlib.dumps(pair).lower()
+        for forbidden in ("honest", "integrity", "credib", "lie", "decept", "truth"):
+            assert forbidden not in serialized

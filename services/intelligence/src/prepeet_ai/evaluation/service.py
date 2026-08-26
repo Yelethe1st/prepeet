@@ -12,7 +12,9 @@ import json
 
 from prepeet_ai.evaluation.evidence import (
     EXTRACTION_VERSION,
+    Contradiction,
     EvidenceSpan,
+    extract_contradictions,
     extract_evidence,
 )
 from prepeet_ai.extraction.service import fetch_verified
@@ -21,11 +23,19 @@ from prepeet_ai.transport.envelope import Failure, FailureCode, FailureError
 SCHEMA_VERSION = "0.1"
 """The observation schema: kind, quote, character range, clock range."""
 
-__all__ = ["EXTRACTION_VERSION", "SCHEMA_VERSION", "EvidenceSpan", "evidence_from_ref"]
+__all__ = [
+    "EXTRACTION_VERSION",
+    "SCHEMA_VERSION",
+    "Contradiction",
+    "EvidenceSpan",
+    "evidence_from_ref",
+]
 
 
-def evidence_from_ref(fetch_url: str, digest: str) -> list[EvidenceSpan]:
-    """Fetch one sealed input document and extract its evidence.
+def evidence_from_ref(
+    fetch_url: str, digest: str
+) -> tuple[list[EvidenceSpan], list[Contradiction]]:
+    """Fetch one sealed input document, extract evidence and contradictions.
 
     Raises:
         FailureError: INVALID_INPUT for a request missing its grant or a
@@ -53,4 +63,4 @@ def evidence_from_ref(fetch_url: str, digest: str) -> list[EvidenceSpan]:
             )
         ) from error
 
-    return extract_evidence(turns, competencies)
+    return extract_evidence(turns, competencies), extract_contradictions(turns)

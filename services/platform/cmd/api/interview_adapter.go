@@ -52,6 +52,13 @@ func (a interviewAdapter) Results(ctx context.Context, userID, sessionID string)
 		return api.EvaluationResultView{}, err
 	}
 
+	pairs, err := a.results.Contradictions(ctx, evaluation.SessionRef{
+		SessionID: sessionID, Mode: "practice", CandidateID: userID,
+	})
+	if err != nil {
+		return api.EvaluationResultView{}, err
+	}
+
 	view := api.EvaluationResultView{
 		SessionID: result.SessionID,
 		Rubric: api.RubricPinView{
@@ -70,6 +77,19 @@ func (a interviewAdapter) Results(ctx context.Context, userID, sessionID string)
 		ResultDigest:        result.ResultDigest,
 		Warnings:            result.Warnings,
 		CreatedAt:           result.CreatedAt,
+	}
+	for _, pair := range pairs {
+		view.Contradictions = append(view.Contradictions, api.ContradictionView{
+			Topic: pair.Topic,
+			SideA: api.ContradictionSideView{
+				SegmentSequence: pair.SideA.SegmentSequence, Quote: pair.SideA.Quote,
+				StartMs: pair.SideA.StartMs, EndMs: pair.SideA.EndMs,
+			},
+			SideB: api.ContradictionSideView{
+				SegmentSequence: pair.SideB.SegmentSequence, Quote: pair.SideB.Quote,
+				StartMs: pair.SideB.StartMs, EndMs: pair.SideB.EndMs,
+			},
+		})
 	}
 	for _, competency := range result.Aggregation.Competencies {
 		view.Competencies = append(view.Competencies, api.CompetencyResultView{

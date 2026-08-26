@@ -92,11 +92,11 @@ func TestARetriedStageConvergesInsteadOfDuplicating(t *testing.T) {
 		span(5, "debugging", "I traced it to a lock."),
 	}
 
-	if err := store.Replace(ctx, ref, "evidence-1", spans); err != nil {
+	if err := store.Replace(ctx, ref, "evidence-1", spans, nil); err != nil {
 		t.Fatalf("first store: %v", err)
 	}
 	// The retry a worker death produces: identical input, identical rows.
-	if err := store.Replace(ctx, ref, "evidence-1", spans); err != nil {
+	if err := store.Replace(ctx, ref, "evidence-1", spans, nil); err != nil {
 		t.Fatalf("retried store: %v", err)
 	}
 
@@ -117,7 +117,7 @@ func TestARetriedStageConvergesInsteadOfDuplicating(t *testing.T) {
 
 	// A new extractor version replaces its own spans, not another's; the
 	// same version replaces wholesale.
-	if err := store.Replace(ctx, ref, "evidence-1", spans[:1]); err != nil {
+	if err := store.Replace(ctx, ref, "evidence-1", spans[:1], nil); err != nil {
 		t.Fatalf("narrowed store: %v", err)
 	}
 	narrowed, _ := store.List(ctx, ref)
@@ -136,7 +136,7 @@ func TestAnotherCandidatesEvidenceIsInvisible(t *testing.T) {
 		SessionID: id.New().String(), Mode: "practice", CandidateID: evidenceCandidate,
 	}
 	if err := store.Replace(ctx, owner, "evidence-1",
-		[]evaluation.Span{span(3, "systems-design", "private evidence")}); err != nil {
+		[]evaluation.Span{span(3, "systems-design", "private evidence")}, nil); err != nil {
 		t.Fatalf("store: %v", err)
 	}
 
@@ -148,5 +148,97 @@ func TestAnotherCandidatesEvidenceIsInvisible(t *testing.T) {
 	}
 	if len(stored) != 0 {
 		t.Fatal("another candidate read the evidence")
+	}
+}
+
+func TestContradictionsReplaceWholesaleAndReadBackBothSides(t *testing.T) {
+	// EVL-04 against real PostgreSQL: the pair survives storage with both
+	// quotes and clocks intact, the retried stage converges, and the
+	// no-edit trigger holds when attacked from inside the owner's scope.
+	ctx := context.Background()
+	store := evaluation.NewStore(pool)
+	ref := evaluation.SessionRef{
+		SessionID: id.New().String(), Mode: "practice", CandidateID: evidenceCandidate,
+	}
+	pair := evaluation.Contradiction{
+		Topic: []string{"migration", "payments", "team"},
+		SideA: evaluation.ContradictionSide{
+			SegmentSequence: 3, Quote: "I led the payments migration team of 5 engineers.",
+			CharStart: 0, CharEnd: 49, StartMs: 5000, EndMs: 9000,
+		},
+		SideB: evaluation.ContradictionSide{
+			SegmentSequence: 5, Quote: "The payments migration team I led was 12 people.",
+			CharStart: 0, CharEnd: 48, StartMs: 15000, EndMs: 19000,
+		},
+		ExtractionVersion: "evidence-1",
+	}
+
+	for run := 0; run < 2; run++ {
+		if err := store.Replace(ctx, ref, "evidence-1", nil, []evaluation.Contradiction{pair}); err != nil {
+			t.Fatalf("replace %d: %v", run, err)
+		}
+	}
+
+	stored, err := store.Contradictions(ctx, ref)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if len(stored) != 1 {
+		t.Fatalf("two replaces left %d pairs, want 1", len(stored))
+	}
+	if !reflect.DeepEqual(stored[0], pair) {
+		t.Fatalf("the pair changed in storage:\nstored %+v\nsent   %+v", stored[0], pair)
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx,
+		`SELECT set_config('app.user_id', $1, true), set_config('app.tenant_id', '', true)`,
+		evidenceCandidate); err != nil {
+		t.Fatalf("scoping: %v", err)
+	}
+	tag, err := tx.Exec(ctx,
+		`UPDATE evaluation.contradictions SET a_quote = 'rewritten' WHERE session_id = $1`, ref.SessionID)
+	if err == nil {
+		if tag.RowsAffected() == 0 {
+			t.Fatal("the attack matched zero rows; the trigger was never exercised")
+		}
+		t.Fatal("a stored contradiction accepted an edit")
+	}
+}
+
+func TestAnotherCandidatesContradictionsAreInvisible(t *testing.T) {
+	ctx := context.Background()
+	store := evaluation.NewStore(pool)
+	owner := evaluation.SessionRef{
+		SessionID: id.New().String(), Mode: "practice", CandidateID: evidenceCandidate,
+	}
+	pair := evaluation.Contradiction{
+		Topic: []string{"cache", "latency"},
+		SideA: evaluation.ContradictionSide{
+			SegmentSequence: 3, Quote: "a", CharStart: 0, CharEnd: 1, StartMs: 1, EndMs: 2,
+		},
+		SideB: evaluation.ContradictionSide{
+			SegmentSequence: 5, Quote: "b", CharStart: 0, CharEnd: 1, StartMs: 3, EndMs: 4,
+		},
+		ExtractionVersion: "evidence-1",
+	}
+	if err := store.Replace(ctx, owner, "evidence-1", nil, []evaluation.Contradiction{pair}); err != nil {
+		t.Fatalf("store: %v", err)
+	}
+
+	stranger := evaluation.SessionRef{
+		SessionID: owner.SessionID, Mode: "practice",
+		CandidateID: "00000000-0000-7000-8000-0000000000f2",
+	}
+	stored, err := store.Contradictions(ctx, stranger)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if len(stored) != 0 {
+		t.Fatalf("a stranger read %d pairs", len(stored))
 	}
 }

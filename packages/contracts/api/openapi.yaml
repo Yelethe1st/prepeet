@@ -1736,8 +1736,8 @@ components:
       type: object
       required: [session_id, rubric, aggregation_version, extraction_version,
                  model_version, policy_version, competencies, coverage,
-                 covered_competencies, total_competencies, result_digest,
-                 warnings, created_at]
+                 contradictions, framing, covered_competencies,
+                 total_competencies, result_digest, warnings, created_at]
       properties:
         session_id: { type: string, format: uuid }
         rubric:
@@ -1768,6 +1768,24 @@ components:
             not_reached:
               type: array
               items: { type: string }
+        contradictions:
+          type: array
+          description: |
+            Pairs of statements that appear to conflict, both sides quoted
+            with timestamps. Clarification prompts, never judgments: no
+            honesty, integrity or credibility inference exists anywhere in
+            this pipeline.
+          items: { $ref: "#/components/schemas/ContradictionView" }
+        framing:
+          type: object
+          required: [unverified, contradictions]
+          description: |
+            Server-supplied copy every surface must show beside these
+            concepts. Unverified does not mean untrue; a contradiction is
+            something to ask about.
+          properties:
+            unverified: { type: string }
+            contradictions: { type: string }
         covered_competencies: { type: integer }
         total_competencies: { type: integer }
         result_digest: { type: string }
@@ -1775,6 +1793,26 @@ components:
           type: array
           items: { type: string }
         created_at: { type: string, format: date-time }
+
+    ContradictionView:
+      type: object
+      required: [topic, side_a, side_b]
+      properties:
+        topic:
+          type: array
+          items: { type: string }
+          description: The shared subject tokens that made the pair.
+        side_a: { $ref: "#/components/schemas/ContradictionSideView" }
+        side_b: { $ref: "#/components/schemas/ContradictionSideView" }
+
+    ContradictionSideView:
+      type: object
+      required: [segment_sequence, quote, start_ms, end_ms]
+      properties:
+        segment_sequence: { type: integer }
+        quote: { type: string }
+        start_ms: { type: integer }
+        end_ms: { type: integer }
 
     CompetencyResultView:
       type: object

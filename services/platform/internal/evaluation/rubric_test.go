@@ -2,8 +2,11 @@ package evaluation_test
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
@@ -22,20 +25,27 @@ func rubricFixture(t *testing.T) evaluation.Rubric {
 			{"id": "developing", "min_ratio": 0.0},
 			{"id": "solid", "min_ratio": 0.55},
 			{"id": "strong", "min_ratio": 0.8}
-		]}`))
+		],
+		"confidence": {
+			"high": {"min_supporting": 4, "max_contradictory": 0},
+			"medium": {"min_supporting": 2, "max_contradictory": 1}
+		}}`))
 	if err != nil {
 		t.Fatalf("fixture: %v", err)
 	}
 	return rubric
 }
 
-func evidence(competency, kind string, n int) []evaluation.Span {
-	spans := make([]evaluation.Span, 0, n)
+func evidence(competency, kind string, n int) []evaluation.StoredSpan {
+	spans := make([]evaluation.StoredSpan, 0, n)
 	for i := 0; i < n; i++ {
-		spans = append(spans, evaluation.Span{
-			CompetencyID: competency, Kind: kind, SegmentSequence: i + 2,
-			Quote: "q", CharStart: 0, CharEnd: 1, StartMs: 1, EndMs: 2,
-			ExtractionVersion: "evidence-1",
+		spans = append(spans, evaluation.StoredSpan{
+			ID: fmt.Sprintf("sp-%s-%s-%d", competency, kind, i),
+			Span: evaluation.Span{
+				CompetencyID: competency, Kind: kind, SegmentSequence: i + 2,
+				Quote: "q", CharStart: 0, CharEnd: 1, StartMs: 1, EndMs: 2,
+				ExtractionVersion: "evidence-1",
+			},
 		})
 	}
 	return spans
@@ -145,7 +155,7 @@ func TestAnIncoherentRubricNeverJudges(t *testing.T) {
 
 func TestTheShippedRubricParses(t *testing.T) {
 	// Across the module boundary, hence -count=1 in test-go.
-	raw, err := os.ReadFile("../../../intelligence/artifacts/rubric/practice-default@1.0.0.json")
+	raw, err := os.ReadFile("../../../intelligence/artifacts/rubric/practice-default@1.1.0.json")
 	if err != nil {
 		t.Fatalf("reading: %v", err)
 	}
@@ -268,7 +278,7 @@ func TestResponseLatencyIsInvisibleToScoring(t *testing.T) {
 	competencies := []evaluation.Competency{{ID: "systems-design", Name: "Systems design"}}
 
 	prompt := evidence("systems-design", "supporting", 3)
-	delayed := make([]evaluation.Span, len(prompt))
+	delayed := make([]evaluation.StoredSpan, len(prompt))
 	copy(delayed, prompt)
 	for i := range delayed {
 		delayed[i].StartMs += 90_000
@@ -279,5 +289,118 @@ func TestResponseLatencyIsInvisibleToScoring(t *testing.T) {
 	slow := evaluation.Aggregate(rubric, competencies, delayed)
 	if !reflect.DeepEqual(fast, slow) {
 		t.Fatalf("latency changed the aggregation:\nfast %+v\nslow %+v", fast, slow)
+	}
+}
+
+// EVL-05: confidence from the rubric's own versioned rules (ADR-0015),
+// evidence references on every result, and the publication gate that
+// recomputes everything from the store before anything publishes.
+
+func TestConfidenceIsTheRubricsRuleNeverAnAssertion(t *testing.T) {
+	rubric := rubricFixture(t)
+	competencies := []evaluation.Competency{{ID: "systems-design", Name: "Systems design"}}
+
+	cases := []struct {
+		name       string
+		spans      []evaluation.StoredSpan
+		status     string
+		confidence string
+	}{
+		{"four clean supporting spans earn high", evidence("systems-design", "supporting", 4), "assessed", "high"},
+		{"two supporting spans earn medium", evidence("systems-design", "supporting", 2), "assessed", "medium"},
+		{"contradictions past the ceiling demote to low",
+			append(evidence("systems-design", "supporting", 4), evidence("systems-design", "contradictory", 2)...),
+			"assessed", "low"},
+		{"unassessed is not_assessable, never low", evidence("systems-design", "supporting", 1), "unassessed", "not_assessable"},
+		{"silence is not_assessable too", nil, "unassessed", "not_assessable"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result := evaluation.Aggregate(rubric, competencies, c.spans).Competencies[0]
+			if result.Status != c.status || result.Confidence != c.confidence {
+				t.Fatalf("status/confidence = %s/%s, want %s/%s", result.Status, result.Confidence, c.status, c.confidence)
+			}
+		})
+	}
+}
+
+func TestEveryResultNamesTheEvidenceItAggregated(t *testing.T) {
+	rubric := rubricFixture(t)
+	spans := append(evidence("systems-design", "supporting", 2), evidence("debugging", "supporting", 2)...)
+	aggregation := evaluation.Aggregate(rubric, []evaluation.Competency{
+		{ID: "debugging", Name: "Debugging"},
+		{ID: "systems-design", Name: "Systems design"},
+	}, spans)
+
+	for _, result := range aggregation.Competencies {
+		if len(result.EvidenceIDs) != 2 {
+			t.Fatalf("%s references %d spans, want 2", result.CompetencyID, len(result.EvidenceIDs))
+		}
+		for _, id := range result.EvidenceIDs {
+			if !strings.Contains(id, result.CompetencyID) {
+				t.Fatalf("%s references a foreign span %s", result.CompetencyID, id)
+			}
+		}
+	}
+}
+
+func TestARubricWithoutCoherentConfidenceRulesRefuses(t *testing.T) {
+	cases := map[string]string{
+		"no confidence block": `{"sufficiency":{"min_supporting":2},"bands":[{"id":"only","min_ratio":0}]}`,
+		"high below medium": `{"sufficiency":{"min_supporting":2},"bands":[{"id":"only","min_ratio":0}],
+			"confidence":{"high":{"min_supporting":1,"max_contradictory":0},"medium":{"min_supporting":2,"max_contradictory":1}}}`,
+		"medium below sufficiency": `{"sufficiency":{"min_supporting":2},"bands":[{"id":"only","min_ratio":0}],
+			"confidence":{"high":{"min_supporting":4,"max_contradictory":0},"medium":{"min_supporting":1,"max_contradictory":1}}}`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := evaluation.ParseRubric([]byte(body)); !errors.Is(err, evaluation.ErrRubricIncoherent) {
+				t.Fatalf("%s = %v, want ErrRubricIncoherent", name, err)
+			}
+		})
+	}
+}
+
+func TestThePublicationGateRefusesEveryTamperedResult(t *testing.T) {
+	// The gate is independent of the aggregator by recomputing from the
+	// stored spans, so a model-backed aggregator later is held to the
+	// same arithmetic. Each tamper is one lie a publication must catch.
+	rubric := rubricFixture(t)
+	competencies := []evaluation.Competency{{ID: "systems-design", Name: "Systems design"}}
+	spans := evidence("systems-design", "supporting", 4)
+	honest := evaluation.Aggregate(rubric, competencies, spans)
+
+	if err := evaluation.ValidatePublication(rubric, competencies, spans, honest); err != nil {
+		t.Fatalf("the honest aggregation was refused: %v", err)
+	}
+
+	cases := map[string]func(a *evaluation.Aggregation){
+		"a dangling evidence reference": func(a *evaluation.Aggregation) {
+			a.Competencies[0].EvidenceIDs[0] = "sp-fabricated"
+		},
+		"an inflated supporting count": func(a *evaluation.Aggregation) {
+			a.Competencies[0].Supporting++
+		},
+		"a band the ratio did not earn": func(a *evaluation.Aggregation) {
+			a.Competencies[0].Band = "solid"
+		},
+		"unassessed wearing a band": func(a *evaluation.Aggregation) {
+			a.Competencies[0].Status = "unassessed"
+		},
+		"a confidence the rules did not produce": func(a *evaluation.Aggregation) {
+			a.Competencies[0].Confidence = "low"
+		},
+		"a competency nobody asked about": func(a *evaluation.Aggregation) {
+			a.Competencies[0].CompetencyID = "invented"
+		},
+	}
+	for name, tamper := range cases {
+		t.Run(name, func(t *testing.T) {
+			tampered := evaluation.Aggregate(rubric, competencies, spans)
+			tamper(&tampered)
+			if err := evaluation.ValidatePublication(rubric, competencies, spans, tampered); !errors.Is(err, evaluation.ErrUnpublishable) {
+				t.Fatalf("%s = %v, want ErrUnpublishable", name, err)
+			}
+		})
 	}
 }

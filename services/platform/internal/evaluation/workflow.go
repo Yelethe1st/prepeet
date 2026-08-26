@@ -164,12 +164,23 @@ func (a *Activities) Aggregate(ctx context.Context, input EvidenceInput, extract
 	if err != nil {
 		return err
 	}
-	plain := make([]Span, 0, len(spans))
-	for _, span := range spans {
-		plain = append(plain, span.Span)
+
+	aggregation := Aggregate(rubric, sealed.Competencies, spans)
+
+	// EVL-05's publication gate: recompute from a FRESH read of the store
+	// and refuse on any difference. Deliberately not the same slice the
+	// aggregation consumed, so a dangling reference or a store mutation
+	// between the two is caught, and so the gate stays meaningful when a
+	// model replaces aggregate-1 behind this contract.
+	reread, err := a.store.List(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if err := ValidatePublication(rubric, sealed.Competencies, reread, aggregation); err != nil {
+		return temporal.NewNonRetryableApplicationError(
+			err.Error(), "FAILURE_CODE_SCHEMA_VALIDATION_FAILED", err)
 	}
 
-	aggregation := Aggregate(rubric, sealed.Competencies, plain)
 	warnings := []string{}
 	if aggregation.CoveredCompetencies == 0 && aggregation.TotalCompetencies > 0 {
 		warnings = append(warnings, "NO_COMPETENCY_EVIDENCED")

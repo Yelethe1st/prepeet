@@ -1,7 +1,7 @@
 {
   "type": "rubric",
   "reference": "rubric/practice-default",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "schema_version": "1.0",
   "body": {
     "sufficiency": {
@@ -11,6 +11,10 @@
       { "id": "developing", "min_ratio": 0.0 },
       { "id": "solid", "min_ratio": 0.55 },
       { "id": "strong", "min_ratio": 0.8 }
-    ]
+    ],
+    "confidence": {
+      "high": { "min_supporting": 4, "max_contradictory": 0 },
+      "medium": { "min_supporting": 2, "max_contradictory": 1 }
+    }
   }
 }

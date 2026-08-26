@@ -158,9 +158,29 @@ Go validates every evaluation before publication: schema, evidence references, s
 prohibited inference, and mode visibility.
 
 **Done when**
-- [ ] An evaluation with a dangling evidence reference cannot be published.
-- [ ] Confidence is computed from a defined, documented basis rather than asserted by a model.
-- [ ] A validation failure produces a visible, retryable state rather than a published bad result.
+- [x] An evaluation with a dangling evidence reference cannot be published.
+- [x] Confidence is computed from a defined, documented basis rather than asserted by a model.
+- [x] A validation failure produces a visible, retryable state rather than a published bad result.
+
+**Done, per ADR-0015.** The QUA-03 dependency is resolved by that ADR's explicit deferral:
+confidence ships qualitative-only (high, medium, low, not_assessable), derived mechanically from
+stored evidence counts by rules that travel INSIDE the versioned rubric
+(rubric/practice-default is now 1.1.0), so the label is reconstructable from the pin forever and
+QUA-03's calibrated thresholds arrive later as a rubric version bump. An incoherent confidence
+block (high demanding less than medium, medium below sufficiency) refuses at parse, so it can
+never publish. Unassessed is always not_assessable, never low.
+
+Every competency result now names the stored evidence spans it aggregated, and publication runs
+ValidatePublication: an independent gate that re-reads the store FRESH and recomputes the whole
+aggregation from the pinned rubric, refusing on any difference - a dangling evidence reference,
+an inflated count, a band the ratio did not earn, a confidence the rules did not produce, a
+competency nobody asked about - each proven by tampering. The gate recomputes rather than
+trusts, which is what keeps it meaningful when a model replaces aggregate-1 behind the same
+contract. A refusal becomes evaluation.failed.v1 with SCHEMA_VALIDATION_FAILED and the session
+lands in evaluation_failed - visible, retryable, and no result row exists. The results API
+serves confidence and evidence_ids per competency with server-supplied framing copy (not a
+probability, never a ranking), the same pattern as EVL-04. Mode-visibility checks beyond
+practice's owner scope are REV/SCR surface work behind DEC-11.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md)
 

@@ -42,7 +42,9 @@ var planBody = json.RawMessage(`{"stages":["intro","core","close"]}`)
 // rubricBody mirrors the shipped practice-default artifact: composition
 // pins it, aggregation later judges by it.
 var rubricBody = json.RawMessage(`{"sufficiency":{"min_supporting":2},"bands":[` +
-	`{"id":"developing","min_ratio":0},{"id":"solid","min_ratio":0.55},{"id":"strong","min_ratio":0.8}]}`)
+	`{"id":"developing","min_ratio":0},{"id":"solid","min_ratio":0.55},{"id":"strong","min_ratio":0.8}],` +
+	`"confidence":{"high":{"min_supporting":4,"max_contradictory":0},` +
+	`"medium":{"min_supporting":2,"max_contradictory":1}}}`)
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -124,7 +126,7 @@ func TestMain(m *testing.M) {
 	// The rubric too: composition pins it alongside the plan (EVL-02), so
 	// the suite publishes one through the same lifecycle production uses.
 	rubricDraft, err := registry.CreateDraft(ctx, content.Draft{
-		Type: "rubric", Reference: "rubric/practice-default", Version: "1.0.0",
+		Type: "rubric", Reference: "rubric/practice-default", Version: "1.1.0",
 		SchemaVersion: "1.0", Body: rubricBody, CreatedBy: e2eAuthor,
 	})
 	if err != nil {

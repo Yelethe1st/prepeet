@@ -1126,11 +1126,13 @@ export interface components {
             /**
              * @description Server-supplied copy every surface must show beside these
              *     concepts. Unverified does not mean untrue; a contradiction is
-             *     something to ask about.
+             *     something to ask about; confidence is evidence sufficiency,
+             *     never a probability of job success.
              */
             framing: {
                 unverified: string;
                 contradictions: string;
+                confidence: string;
             };
             covered_competencies: number;
             total_competencies: number;
@@ -1158,6 +1160,15 @@ export interface components {
              * @enum {string}
              */
             status: "assessed" | "unassessed";
+            /**
+             * @description Evidence sufficiency by the pinned rubric's own rules
+             *     (ADR-0015). Not a probability, not comparable across roles or
+             *     rubric versions, never a ranking.
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low" | "not_assessable";
+            /** @description The stored evidence spans this result aggregated. */
+            evidence_ids: string[];
             /** @description Present only when status is assessed. */
             band?: string;
             evidence_count: number;

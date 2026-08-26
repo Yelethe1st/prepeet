@@ -560,17 +560,19 @@ func resultFixture() api.EvaluationResultView {
 		ModelVersion: "none", PolicyVersion: "none",
 		Competencies: []api.CompetencyResultView{
 			{
-				CompetencyID: "clinical-reasoning", Status: "unassessed",
+				CompetencyID: "clinical-reasoning", Status: "unassessed", Confidence: "not_assessable",
 				EvidenceCount: 1, Supporting: 1,
+				EvidenceIDs: []string{"sp-1"},
 				ReasonCodes: []string{"INSUFFICIENT_EVIDENCE"},
 			},
 			{
-				CompetencyID: "never-raised", Status: "unassessed",
+				CompetencyID: "never-raised", Status: "unassessed", Confidence: "not_assessable",
 				ReasonCodes: []string{"NOT_DISCUSSED"},
 			},
 			{
-				CompetencyID: "systems-design", Status: "assessed", Band: "strong",
+				CompetencyID: "systems-design", Status: "assessed", Confidence: "high", Band: "strong",
 				EvidenceCount: 4, Supporting: 4,
+				EvidenceIDs: []string{"sp-2", "sp-3", "sp-4", "sp-5"},
 				ReasonCodes: []string{},
 			},
 		},
@@ -622,7 +624,9 @@ func TestResultsKeepUnassessedApartFromPoorOnTheWire(t *testing.T) {
 		Competencies []struct {
 			CompetencyID string   `json:"competency_id"`
 			Status       string   `json:"status"`
+			Confidence   string   `json:"confidence"`
 			Band         *string  `json:"band"`
+			EvidenceIDs  []string `json:"evidence_ids"`
 			ReasonCodes  []string `json:"reason_codes"`
 		} `json:"competencies"`
 		Coverage struct {
@@ -641,7 +645,9 @@ func TestResultsKeepUnassessedApartFromPoorOnTheWire(t *testing.T) {
 	byID := map[string]struct {
 		CompetencyID string   `json:"competency_id"`
 		Status       string   `json:"status"`
+		Confidence   string   `json:"confidence"`
 		Band         *string  `json:"band"`
+		EvidenceIDs  []string `json:"evidence_ids"`
 		ReasonCodes  []string `json:"reason_codes"`
 	}{}
 	for _, c := range body.Competencies {
@@ -650,6 +656,9 @@ func TestResultsKeepUnassessedApartFromPoorOnTheWire(t *testing.T) {
 	thin := byID["clinical-reasoning"]
 	if thin.Status != "unassessed" || thin.Band != nil {
 		t.Fatalf("insufficient evidence must be its own state with no band: %+v", thin)
+	}
+	if thin.Confidence != "not_assessable" {
+		t.Fatalf("unassessed confidence = %q, want not_assessable, never low", thin.Confidence)
 	}
 	if len(thin.ReasonCodes) != 1 || thin.ReasonCodes[0] != "INSUFFICIENT_EVIDENCE" {
 		t.Fatalf("reasons = %v", thin.ReasonCodes)
@@ -661,6 +670,9 @@ func TestResultsKeepUnassessedApartFromPoorOnTheWire(t *testing.T) {
 	assessed := byID["systems-design"]
 	if assessed.Status != "assessed" || assessed.Band == nil || *assessed.Band != "strong" {
 		t.Fatalf("assessed = %+v", assessed)
+	}
+	if assessed.Confidence != "high" || len(assessed.EvidenceIDs) != 4 {
+		t.Fatalf("confidence/evidence = %q/%v", assessed.Confidence, assessed.EvidenceIDs)
 	}
 	if !reflect.DeepEqual(body.Coverage.Reached, []string{"clinical-reasoning", "systems-design"}) ||
 		!reflect.DeepEqual(body.Coverage.NotReached, []string{"never-raised"}) {

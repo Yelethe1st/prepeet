@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 )
 
@@ -35,6 +36,19 @@ type Rubric struct {
 	} `json:"sufficiency"`
 	// Bands in ascending order of the supporting ratio that earns them.
 	Bands []Band `json:"bands"`
+	// Confidence rules travel inside the rubric (ADR-0015), so the label
+	// a session was given is reconstructable from its pin forever. The
+	// rules are floors and ceilings, never a model's assertion.
+	Confidence struct {
+		High   ConfidenceRule `json:"high"`
+		Medium ConfidenceRule `json:"medium"`
+	} `json:"confidence"`
+}
+
+// ConfidenceRule is one label's floor and ceiling.
+type ConfidenceRule struct {
+	MinSupporting    int `json:"min_supporting"`
+	MaxContradictory int `json:"max_contradictory"`
 }
 
 // Band is one qualitative level and the ratio floor that earns it.
@@ -73,6 +87,15 @@ func ParseRubric(body []byte) (Rubric, error) {
 	if rubric.Bands[0].MinRatio != 0 {
 		return Rubric{}, fmt.Errorf("%w: the lowest band must start at zero or sufficient evidence could earn no band", ErrRubricIncoherent)
 	}
+	if rubric.Confidence.Medium.MinSupporting < rubric.Sufficiency.MinSupporting {
+		return Rubric{}, fmt.Errorf("%w: medium confidence below the sufficiency threshold labels the unassessable", ErrRubricIncoherent)
+	}
+	if rubric.Confidence.High.MinSupporting < rubric.Confidence.Medium.MinSupporting {
+		return Rubric{}, fmt.Errorf("%w: high confidence must demand at least what medium does", ErrRubricIncoherent)
+	}
+	if rubric.Confidence.High.MaxContradictory > rubric.Confidence.Medium.MaxContradictory {
+		return Rubric{}, fmt.Errorf("%w: high confidence must tolerate at most what medium does", ErrRubricIncoherent)
+	}
 	return rubric, nil
 }
 
@@ -89,6 +112,16 @@ type CompetencyResult struct {
 	Contradictory int `json:"contradictory"`
 	Unverified    int `json:"unverified"`
 	Gaps          int `json:"gaps"`
+
+	// Confidence is the rubric's rule applied to the counts above:
+	// high, medium, low, or not_assessable. Never asserted, always
+	// derived (ADR-0015).
+	Confidence string `json:"confidence"`
+
+	// EvidenceIDs are the stored spans this result aggregated, so a
+	// published result always resolves back to its evidence and a
+	// dangling reference is detectable before publication.
+	EvidenceIDs []string `json:"evidence_ids"`
 
 	ReasonCodes []string `json:"reason_codes"`
 }
@@ -115,8 +148,8 @@ type Aggregation struct {
 
 // Aggregate runs aggregate-1: spans and a rubric in, competency results
 // out, deterministically.
-func Aggregate(rubric Rubric, competencies []Competency, spans []Span) Aggregation {
-	byCompetency := map[string][]Span{}
+func Aggregate(rubric Rubric, competencies []Competency, spans []StoredSpan) Aggregation {
+	byCompetency := map[string][]StoredSpan{}
 	for _, span := range spans {
 		byCompetency[span.CompetencyID] = append(byCompetency[span.CompetencyID], span)
 	}
@@ -127,9 +160,11 @@ func Aggregate(rubric Rubric, competencies []Competency, spans []Span) Aggregati
 		result := CompetencyResult{
 			CompetencyID:  competency.ID,
 			EvidenceCount: len(evidence),
+			EvidenceIDs:   []string{},
 			ReasonCodes:   []string{},
 		}
 		for _, span := range evidence {
+			result.EvidenceIDs = append(result.EvidenceIDs, span.ID)
 			switch span.Kind {
 			case "supporting":
 				result.Supporting++
@@ -146,8 +181,11 @@ func Aggregate(rubric Rubric, competencies []Competency, spans []Span) Aggregati
 		// short, because they call for different remedies: a competency
 		// the conversation never reached is the plan's problem, thin
 		// evidence on one it did reach is the answer's.
+		sort.Strings(result.EvidenceIDs)
+
 		if result.Supporting < rubric.Sufficiency.MinSupporting {
 			result.Status = "unassessed"
+			result.Confidence = "not_assessable"
 			if result.EvidenceCount == 0 {
 				result.ReasonCodes = append(result.ReasonCodes, "NOT_DISCUSSED")
 			} else {
@@ -172,6 +210,7 @@ func Aggregate(rubric Rubric, competencies []Competency, spans []Span) Aggregati
 				result.Band = band.ID
 			}
 		}
+		result.Confidence = confidenceOf(rubric, result)
 		if result.Contradictory > 0 {
 			result.ReasonCodes = append(result.ReasonCodes, "CONTRADICTIONS_PRESENT")
 		}
@@ -206,4 +245,46 @@ func CoverageOf(results []CompetencyResult) Coverage {
 	sort.Strings(coverage.Reached)
 	sort.Strings(coverage.NotReached)
 	return coverage
+}
+
+// confidenceOf applies the rubric's rules to an assessed result's counts.
+func confidenceOf(rubric Rubric, result CompetencyResult) string {
+	high, medium := rubric.Confidence.High, rubric.Confidence.Medium
+	if result.Supporting >= high.MinSupporting && result.Contradictory <= high.MaxContradictory {
+		return "high"
+	}
+	if result.Supporting >= medium.MinSupporting && result.Contradictory <= medium.MaxContradictory {
+		return "medium"
+	}
+	return "low"
+}
+
+// ErrUnpublishable refuses a result the stored evidence does not support.
+var ErrUnpublishable = errors.New("evaluation: RESULT_UNPUBLISHABLE: the result does not match its stored evidence")
+
+// ValidatePublication is EVL-05's gate: it recomputes the aggregation
+// from the STORED spans and the pinned rubric, and refuses publication on
+// any difference - a dangling evidence reference, an inflated count, a
+// band the ratio did not earn, a confidence the rules did not produce.
+// Independent of the aggregator on purpose: when a model replaces
+// aggregate-1 behind the same contract, this arithmetic still stands.
+func ValidatePublication(rubric Rubric, competencies []Competency, stored []StoredSpan, aggregation Aggregation) error {
+	recomputed := Aggregate(rubric, competencies, stored)
+	if len(aggregation.Competencies) != len(recomputed.Competencies) {
+		return fmt.Errorf("%w: %d competency results for %d competencies asked",
+			ErrUnpublishable, len(aggregation.Competencies), len(recomputed.Competencies))
+	}
+	for i, expected := range recomputed.Competencies {
+		got := aggregation.Competencies[i]
+		if !reflect.DeepEqual(got, expected) {
+			return fmt.Errorf("%w: competency %q does not recompute from the stored evidence",
+				ErrUnpublishable, got.CompetencyID)
+		}
+	}
+	if !reflect.DeepEqual(aggregation.Coverage, recomputed.Coverage) ||
+		aggregation.CoveredCompetencies != recomputed.CoveredCompetencies ||
+		aggregation.TotalCompetencies != recomputed.TotalCompetencies {
+		return fmt.Errorf("%w: the coverage does not recompute from the stored evidence", ErrUnpublishable)
+	}
+	return nil
 }

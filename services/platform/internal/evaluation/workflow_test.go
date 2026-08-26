@@ -98,3 +98,28 @@ func TestAnAggregationFailureIsPublishedNotSwallowed(t *testing.T) {
 	}
 	env.AssertExpectations(t)
 }
+
+func TestAnUnpublishableResultFailsVisiblyNotSilently(t *testing.T) {
+	// EVL-05's third box: the publication gate's refusal becomes the
+	// failed event with its own code, so the session lands in the
+	// visible, retryable evaluation_failed state - never a published bad
+	// result, never a swallowed error.
+	env := workflowEnvironment(t)
+
+	outcome := evaluation.ExtractOutcome{ExtractionVersion: "evidence-1"}
+	env.OnActivity("ExtractAndStore", mock.Anything, evidenceInput).Return(outcome, nil)
+	refusal := temporal.NewNonRetryableApplicationError(
+		"the result does not match its stored evidence",
+		"FAILURE_CODE_SCHEMA_VALIDATION_FAILED", evaluation.ErrUnpublishable)
+	env.OnActivity("Aggregate", mock.Anything, evidenceInput,
+		"evidence-1", outcome.Sealed).Return(refusal).Once()
+	env.OnActivity("PublishFailed", mock.Anything, evidenceInput,
+		"FAILURE_CODE_SCHEMA_VALIDATION_FAILED").Return(nil)
+
+	env.ExecuteWorkflow(evaluation.EvidenceWorkflow, evidenceInput)
+
+	if env.GetWorkflowError() == nil {
+		t.Fatal("an unpublishable result must fail the workflow")
+	}
+	env.AssertExpectations(t)
+}

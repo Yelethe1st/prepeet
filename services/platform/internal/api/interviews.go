@@ -95,6 +95,10 @@ const FramingUnverified = "Unverified means nobody checked this claim during the
 const FramingContradictions = "These statements appear to conflict. " +
 	"Treat this as something to ask about, not as a conclusion about the person."
 
+// FramingConfidence ships beside every confidence label (ADR-0015).
+const FramingConfidence = "Confidence describes how much verifiable evidence this session produced " +
+	"for each competency. It is not a prediction of performance in any role."
+
 // ContradictionView pairs two statements that appear to conflict, both
 // sides quoted with timestamps. A clarification prompt, never a judgment.
 type ContradictionView struct {
@@ -116,12 +120,14 @@ type ContradictionSideView struct {
 type CompetencyResultView struct {
 	CompetencyID  string
 	Status        string
+	Confidence    string
 	Band          string
 	EvidenceCount int
 	Supporting    int
 	Contradictory int
 	Unverified    int
 	Gaps          int
+	EvidenceIDs   []string
 	ReasonCodes   []string
 }
 
@@ -745,10 +751,13 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 	// question, not a conclusion.
 	body.Framing.Unverified = FramingUnverified
 	body.Framing.Contradictions = FramingContradictions
+	body.Framing.Confidence = FramingConfidence
 	for _, competency := range result.Competencies {
 		encoded := prepeetapi.CompetencyResultView{
 			CompetencyID:  competency.CompetencyID,
 			Status:        prepeetapi.CompetencyResultViewStatus(competency.Status),
+			Confidence:    prepeetapi.CompetencyResultViewConfidence(competency.Confidence),
+			EvidenceIds:   competency.EvidenceIDs,
 			EvidenceCount: competency.EvidenceCount,
 			Supporting:    competency.Supporting,
 			Contradictory: competency.Contradictory,
@@ -758,6 +767,9 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 		}
 		if encoded.ReasonCodes == nil {
 			encoded.ReasonCodes = []string{}
+		}
+		if encoded.EvidenceIds == nil {
+			encoded.EvidenceIds = []string{}
 		}
 		if competency.Band != "" {
 			band := competency.Band

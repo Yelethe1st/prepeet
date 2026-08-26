@@ -1778,14 +1778,16 @@ components:
           items: { $ref: "#/components/schemas/ContradictionView" }
         framing:
           type: object
-          required: [unverified, contradictions]
+          required: [unverified, contradictions, confidence]
           description: |
             Server-supplied copy every surface must show beside these
             concepts. Unverified does not mean untrue; a contradiction is
-            something to ask about.
+            something to ask about; confidence is evidence sufficiency,
+            never a probability of job success.
           properties:
             unverified: { type: string }
             contradictions: { type: string }
+            confidence: { type: string }
         covered_competencies: { type: integer }
         total_competencies: { type: integer }
         result_digest: { type: string }
@@ -1816,14 +1818,26 @@ components:
 
     CompetencyResultView:
       type: object
-      required: [competency_id, status, evidence_count, supporting,
-                 contradictory, unverified, gaps, reason_codes]
+      required: [competency_id, status, confidence, evidence_count,
+                 supporting, contradictory, unverified, gaps, evidence_ids,
+                 reason_codes]
       properties:
         competency_id: { type: string }
         status:
           type: string
           enum: [assessed, unassessed]
           description: Unassessed is its own outcome, never a low band.
+        confidence:
+          type: string
+          enum: [high, medium, low, not_assessable]
+          description: |
+            Evidence sufficiency by the pinned rubric's own rules
+            (ADR-0015). Not a probability, not comparable across roles or
+            rubric versions, never a ranking.
+        evidence_ids:
+          type: array
+          items: { type: string }
+          description: The stored evidence spans this result aggregated.
         band:
           type: string
           description: Present only when status is assessed.

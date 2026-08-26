@@ -95,7 +95,9 @@ func (a interviewAdapter) Results(ctx context.Context, userID, sessionID string)
 		view.Competencies = append(view.Competencies, api.CompetencyResultView{
 			CompetencyID:  competency.CompetencyID,
 			Status:        competency.Status,
+			Confidence:    competency.Confidence,
 			Band:          competency.Band,
+			EvidenceIDs:   competency.EvidenceIDs,
 			EvidenceCount: competency.EvidenceCount,
 			Supporting:    competency.Supporting,
 			Contradictory: competency.Contradictory,

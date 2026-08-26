@@ -5,6 +5,7 @@ package evaluation_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -26,11 +27,24 @@ func practicePin() evaluation.RubricPin {
 		Reference: "rubric/practice-default", Version: "1.0.0",
 		Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		Body: json.RawMessage(`{"sufficiency":{"min_supporting":2},"bands":[` +
-			`{"id":"developing","min_ratio":0},{"id":"solid","min_ratio":0.55},{"id":"strong","min_ratio":0.8}]}`),
+			`{"id":"developing","min_ratio":0},{"id":"solid","min_ratio":0.55},{"id":"strong","min_ratio":0.8}],` +
+			`"confidence":{"high":{"min_supporting":4,"max_contradictory":0},` +
+			`"medium":{"min_supporting":2,"max_contradictory":1}}}`),
 	}
 }
 
-func aggregated(t *testing.T, pin evaluation.RubricPin, spans []evaluation.Span) evaluation.Aggregation {
+// storedFixture wraps plain spans with deterministic ids for aggregation.
+func storedFixture(spans ...evaluation.Span) []evaluation.StoredSpan {
+	stored := make([]evaluation.StoredSpan, 0, len(spans))
+	for i, span := range spans {
+		stored = append(stored, evaluation.StoredSpan{
+			ID: fmt.Sprintf("sp-%d", i), Span: span,
+		})
+	}
+	return stored
+}
+
+func aggregated(t *testing.T, pin evaluation.RubricPin, spans []evaluation.StoredSpan) evaluation.Aggregation {
 	t.Helper()
 	rubric, err := evaluation.ParseRubric(pin.Body)
 	if err != nil {
@@ -48,10 +62,10 @@ func TestStoreResultIsExactlyOncePerSession(t *testing.T) {
 		SessionID: id.New().String(), Mode: "practice", CandidateID: evidenceCandidate,
 	}
 	pin := practicePin()
-	spans := []evaluation.Span{
+	spans := storedFixture(
 		span(1, "systems-design", "we cut latency by 40 percent"),
 		span(2, "systems-design", "the cache held 2 million entries"),
-	}
+	)
 	aggregation := aggregated(t, pin, spans)
 
 	first, err := store.StoreResult(ctx, events, ref, pin, "evidence-1", aggregation, nil)
@@ -94,10 +108,10 @@ func TestTheResultRecordsThePinNotThePublishedVersion(t *testing.T) {
 		SessionID: id.New().String(), Mode: "practice", CandidateID: evidenceCandidate,
 	}
 	pin := practicePin()
-	spans := []evaluation.Span{
+	spans := storedFixture(
 		span(1, "systems-design", "throughput doubled to 10k rps"),
 		span(2, "systems-design", "we halved the p99 to 80ms"),
-	}
+	)
 
 	stored, err := store.StoreResult(ctx, events, ref, pin, "evidence-1", aggregated(t, pin, spans), nil)
 	if err != nil {
@@ -135,10 +149,10 @@ func TestAStoredResultRefusesToChange(t *testing.T) {
 		SessionID: id.New().String(), Mode: "practice", CandidateID: evidenceCandidate,
 	}
 	pin := practicePin()
-	spans := []evaluation.Span{
+	spans := storedFixture(
 		span(1, "systems-design", "the migration moved 3 billion rows"),
 		span(2, "systems-design", "downtime was 0 minutes"),
-	}
+	)
 	if _, err := store.StoreResult(ctx, events, ref, pin, "evidence-1", aggregated(t, pin, spans), nil); err != nil {
 		t.Fatalf("store: %v", err)
 	}

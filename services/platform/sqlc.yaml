@@ -75,6 +75,16 @@ sql:
 
   - engine: postgresql
     schema: *schema
+    queries: internal/progression/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: progressiondb
+        out: internal/progression/db
+        overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
     queries: internal/billing/db/queries.sql
     gen:
       go:

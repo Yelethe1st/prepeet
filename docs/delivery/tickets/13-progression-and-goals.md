@@ -16,9 +16,25 @@ Every observation records its evidence, its rubric version and when it was made.
 place.
 
 **Done when**
-- [ ] Observations are append-only; a correction adds a record rather than editing one.
-- [ ] Each observation carries the rubric and calibration version that produced it.
-- [ ] Re-evaluation under a new rubric is representable without destroying the earlier view.
+- [x] Observations are append-only; a correction adds a record rather than editing one.
+- [x] Each observation carries the rubric and calibration version that produced it.
+- [x] Re-evaluation under a new rubric is representable without destroying the earlier view.
+
+**Done.** progression.observations is the new context's first table: one row per evaluated
+competency per evaluation, projected in the worker from evaluation.completed.v1 (composed with
+the review_ready transition; both idempotent, so a redelivery converges - proven with three
+appends leaving exactly one history). Append-only is a trigger, attacked with UPDATE and DELETE
+from inside the owner's scope; a correction is a new row whose supersedes names its predecessor,
+and the predecessor is proven unchanged.
+
+Provenance is the full pin: rubric reference, version and digest, aggregation and extraction
+versions, model and policy versions (the honest none at today's floor - "calibration version"
+resolves to the rubric version until QUA-03 exists) ride every row, so any historical point on a
+future chart reconstructs against exactly what judged it. Re-evaluation is structural: a second
+evaluation of the same session and competency under rubric 2.0.0 adds its reading beside the
+1.1.0 one, both readable, ordered, the earlier untouched. Unassessed observations are stored
+too, deliberately: a chart that dropped them would read silence as decline. The history read
+model and the progression screens are PRG-02 and PRG-03's.
 
 **Spec** [domain-model.md](../../architecture/domain-model.md)
 

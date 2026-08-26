@@ -29,6 +29,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/progression"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/email"
@@ -160,7 +161,17 @@ func main() {
 			defer interviewWorker.Stop()
 			composition = startComposition(workflows, interview.NewStore(pool))
 			evaluationFailure = recordEvaluationFailure(interview.NewStore(pool))
-			evaluationCompleted = recordEvaluationCompleted(interview.NewStore(pool))
+			transition := recordEvaluationCompleted(interview.NewStore(pool))
+			project := appendObservations(evaluation.NewStore(pool), progression.NewStore(pool))
+			evaluationCompleted = func(ctx context.Context, event outbox.Pending) error {
+				// Both idempotent, so a partial failure retries into the
+				// same state: the transition is guarded by the machine,
+				// the projection by its unique rows.
+				if err := transition(ctx, event); err != nil {
+					return err
+				}
+				return project(ctx, event)
+			}
 			if cfg.LiveKitAPIURL != "" {
 				recorderGrants, err := realtime.NewGrants(realtime.Config{
 					URL: cfg.LiveKitURL, APIKey: cfg.LiveKitAPIKey, APISecret: cfg.LiveKitAPISecret,

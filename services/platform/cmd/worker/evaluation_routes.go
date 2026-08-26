@@ -12,6 +12,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/progression"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 )
 
@@ -100,5 +101,51 @@ func recordEvaluationCompleted(sessions *interview.Store) outbox.HandlerFunc {
 			return nil
 		}
 		return err
+	}
+}
+
+// appendObservations projects one published evaluation into the
+// candidate's append-only competency history (PRG-01), in the one place
+// that may see both contexts. Idempotent end to end: a redelivered event
+// re-reads the same immutable result and converges on the unique
+// (evaluation, competency) rows.
+func appendObservations(results *evaluation.Store, history *progression.Store) outbox.HandlerFunc {
+	return func(ctx context.Context, event outbox.Pending) error {
+		var payload struct {
+			SessionID string `json:"session_id"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return fmt.Errorf("decoding %s: %w", event.Type, err)
+		}
+
+		result, err := results.ResultOf(ctx, evaluation.SessionRef{
+			SessionID: payload.SessionID, Mode: event.Purpose,
+			CandidateID: event.Actor.ID, TenantID: event.TenantID,
+		})
+		if err != nil {
+			return err
+		}
+
+		observations := make([]progression.Observation, 0, len(result.Aggregation.Competencies))
+		for _, competency := range result.Aggregation.Competencies {
+			observations = append(observations, progression.Observation{
+				SessionID: result.SessionID, EvaluationID: result.ID,
+				CompetencyID: competency.CompetencyID,
+				Status:       competency.Status, Band: competency.Band,
+				Confidence:    competency.Confidence,
+				EvidenceCount: competency.EvidenceCount,
+				Supporting:    competency.Supporting, Contradictory: competency.Contradictory,
+				Unverified: competency.Unverified, Gaps: competency.Gaps,
+				RubricReference: result.RubricReference, RubricVersion: result.RubricVersion,
+				RubricDigest:       result.RubricDigest,
+				AggregationVersion: result.AggregationVersion,
+				ExtractionVersion:  result.ExtractionVersion,
+				ModelVersion:       result.ModelVersion, PolicyVersion: result.PolicyVersion,
+				ObservedAt: result.CreatedAt,
+			})
+		}
+		return history.Append(ctx, progression.Owner{
+			Mode: event.Purpose, CandidateID: event.Actor.ID, TenantID: event.TenantID,
+		}, observations)
 	}
 }

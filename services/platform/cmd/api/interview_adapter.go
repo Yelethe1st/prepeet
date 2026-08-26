@@ -63,6 +63,34 @@ func (a interviewAdapter) IngestEvents(ctx context.Context, userID, sessionID st
 	return out, nil
 }
 
+// Transcript answers the assembled read model under the owner's scope.
+func (a interviewAdapter) Transcript(ctx context.Context, userID, sessionID string) (api.TranscriptView, error) {
+	transcript, err := a.events.AssembleTranscript(ctx, sessionID, "practice", userID, "")
+	if errors.Is(err, interview.ErrNotFound) {
+		return api.TranscriptView{}, api.ErrSessionMissing
+	}
+	if err != nil {
+		return api.TranscriptView{}, err
+	}
+	view := api.TranscriptView{OrphanCorrections: transcript.OrphanCorrections}
+	for _, segment := range transcript.Segments {
+		encoded := api.TranscriptSegmentView{
+			Epoch: segment.Epoch, Sequence: segment.Sequence, Type: segment.Type,
+			Speaker: segment.Speaker, Text: segment.Text,
+			StartMs: segment.StartMs, EndMs: segment.EndMs,
+			Confidence: segment.Confidence, Superseded: segment.Superseded,
+			CorrectedBySequence: segment.CorrectedBySequence, Supersedes: segment.Supersedes,
+		}
+		for _, word := range segment.Words {
+			encoded.Words = append(encoded.Words, api.TranscriptWordView{
+				Word: word.Word, StartMs: word.StartMs, EndMs: word.EndMs, Confidence: word.Confidence,
+			})
+		}
+		view.Segments = append(view.Segments, encoded)
+	}
+	return view, nil
+}
+
 // ReplayEvents answers the durable timeline after a cursor.
 func (a interviewAdapter) ReplayEvents(ctx context.Context, userID, sessionID string, afterEpoch, afterSequence int) ([]api.ControlEventOut, error) {
 	replayed, err := a.events.Replay(ctx, sessionID, "practice", userID, "", afterEpoch, afterSequence)

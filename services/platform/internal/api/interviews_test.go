@@ -18,16 +18,17 @@ import (
 // asked for at all - the contract's enum is the refusal.
 
 type fakeInterviews struct {
-	created   api.InterviewSession
-	started   api.StartedInterview
-	ack       api.ControlAck
-	ingested  []api.ControlEventIn
-	epoch     int
-	replayed  []api.ControlEventOut
-	consent   api.PracticeConsent
-	err       error
-	selection *api.InterviewSelection
-	users     []string
+	created    api.InterviewSession
+	started    api.StartedInterview
+	ack        api.ControlAck
+	ingested   []api.ControlEventIn
+	epoch      int
+	replayed   []api.ControlEventOut
+	transcript api.TranscriptView
+	consent    api.PracticeConsent
+	err        error
+	selection  *api.InterviewSelection
+	users      []string
 }
 
 func (f *fakeInterviews) CreatePractice(_ context.Context, userID string, selection api.InterviewSelection) (api.InterviewSession, error) {
@@ -60,6 +61,11 @@ func (f *fakeInterviews) IngestEvents(_ context.Context, userID, sessionID strin
 func (f *fakeInterviews) ReplayEvents(_ context.Context, userID, sessionID string, afterEpoch, afterSequence int) ([]api.ControlEventOut, error) {
 	f.users = append(f.users, "replay:"+userID+":"+sessionID)
 	return f.replayed, f.err
+}
+
+func (f *fakeInterviews) Transcript(_ context.Context, userID, sessionID string) (api.TranscriptView, error) {
+	f.users = append(f.users, "transcript:"+userID+":"+sessionID)
+	return f.transcript, f.err
 }
 
 func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
@@ -415,5 +421,63 @@ func TestAStaleEpochAnswers409WithItsName(t *testing.T) {
 	decodeInto(t, response, &body)
 	if body.Error.Code != "EPOCH_STALE" {
 		t.Fatalf("code = %q", body.Error.Code)
+	}
+}
+
+func TestTheTranscriptCarriesProvenanceAcrossTheWire(t *testing.T) {
+	interviews := &fakeInterviews{transcript: api.TranscriptView{
+		Segments: []api.TranscriptSegmentView{
+			{
+				Epoch: 1, Sequence: 2, Type: "transcript.segment.final",
+				Speaker: "candidate", Text: "I lead the migration",
+				StartMs: 5000, EndMs: 8000, Confidence: 0.81,
+				Words:      []api.TranscriptWordView{{Word: "lead", StartMs: 5500, EndMs: 5900, Confidence: 0.7}},
+				Superseded: true, CorrectedBySequence: 3,
+			},
+			{
+				Epoch: 1, Sequence: 3, Type: "transcript.segment.corrected",
+				Speaker: "candidate", Text: "I led the migration",
+				StartMs: 5000, EndMs: 8000, Confidence: 0.95, Supersedes: 2,
+			},
+		},
+		OrphanCorrections: []int{9},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := doJSON(t, handler, http.MethodGet,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/transcript", "", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+
+	var body struct {
+		Segments []struct {
+			Text                string `json:"text"`
+			Superseded          bool   `json:"superseded"`
+			CorrectedBySequence *int   `json:"corrected_by_sequence"`
+			Supersedes          *int   `json:"supersedes"`
+			Words               []struct {
+				W       string `json:"w"`
+				StartMs int    `json:"start_ms"`
+			} `json:"words"`
+		} `json:"segments"`
+		OrphanCorrections []int `json:"orphan_corrections"`
+	}
+	decodeInto(t, response, &body)
+	if len(body.Segments) != 2 {
+		t.Fatalf("segments = %+v", body.Segments)
+	}
+	original, corrected := body.Segments[0], body.Segments[1]
+	if !original.Superseded || original.CorrectedBySequence == nil || *original.CorrectedBySequence != 3 {
+		t.Fatalf("original = %+v", original)
+	}
+	if corrected.Supersedes == nil || *corrected.Supersedes != 2 {
+		t.Fatalf("corrected = %+v", corrected)
+	}
+	if len(original.Words) != 1 || original.Words[0].StartMs != 5500 {
+		t.Fatalf("word timing = %+v", original.Words)
+	}
+	if len(body.OrphanCorrections) != 1 || body.OrphanCorrections[0] != 9 {
+		t.Fatalf("orphans = %v", body.OrphanCorrections)
 	}
 }

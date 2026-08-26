@@ -51,8 +51,8 @@ func TestDisorderAndDuplicatesCannotCorruptTheTimeline(t *testing.T) {
 	session := startedPractice(t)
 
 	established := event(1, "connection.established")
-	second := event(2, "transcript.segment.final")
-	fourth := event(4, "transcript.segment.final")
+	second := event(2, "turn.boundary")
+	fourth := event(4, "preference.captions")
 
 	// Out of order, with a gap, and the first event twice in one batch.
 	ack, err := events.Ingest(ctx, session.ID, "practice", candidateID, "", 1,
@@ -101,7 +101,7 @@ func TestDisorderAndDuplicatesCannotCorruptTheTimeline(t *testing.T) {
 	}
 
 	// A DIFFERENT event claiming an occupied slot is corruption, refused.
-	usurper := event(2, "transcript.segment.final")
+	usurper := event(2, "turn.boundary")
 	conflicted, err := events.Ingest(ctx, session.ID, "practice", candidateID, "", 1,
 		[]interview.ControlEvent{usurper})
 	if err != nil {
@@ -152,7 +152,7 @@ func TestAStaleEpochCannotMutateASessionThatMovedOn(t *testing.T) {
 
 	// The stale tab keeps talking: refused whole, by name, storing nothing.
 	_, err = events.Ingest(ctx, session.ID, "practice", candidateID, "", 1,
-		[]interview.ControlEvent{event(2, "transcript.segment.final")})
+		[]interview.ControlEvent{event(2, "turn.boundary")})
 	if !errors.Is(err, interview.ErrEpochStale) {
 		t.Fatalf("stale epoch = %v, want ErrEpochStale", err)
 	}
@@ -183,9 +183,9 @@ func TestReplayFromACursorIsDeterministic(t *testing.T) {
 
 	batch := []interview.ControlEvent{
 		event(1, "connection.established"),
-		event(2, "transcript.segment.final"),
+		event(2, "device.microphone"),
 		event(3, "turn.boundary"),
-		event(4, "transcript.segment.corrected"),
+		event(4, "session.leave"),
 		// An ephemeral partial rides along: acknowledged, never stored,
 		// never a slot, so its absence from replay is correctness.
 		{EventID: id.New().String(), Epoch: 1, Type: "transcript.segment.partial",

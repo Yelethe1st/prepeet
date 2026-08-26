@@ -232,6 +232,13 @@ func (e *Events) apply(ctx context.Context, tx pgx.Tx, session Session, event Co
 	if event.Sequence < 1 {
 		return EventOutcome{EventID: event.EventID, Status: "refused", Reason: "SEQUENCE_INVALID"}
 	}
+	if event.Type == "transcript.segment.final" || event.Type == "transcript.segment.corrected" {
+		// A transcript row that cannot serve as evidence is refused at the
+		// door, not discovered by evaluation later.
+		if err := validateTranscriptPayload(event.Type, event.Payload); err != nil {
+			return EventOutcome{EventID: event.EventID, Status: "refused", Reason: "TRANSCRIPT_INVALID"}
+		}
+	}
 
 	payload := event.Payload
 	if len(payload) == 0 {

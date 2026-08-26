@@ -104,9 +104,27 @@ Partial transcripts arrive, get corrected, and both versions retain provenance a
 can always be traced to what was actually said.
 
 **Done when**
-- [ ] Original and corrected text are both retained with their sequence and timing.
-- [ ] Word-level timing is preserved for the alignment ART-01 depends on.
-- [ ] Transcript confidence is carried per segment, not just per session.
+- [x] Original and corrected text are both retained with their sequence and timing.
+- [x] Word-level timing is preserved for the alignment ART-01 depends on.
+- [x] Transcript confidence is carried per segment, not just per session.
+
+**Done.** Transcript segments are control events with a shape worth retaining, enforced at
+ingest: speaker, text, a span on the room's single clock (ADR-0013), confidence in [0,1], and
+word-level timing required on every final segment - each word proven to sit inside its segment -
+because a transcript row without timing is not a lesser record, it is one that cannot answer
+what the product exists to answer. A malformed segment is refused as TRANSCRIPT_INVALID at the
+door, never discovered by evaluation later. Corrections must name the sequence they supersede;
+their word timing is optional because the original's remains the alignment source.
+
+The read model assembles the timeline into provenance: a correction replaces a segment's
+effective text while the original stands underneath with its own sequence, timing and words,
+linked both ways; when corrections stack, the latest wins and every earlier version - original
+and prior corrections alike - is retained, superseded, and linked forward to what stands now.
+The proofs walk it: correct-once shows both versions with exact word timing surviving storage,
+correct-twice shows one effective text and three retained versions, per-segment confidence
+survives to the read, and a correction whose target never arrived is listed as an orphan rather
+than hidden, because a dangling supersession is a resend the client still owes.
+GET /interviews/{id}/transcript serves the assembled view with links and orphans intact.
 
 **Spec** [realtime-protocol.md](../../architecture/realtime-protocol.md)
 

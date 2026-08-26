@@ -1033,6 +1033,32 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /interviews/{sessionId}/transcript:
+    get:
+      tags: [interview]
+      operationId: getTranscript
+      summary: The assembled transcript, provenance included
+      description: |
+        Every version stands: a correction supersedes a segment's effective
+        text while the original stays underneath with its own sequence and
+        timing, linked both ways. Word-level timing rides each final segment
+        on the room's single clock, and confidence is per segment. Dangling
+        corrections are listed, not hidden.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: The transcript.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptView"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /me:
     get:
       tags: [authentication]
@@ -1590,6 +1616,50 @@ components:
           type: string
           enum: [admin, recruiter, hiring_manager, viewer]
         expected_version: { type: integer }
+
+    TranscriptView:
+      type: object
+      required: [segments, orphan_corrections]
+      properties:
+        segments:
+          type: array
+          items: { $ref: "#/components/schemas/TranscriptSegment" }
+        orphan_corrections:
+          type: array
+          items: { type: integer }
+          description: Corrections whose target has not arrived; a resend is owed.
+
+    TranscriptSegment:
+      type: object
+      required: [epoch, sequence, type, speaker, text, start_ms, end_ms, confidence, superseded]
+      properties:
+        epoch: { type: integer }
+        sequence: { type: integer }
+        type:
+          type: string
+          enum: [transcript.segment.final, transcript.segment.corrected]
+        speaker:
+          type: string
+          enum: [candidate, interviewer]
+        text: { type: string }
+        start_ms: { type: integer }
+        end_ms: { type: integer }
+        confidence: { type: number }
+        words:
+          type: array
+          items:
+            type: object
+            required: [w, start_ms, end_ms, confidence]
+            properties:
+              w: { type: string }
+              start_ms: { type: integer }
+              end_ms: { type: integer }
+              confidence: { type: number }
+        superseded:
+          type: boolean
+          description: True when a correction replaced this text. The row stands.
+        corrected_by_sequence: { type: integer }
+        supersedes: { type: integer }
 
     ControlEvent:
       type: object

@@ -43,6 +43,38 @@ type Interviews interface {
 	IngestEvents(ctx context.Context, userID, sessionID string, epoch int, events []ControlEventIn) (ControlAck, error)
 	// ReplayEvents answers the durable timeline after a cursor.
 	ReplayEvents(ctx context.Context, userID, sessionID string, afterEpoch, afterSequence int) ([]ControlEventOut, error)
+	// Transcript answers the assembled read model, provenance included.
+	Transcript(ctx context.Context, userID, sessionID string) (TranscriptView, error)
+}
+
+// TranscriptView mirrors the contract at the port.
+type TranscriptView struct {
+	Segments          []TranscriptSegmentView
+	OrphanCorrections []int
+}
+
+// TranscriptSegmentView is one segment with its provenance links.
+type TranscriptSegmentView struct {
+	Epoch               int
+	Sequence            int
+	Type                string
+	Speaker             string
+	Text                string
+	StartMs             int
+	EndMs               int
+	Confidence          float64
+	Words               []TranscriptWordView
+	Superseded          bool
+	CorrectedBySequence int
+	Supersedes          int
+}
+
+// TranscriptWordView is one word on the room clock.
+type TranscriptWordView struct {
+	Word       string
+	StartMs    int
+	EndMs      int
+	Confidence float64
 }
 
 // ControlEventIn is one envelope from the browser.
@@ -423,6 +455,70 @@ func (i *interviews) ReplayControlEvents(ctx context.Context, request prepeetapi
 	}, nil
 }
 
+// GetTranscript answers the assembled transcript.
+func (i *interviews) GetTranscript(ctx context.Context, request prepeetapi.GetTranscriptRequestObject) (prepeetapi.GetTranscriptResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	transcript, err := i.flows.Transcript(ctx, principal.UserID, request.SessionID.String())
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	body := prepeetapi.TranscriptView{
+		Segments:          make([]prepeetapi.TranscriptSegment, 0, len(transcript.Segments)),
+		OrphanCorrections: transcript.OrphanCorrections,
+	}
+	if body.OrphanCorrections == nil {
+		body.OrphanCorrections = []int{}
+	}
+	for _, segment := range transcript.Segments {
+		encoded := prepeetapi.TranscriptSegment{
+			Epoch: segment.Epoch, Sequence: segment.Sequence,
+			Type:    prepeetapi.TranscriptSegmentType(segment.Type),
+			Speaker: prepeetapi.TranscriptSegmentSpeaker(segment.Speaker),
+			Text:    segment.Text, StartMs: segment.StartMs, EndMs: segment.EndMs,
+			Confidence: float32(segment.Confidence), Superseded: segment.Superseded,
+		}
+		if segment.CorrectedBySequence != 0 {
+			linked := segment.CorrectedBySequence
+			encoded.CorrectedBySequence = &linked
+		}
+		if segment.Supersedes != 0 {
+			linked := segment.Supersedes
+			encoded.Supersedes = &linked
+		}
+		if len(segment.Words) > 0 {
+			transcriptWords := make([]struct {
+				Confidence float32 `json:"confidence"`
+				EndMs      int     `json:"end_ms"`
+				StartMs    int     `json:"start_ms"`
+				W          string  `json:"w"`
+			}, 0, len(segment.Words))
+			for _, word := range segment.Words {
+				transcriptWords = append(transcriptWords, struct {
+					Confidence float32 `json:"confidence"`
+					EndMs      int     `json:"end_ms"`
+					StartMs    int     `json:"start_ms"`
+					W          string  `json:"w"`
+				}{Confidence: float32(word.Confidence), EndMs: word.EndMs, StartMs: word.StartMs, W: word.Word})
+			}
+			encoded.Words = &transcriptWords
+		}
+		body.Segments = append(body.Segments, encoded)
+	}
+	return prepeetapi.GetTranscript200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.GetTranscript200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetPracticeConsent answers the current consent text with its version.
 func (i *interviews) GetPracticeConsent(ctx context.Context, _ prepeetapi.GetPracticeConsentRequestObject) (prepeetapi.GetPracticeConsentResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -471,6 +567,7 @@ var (
 	_ prepeetapi.StartInterviewResponseObject      = failure{}
 	_ prepeetapi.IngestControlEventsResponseObject = failure{}
 	_ prepeetapi.ReplayControlEventsResponseObject = failure{}
+	_ prepeetapi.GetTranscriptResponseObject       = failure{}
 )
 
 func (f failure) VisitCreateInterviewResponse(w http.ResponseWriter) error     { return f.write(w) }
@@ -479,3 +576,4 @@ func (f failure) VisitGetInterviewResponse(w http.ResponseWriter) error        {
 func (f failure) VisitStartInterviewResponse(w http.ResponseWriter) error      { return f.write(w) }
 func (f failure) VisitIngestControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitReplayControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       { return f.write(w) }

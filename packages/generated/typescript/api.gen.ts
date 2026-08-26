@@ -740,6 +740,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The assembled transcript, provenance included
+         * @description Every version stands: a correction supersedes a segment's effective
+         *     text while the original stays underneath with its own sequence and
+         *     timing, linked both ways. Word-level timing rides each final segment
+         *     on the room's single clock, and confidence is per segment. Dangling
+         *     corrections are listed, not hidden.
+         */
+        get: operations["getTranscript"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -998,6 +1022,33 @@ export interface components {
             /** @enum {string} */
             role: "admin" | "recruiter" | "hiring_manager" | "viewer";
             expected_version: number;
+        };
+        TranscriptView: {
+            segments: components["schemas"]["TranscriptSegment"][];
+            /** @description Corrections whose target has not arrived; a resend is owed. */
+            orphan_corrections: number[];
+        };
+        TranscriptSegment: {
+            epoch: number;
+            sequence: number;
+            /** @enum {string} */
+            type: "transcript.segment.final" | "transcript.segment.corrected";
+            /** @enum {string} */
+            speaker: "candidate" | "interviewer";
+            text: string;
+            start_ms: number;
+            end_ms: number;
+            confidence: number;
+            words?: {
+                w: string;
+                start_ms: number;
+                end_ms: number;
+                confidence: number;
+            }[];
+            /** @description True when a correction replaced this text. The row stands. */
+            superseded: boolean;
+            corrected_by_sequence?: number;
+            supersedes?: number;
         };
         ControlEvent: {
             /** Format: uuid */
@@ -2508,6 +2559,31 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    getTranscript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transcript. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
         };
     };
     getCurrentUser: {

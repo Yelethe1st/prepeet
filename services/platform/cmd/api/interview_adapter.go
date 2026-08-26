@@ -25,6 +25,61 @@ type interviewAdapter struct {
 	sessions  *interview.Store
 	registry  *content.Store
 	starter   *interview.Starter
+	events    *interview.Events
+}
+
+// IngestEvents accepts one control batch under the owner's practice scope.
+func (a interviewAdapter) IngestEvents(ctx context.Context, userID, sessionID string, epoch int, events []api.ControlEventIn) (api.ControlAck, error) {
+	batch := make([]interview.ControlEvent, 0, len(events))
+	for _, event := range events {
+		batch = append(batch, interview.ControlEvent{
+			EventID: event.EventID, Epoch: epoch, Sequence: event.Sequence,
+			Type: event.Type, Payload: event.Payload, OccurredAt: event.OccurredAt,
+		})
+	}
+	ack, err := a.events.Ingest(ctx, sessionID, "practice", userID, "", epoch, batch)
+	switch {
+	case errors.Is(err, interview.ErrNotFound):
+		return api.ControlAck{}, api.ErrSessionMissing
+	case errors.Is(err, interview.ErrEpochStale):
+		return api.ControlAck{}, &api.StartRefusedError{Code: "EPOCH_STALE",
+			Message: "This connection was superseded by a newer one. Resume to continue; the newer connection owns the session."}
+	case errors.Is(err, interview.ErrNoAttempt):
+		return api.ControlAck{}, &api.StartRefusedError{Code: "NO_ATTEMPT",
+			Message: "The session has no active connection attempt. Start it first."}
+	case err != nil:
+		return api.ControlAck{}, err
+	}
+
+	out := api.ControlAck{Epoch: ack.Epoch, Accepted: ack.Accepted}
+	for _, gap := range ack.Missing {
+		out.Missing = append(out.Missing, [2]int{gap.From, gap.To})
+	}
+	for _, outcome := range ack.Outcomes {
+		out.Outcomes = append(out.Outcomes, api.ControlOutcome{
+			EventID: outcome.EventID, Status: outcome.Status, Reason: outcome.Reason,
+		})
+	}
+	return out, nil
+}
+
+// ReplayEvents answers the durable timeline after a cursor.
+func (a interviewAdapter) ReplayEvents(ctx context.Context, userID, sessionID string, afterEpoch, afterSequence int) ([]api.ControlEventOut, error) {
+	replayed, err := a.events.Replay(ctx, sessionID, "practice", userID, "", afterEpoch, afterSequence)
+	if errors.Is(err, interview.ErrNotFound) {
+		return nil, api.ErrSessionMissing
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make([]api.ControlEventOut, 0, len(replayed))
+	for _, event := range replayed {
+		out = append(out, api.ControlEventOut{
+			EventID: event.EventID, Epoch: event.Epoch, Sequence: event.Sequence,
+			Type: event.Type, Payload: event.Payload, OccurredAt: event.OccurredAt,
+		})
+	}
+	return out, nil
 }
 
 // ledgerPort narrows billing to the port interview declares, translating

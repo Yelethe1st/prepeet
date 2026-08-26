@@ -62,14 +62,19 @@ type Session struct {
 	// preference was chosen against, so "what did this person agree to"
 	// resolves to exact words forever.
 	ConsentVersion string
-	State          State
-	Version        int
-	BundleRef      string
-	BundleDigest   string
-	BundleRevision int
-	FailureCode    string
-	CreatedAt      time.Time
-	StateChangedAt time.Time
+	// ConnectionEpoch is the current attempt's epoch; zero before any
+	// attempt. AcceptedSequence is the highest contiguous accepted control
+	// event in that epoch: the cursor recovery proves itself against.
+	ConnectionEpoch  int
+	AcceptedSequence int
+	State            State
+	Version          int
+	BundleRef        string
+	BundleDigest     string
+	BundleRevision   int
+	FailureCode      string
+	CreatedAt        time.Time
+	StateChangedAt   time.Time
 }
 
 // Actor is who a command runs as, recorded on every transition's audit row.
@@ -219,6 +224,7 @@ func (s *Store) get(ctx context.Context, tx pgx.Tx, sessionID string) (Session, 
 		ID: row.ID, Mode: row.Mode, CandidateID: row.CandidateID, TenantID: row.TenantID,
 		BlueprintID: row.BlueprintID, Config: json.RawMessage(row.Config),
 		RecordingPreference: row.RecordingPreference, ConsentVersion: row.ConsentVersion,
+		ConnectionEpoch: int(row.ConnectionEpoch), AcceptedSequence: int(row.AcceptedSequence),
 		State: State(row.State), Version: int(row.Version),
 		BundleRef: row.BundleRef, BundleDigest: row.BundleDigest,
 		BundleRevision: int(row.BundleRevision), FailureCode: row.FailureCode,

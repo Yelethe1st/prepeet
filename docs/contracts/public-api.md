@@ -107,6 +107,7 @@ POST /api/v1/interviews/{session_id}/start
 POST /api/v1/interviews/{session_id}/resume
 POST /api/v1/interviews/{session_id}/complete
 GET  /api/v1/interviews/{session_id}/events
+POST /api/v1/interviews/{session_id}/events
 GET  /api/v1/interviews/{session_id}/stream
 POST /api/v1/interviews/{session_id}/media/uploads
 POST /api/v1/interviews/{session_id}/media/parts

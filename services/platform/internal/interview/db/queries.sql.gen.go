@@ -10,10 +10,45 @@ import (
 	"time"
 )
 
+const advanceSessionEpoch = `-- name: AdvanceSessionEpoch :execrows
+UPDATE interview.sessions
+SET connection_epoch = $1::integer, accepted_sequence = 0
+WHERE id = $2::uuid AND connection_epoch < $1::integer
+`
+
+type AdvanceSessionEpochParams struct {
+	Epoch int32
+	ID    string
+}
+
+// Monotonic by guard: an epoch can only go up, and the cursor resets with
+// it because sequence orders within an epoch.
+func (q *Queries) AdvanceSessionEpoch(ctx context.Context, arg AdvanceSessionEpochParams) (int64, error) {
+	result, err := q.db.Exec(ctx, advanceSessionEpoch, arg.Epoch, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const controlEventExists = `-- name: ControlEventExists :one
+SELECT EXISTS (
+    SELECT 1 FROM interview.control_events WHERE event_id = $1::uuid
+) AS present
+`
+
+func (q *Queries) ControlEventExists(ctx context.Context, eventID string) (bool, error) {
+	row := q.db.QueryRow(ctx, controlEventExists, eventID)
+	var present bool
+	err := row.Scan(&present)
+	return present, err
+}
+
 const getSession = `-- name: GetSession :one
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
-       blueprint_id, config, recording_preference, consent_version, state, version,
+       blueprint_id, config, recording_preference, consent_version,
+       connection_epoch, accepted_sequence, state, version,
        coalesce(bundle_ref, '')::text AS bundle_ref,
        coalesce(bundle_digest, '')::text AS bundle_digest,
        coalesce(bundle_revision, 0)::integer AS bundle_revision,
@@ -32,6 +67,8 @@ type GetSessionRow struct {
 	Config              []byte
 	RecordingPreference string
 	ConsentVersion      string
+	ConnectionEpoch     int32
+	AcceptedSequence    int32
 	State               string
 	Version             int32
 	BundleRef           string
@@ -54,6 +91,8 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 		&i.Config,
 		&i.RecordingPreference,
 		&i.ConsentVersion,
+		&i.ConnectionEpoch,
+		&i.AcceptedSequence,
 		&i.State,
 		&i.Version,
 		&i.BundleRef,
@@ -92,6 +131,35 @@ func (q *Queries) GetSessionBundle(ctx context.Context, sessionID string) (GetSe
 	return i, err
 }
 
+const insertAttempt = `-- name: InsertAttempt :exec
+INSERT INTO interview.attempts
+    (id, session_id, mode, candidate_id, tenant_id, connection_epoch)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::uuid, nullif($5::text, '')::uuid,
+        $6::integer)
+`
+
+type InsertAttemptParams struct {
+	ID              string
+	SessionID       string
+	Mode            string
+	CandidateID     string
+	TenantID        string
+	ConnectionEpoch int32
+}
+
+func (q *Queries) InsertAttempt(ctx context.Context, arg InsertAttemptParams) error {
+	_, err := q.db.Exec(ctx, insertAttempt,
+		arg.ID,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.ConnectionEpoch,
+	)
+	return err
+}
+
 const insertAuditEvent = `-- name: InsertAuditEvent :exec
 INSERT INTO audit.events
     (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome)
@@ -122,6 +190,45 @@ func (q *Queries) InsertAuditEvent(ctx context.Context, arg InsertAuditEventPara
 		arg.Action,
 		arg.SessionID,
 		arg.Outcome,
+	)
+	return err
+}
+
+const insertControlEvent = `-- name: InsertControlEvent :exec
+INSERT INTO interview.control_events
+    (event_id, session_id, mode, candidate_id, tenant_id,
+     connection_epoch, sequence, event_type, payload, occurred_at)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::uuid, nullif($5::text, '')::uuid,
+        $6::integer, $7::integer,
+        $8::text, $9::jsonb, $10::timestamptz)
+`
+
+type InsertControlEventParams struct {
+	EventID         string
+	SessionID       string
+	Mode            string
+	CandidateID     string
+	TenantID        string
+	ConnectionEpoch int32
+	Sequence        int32
+	EventType       string
+	Payload         []byte
+	OccurredAt      time.Time
+}
+
+func (q *Queries) InsertControlEvent(ctx context.Context, arg InsertControlEventParams) error {
+	_, err := q.db.Exec(ctx, insertControlEvent,
+		arg.EventID,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.ConnectionEpoch,
+		arg.Sequence,
+		arg.EventType,
+		arg.Payload,
+		arg.OccurredAt,
 	)
 	return err
 }
@@ -178,6 +285,129 @@ type InsertSessionBundleParams struct {
 // whose bundle failed to persist would pin a digest nothing can resolve.
 func (q *Queries) InsertSessionBundle(ctx context.Context, arg InsertSessionBundleParams) error {
 	_, err := q.db.Exec(ctx, insertSessionBundle, arg.SessionID, arg.Digest, arg.Body)
+	return err
+}
+
+const persistCursor = `-- name: PersistCursor :execrows
+UPDATE interview.sessions
+SET accepted_sequence = $1::integer
+WHERE id = $2::uuid
+  AND connection_epoch = $3::integer
+  AND accepted_sequence < $1::integer
+`
+
+type PersistCursorParams struct {
+	Accepted int32
+	ID       string
+	Epoch    int32
+}
+
+// Guarded by epoch so a cursor from a superseded attempt cannot land after
+// a takeover already moved the session on.
+func (q *Queries) PersistCursor(ctx context.Context, arg PersistCursorParams) (int64, error) {
+	result, err := q.db.Exec(ctx, persistCursor, arg.Accepted, arg.ID, arg.Epoch)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const replayControlEvents = `-- name: ReplayControlEvents :many
+SELECT event_id::text AS event_id, connection_epoch, sequence, event_type,
+       payload, occurred_at
+FROM interview.control_events
+WHERE session_id = $1::uuid
+  AND (connection_epoch, sequence) > ($2::integer, $3::integer)
+ORDER BY connection_epoch, sequence
+`
+
+type ReplayControlEventsParams struct {
+	SessionID     string
+	AfterEpoch    int32
+	AfterSequence int32
+}
+
+type ReplayControlEventsRow struct {
+	EventID         string
+	ConnectionEpoch int32
+	Sequence        int32
+	EventType       string
+	Payload         []byte
+	OccurredAt      time.Time
+}
+
+// The replay read: everything after the cursor, in the one authoritative
+// order. Replaying twice from the same cursor answers identically, which
+// is the property the client rebuilds itself on.
+func (q *Queries) ReplayControlEvents(ctx context.Context, arg ReplayControlEventsParams) ([]ReplayControlEventsRow, error) {
+	rows, err := q.db.Query(ctx, replayControlEvents, arg.SessionID, arg.AfterEpoch, arg.AfterSequence)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReplayControlEventsRow{}
+	for rows.Next() {
+		var i ReplayControlEventsRow
+		if err := rows.Scan(
+			&i.EventID,
+			&i.ConnectionEpoch,
+			&i.Sequence,
+			&i.EventType,
+			&i.Payload,
+			&i.OccurredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const storedSequences = `-- name: StoredSequences :many
+SELECT sequence FROM interview.control_events
+WHERE session_id = $1::uuid
+  AND connection_epoch = $2::integer
+ORDER BY sequence
+`
+
+type StoredSequencesParams struct {
+	SessionID string
+	Epoch     int32
+}
+
+// The contiguity computation's input: which slots this epoch holds.
+func (q *Queries) StoredSequences(ctx context.Context, arg StoredSequencesParams) ([]int32, error) {
+	rows, err := q.db.Query(ctx, storedSequences, arg.SessionID, arg.Epoch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int32{}
+	for rows.Next() {
+		var sequence int32
+		if err := rows.Scan(&sequence); err != nil {
+			return nil, err
+		}
+		items = append(items, sequence)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const supersedeAttempts = `-- name: SupersedeAttempts :exec
+
+UPDATE interview.attempts SET superseded_at = now()
+WHERE session_id = $1::uuid AND superseded_at IS NULL
+`
+
+// ── RTC-02: attempts, epochs and the control event log.
+func (q *Queries) SupersedeAttempts(ctx context.Context, sessionID string) error {
+	_, err := q.db.Exec(ctx, supersedeAttempts, sessionID)
 	return err
 }
 

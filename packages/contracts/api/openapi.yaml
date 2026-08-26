@@ -961,6 +961,78 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /interviews/{sessionId}/events:
+    post:
+      tags: [interview]
+      operationId: ingestControlEvents
+      summary: Send a batch of control events for the current epoch
+      description: |
+        Ordered by sequence within the epoch, deduplicated by event id, and
+        answered with the accepted contiguous cursor plus the exact gaps
+        still owed. A batch from a superseded epoch is refused whole with
+        EPOCH_STALE: a stale tab must not write history into a session that
+        has moved on. Ephemeral types (partial captions, input levels) are
+        acknowledged and never stored.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ControlEventBatch"
+      responses:
+        "200":
+          description: The acknowledgment.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlAcknowledgment"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: EPOCH_STALE or NO_ATTEMPT, whole-batch refusals.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [interview]
+      operationId: replayControlEvents
+      summary: Replay the durable timeline after a cursor
+      description: |
+        Everything after (after_epoch, after_sequence), in the one
+        authoritative order. Replaying twice from the same cursor answers
+        identically; a reconnecting client rebuilds itself on that property.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: after_epoch
+          in: query
+          required: false
+          schema: { type: integer, default: 0 }
+        - name: after_sequence
+          in: query
+          required: false
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: The events after the cursor.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlEventList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /me:
     get:
       tags: [authentication]
@@ -1518,6 +1590,76 @@ components:
           type: string
           enum: [admin, recruiter, hiring_manager, viewer]
         expected_version: { type: integer }
+
+    ControlEvent:
+      type: object
+      required: [event_id, sequence, type, occurred_at]
+      properties:
+        event_id: { type: string, format: uuid }
+        sequence:
+          type: integer
+          description: Orders within the epoch. Zero for ephemeral types.
+        type: { type: string }
+        payload:
+          type: object
+          additionalProperties: true
+        occurred_at: { type: string, format: date-time }
+
+    ControlEventBatch:
+      type: object
+      required: [connection_epoch, events]
+      properties:
+        connection_epoch: { type: integer }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ControlEvent" }
+
+    ControlAcknowledgment:
+      type: object
+      required: [connection_epoch, accepted_sequence, missing, outcomes]
+      properties:
+        connection_epoch: { type: integer }
+        accepted_sequence:
+          type: integer
+          description: Highest contiguous sequence durably held.
+        missing:
+          type: array
+          items:
+            type: object
+            required: [from, to]
+            properties:
+              from: { type: integer }
+              to: { type: integer }
+        outcomes:
+          type: array
+          items:
+            type: object
+            required: [event_id, status]
+            properties:
+              event_id: { type: string, format: uuid }
+              status:
+                type: string
+                enum: [accepted, duplicate, refused]
+              reason: { type: string }
+
+    ControlEventList:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            required: [event_id, connection_epoch, sequence, type, payload, occurred_at]
+            properties:
+              event_id: { type: string, format: uuid }
+              connection_epoch: { type: integer }
+              sequence: { type: integer }
+              type: { type: string }
+              payload:
+                type: object
+                additionalProperties: true
+              occurred_at: { type: string, format: date-time }
 
     StartedInterview:
       type: object

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -36,6 +37,46 @@ type Interviews interface {
 	// StartPractice starts a ready session and mints its room grant. Each
 	// refusal is a *StartRefusedError with its own stable code.
 	StartPractice(ctx context.Context, userID, sessionID string) (StartedInterview, error)
+	// IngestEvents accepts one control event batch for the current epoch.
+	// A superseded epoch refuses whole with a *StartRefusedError carrying
+	// EPOCH_STALE or NO_ATTEMPT.
+	IngestEvents(ctx context.Context, userID, sessionID string, epoch int, events []ControlEventIn) (ControlAck, error)
+	// ReplayEvents answers the durable timeline after a cursor.
+	ReplayEvents(ctx context.Context, userID, sessionID string, afterEpoch, afterSequence int) ([]ControlEventOut, error)
+}
+
+// ControlEventIn is one envelope from the browser.
+type ControlEventIn struct {
+	EventID    string
+	Sequence   int
+	Type       string
+	Payload    json.RawMessage
+	OccurredAt time.Time
+}
+
+// ControlEventOut is one stored event, replayed.
+type ControlEventOut struct {
+	EventID    string
+	Epoch      int
+	Sequence   int
+	Type       string
+	Payload    json.RawMessage
+	OccurredAt time.Time
+}
+
+// ControlAck mirrors the contract's acknowledgment at the port.
+type ControlAck struct {
+	Epoch    int
+	Accepted int
+	Missing  [][2]int
+	Outcomes []ControlOutcome
+}
+
+// ControlOutcome is one event's verdict.
+type ControlOutcome struct {
+	EventID string
+	Status  string
+	Reason  string
 }
 
 // StartRefusedError is one of start's distinct refusals, carried with the
@@ -252,6 +293,136 @@ func (i *interviews) StartInterview(ctx context.Context, request prepeetapi.Star
 	}, nil
 }
 
+// IngestControlEvents accepts a control event batch.
+func (i *interviews) IngestControlEvents(ctx context.Context, request prepeetapi.IngestControlEventsRequestObject) (prepeetapi.IngestControlEventsResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	events := make([]ControlEventIn, 0, len(request.Body.Events))
+	for _, event := range request.Body.Events {
+		var payload json.RawMessage
+		if event.Payload != nil {
+			encoded, err := json.Marshal(event.Payload)
+			if err != nil {
+				return i.authentication.failed(ctx, err), nil
+			}
+			payload = encoded
+		}
+		events = append(events, ControlEventIn{
+			EventID: event.EventID.String(), Sequence: event.Sequence,
+			Type: event.Type, Payload: payload, OccurredAt: event.OccurredAt,
+		})
+	}
+
+	ack, err := i.flows.IngestEvents(ctx, principal.UserID, request.SessionID.String(),
+		request.Body.ConnectionEpoch, events)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	body := prepeetapi.ControlAcknowledgment{
+		ConnectionEpoch:  ack.Epoch,
+		AcceptedSequence: ack.Accepted,
+		Missing: make([]struct {
+			From int `json:"from"`
+			To   int `json:"to"`
+		}, 0, len(ack.Missing)),
+	}
+	for _, gap := range ack.Missing {
+		body.Missing = append(body.Missing, struct {
+			From int `json:"from"`
+			To   int `json:"to"`
+		}{From: gap[0], To: gap[1]})
+	}
+	for _, outcome := range ack.Outcomes {
+		id, err := uuid.Parse(outcome.EventID)
+		if err != nil {
+			return i.authentication.failed(ctx, err), nil
+		}
+		encoded := struct {
+			EventID uuid.UUID                                      `json:"event_id"`
+			Reason  *string                                        `json:"reason,omitempty"`
+			Status  prepeetapi.ControlAcknowledgmentOutcomesStatus `json:"status"`
+		}{EventID: id, Status: prepeetapi.ControlAcknowledgmentOutcomesStatus(outcome.Status)}
+		if outcome.Reason != "" {
+			reason := outcome.Reason
+			encoded.Reason = &reason
+		}
+		body.Outcomes = append(body.Outcomes, encoded)
+	}
+	return prepeetapi.IngestControlEvents200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.IngestControlEvents200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// ReplayControlEvents answers the timeline after a cursor.
+func (i *interviews) ReplayControlEvents(ctx context.Context, request prepeetapi.ReplayControlEventsRequestObject) (prepeetapi.ReplayControlEventsResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	afterEpoch, afterSequence := 0, 0
+	if request.Params.AfterEpoch != nil {
+		afterEpoch = *request.Params.AfterEpoch
+	}
+	if request.Params.AfterSequence != nil {
+		afterSequence = *request.Params.AfterSequence
+	}
+	replayed, err := i.flows.ReplayEvents(ctx, principal.UserID, request.SessionID.String(), afterEpoch, afterSequence)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	body := prepeetapi.ControlEventList{}
+	for _, event := range replayed {
+		id, err := uuid.Parse(event.EventID)
+		if err != nil {
+			return i.authentication.failed(ctx, err), nil
+		}
+		var payload map[string]interface{}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return i.authentication.failed(ctx, err), nil
+		}
+		body.Events = append(body.Events, struct {
+			ConnectionEpoch int                    `json:"connection_epoch"`
+			EventID         uuid.UUID              `json:"event_id"`
+			OccurredAt      time.Time              `json:"occurred_at"`
+			Payload         map[string]interface{} `json:"payload"`
+			Sequence        int                    `json:"sequence"`
+			Type            string                 `json:"type"`
+		}{
+			ConnectionEpoch: event.Epoch, EventID: id, OccurredAt: event.OccurredAt,
+			Payload: payload, Sequence: event.Sequence, Type: event.Type,
+		})
+	}
+	if body.Events == nil {
+		body.Events = []struct {
+			ConnectionEpoch int                    `json:"connection_epoch"`
+			EventID         uuid.UUID              `json:"event_id"`
+			OccurredAt      time.Time              `json:"occurred_at"`
+			Payload         map[string]interface{} `json:"payload"`
+			Sequence        int                    `json:"sequence"`
+			Type            string                 `json:"type"`
+		}{}
+	}
+	return prepeetapi.ReplayControlEvents200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.ReplayControlEvents200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetPracticeConsent answers the current consent text with its version.
 func (i *interviews) GetPracticeConsent(ctx context.Context, _ prepeetapi.GetPracticeConsentRequestObject) (prepeetapi.GetPracticeConsentResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -294,13 +465,17 @@ func consentChoiceBody(choice ConsentChoiceView) prepeetapi.ConsentChoice {
 
 // The failure type must speak these operations' responses.
 var (
-	_ prepeetapi.CreateInterviewResponseObject    = failure{}
-	_ prepeetapi.GetPracticeConsentResponseObject = failure{}
-	_ prepeetapi.GetInterviewResponseObject       = failure{}
-	_ prepeetapi.StartInterviewResponseObject     = failure{}
+	_ prepeetapi.CreateInterviewResponseObject     = failure{}
+	_ prepeetapi.GetPracticeConsentResponseObject  = failure{}
+	_ prepeetapi.GetInterviewResponseObject        = failure{}
+	_ prepeetapi.StartInterviewResponseObject      = failure{}
+	_ prepeetapi.IngestControlEventsResponseObject = failure{}
+	_ prepeetapi.ReplayControlEventsResponseObject = failure{}
 )
 
-func (f failure) VisitCreateInterviewResponse(w http.ResponseWriter) error    { return f.write(w) }
-func (f failure) VisitGetPracticeConsentResponse(w http.ResponseWriter) error { return f.write(w) }
-func (f failure) VisitGetInterviewResponse(w http.ResponseWriter) error       { return f.write(w) }
-func (f failure) VisitStartInterviewResponse(w http.ResponseWriter) error     { return f.write(w) }
+func (f failure) VisitCreateInterviewResponse(w http.ResponseWriter) error     { return f.write(w) }
+func (f failure) VisitGetPracticeConsentResponse(w http.ResponseWriter) error  { return f.write(w) }
+func (f failure) VisitGetInterviewResponse(w http.ResponseWriter) error        { return f.write(w) }
+func (f failure) VisitStartInterviewResponse(w http.ResponseWriter) error      { return f.write(w) }
+func (f failure) VisitIngestControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitReplayControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }

@@ -73,13 +73,14 @@ type Started struct {
 // Starter runs the start command.
 type Starter struct {
 	store  *Store
+	events *Events
 	ledger StartLedger
 	grants RoomGrants
 }
 
 // NewStarter wires the command.
 func NewStarter(store *Store, ledger StartLedger, grants RoomGrants) *Starter {
-	return &Starter{store: store, ledger: ledger, grants: grants}
+	return &Starter{store: store, events: NewEvents(store), ledger: ledger, grants: grants}
 }
 
 // Start moves one ready session to connecting and mints its join grant.
@@ -126,6 +127,16 @@ func (s *Starter) Start(ctx context.Context, sessionID, mode, candidateID, tenan
 	if err != nil {
 		return Started{}, err
 	}
+
+	// The start opens epoch one: the protocol's timeline begins here, and
+	// every control event names the epoch it belongs to. A crash between
+	// the transition and this line leaves a connecting session without an
+	// attempt, which the resume flow heals by beginning the next epoch.
+	epoch, err := s.events.BeginAttempt(ctx, started)
+	if err != nil {
+		return Started{}, err
+	}
+	started.ConnectionEpoch = epoch
 
 	grant, err := s.grants.MintJoin(started.ID, candidateID, startJoinWindow)
 	if err != nil {

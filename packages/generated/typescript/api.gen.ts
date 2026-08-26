@@ -709,6 +709,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Replay the durable timeline after a cursor
+         * @description Everything after (after_epoch, after_sequence), in the one
+         *     authoritative order. Replaying twice from the same cursor answers
+         *     identically; a reconnecting client rebuilds itself on that property.
+         */
+        get: operations["replayControlEvents"];
+        put?: never;
+        /**
+         * Send a batch of control events for the current epoch
+         * @description Ordered by sequence within the epoch, deduplicated by event id, and
+         *     answered with the accepted contiguous cursor plus the exact gaps
+         *     still owed. A batch from a superseded epoch is refused whole with
+         *     EPOCH_STALE: a stale tab must not write history into a session that
+         *     has moved on. Ephemeral types (partial captions, input levels) are
+         *     acknowledged and never stored.
+         */
+        post: operations["ingestControlEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -967,6 +998,52 @@ export interface components {
             /** @enum {string} */
             role: "admin" | "recruiter" | "hiring_manager" | "viewer";
             expected_version: number;
+        };
+        ControlEvent: {
+            /** Format: uuid */
+            event_id: string;
+            /** @description Orders within the epoch. Zero for ephemeral types. */
+            sequence: number;
+            type: string;
+            payload?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        ControlEventBatch: {
+            connection_epoch: number;
+            events: components["schemas"]["ControlEvent"][];
+        };
+        ControlAcknowledgment: {
+            connection_epoch: number;
+            /** @description Highest contiguous sequence durably held. */
+            accepted_sequence: number;
+            missing: {
+                from: number;
+                to: number;
+            }[];
+            outcomes: {
+                /** Format: uuid */
+                event_id: string;
+                /** @enum {string} */
+                status: "accepted" | "duplicate" | "refused";
+                reason?: string;
+            }[];
+        };
+        ControlEventList: {
+            events: {
+                /** Format: uuid */
+                event_id: string;
+                connection_epoch: number;
+                sequence: number;
+                type: string;
+                payload: {
+                    [key: string]: unknown;
+                };
+                /** Format: date-time */
+                occurred_at: string;
+            }[];
         };
         StartedInterview: {
             session: components["schemas"]["InterviewSession"];
@@ -2355,6 +2432,73 @@ export interface operations {
              * @description Refused with a distinct code: SESSION_EXPIRED,
              *     SESSION_ALREADY_STARTED, SESSION_NOT_READY or QUOTA_EXHAUSTED.
              */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    replayControlEvents: {
+        parameters: {
+            query?: {
+                after_epoch?: number;
+                after_sequence?: number;
+            };
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The events after the cursor. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlEventList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    ingestControlEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlEventBatch"];
+            };
+        };
+        responses: {
+            /** @description The acknowledgment. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlAcknowledgment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description EPOCH_STALE or NO_ATTEMPT, whole-batch refusals. */
             409: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];

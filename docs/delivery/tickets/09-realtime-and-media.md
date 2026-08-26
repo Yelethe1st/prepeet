@@ -52,9 +52,29 @@ Ordered, deduplicated, resumable events carrying a connection epoch and a conver
 reconnect can prove what the candidate already heard and said.
 
 **Done when**
-- [ ] Duplicate and out-of-order events are handled without corrupting session state.
-- [ ] A stale epoch cannot mutate a session that has already moved on.
-- [ ] Replay from a cursor produces the same client state.
+- [x] Duplicate and out-of-order events are handled without corrupting session state.
+- [x] A stale epoch cannot mutate a session that has already moved on.
+- [x] Replay from a cursor produces the same client state.
+
+**Done.** One authoritative timeline per session: start opens epoch one (SES-02's Starter now
+begins the attempt), events order by sequence within their epoch in an append-only log with the
+session's own dual RLS shape, event ids deduplicate retries, and each durable insert runs in a
+savepoint so one duplicate cannot poison the batch's transaction. The acknowledgment answers the
+highest contiguous cursor plus the exact gaps still owed, the cursor persists on the session row
+so recovery never relies on browser memory, and a different event claiming an occupied sequence
+slot is refused as SEQUENCE_CONFLICT rather than resolved: two events in one slot is corruption,
+not a race to win.
+
+The proofs are the boxes. A shuffled, gapped, doubled batch lands with the cursor stopped at the
+gap and the gap named exactly; the full batch retried converges to all-duplicates with nothing
+doubled; filling the gap advances the cursor past it. A takeover opens epoch two, resets the
+cursor, and the stale tab's next batch is refused whole with EPOCH_STALE, its events provably
+absent from the timeline. Replay from any cursor answers identically twice, in timeline order
+whatever order ingestion saw, with ephemeral partials acknowledged but absent because they were
+never stored. The first accepted connection.established moves connecting to in_progress through
+the machine's own guard - ADR-0014's metering moment. POST and GET /interviews/{id}/events carry
+the protocol; the browser's resend buffer and resume flow are RTC-03's, built on the ack and
+replay this provides.
 
 **Spec** [realtime-protocol.md](../../architecture/realtime-protocol.md)
 

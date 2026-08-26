@@ -20,6 +20,10 @@ import (
 type fakeInterviews struct {
 	created   api.InterviewSession
 	started   api.StartedInterview
+	ack       api.ControlAck
+	ingested  []api.ControlEventIn
+	epoch     int
+	replayed  []api.ControlEventOut
 	consent   api.PracticeConsent
 	err       error
 	selection *api.InterviewSelection
@@ -44,6 +48,18 @@ func (f *fakeInterviews) GetPractice(_ context.Context, userID, sessionID string
 func (f *fakeInterviews) StartPractice(_ context.Context, userID, sessionID string) (api.StartedInterview, error) {
 	f.users = append(f.users, "start:"+userID+":"+sessionID)
 	return f.started, f.err
+}
+
+func (f *fakeInterviews) IngestEvents(_ context.Context, userID, sessionID string, epoch int, events []api.ControlEventIn) (api.ControlAck, error) {
+	f.users = append(f.users, "ingest:"+userID+":"+sessionID)
+	f.ingested = events
+	f.epoch = epoch
+	return f.ack, f.err
+}
+
+func (f *fakeInterviews) ReplayEvents(_ context.Context, userID, sessionID string, afterEpoch, afterSequence int) ([]api.ControlEventOut, error) {
+	f.users = append(f.users, "replay:"+userID+":"+sessionID)
+	return f.replayed, f.err
 }
 
 func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
@@ -345,5 +361,59 @@ func TestEachStartRefusalKeepsItsCodeOnTheWire(t *testing.T) {
 		if body.Error.Code != test.want {
 			t.Errorf("code = %q, want %q", body.Error.Code, test.want)
 		}
+	}
+}
+
+func TestControlEventsRoundTripThroughTheWire(t *testing.T) {
+	interviews := &fakeInterviews{ack: api.ControlAck{
+		Epoch: 1, Accepted: 2,
+		Missing:  [][2]int{{3, 3}},
+		Outcomes: []api.ControlOutcome{{EventID: "00000000-0000-7000-8000-0000000000ee", Status: "accepted"}},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := doJSON(t, handler, http.MethodPost,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/events",
+		`{"connection_epoch":1,"events":[{"event_id":"00000000-0000-7000-8000-0000000000ee","sequence":4,"type":"transcript.segment.final","payload":{"text":"hi"},"occurred_at":"2026-08-26T12:00:00Z"}]}`,
+		sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	if interviews.epoch != 1 || len(interviews.ingested) != 1 || interviews.ingested[0].Sequence != 4 {
+		t.Fatalf("the port saw epoch %d events %+v", interviews.epoch, interviews.ingested)
+	}
+
+	var body struct {
+		AcceptedSequence int `json:"accepted_sequence"`
+		Missing          []struct {
+			From int `json:"from"`
+			To   int `json:"to"`
+		} `json:"missing"`
+	}
+	decodeInto(t, response, &body)
+	if body.AcceptedSequence != 2 || len(body.Missing) != 1 || body.Missing[0].From != 3 {
+		t.Fatalf("ack = %+v", body)
+	}
+}
+
+func TestAStaleEpochAnswers409WithItsName(t *testing.T) {
+	handler := serveInterviews(t, &fakeInterviews{
+		err: &api.StartRefusedError{Code: "EPOCH_STALE", Message: "superseded"},
+	})
+
+	response := doJSON(t, handler, http.MethodPost,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/events",
+		`{"connection_epoch":1,"events":[]}`, sessionCookie())
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status %d, want 409", response.Code)
+	}
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	decodeInto(t, response, &body)
+	if body.Error.Code != "EPOCH_STALE" {
+		t.Fatalf("code = %q", body.Error.Code)
 	}
 }

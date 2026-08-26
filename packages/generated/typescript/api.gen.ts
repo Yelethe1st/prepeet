@@ -1402,6 +1402,26 @@ export interface components {
             consent_version: string;
             /** @description The stable refusal code, present in a *_failed state. */
             failure_code?: string;
+            /**
+             * @description Where the durable timeline stands: the current connection epoch
+             *     and the highest contiguous accepted sequence. What completion
+             *     seals at.
+             */
+            cursor?: {
+                connection_epoch: number;
+                accepted_sequence: number;
+            };
+            /**
+             * @description The completion receipt, durable: present once the session has
+             *     sealed, identical however often it is read.
+             */
+            seal?: {
+                /** Format: date-time */
+                sealed_at: string;
+                /** @enum {string} */
+                media_status: "finalized" | "missing" | "none_by_choice";
+                warnings: string[];
+            };
             /** Format: date-time */
             created_at: string;
         };

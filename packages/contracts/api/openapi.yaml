@@ -2189,6 +2189,30 @@ components:
         failure_code:
           type: string
           description: The stable refusal code, present in a *_failed state.
+        cursor:
+          type: object
+          description: |
+            Where the durable timeline stands: the current connection epoch
+            and the highest contiguous accepted sequence. What completion
+            seals at.
+          required: [connection_epoch, accepted_sequence]
+          properties:
+            connection_epoch: { type: integer }
+            accepted_sequence: { type: integer }
+        seal:
+          type: object
+          description: |
+            The completion receipt, durable: present once the session has
+            sealed, identical however often it is read.
+          required: [sealed_at, media_status, warnings]
+          properties:
+            sealed_at: { type: string, format: date-time }
+            media_status:
+              type: string
+              enum: [finalized, missing, none_by_choice]
+            warnings:
+              type: array
+              items: { type: string }
         created_at: { type: string, format: date-time }
 
     InterviewConfig:

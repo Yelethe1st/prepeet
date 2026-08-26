@@ -330,7 +330,20 @@ type InterviewSession struct {
 	RecordingPreference string
 	ConsentVersion      string
 	FailureCode         string
-	CreatedAt           time.Time
+	// ConnectionEpoch and AcceptedSequence are the durable timeline's
+	// cursor: what completion seals at. Zero before any attempt.
+	ConnectionEpoch  int
+	AcceptedSequence int
+	// Seal is the durable completion receipt, nil until sealed.
+	Seal      *SealView
+	CreatedAt time.Time
+}
+
+// SealView is the receipt's durable summary.
+type SealView struct {
+	SealedAt    time.Time
+	MediaStatus string
+	Warnings    []string
 }
 
 // interviews handles the /interviews operations.
@@ -415,6 +428,27 @@ func interviewSessionBody(session InterviewSession) (prepeetapi.InterviewSession
 	if session.FailureCode != "" {
 		code := session.FailureCode
 		body.FailureCode = &code
+	}
+	if session.ConnectionEpoch > 0 {
+		body.Cursor = &struct {
+			AcceptedSequence int `json:"accepted_sequence"`
+			ConnectionEpoch  int `json:"connection_epoch"`
+		}{AcceptedSequence: session.AcceptedSequence, ConnectionEpoch: session.ConnectionEpoch}
+	}
+	if session.Seal != nil {
+		warnings := session.Seal.Warnings
+		if warnings == nil {
+			warnings = []string{}
+		}
+		body.Seal = &struct {
+			MediaStatus prepeetapi.InterviewSessionSealMediaStatus `json:"media_status"`
+			SealedAt    time.Time                                  `json:"sealed_at"`
+			Warnings    []string                                   `json:"warnings"`
+		}{
+			MediaStatus: prepeetapi.InterviewSessionSealMediaStatus(session.Seal.MediaStatus),
+			SealedAt:    session.Seal.SealedAt,
+			Warnings:    warnings,
+		}
 	}
 	return body, nil
 }

@@ -565,14 +565,31 @@ func (a interviewAdapter) GetPractice(ctx context.Context, userID, sessionID str
 		}
 	}
 
-	return api.InterviewSession{
+	view := api.InterviewSession{
 		ID: session.ID, Mode: session.Mode, State: string(session.State),
 		Config:              selection,
 		RecordingPreference: session.RecordingPreference,
 		ConsentVersion:      session.ConsentVersion,
 		FailureCode:         session.FailureCode,
+		ConnectionEpoch:     session.ConnectionEpoch,
+		AcceptedSequence:    session.AcceptedSequence,
 		CreatedAt:           session.CreatedAt,
-	}, nil
+	}
+	// The durable receipt rides the session once sealed, so the complete
+	// screen survives navigation: the same GET answers it forever.
+	switch session.State {
+	case interview.StateFinalizing, interview.StateEvaluating,
+		interview.StateReviewReady, interview.StateEvaluationFailed, interview.StateArchived:
+		receipt, err := a.completer.SealOf(ctx, sessionID, "practice", userID, "")
+		if err == nil {
+			view.Seal = &api.SealView{
+				SealedAt:    receipt.SealedAt,
+				MediaStatus: receipt.MediaStatus,
+				Warnings:    receipt.Warnings,
+			}
+		}
+	}
+	return view, nil
 }
 
 // selectionErrors maps the catalogue's refusals onto the API's validation

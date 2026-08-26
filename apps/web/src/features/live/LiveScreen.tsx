@@ -12,6 +12,8 @@ import {
 
 import { consumeGrant } from "@/lib/rtc/grant";
 
+import { completeInterview, getInterview } from "./api";
+
 /**
  * The live route's connection shell - RTC-01. Joins the room with the grant
  * the prepare screen handed off, and guarantees the leaving: the end
@@ -93,7 +95,23 @@ export function LiveScreen({ sessionId }: { sessionId: string }) {
   const endInterview = async (): Promise<void> => {
     await connection.current?.end();
     connection.current = null;
-    router.push("/practice");
+    // Seal at wherever the durable timeline stands, then hand over to the
+    // receipt. Completion is idempotent to the receipt, so a retry after a
+    // flaky request converges. A session that never established (no
+    // cursor) has nothing to seal; practice is the honest landing.
+    try {
+      const session = await getInterview(sessionId);
+      if (session.cursor) {
+        await completeInterview(
+          sessionId,
+          session.cursor.connection_epoch,
+          session.cursor.accepted_sequence,
+        );
+      }
+      router.push(`/session/${sessionId}/complete`);
+    } catch {
+      router.push(`/session/${sessionId}/complete`);
+    }
   };
 
   if (phase.kind === "connecting") {

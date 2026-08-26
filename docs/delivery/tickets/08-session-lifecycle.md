@@ -223,8 +223,25 @@ A durable receipt and honest processing stages, distinguishing queued, delayed, 
 failure, terminal failure, insufficient evidence and complete — without promising a completion time.
 
 **Done when**
-- [ ] The receipt survives navigating away and returning later.
-- [ ] Delayed and failed are distinguishable, and failure states name a next action.
-- [ ] Screening candidates see confirmation and permitted status only.
+- [x] The receipt survives navigating away and returning later.
+- [x] Delayed and failed are distinguishable, and failure states name a next action.
+- [x] Screening candidates see confirmation and permitted status only.
+
+**Built at /session/[id]/complete, durable by construction.** The session GET now carries the
+timeline cursor and, once sealed, the seal itself (sealed_at, media status, warnings), so the
+receipt is the server's own durable read: returning later answers the same, and there is no
+client state worth keeping. Ending the interview now actually completes it - the live shell
+reads the cursor, seals at it (idempotent to the receipt), and lands here; a session that never
+established has nothing to seal and the page says the session is still live rather than
+inventing a receipt.
+
+Processing shows the state machine's own stages and, as a recorded deviation from the
+prototype's "usually takes under a minute", promises no completion time - a test forbids the
+copy. Delayed is a polling status region; failure is an alert naming the code, stating that the
+transcript and evidence are safe, and giving the concrete next action (the session reference to
+quote). The media line reads the choice as a choice: none_by_choice in the candidate's own
+terms, missing stated plainly with what still works. The third box is structural today - the
+API's practice-only enum means no screening candidate can reach any session surface - and the
+screening confirmation view lands with the SCR epic behind DEC-11.
 
 **Spec** [user-journeys.md](../../product/user-journeys.md)

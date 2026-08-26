@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConnectionFailure, type LiveConnection } from "@/lib/rtc/connection";
 
 import { LiveScreen } from "./LiveScreen";
+import * as liveApi from "./api";
 import { stashGrant } from "@/lib/rtc/grant";
 import { resetGrantMemoryForTests } from "@/lib/rtc/grant";
 
@@ -14,6 +15,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const connectLive = vi.fn();
+vi.mock("./api");
 vi.mock("@/lib/rtc/connection", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("@/lib/rtc/connection")>();
@@ -111,10 +113,16 @@ describe("failures are named with recovery steps", () => {
 });
 
 describe("leaving releases everything", () => {
-  it("the end button ends the connection and goes to practice", async () => {
+  it("the end button ends the connection, seals at the cursor, and lands on the receipt", async () => {
     freshGrant();
     const { connection, endCalls } = liveConnection();
     connectLive.mockResolvedValue(connection);
+    vi.mocked(liveApi.getInterview).mockResolvedValue({
+      cursor: { connection_epoch: 1, accepted_sequence: 7 },
+    } as Awaited<ReturnType<typeof liveApi.getInterview>>);
+    vi.mocked(liveApi.completeInterview).mockResolvedValue(
+      {} as Awaited<ReturnType<typeof liveApi.completeInterview>>,
+    );
     const user = userEvent.setup();
 
     render(<LiveScreen sessionId="ses-1" />);
@@ -122,7 +130,10 @@ describe("leaving releases everything", () => {
     await user.click(screen.getByRole("button", { name: /end interview/i }));
 
     await waitFor(() => expect(endCalls()).toBe(1));
-    expect(push).toHaveBeenCalledWith("/practice");
+    await waitFor(() =>
+      expect(liveApi.completeInterview).toHaveBeenCalledWith("ses-1", 1, 7),
+    );
+    expect(push).toHaveBeenCalledWith("/session/ses-1/complete");
   });
 
   it("unmounting ends the connection: navigation never leaves the microphone open", async () => {

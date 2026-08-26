@@ -17,8 +17,28 @@ including when the tab is closed mid-answer.
 
 **Done when**
 - [ ] Connection succeeds across the supported browser and device matrix.
-- [ ] Teardown always releases the microphone, on navigation, close and error alike.
-- [ ] Failure to connect degrades to a named error with recovery steps, never a spinner.
+- [x] Teardown always releases the microphone, on navigation, close and error alike.
+- [x] Failure to connect degrades to a named error with recovery steps, never a spinner.
+
+**The shell is in; the matrix run remains.** LiveKit joined the local stack (single node per
+ADR-0006's trigger table, keys agreeing with the api's signer, node-ip pinned to loopback so ICE
+candidates point somewhere a local browser can reach). The prepare screen's start button is now
+real: POST start, stash the one-use grant, navigate to /session/[id], where the connection shell
+joins the room and opens the microphone.
+
+The second box is one idempotent teardown that every exit funnels into - the end button,
+component unmount, the pagehide handler for a tab closed mid-answer, connect failure, microphone
+refusal, and the server dropping us - each pinned by a test that constructs a way for cleanup to
+be forgotten and asserts it was not. A connection nobody can speak into is torn down rather than
+left looking alive. The third box: a missing or expired pass, an unauthorized token, a refused
+microphone and an unreachable SFU are each a named explanation with their own recovery steps and
+a way back to the prepare screen, and "nothing was recorded" said where it is true. The grant
+hand-off is consume-on-read so a stale URL cannot silently reuse a token, with a per-page-load
+memory so development StrictMode's double effects cannot eat the pass.
+
+The first box stays open honestly: it is a browser-and-device matrix run, which belongs to the
+e2e harness against the real stack, not to jsdom. The interview surface itself - the agent in
+the room, captions, the protocol - is RTC-02 onward on top of this shell.
 
 **Spec** [realtime-protocol.md](../../architecture/realtime-protocol.md)
 

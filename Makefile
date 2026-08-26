@@ -327,6 +327,7 @@ local-up: ## Start PostgreSQL, LocalStack and Temporal locally
 	@printf '    %-12s localhost:%s   (s3, secretsmanager, kms)\n' localstack "$$($(COMPOSE) port localstack 4566 | cut -d: -f2)"
 	@printf '    %-12s localhost:%s   namespace prepeet-local\n' temporal   "$$($(COMPOSE) port temporal 7233 | cut -d: -f2)"
 	@printf '    %-12s localhost:%s\n' "temporal ui" "$$($(COMPOSE) port temporal-ui 8080 | cut -d: -f2)"
+	@printf '    %-12s localhost:%s   ws, the SFU from ADR-0012\n' "livekit" "$$($(COMPOSE) port livekit 7880 | cut -d: -f2)"
 	@printf '    %-12s localhost:%s   traces from api and worker\n' "jaeger" "$$($(COMPOSE) port jaeger 16686 | cut -d: -f2)"
 	@printf '    %-12s localhost:%s   metrics, scrapeable with curl\n' "otel metrics" "$$($(COMPOSE) port otel-collector 8889 | cut -d: -f2)"
 	@echo

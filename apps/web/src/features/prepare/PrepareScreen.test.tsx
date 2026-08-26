@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QueryProvider } from "@/lib/api/QueryProvider";
+import { ApiError } from "@/lib/api/client";
 
 import { PrepareScreen } from "./PrepareScreen";
 import * as api from "./api";
@@ -11,6 +12,11 @@ import type { CheckRunners } from "./checks";
 import type { CheckStatus } from "./gate";
 
 vi.mock("./api");
+
+const push = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, replace: push }),
+}));
 
 /**
  * The prepare screen, from the outside: SES-03's three boxes. Start is
@@ -117,6 +123,9 @@ afterEach(() => {
   vi.mocked(api.getInterview).mockReset();
   vi.mocked(api.getProfile).mockReset();
   vi.mocked(api.fetchCatalogue).mockReset();
+  vi.mocked(api.startInterview).mockReset();
+  push.mockReset();
+  sessionStorage.clear();
 });
 
 describe("the brief", () => {
@@ -320,5 +329,71 @@ describe("session states", () => {
     expect(
       screen.getByText("FAILURE_CODE_ARTIFACT_NOT_FOUND"),
     ).toBeInTheDocument();
+  });
+});
+
+describe("starting", () => {
+  async function openTheGate(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(
+      await screen.findByRole("button", { name: /test microphone/i }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText(/agree to recording above/i)).toBeInTheDocument(),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: /record and transcribe/i }),
+    );
+  }
+
+  it("start calls the endpoint, stashes the one-use grant and navigates to the live route", async () => {
+    vi.mocked(api.startInterview).mockResolvedValue({
+      session: {
+        id: session.id,
+        mode: "practice",
+        state: "connecting",
+        config: session.config,
+        recording_preference: "audio_and_transcript",
+        consent_version: "1.0.0",
+        created_at: session.created_at,
+      },
+      realtime: {
+        url: "wss://rtc.test",
+        room: session.id,
+        token: "tok-live",
+        expires_at: new Date(Date.now() + 120_000).toISOString(),
+      },
+    });
+    const user = userEvent.setup();
+    renderPrepare();
+
+    await openTheGate(user);
+    await user.click(screen.getByRole("button", { name: /start interview/i }));
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith(`/session/${session.id}`),
+    );
+    expect(api.startInterview).toHaveBeenCalledWith(session.id);
+    // The grant is in the hand-off, ready for exactly one join.
+    const stashed = sessionStorage.getItem(`prepeet.grant.${session.id}`);
+    expect(stashed).toContain("tok-live");
+  });
+
+  it("a start refusal shows the server's own words and navigates nowhere", async () => {
+    vi.mocked(api.startInterview).mockRejectedValue(
+      new ApiError({
+        status: 409,
+        code: "QUOTA_EXHAUSTED",
+        message:
+          "This workspace is at capacity right now. The hiring team has been told; nothing you did caused this.",
+      }),
+    );
+    const user = userEvent.setup();
+    renderPrepare();
+
+    await openTheGate(user);
+    await user.click(screen.getByRole("button", { name: /start interview/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/at capacity/i);
+    expect(push).not.toHaveBeenCalled();
   });
 });

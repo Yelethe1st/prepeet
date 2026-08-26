@@ -157,6 +157,32 @@ services:
   # application speaks OTLP and knows nothing about what receives it, which is
   # exactly why ADR-0007 and telemetry-conventions.md chose OTLP over a vendor
   # Every email the worker sends locally lands here instead of a real inbox,
+  # The SFU, per ADR-0012. LiveKit carries live voice; the api mints join
+  # grants signed with the key below, so the two must agree, and the
+  # Makefile's dev environment carries the same pair. Single node, no
+  # Redis: ADR-0006's trigger table names multi-node LiveKit as the one
+  # thing that brings Redis in, and one node is the local stack.
+  #
+  # node-ip is loopback so ICE candidates point somewhere a local browser
+  # can actually reach; without it the container advertises its Docker
+  # network address and every connection times out mysteriously.
+  livekit:
+    image: livekit/livekit-server:v1.8
+    command: >
+      --bind 0.0.0.0
+      --node-ip 127.0.0.1
+    environment:
+      LIVEKIT_KEYS: "devkey: devsecret-devsecret-devsecret"
+    ports:
+      - "${PREPEET_LIVEKIT_PORT:-7880}:7880"
+      - "${PREPEET_LIVEKIT_RTC_TCP_PORT:-7881}:7881"
+      - "${PREPEET_LIVEKIT_RTC_UDP_PORT:-7882}:7882/udp"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7880"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   # which is the difference between testing the recovery flow and spamming a
   # teammate. The UI shows exactly what a recipient would see, headers and
   # all. Point PREPEET_SMTP_ADDRESS at localhost:1025 and browse :8025.

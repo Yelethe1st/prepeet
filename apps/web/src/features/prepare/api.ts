@@ -50,3 +50,18 @@ export async function fetchCatalogue(): Promise<Catalogue> {
     personas: personas.personas,
   };
 }
+
+export type StartedInterview = components["schemas"]["StartedInterview"];
+
+/**
+ * Starts the session and returns the room grant. Each refusal arrives with
+ * its own stable code (SESSION_EXPIRED, SESSION_ALREADY_STARTED,
+ * SESSION_NOT_READY, QUOTA_EXHAUSTED) for the screen to answer by name.
+ */
+export async function startInterview(
+  sessionId: string,
+): Promise<StartedInterview> {
+  return apiFetch<StartedInterview>(`/interviews/${sessionId}/start`, {
+    method: "POST",
+  });
+}

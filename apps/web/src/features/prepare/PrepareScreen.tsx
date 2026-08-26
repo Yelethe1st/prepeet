@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { ApiError } from "@/lib/api/client";
@@ -14,7 +15,14 @@ import {
   SkeletonText,
 } from "@/shared/states";
 
-import { fetchCatalogue, getInterview, getProfile } from "./api";
+import { stashGrant } from "@/lib/rtc/grant";
+
+import {
+  fetchCatalogue,
+  getInterview,
+  getProfile,
+  startInterview,
+} from "./api";
 import { realRunners, type CheckRunners } from "./checks";
 import { startBlocker, type CheckStatus, type Checks } from "./gate";
 
@@ -149,6 +157,24 @@ function Prepared({
   const micButton = useRef<HTMLButtonElement>(null);
   const consentBox = useRef<HTMLInputElement>(null);
   const announceRef = useRef<HTMLParagraphElement>(null);
+  const router = useRouter();
+
+  // The gate opening into the interview: start, stash the one-use grant for
+  // the live route, go. Every refusal arrives with its own code and the
+  // server's own words, which are written for the person.
+  const start = useMutation({
+    mutationFn: () => startInterview(session.id),
+    onSuccess: (started) => {
+      stashGrant({
+        sessionId: session.id,
+        url: started.realtime.url,
+        room: started.realtime.room,
+        token: started.realtime.token,
+        expiresAt: started.realtime.expires_at,
+      });
+      router.push(`/session/${session.id}`);
+    },
+  });
 
   const setCheck = (check: keyof Checks, status: CheckStatus) =>
     setChecks((previous) => ({ ...previous, [check]: status }));
@@ -439,10 +465,19 @@ function Prepared({
             type="button"
             disabled={blocked !== null}
             aria-describedby="start-blocked"
+            busy={start.isPending}
+            onClick={() => start.mutate()}
           >
             Start interview
           </Button>
         </div>
+        {start.isError ? (
+          <p role="alert" className="mt-2 text-sm font-semibold text-danger">
+            {start.error instanceof ApiError
+              ? start.error.message
+              : "Starting did not work. Nothing was recorded; try again."}
+          </p>
+        ) : null}
         <p
           id="start-blocked"
           ref={announceRef}

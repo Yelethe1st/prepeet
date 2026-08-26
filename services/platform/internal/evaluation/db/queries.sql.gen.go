@@ -31,6 +31,57 @@ func (q *Queries) DeleteEvidence(ctx context.Context, arg DeleteEvidenceParams) 
 	return err
 }
 
+const getResult = `-- name: GetResult :one
+SELECT id::text AS id, session_id::text AS session_id,
+       rubric_reference, rubric_version, rubric_digest,
+       aggregation_version, extraction_version, model_version, policy_version,
+       competencies, result_digest, covered_competencies, total_competencies,
+       warnings, created_at
+FROM evaluation.results
+WHERE session_id = $1::uuid
+`
+
+type GetResultRow struct {
+	ID                  string
+	SessionID           string
+	RubricReference     string
+	RubricVersion       string
+	RubricDigest        string
+	AggregationVersion  string
+	ExtractionVersion   string
+	ModelVersion        string
+	PolicyVersion       string
+	Competencies        []byte
+	ResultDigest        string
+	CoveredCompetencies int32
+	TotalCompetencies   int32
+	Warnings            []byte
+	CreatedAt           time.Time
+}
+
+func (q *Queries) GetResult(ctx context.Context, sessionID string) (GetResultRow, error) {
+	row := q.db.QueryRow(ctx, getResult, sessionID)
+	var i GetResultRow
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.RubricReference,
+		&i.RubricVersion,
+		&i.RubricDigest,
+		&i.AggregationVersion,
+		&i.ExtractionVersion,
+		&i.ModelVersion,
+		&i.PolicyVersion,
+		&i.Competencies,
+		&i.ResultDigest,
+		&i.CoveredCompetencies,
+		&i.TotalCompetencies,
+		&i.Warnings,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertEvidenceSpan = `-- name: InsertEvidenceSpan :exec
 INSERT INTO evaluation.evidence_spans
     (id, session_id, mode, candidate_id, tenant_id, competency_id, kind,
@@ -78,6 +129,66 @@ func (q *Queries) InsertEvidenceSpan(ctx context.Context, arg InsertEvidenceSpan
 		arg.StartMs,
 		arg.EndMs,
 		arg.ExtractionVersion,
+	)
+	return err
+}
+
+const insertResult = `-- name: InsertResult :exec
+INSERT INTO evaluation.results
+    (id, session_id, mode, candidate_id, tenant_id,
+     rubric_reference, rubric_version, rubric_digest,
+     aggregation_version, extraction_version, model_version, policy_version,
+     competencies, result_digest, covered_competencies, total_competencies,
+     warnings)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::uuid, nullif($5::text, '')::uuid,
+        $6::text, $7::text,
+        $8::text, $9::text,
+        $10::text, $11::text,
+        $12::text, $13::jsonb,
+        $14::text, $15::integer,
+        $16::integer, $17::jsonb)
+`
+
+type InsertResultParams struct {
+	ID                  string
+	SessionID           string
+	Mode                string
+	CandidateID         string
+	TenantID            string
+	RubricReference     string
+	RubricVersion       string
+	RubricDigest        string
+	AggregationVersion  string
+	ExtractionVersion   string
+	ModelVersion        string
+	PolicyVersion       string
+	Competencies        []byte
+	ResultDigest        string
+	CoveredCompetencies int32
+	TotalCompetencies   int32
+	Warnings            []byte
+}
+
+func (q *Queries) InsertResult(ctx context.Context, arg InsertResultParams) error {
+	_, err := q.db.Exec(ctx, insertResult,
+		arg.ID,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.RubricReference,
+		arg.RubricVersion,
+		arg.RubricDigest,
+		arg.AggregationVersion,
+		arg.ExtractionVersion,
+		arg.ModelVersion,
+		arg.PolicyVersion,
+		arg.Competencies,
+		arg.ResultDigest,
+		arg.CoveredCompetencies,
+		arg.TotalCompetencies,
+		arg.Warnings,
 	)
 	return err
 }

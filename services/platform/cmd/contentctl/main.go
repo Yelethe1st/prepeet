@@ -25,6 +25,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 )
 
@@ -67,6 +68,10 @@ func run(ctx context.Context) error {
 		},
 		"consent_text": func(body json.RawMessage) error {
 			_, err := interview.ParseConsent(body)
+			return err
+		},
+		"rubric": func(body json.RawMessage) error {
+			_, err := evaluation.ParseRubric(body)
 			return err
 		},
 	}

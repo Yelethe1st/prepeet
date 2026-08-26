@@ -343,3 +343,23 @@ func ReadyEvent(session Session, effects Effects, actor Actor) (*outbox.Event, e
 		Payload:       payload,
 	}, nil
 }
+
+// Bundle answers a session's frozen bundle document under its own scope.
+func (s *Store) Bundle(ctx context.Context, sessionID, mode, candidateID, tenantID string) ([]byte, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("interview: beginning bundle read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, mode, candidateID, tenantID); err != nil {
+		return nil, err
+	}
+	row, err := db.New(tx).GetSessionBundle(ctx, sessionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("interview: reading bundle: %w", err)
+	}
+	return row.Body, nil
+}

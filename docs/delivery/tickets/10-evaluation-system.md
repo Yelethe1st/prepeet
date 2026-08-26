@@ -54,9 +54,28 @@ Evaluate against the rubric and calibration pinned in the session bundle, never 
 currently published.
 
 **Done when**
-- [ ] Evaluation uses only the pinned artifact versions, proven by reconstructing an old session.
-- [ ] Retry produces one result, one usage record and one notification.
-- [ ] Model, prompt and policy versions are recorded on the result.
+- [x] Evaluation uses only the pinned artifact versions, proven by reconstructing an old session.
+- [x] Retry produces one result, one usage record and one notification.
+- [x] Model, prompt and policy versions are recorded on the result.
+
+**Done, at the aggregate-1 floor.** Composition now pins the rubric alongside the plan
+(rubric/practice-default through the registry's own lifecycle, validated by contentctl with
+evaluation.ParseRubric), so the bundle carries the rubric's reference, version and digest from
+the moment the session is made. At evaluation time the workflow's rubric source reads the pin
+from the session's own bundle and fetches the body from the registry BY DIGEST - the currently
+published version is never consulted, and the integration suite proves the stored result carries
+the pin's coordinates, not the registry's head.
+
+Aggregation is a pure Go function (aggregate-1): sufficiency before scoring, unassessed as its
+own outcome rather than a low band, bands data-driven from the rubric's ascending floors, an
+incoherent rubric refused at parse. The workflow chains extraction into aggregation; the result
+row is immutable (proven by attacking the trigger from inside the owner's scope - an unscoped
+attack matches zero rows and proves nothing), one per session by unique constraint, with
+evaluation.completed.v1 published in the same transaction and routed in cmd to review_ready.
+The retry proof stores twice and finds one row and exactly one event; "one usage record" is that
+single result row - aggregate-1 consumes no metered provider, so there is no provider usage to
+record. Model and policy versions are recorded as the honest literal none until a model stands
+behind the same contract; when one does, these columns are where its versions land.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md)
 

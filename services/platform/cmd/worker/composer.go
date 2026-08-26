@@ -70,15 +70,44 @@ func (c *grpcComposer) resolvePins(ctx context.Context, request interview.Compos
 		return nil, fmt.Errorf("resolving the blueprint: %w", err)
 	}
 
-	return []*intelligencev1.PinnedArtifact{{
+	pins := []*intelligencev1.PinnedArtifact{{
 		ArtifactType:  plan.Type,
 		Reference:     plan.Reference,
 		Version:       plan.Version,
 		SchemaVersion: plan.SchemaVersion,
 		Digest:        plan.Digest,
 		Body:          plan.Body,
-	}}, nil
+	}}
+
+	// EVL-02: the rubric is pinned at composition, so evaluation judges by
+	// what was in force when the session was made, never by whatever is
+	// published later. Practice uses the platform default; screening
+	// campaigns will name their own.
+	rubric, err := c.registry.Resolve(ctx, practiceRubricReference, request.TenantID)
+	if err != nil {
+		if errors.Is(err, content.ErrNotFound) {
+			return nil, &interview.ComposeFailure{
+				Code:      "FAILURE_CODE_ARTIFACT_NOT_FOUND",
+				Retryable: retryableCodes[rpcv1.FailureCode_FAILURE_CODE_ARTIFACT_NOT_FOUND],
+				Message:   "the registry resolves no practice rubric; publish content first",
+			}
+		}
+		return nil, fmt.Errorf("resolving the rubric: %w", err)
+	}
+	pins = append(pins, &intelligencev1.PinnedArtifact{
+		ArtifactType:  rubric.Type,
+		Reference:     rubric.Reference,
+		Version:       rubric.Version,
+		SchemaVersion: rubric.SchemaVersion,
+		Digest:        rubric.Digest,
+		Body:          rubric.Body,
+	})
+	return pins, nil
 }
+
+// practiceRubricReference is the platform default every practice session
+// is judged by until screening campaigns pin their own.
+const practiceRubricReference = "rubric/practice-default"
 
 // Compose asks Python for the session bundle.
 func (c *grpcComposer) Compose(ctx context.Context, request interview.ComposeRequest) (interview.ComposeResult, error) {

@@ -32,6 +32,14 @@ type Extractor interface {
 	Extract(ctx context.Context, ref SessionRef) (SealedInput, []Span, error)
 }
 
+// RubricSource answers the rubric exactly as the session's bundle pinned
+// it - reference, version, digest and the digest-addressed body - wired in
+// cmd from the bundle and the registry. Never the currently published
+// version: the pin is the whole point.
+type RubricSource interface {
+	PinnedRubric(ctx context.Context, ref SessionRef) (RubricPin, error)
+}
+
 // ExtractFailure is a typed refusal with the contract's own retry decision.
 type ExtractFailure struct {
 	Code      string
@@ -56,11 +64,13 @@ type Activities struct {
 	store     *Store
 	events    *outbox.Store
 	extractor Extractor
+	rubrics   RubricSource
 }
 
-// NewActivities wires the store, the outbox and the extractor.
-func NewActivities(store *Store, events *outbox.Store, extractor Extractor) *Activities {
-	return &Activities{store: store, events: events, extractor: extractor}
+// NewActivities wires the store, the outbox, the extractor and the rubric
+// source.
+func NewActivities(store *Store, events *outbox.Store, extractor Extractor, rubrics RubricSource) *Activities {
+	return &Activities{store: store, events: events, extractor: extractor, rubrics: rubrics}
 }
 
 // ExtractAndStore runs the whole stage: fetch, extract, validate, replace.
@@ -68,7 +78,15 @@ func NewActivities(store *Store, events *outbox.Store, extractor Extractor) *Act
 // Safe to re-run after a worker death: the extractor is deterministic over
 // the sealed input, validation is pure, and Replace converges by wholesale
 // replacement per extraction version.
-func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (int, error) {
+// ExtractOutcome carries what aggregation needs from extraction. The
+// sealed input's competencies ride the workflow (identifiers and short
+// names, not transcript content), so aggregation never refetches.
+type ExtractOutcome struct {
+	ExtractionVersion string
+	Sealed            SealedInput
+}
+
+func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (ExtractOutcome, error) {
 	ref := SessionRef{
 		SessionID: input.SessionID, Mode: input.Mode,
 		CandidateID: input.CandidateID, TenantID: input.TenantID,
@@ -78,15 +96,15 @@ func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (
 	if err != nil {
 		var failure *ExtractFailure
 		if errors.As(err, &failure) && !failure.Retryable {
-			return 0, temporal.NewNonRetryableApplicationError(failure.Message, failure.Code, failure)
+			return ExtractOutcome{}, temporal.NewNonRetryableApplicationError(failure.Message, failure.Code, failure)
 		}
-		return 0, err
+		return ExtractOutcome{}, err
 	}
 
 	// The honesty gate: whoever extracted, a span that does not resolve to
 	// the sealed input never lands, and the whole batch is refused with it.
 	if err := Validate(sealed, spans); err != nil {
-		return 0, temporal.NewNonRetryableApplicationError(
+		return ExtractOutcome{}, temporal.NewNonRetryableApplicationError(
 			err.Error(), "FAILURE_CODE_SCHEMA_VALIDATION_FAILED", err)
 	}
 
@@ -95,9 +113,60 @@ func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (
 		version = spans[0].ExtractionVersion
 	}
 	if err := a.store.Replace(ctx, ref, version, spans); err != nil {
-		return 0, err
+		return ExtractOutcome{}, err
 	}
-	return len(spans), nil
+	// Turn text stays out of the workflow history: only the competency
+	// list travels, which aggregation needs and ADR-0007's payload rule
+	// permits.
+	return ExtractOutcome{
+		ExtractionVersion: version,
+		Sealed:            SealedInput{SessionID: sealed.SessionID, Competencies: sealed.Competencies},
+	}, nil
+}
+
+// Aggregate runs aggregate-1 over the stored evidence against the PINNED
+// rubric and persists the result with its notification, exactly once.
+//
+// Safe to re-run: the aggregation is a pure function, the rubric arrives
+// by digest, and StoreResult converges on the session's unique result.
+func (a *Activities) Aggregate(ctx context.Context, input EvidenceInput, extractionVersion string, sealed SealedInput) error {
+	ref := SessionRef{
+		SessionID: input.SessionID, Mode: input.Mode,
+		CandidateID: input.CandidateID, TenantID: input.TenantID,
+	}
+
+	pin, err := a.rubrics.PinnedRubric(ctx, ref)
+	if err != nil {
+		var failure *ExtractFailure
+		if errors.As(err, &failure) && !failure.Retryable {
+			return temporal.NewNonRetryableApplicationError(failure.Message, failure.Code, failure)
+		}
+		return err
+	}
+	rubric, err := ParseRubric(pin.Body)
+	if err != nil {
+		// A pinned rubric that does not parse is a publication bug the
+		// validating state should have refused; surface, never guess.
+		return temporal.NewNonRetryableApplicationError(
+			err.Error(), "FAILURE_CODE_SCHEMA_VALIDATION_FAILED", err)
+	}
+
+	spans, err := a.store.List(ctx, ref)
+	if err != nil {
+		return err
+	}
+	plain := make([]Span, 0, len(spans))
+	for _, span := range spans {
+		plain = append(plain, span.Span)
+	}
+
+	aggregation := Aggregate(rubric, sealed.Competencies, plain)
+	warnings := []string{}
+	if aggregation.CoveredCompetencies == 0 && aggregation.TotalCompetencies > 0 {
+		warnings = append(warnings, "NO_COMPETENCY_EVIDENCED")
+	}
+	_, err = a.store.StoreResult(ctx, a.events, ref, pin, extractionVersion, aggregation, warnings)
+	return err
 }
 
 // PublishFailed records the stage's failure as the catalogue's event, so
@@ -142,8 +211,12 @@ func EvidenceWorkflow(ctx workflow.Context, input EvidenceInput) error {
 	ctx = workflow.WithActivityOptions(ctx, options)
 
 	var activities *Activities
-	var stored int
-	err := workflow.ExecuteActivity(ctx, activities.ExtractAndStore, input).Get(ctx, &stored)
+	var extracted ExtractOutcome
+	err := workflow.ExecuteActivity(ctx, activities.ExtractAndStore, input).Get(ctx, &extracted)
+	if err == nil {
+		err = workflow.ExecuteActivity(ctx, activities.Aggregate, input,
+			extracted.ExtractionVersion, extracted.Sealed).Get(ctx, nil)
+	}
 	if err == nil {
 		return nil
 	}

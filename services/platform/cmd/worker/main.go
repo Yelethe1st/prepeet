@@ -78,6 +78,7 @@ func main() {
 	var composition outbox.HandlerFunc
 	var evidence outbox.HandlerFunc
 	var evaluationFailure outbox.HandlerFunc
+	var evaluationCompleted outbox.HandlerFunc
 
 	shutdownTelemetry, err := telemetry.Setup(ctx, telemetryConfig)
 	if err != nil {
@@ -157,6 +158,7 @@ func main() {
 			defer interviewWorker.Stop()
 			composition = startComposition(workflows, interview.NewStore(pool))
 			evaluationFailure = recordEvaluationFailure(interview.NewStore(pool))
+			evaluationCompleted = recordEvaluationCompleted(interview.NewStore(pool))
 			log.Info("interview worker started",
 				slog.String("task_queue", interview.TaskQueue),
 				slog.String("intelligence", cfg.IntelligenceAddress))
@@ -183,8 +185,10 @@ func main() {
 				evaluationWorker.RegisterWorkflow(evaluation.EvidenceWorkflow)
 				evidenceActivities := evaluation.NewActivities(
 					evaluation.NewStore(pool), outbox.New(pool),
-					newEvidence(conn, documents, interview.NewCompleter(interview.NewStore(pool))))
+					newEvidence(conn, documents, interview.NewCompleter(interview.NewStore(pool))),
+					bundleRubricSource{sessions: interview.NewStore(pool), registry: content.NewStore(pool)})
 				evaluationWorker.RegisterActivity(evidenceActivities.ExtractAndStore)
+				evaluationWorker.RegisterActivity(evidenceActivities.Aggregate)
 				evaluationWorker.RegisterActivity(evidenceActivities.PublishFailed)
 				if err := evaluationWorker.Start(); err != nil {
 					log.Error("the evaluation worker did not start", slog.String("error", err.Error()))
@@ -214,7 +218,7 @@ func main() {
 		}
 	}
 
-	router := routes(extraction, composition, evidence, evaluationFailure)
+	router := routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted)
 	for eventType, disposition := range router.Routes() {
 		log.Info("outbox route registered",
 			slog.String("event_type", eventType),
@@ -282,7 +286,7 @@ func main() {
 // Handlers are registered here rather than by the packages that own them,
 // because a bounded context must not know that another one consumes its events.
 // See ADR-0005.
-func routes(extraction, composition, evidence, evaluationFailure outbox.HandlerFunc) *outbox.Router {
+func routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted outbox.HandlerFunc) *outbox.Router {
 	router := outbox.NewRouter()
 
 	// PRO-03: an uploaded document starts its extraction workflow. Registered
@@ -307,6 +311,9 @@ func routes(extraction, composition, evidence, evaluationFailure outbox.HandlerF
 	}
 	if evaluationFailure != nil {
 		router.Handle("evaluation.failed.v1", evaluationFailure)
+	}
+	if evaluationCompleted != nil {
+		router.Handle("evaluation.completed.v1", evaluationCompleted)
 	}
 
 	// Further registrations land with the tickets that produce the events:

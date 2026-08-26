@@ -1,0 +1,16 @@
+{
+  "type": "rubric",
+  "reference": "rubric/practice-default",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "sufficiency": {
+      "min_supporting": 2
+    },
+    "bands": [
+      { "id": "developing", "min_ratio": 0.0 },
+      { "id": "solid", "min_ratio": 0.55 },
+      { "id": "strong", "min_ratio": 0.8 }
+    ]
+  }
+}

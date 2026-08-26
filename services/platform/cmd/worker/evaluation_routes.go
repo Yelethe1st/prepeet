@@ -74,3 +74,31 @@ func recordEvaluationFailure(sessions *interview.Store) outbox.HandlerFunc {
 		return err
 	}
 }
+
+// recordEvaluationCompleted moves the session to review_ready when its
+// evaluation lands: EVL-02's notification consumed as the state machine's
+// input, in the one place that sees both contexts.
+func recordEvaluationCompleted(sessions *interview.Store) outbox.HandlerFunc {
+	return func(ctx context.Context, event outbox.Pending) error {
+		var payload struct {
+			SessionID string `json:"session_id"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return fmt.Errorf("decoding %s: %w", event.Type, err)
+		}
+
+		session, err := sessions.Get(ctx, payload.SessionID, event.Purpose, event.Actor.ID, event.TenantID)
+		if err != nil {
+			return err
+		}
+		if session.State != interview.StateEvaluating {
+			return nil // already moved; the surplus delivery ends quietly
+		}
+		actor := interview.Actor{ID: event.Actor.ID, Type: "service"}
+		_, err = sessions.Transition(ctx, session, interview.StateReviewReady, interview.Effects{}, actor)
+		if errors.Is(err, interview.ErrStaleVersion) {
+			return nil
+		}
+		return err
+	}
+}

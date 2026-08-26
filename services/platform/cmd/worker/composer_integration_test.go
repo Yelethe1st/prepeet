@@ -39,6 +39,11 @@ const (
 // planBody is the plan the registry publishes and Python composes against.
 var planBody = json.RawMessage(`{"stages":["intro","core","close"]}`)
 
+// rubricBody mirrors the shipped practice-default artifact: composition
+// pins it, aggregation later judges by it.
+var rubricBody = json.RawMessage(`{"sufficiency":{"min_supporting":2},"bands":[` +
+	`{"id":"developing","min_ratio":0},{"id":"solid","min_ratio":0.55},{"id":"strong","min_ratio":0.8}]}`)
+
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
@@ -114,6 +119,27 @@ func TestMain(m *testing.M) {
 	}
 	if _, err := registry.Publish(ctx, step, e2eReviewer); err != nil {
 		fmt.Fprintf(os.Stderr, "publishing the plan: %v\n", err)
+		os.Exit(1)
+	}
+	// The rubric too: composition pins it alongside the plan (EVL-02), so
+	// the suite publishes one through the same lifecycle production uses.
+	rubricDraft, err := registry.CreateDraft(ctx, content.Draft{
+		Type: "rubric", Reference: "rubric/practice-default", Version: "1.0.0",
+		SchemaVersion: "1.0", Body: rubricBody, CreatedBy: e2eAuthor,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "drafting the rubric: %v\n", err)
+		os.Exit(1)
+	}
+	step = rubricDraft
+	for _, to := range []content.Status{content.StatusValidating, content.StatusApproved} {
+		if step, err = registry.Transition(ctx, step, to); err != nil {
+			fmt.Fprintf(os.Stderr, "walking the rubric to %s: %v\n", to, err)
+			os.Exit(1)
+		}
+	}
+	if _, err := registry.Publish(ctx, step, e2eReviewer); err != nil {
+		fmt.Fprintf(os.Stderr, "publishing the rubric: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -247,8 +273,8 @@ func TestGoComposesThroughPython(t *testing.T) {
 	if err := json.Unmarshal(result.BundleBody, &bundle); err != nil {
 		t.Fatalf("the bundle body is not the document the contract promises: %v", err)
 	}
-	if len(bundle.PinnedInputs) != 1 {
-		t.Fatalf("the bundle records %d pins, want 1", len(bundle.PinnedInputs))
+	if len(bundle.PinnedInputs) != 2 {
+		t.Fatalf("the bundle records %d pins, want the plan and the rubric", len(bundle.PinnedInputs))
 	}
 	pin := bundle.PinnedInputs[0]
 	if pin.Reference != "bp_backend_v1" || pin.Version != "1.0.0" || pin.ArtifactType != "plan" {

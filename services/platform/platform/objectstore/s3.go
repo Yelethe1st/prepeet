@@ -1,9 +1,11 @@
 package objectstore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -322,6 +324,47 @@ func (s *S3Store) PresignPlayback(ctx context.Context, key Key, ttl time.Duratio
 // holds nothing - is already true, and a retry after a half-failure must not
 // be told it failed for having succeeded. The authoritative record of what
 // existed is the database row, which deletion never touches.
+// Put writes one server-side object. The upload paths stay browser-direct;
+// this exists for artifacts the server itself produces, such as the sealed
+// evaluation input, where a presigned round trip would add a hop for bytes
+// already in hand. Idempotent: the same key and bytes overwrite in place.
+func (s *S3Store) Put(ctx context.Context, key Key, body []byte, contentType string) error {
+	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(s.bucket),
+		Key:         aws.String(key.String()),
+		Body:        bytes.NewReader(body),
+		ContentType: aws.String(contentType),
+	})
+	if err != nil {
+		return fmt.Errorf("objectstore: putting %s: %w", key, err)
+	}
+	return nil
+}
+
+// Fetch reads one object whole, for server-side consumers that need the
+// bytes rather than a grant. Bounded by the same ceiling uploads have.
+func (s *S3Store) Fetch(ctx context.Context, key Key) ([]byte, error) {
+	response, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key.String()),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("objectstore: fetching %s: %w", key, err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxObjectBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("objectstore: reading %s: %w", key, err)
+	}
+	if len(body) > maxObjectBytes {
+		return nil, fmt.Errorf("objectstore: %s exceeds the size ceiling", key)
+	}
+	return body, nil
+}
+
+// maxObjectBytes bounds a server-side fetch; nothing this reads is media.
+const maxObjectBytes = 32 << 20
+
 func (s *S3Store) Delete(ctx context.Context, key Key) error {
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),

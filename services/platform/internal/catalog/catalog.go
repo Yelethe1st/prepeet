@@ -230,3 +230,31 @@ func containsInt(list []int, value int) bool {
 	}
 	return false
 }
+
+// CompetencyID derives the stable identifier for a competency name: the
+// lowercased, hyphenated slug. In this package because the catalogue owns
+// the vocabulary, and two contexts deriving it differently would make the
+// same competency two things.
+func CompetencyID(name string) string {
+	var out []rune
+	lastHyphen := true
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z' || r >= '0' && r <= '9':
+			out = append(out, r)
+			lastHyphen = false
+		case r >= 'A' && r <= 'Z':
+			out = append(out, r+('a'-'A'))
+			lastHyphen = false
+		default:
+			if !lastHyphen {
+				out = append(out, '-')
+				lastHyphen = true
+			}
+		}
+	}
+	for len(out) > 0 && out[len(out)-1] == '-' {
+		out = out[:len(out)-1]
+	}
+	return string(out)
+}

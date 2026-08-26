@@ -1,4 +1,1 @@
-"""Placeholder for the evaluation capability.
-
-Lands with its own ticket. See docs/delivery/tickets/README.md.
-"""
+"""Evaluation capabilities: evidence extraction first, aggregation later."""

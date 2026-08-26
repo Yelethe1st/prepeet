@@ -26,6 +26,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
@@ -75,6 +76,8 @@ func main() {
 	// letter visibly instead of vanishing.
 	var extraction outbox.HandlerFunc
 	var composition outbox.HandlerFunc
+	var evidence outbox.HandlerFunc
+	var evaluationFailure outbox.HandlerFunc
 
 	shutdownTelemetry, err := telemetry.Setup(ctx, telemetryConfig)
 	if err != nil {
@@ -153,6 +156,7 @@ func main() {
 			}
 			defer interviewWorker.Stop()
 			composition = startComposition(workflows, interview.NewStore(pool))
+			evaluationFailure = recordEvaluationFailure(interview.NewStore(pool))
 			log.Info("interview worker started",
 				slog.String("task_queue", interview.TaskQueue),
 				slog.String("intelligence", cfg.IntelligenceAddress))
@@ -175,6 +179,22 @@ func main() {
 					os.Exit(1)
 				}
 
+				evaluationWorker := sdkworker.New(workflows, evaluation.TaskQueue, sdkworker.Options{})
+				evaluationWorker.RegisterWorkflow(evaluation.EvidenceWorkflow)
+				evidenceActivities := evaluation.NewActivities(
+					evaluation.NewStore(pool), outbox.New(pool),
+					newEvidence(conn, documents, interview.NewCompleter(interview.NewStore(pool))))
+				evaluationWorker.RegisterActivity(evidenceActivities.ExtractAndStore)
+				evaluationWorker.RegisterActivity(evidenceActivities.PublishFailed)
+				if err := evaluationWorker.Start(); err != nil {
+					log.Error("the evaluation worker did not start", slog.String("error", err.Error()))
+					os.Exit(1)
+				}
+				defer evaluationWorker.Stop()
+				evidence = startEvidence(workflows)
+				log.Info("evaluation worker started",
+					slog.String("task_queue", evaluation.TaskQueue))
+
 				candidateWorker := sdkworker.New(workflows, candidate.ExtractionTaskQueue, sdkworker.Options{})
 				candidateWorker.RegisterWorkflow(candidate.ExtractionWorkflow)
 				extractionActivities := candidate.NewExtractionActivities(
@@ -194,7 +214,7 @@ func main() {
 		}
 	}
 
-	router := routes(extraction, composition)
+	router := routes(extraction, composition, evidence, evaluationFailure)
 	for eventType, disposition := range router.Routes() {
 		log.Info("outbox route registered",
 			slog.String("event_type", eventType),
@@ -262,7 +282,7 @@ func main() {
 // Handlers are registered here rather than by the packages that own them,
 // because a bounded context must not know that another one consumes its events.
 // See ADR-0005.
-func routes(extraction, composition outbox.HandlerFunc) *outbox.Router {
+func routes(extraction, composition, evidence, evaluationFailure outbox.HandlerFunc) *outbox.Router {
 	router := outbox.NewRouter()
 
 	// PRO-03: an uploaded document starts its extraction workflow. Registered
@@ -277,6 +297,16 @@ func routes(extraction, composition outbox.HandlerFunc) *outbox.Router {
 	// outbox rather than stranding a session in composing.
 	if composition != nil {
 		router.Handle("interview.session_created.v1", composition)
+	}
+
+	// EVL-01: a completed session starts its evidence workflow, and an
+	// evaluation failure moves the session's state machine - the
+	// cross-context act living here, the one place that sees both.
+	if evidence != nil {
+		router.Handle("interview.session_completed.v1", evidence)
+	}
+	if evaluationFailure != nil {
+		router.Handle("evaluation.failed.v1", evaluationFailure)
 	}
 
 	// Further registrations land with the tickets that produce the events:

@@ -25,7 +25,7 @@ from prepeet_ai.extraction.extractor import (
     extract,
 )
 
-__all__ = ["EXTRACTOR_VERSION", "SCHEMA_VERSION", "Claim", "extract_document"]
+__all__ = ["EXTRACTOR_VERSION", "SCHEMA_VERSION", "Claim", "extract_document", "fetch_verified"]
 from prepeet_ai.transport.envelope import Failure, FailureCode, FailureError
 
 SCHEMA_VERSION = "0.1"
@@ -73,31 +73,7 @@ def extract_document(fetch_url: str, media_type: str, digest: str) -> list[Claim
             )
         )
 
-    try:
-        with urllib.request.urlopen(fetch_url, timeout=_FETCH_TIMEOUT_SECONDS) as response:
-            body = response.read(_MAX_DOCUMENT_BYTES + 1)
-    except urllib.error.URLError as error:
-        raise FailureError(
-            Failure(
-                code=FailureCode.ARTIFACT_NOT_FOUND,
-                message="the document could not be fetched through its grant",
-            )
-        ) from error
-    if len(body) > _MAX_DOCUMENT_BYTES:
-        raise FailureError(
-            Failure(code=FailureCode.INVALID_INPUT, message="the document exceeds the size bound")
-        )
-
-    fetched = hashlib.sha256(body).hexdigest()
-    expected = digest.removeprefix("sha256:")
-    if fetched != expected:
-        raise FailureError(
-            Failure(
-                code=FailureCode.ARTIFACT_NOT_FOUND,
-                message="the fetched bytes do not match the pinned digest",
-            )
-        )
-
+    body = fetch_verified(fetch_url, digest)
     text = body.decode("utf-8", errors="replace")
     return [
         Claim(
@@ -111,3 +87,41 @@ def extract_document(fetch_url: str, media_type: str, digest: str) -> list[Claim
         )
         for fact in extract(text)
     ]
+
+
+def fetch_verified(fetch_url: str, digest: str) -> bytes:
+    """Fetch bytes through a scoped grant and verify them against the pin.
+
+    Shared by every capability that reads pinned content: the verification
+    comes before any reading, because acting on bytes that do not match the
+    pin would produce output whose provenance lies.
+
+    Raises:
+        FailureError: ARTIFACT_NOT_FOUND when the grant no longer answers or
+            the bytes do not hash to the pin; INVALID_INPUT past the size
+            bound.
+    """
+    try:
+        with urllib.request.urlopen(fetch_url, timeout=_FETCH_TIMEOUT_SECONDS) as response:
+            body: bytes = response.read(_MAX_DOCUMENT_BYTES + 1)
+    except urllib.error.URLError as error:
+        raise FailureError(
+            Failure(
+                code=FailureCode.ARTIFACT_NOT_FOUND,
+                message="the document could not be fetched through its grant",
+            )
+        ) from error
+    if len(body) > _MAX_DOCUMENT_BYTES:
+        raise FailureError(
+            Failure(code=FailureCode.INVALID_INPUT, message="the document exceeds the size bound")
+        )
+
+    fetched = hashlib.sha256(body).hexdigest()
+    if fetched != digest.removeprefix("sha256:"):
+        raise FailureError(
+            Failure(
+                code=FailureCode.ARTIFACT_NOT_FOUND,
+                message="the fetched bytes do not match the pinned digest",
+            )
+        )
+    return body

@@ -127,16 +127,18 @@ ORDER BY connection_epoch, sequence;
 -- name: InsertSeal :exec
 INSERT INTO interview.seals
     (session_id, mode, candidate_id, tenant_id, sealed_epoch, sealed_sequence,
-     gaps, transcript_digest, bundle_digest, media_status, warnings)
+     gaps, transcript_digest, bundle_digest, media_status, warnings,
+     evaluation_input_digest)
 VALUES (sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text, sqlc.arg(candidate_id)::uuid,
         nullif(sqlc.arg(tenant_id)::text, '')::uuid,
         sqlc.arg(sealed_epoch)::integer, sqlc.arg(sealed_sequence)::integer,
         sqlc.arg(gaps)::jsonb, sqlc.arg(transcript_digest)::text,
         sqlc.arg(bundle_digest)::text, sqlc.arg(media_status)::text,
-        sqlc.arg(warnings)::jsonb);
+        sqlc.arg(warnings)::jsonb, sqlc.arg(evaluation_input_digest)::text);
 
 -- name: GetSeal :one
 SELECT session_id::text AS session_id, sealed_epoch, sealed_sequence,
-       gaps, transcript_digest, bundle_digest, media_status, warnings, created_at
+       gaps, transcript_digest, bundle_digest, media_status, warnings,
+       evaluation_input_digest, created_at
 FROM interview.seals
 WHERE session_id = sqlc.arg(session_id)::uuid;

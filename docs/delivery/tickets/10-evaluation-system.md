@@ -16,9 +16,31 @@ Turn a sealed transcript into evidence spans linked to competencies, with timest
 to the audio.
 
 **Done when**
-- [ ] Every evidence span carries its source segment, timing and extraction version.
-- [ ] A span always resolves to real transcript text; fabricated spans fail validation.
-- [ ] The stage is independently retryable without duplicating evidence.
+- [x] Every evidence span carries its source segment, timing and extraction version.
+- [x] A span always resolves to real transcript text; fabricated spans fail validation.
+- [x] The stage is independently retryable without duplicating evidence.
+
+**Done, at the honest floor, with the honesty gate independent of the extractor.** Completion
+now writes the sealed evaluation-input document (turns plus the role's competencies, resolved
+through the catalogue in cmd) to the object store under one shared key derivation, and records
+its digest on the seal. The worker turns session_completed into the evidence workflow
+exactly-once; its adapter presigns the sealed input's own key, Python fetches through the grant
+and verifies the digest before reading (the same fetch_verified every capability shares), and
+evidence-1 extracts deterministically: competency-token matching, measured outcomes as
+supporting - including the adjacent-outcome pattern where the act and the number are neighbouring
+sentences - admitted uncertainty as a gap, unlinked mentions as claim_unverified, and silence as
+nothing, never a low-value span. Spans carry the exact quote, its character range, and a clock
+range tightened to the quoted words.
+
+The second box is the part built to outlive evidence-1: Go's Validate holds every span to the
+sealed document itself - quote must be the exact slice at its own range, segment must exist,
+competency must have been asked about, timing must sit inside the turn - and one fabrication
+refuses the whole batch as SCHEMA_VALIDATION_FAILED, published as evaluation.failed.v1, which
+cmd routes into the session's evaluation_failed state. When a model replaces the rule set behind
+the same contract, this gate is what still stands. The third box is wholesale replacement per
+(session, extraction version) inside one transaction: the retried stage is proven to converge on
+identical rows, and the spans table refuses UPDATEs so regeneration can never be an edit.
+Aggregation into competency results is EVL-02's, reading these rows.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md)
 

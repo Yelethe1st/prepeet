@@ -65,6 +65,16 @@ sql:
 
   - engine: postgresql
     schema: *schema
+    queries: internal/evaluation/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: evaluationdb
+        out: internal/evaluation/db
+        overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
     queries: internal/billing/db/queries.sql
     gen:
       go:

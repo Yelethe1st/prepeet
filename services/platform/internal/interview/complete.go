@@ -49,27 +49,75 @@ const (
 
 // Receipt is completion's answer, identical however many times it is asked.
 type Receipt struct {
-	SessionID        string
-	State            State
-	SealedEpoch      int
-	SealedSequence   int
-	Gaps             []SequenceRange
-	TranscriptDigest string
-	BundleDigest     string
-	MediaStatus      string
-	Warnings         []string
-	SealedAt         time.Time
+	SessionID             string
+	State                 State
+	SealedEpoch           int
+	SealedSequence        int
+	Gaps                  []SequenceRange
+	TranscriptDigest      string
+	BundleDigest          string
+	MediaStatus           string
+	Warnings              []string
+	EvaluationInputDigest string
+	SealedAt              time.Time
+}
+
+// Competency names one thing evaluation may look for.
+type Competency struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// EvaluationInputWriter is where the sealed input document is stored:
+// consumer-declared, wired to the object store in cmd.
+type EvaluationInputWriter interface {
+	PutSealedInput(ctx context.Context, session Session, body []byte) (storageKey string, err error)
+}
+
+// CompetencySource answers a session's competencies, resolved in cmd from
+// the catalogue so this context never imports it.
+type CompetencySource func(ctx context.Context, session Session) ([]Competency, error)
+
+// EvaluationTurn is one turn of the sealed input document: exactly the
+// shape Python receives, digest-verifiable forever.
+type EvaluationTurn struct {
+	Sequence int              `json:"sequence"`
+	Speaker  string           `json:"speaker"`
+	Text     string           `json:"text"`
+	StartMs  int              `json:"start_ms"`
+	EndMs    int              `json:"end_ms"`
+	Words    []TranscriptWord `json:"words,omitempty"`
+}
+
+// EvaluationInput is the sealed document evaluation reads.
+type EvaluationInput struct {
+	SessionID    string           `json:"session_id"`
+	Competencies []Competency     `json:"competencies"`
+	Turns        []EvaluationTurn `json:"turns"`
 }
 
 // Completer runs the completion command.
 type Completer struct {
 	store  *Store
 	events *Events
+
+	// Both optional: when absent the seal records no input object, which
+	// is the state of a test harness with no object store. cmd always
+	// wires both.
+	writer       EvaluationInputWriter
+	competencies CompetencySource
 }
 
 // NewCompleter wires the command.
 func NewCompleter(store *Store) *Completer {
 	return &Completer{store: store, events: NewEvents(store)}
+}
+
+// WithEvaluationInput adds the sealed-input pipeline.
+func (c *Completer) WithEvaluationInput(writer EvaluationInputWriter, competencies CompetencySource) *Completer {
+	c.writer = writer
+	c.competencies = competencies
+	return c
 }
 
 // Complete seals a running session at the given final cursor and moves it
@@ -131,7 +179,24 @@ func (c *Completer) Complete(ctx context.Context, sessionID, mode, candidateID, 
 		warnings = append(warnings, WarningGapsRecorded)
 	}
 
-	if err := c.seal(ctx, session, finalEpoch, finalSequence, gaps, digest, mediaStatus, warnings); err != nil {
+	// The evaluation-input object is written before the seal that records
+	// its digest, so a seal never points at bytes that were not stored. The
+	// write is idempotent (same key, same bytes), which is what makes a
+	// crash between the two retryable into the same state.
+	inputDigest := ""
+	if c.writer != nil {
+		input, err := c.evaluationInput(ctx, session, transcript)
+		if err != nil {
+			return Receipt{}, err
+		}
+		if _, err := c.writer.PutSealedInput(ctx, session, input); err != nil {
+			return Receipt{}, fmt.Errorf("interview: storing the evaluation input: %w", err)
+		}
+		sum := sha256.Sum256(input)
+		inputDigest = "sha256:" + hex.EncodeToString(sum[:])
+	}
+
+	if err := c.seal(ctx, session, finalEpoch, finalSequence, gaps, digest, mediaStatus, warnings, inputDigest); err != nil {
 		return Receipt{}, err
 	}
 
@@ -210,7 +275,7 @@ func (c *Completer) gapsUnder(ctx context.Context, session Session, epoch, final
 }
 
 // seal writes the immutable row, converging on an identical existing one.
-func (c *Completer) seal(ctx context.Context, session Session, epoch, sequence int, gaps []SequenceRange, digest, mediaStatus string, warnings []string) error {
+func (c *Completer) seal(ctx context.Context, session Session, epoch, sequence int, gaps []SequenceRange, digest, mediaStatus string, warnings []string, inputDigest string) error {
 	tx, err := c.store.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("interview: beginning seal: %w", err)
@@ -234,6 +299,7 @@ func (c *Completer) seal(ctx context.Context, session Session, epoch, sequence i
 		TenantID: session.TenantID, SealedEpoch: int32(epoch), SealedSequence: int32(sequence),
 		Gaps: encodedGaps, TranscriptDigest: digest, BundleDigest: session.BundleDigest,
 		MediaStatus: mediaStatus, Warnings: encodedWarnings,
+		EvaluationInputDigest: inputDigest,
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -277,8 +343,20 @@ func (c *Completer) receipt(ctx context.Context, session Session) (Receipt, erro
 		SessionID: row.SessionID, State: session.State,
 		SealedEpoch: int(row.SealedEpoch), SealedSequence: int(row.SealedSequence),
 		Gaps: gaps, TranscriptDigest: row.TranscriptDigest, BundleDigest: row.BundleDigest,
-		MediaStatus: row.MediaStatus, Warnings: warnings, SealedAt: row.CreatedAt,
+		MediaStatus: row.MediaStatus, Warnings: warnings,
+		EvaluationInputDigest: row.EvaluationInputDigest, SealedAt: row.CreatedAt,
 	}, nil
+}
+
+// SealOf answers a sealed session's receipt, for the pipeline that
+// consumes it. ErrNotFound when the session is invisible in this scope;
+// pgx.ErrNoRows wrapped when it exists and is not sealed.
+func (c *Completer) SealOf(ctx context.Context, sessionID, mode, candidateID, tenantID string) (Receipt, error) {
+	session, err := c.store.Get(ctx, sessionID, mode, candidateID, tenantID)
+	if err != nil {
+		return Receipt{}, err
+	}
+	return c.receipt(ctx, session)
 }
 
 // Sealed answers whether a session's transcript is sealed; ingest consults
@@ -292,6 +370,36 @@ func (c *Completer) Sealed(ctx context.Context, session Session) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// evaluationInput builds the sealed document: the effective turns and the
+// competencies evaluation may look for, serialized deterministically.
+func (c *Completer) evaluationInput(ctx context.Context, session Session, transcript Transcript) ([]byte, error) {
+	var competencies []Competency
+	if c.competencies != nil {
+		resolved, err := c.competencies(ctx, session)
+		if err != nil {
+			return nil, fmt.Errorf("interview: resolving competencies: %w", err)
+		}
+		competencies = resolved
+	}
+	if competencies == nil {
+		competencies = []Competency{}
+	}
+
+	turns := make([]EvaluationTurn, 0)
+	for _, segment := range transcript.EffectiveText() {
+		if segment.Type != "transcript.segment.final" && segment.Type != "transcript.segment.corrected" {
+			continue
+		}
+		turns = append(turns, EvaluationTurn{
+			Sequence: segment.Sequence, Speaker: segment.Speaker, Text: segment.Text,
+			StartMs: segment.StartMs, EndMs: segment.EndMs, Words: segment.Words,
+		})
+	}
+	return json.Marshal(EvaluationInput{
+		SessionID: session.ID, Competencies: competencies, Turns: turns,
+	})
 }
 
 // transcriptDigest hashes the effective transcript deterministically:

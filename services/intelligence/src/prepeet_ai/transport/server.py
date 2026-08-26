@@ -16,6 +16,7 @@ Implements the serving half of CTR-02 and the floor of CAT-02.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from concurrent import futures
 
@@ -26,8 +27,9 @@ from prepeet.intelligence.v1 import intelligence_pb2, intelligence_pb2_grpc
 from prepeet.rpc.v1 import failure_pb2
 
 from prepeet_ai.composition import composer
+from prepeet_ai.evaluation import service as evidence
 from prepeet_ai.extraction import service as extraction
-from prepeet_ai.transport.envelope import FailureError
+from prepeet_ai.transport.envelope import Failure, FailureCode, FailureError
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +74,72 @@ class IntelligenceService(intelligence_pb2_grpc.IntelligenceServiceServicer):  #
     Capabilities not yet built answer UNIMPLEMENTED, which is the honest
     gRPC vocabulary for exactly that.
     """
+
+    def EvaluateTurns(  # noqa: N802 - the generated stub's casing
+        self,
+        request: intelligence_pb2.EvaluateTurnsRequest,
+        context: grpc.ServicerContext,
+    ) -> intelligence_pb2.EvaluateTurnsResponse:
+        """Extract competency-linked evidence spans from sealed turns."""
+        if not request.turns:
+            _abort_with(
+                context,
+                FailureError(
+                    Failure(
+                        code=FailureCode.INVALID_INPUT,
+                        message="there are no turns to evaluate",
+                    )
+                ),
+            )
+            raise AssertionError("abort returns") from None
+
+        try:
+            spans = []
+            for ref in request.turns:
+                spans.extend(evidence.evidence_from_ref(ref.fetch_url, ref.digest))
+        except FailureError as error:
+            logger.info(
+                "evidence extraction refused",
+                extra={"code": error.failure.code.code},
+            )
+            _abort_with(context, error)
+            raise AssertionError("abort returns") from None
+
+        observations = []
+        for span in spans:
+            observation = json.dumps(
+                {
+                    "kind": span.kind,
+                    "quote": span.quote,
+                    "segment_sequence": span.segment_sequence,
+                    "char_start": span.char_start,
+                    "char_end": span.char_end,
+                    "start_ms": span.start_ms,
+                    "end_ms": span.end_ms,
+                    "extraction_version": span.extraction_version,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            observations.append(
+                intelligence_pb2.CompetencyObservation(
+                    competency_id=span.competency_id,
+                    turn_id=str(span.segment_sequence),
+                    observation=observation,
+                )
+            )
+
+        return intelligence_pb2.EvaluateTurnsResponse(
+            meta=intelligence_pb2.ResponseMeta(
+                schema_version=evidence.SCHEMA_VERSION,
+                calculation_version=evidence.EXTRACTION_VERSION,
+                policy_version="none",
+                input_digest=request.turns[0].digest,
+                output_validated=True,
+                usage=intelligence_pb2.Usage(cost_units=0, provider_calls=0),
+            ),
+            observations=observations,
+        )
 
     def ExtractCandidateProfile(  # noqa: N802 - the generated stub's casing
         self,

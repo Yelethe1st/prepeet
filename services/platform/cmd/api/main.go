@@ -155,8 +155,11 @@ func main() {
 			registry:  content.NewStore(pool),
 			starter: interview.NewStarter(interview.NewStore(pool),
 				ledgerPort{ledger: billing.NewLedger(pool)}, grantsPort{grants: grants}),
-			events:    interview.NewEvents(interview.NewStore(pool)),
-			completer: interview.NewCompleter(interview.NewStore(pool)),
+			events: interview.NewEvents(interview.NewStore(pool)),
+			completer: interview.NewCompleter(interview.NewStore(pool)).WithEvaluationInput(
+				sealedInputWriter{store: uploads},
+				competencySource(catalog.NewService(registrySource{registry: content.NewStore(pool)})),
+			),
 		},
 		Environment: cfg.Environment,
 		Health:      checks,

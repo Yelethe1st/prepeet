@@ -46,21 +46,23 @@ func (q *Queries) ControlEventExists(ctx context.Context, eventID string) (bool,
 
 const getSeal = `-- name: GetSeal :one
 SELECT session_id::text AS session_id, sealed_epoch, sealed_sequence,
-       gaps, transcript_digest, bundle_digest, media_status, warnings, created_at
+       gaps, transcript_digest, bundle_digest, media_status, warnings,
+       evaluation_input_digest, created_at
 FROM interview.seals
 WHERE session_id = $1::uuid
 `
 
 type GetSealRow struct {
-	SessionID        string
-	SealedEpoch      int32
-	SealedSequence   int32
-	Gaps             []byte
-	TranscriptDigest string
-	BundleDigest     string
-	MediaStatus      string
-	Warnings         []byte
-	CreatedAt        time.Time
+	SessionID             string
+	SealedEpoch           int32
+	SealedSequence        int32
+	Gaps                  []byte
+	TranscriptDigest      string
+	BundleDigest          string
+	MediaStatus           string
+	Warnings              []byte
+	EvaluationInputDigest string
+	CreatedAt             time.Time
 }
 
 func (q *Queries) GetSeal(ctx context.Context, sessionID string) (GetSealRow, error) {
@@ -75,6 +77,7 @@ func (q *Queries) GetSeal(ctx context.Context, sessionID string) (GetSealRow, er
 		&i.BundleDigest,
 		&i.MediaStatus,
 		&i.Warnings,
+		&i.EvaluationInputDigest,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -273,27 +276,29 @@ const insertSeal = `-- name: InsertSeal :exec
 
 INSERT INTO interview.seals
     (session_id, mode, candidate_id, tenant_id, sealed_epoch, sealed_sequence,
-     gaps, transcript_digest, bundle_digest, media_status, warnings)
+     gaps, transcript_digest, bundle_digest, media_status, warnings,
+     evaluation_input_digest)
 VALUES ($1::uuid, $2::text, $3::uuid,
         nullif($4::text, '')::uuid,
         $5::integer, $6::integer,
         $7::jsonb, $8::text,
         $9::text, $10::text,
-        $11::jsonb)
+        $11::jsonb, $12::text)
 `
 
 type InsertSealParams struct {
-	SessionID        string
-	Mode             string
-	CandidateID      string
-	TenantID         string
-	SealedEpoch      int32
-	SealedSequence   int32
-	Gaps             []byte
-	TranscriptDigest string
-	BundleDigest     string
-	MediaStatus      string
-	Warnings         []byte
+	SessionID             string
+	Mode                  string
+	CandidateID           string
+	TenantID              string
+	SealedEpoch           int32
+	SealedSequence        int32
+	Gaps                  []byte
+	TranscriptDigest      string
+	BundleDigest          string
+	MediaStatus           string
+	Warnings              []byte
+	EvaluationInputDigest string
 }
 
 // ── SES-04: the seal.
@@ -310,6 +315,7 @@ func (q *Queries) InsertSeal(ctx context.Context, arg InsertSealParams) error {
 		arg.BundleDigest,
 		arg.MediaStatus,
 		arg.Warnings,
+		arg.EvaluationInputDigest,
 	)
 	return err
 }

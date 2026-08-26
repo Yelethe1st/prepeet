@@ -49,6 +49,10 @@ const (
 	PurposeMedia    Purpose = "media"
 	PurposeDocument Purpose = "document"
 	PurposeExport   Purpose = "export"
+	// PurposeTranscript holds sealed conversation artifacts: the
+	// evaluation-input document a completion writes. Its own purpose
+	// because transcripts retain on their own schedule (DEC-15's).
+	PurposeTranscript Purpose = "transcript"
 )
 
 // valid reports whether the purpose is one this package knows. An unknown
@@ -57,7 +61,7 @@ const (
 // would be retained indefinitely.
 func (p Purpose) valid() bool {
 	switch p {
-	case PurposeMedia, PurposeDocument, PurposeExport:
+	case PurposeMedia, PurposeDocument, PurposeExport, PurposeTranscript:
 		return true
 	default:
 		return false
@@ -179,4 +183,35 @@ func ClampTTL(requested time.Duration) time.Duration {
 	default:
 		return requested
 	}
+}
+
+// NewPracticeSessionKey derives the key for a practice session's artifact.
+//
+// Practice sessions have no tenant by the schema's own CHECK, so their
+// objects live under the candidate's root exactly like documents do: a
+// practice artifact keyed by tenant would be the linkage IAM-06 forbids,
+// written into storage layout.
+func NewPracticeSessionKey(candidateID, sessionID string, purpose Purpose, name string) (Key, error) {
+	if candidateID == "" || sessionID == "" || !purpose.valid() {
+		return Key{}, fmt.Errorf("%w: candidate, session and a valid purpose are required", ErrInvalidKey)
+	}
+	if err := validateName(name); err != nil {
+		return Key{}, err
+	}
+	return Key{value: path.Join(
+		"candidate", candidateID, "session", sessionID, string(purpose), name,
+	)}, nil
+}
+
+// SealedInputKey is the one derivation of where a session's sealed
+// evaluation input lives, shared by the writer at completion and the
+// reader at evaluation so the two cannot drift.
+func SealedInputKey(mode, tenantID, candidateID, sessionID string) (Key, error) {
+	if mode == "practice" {
+		return NewPracticeSessionKey(candidateID, sessionID, PurposeTranscript, "evaluation-input.json")
+	}
+	return NewKey(KeyParts{
+		TenantID: tenantID, SessionID: sessionID,
+		Purpose: PurposeTranscript, Name: "evaluation-input.json",
+	})
 }

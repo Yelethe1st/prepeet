@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,6 +26,7 @@ type fakeInterviews struct {
 	epoch      int
 	replayed   []api.ControlEventOut
 	transcript api.TranscriptView
+	receipt    api.CompletionReceiptView
 	consent    api.PracticeConsent
 	err        error
 	selection  *api.InterviewSelection
@@ -66,6 +68,11 @@ func (f *fakeInterviews) ReplayEvents(_ context.Context, userID, sessionID strin
 func (f *fakeInterviews) Transcript(_ context.Context, userID, sessionID string) (api.TranscriptView, error) {
 	f.users = append(f.users, "transcript:"+userID+":"+sessionID)
 	return f.transcript, f.err
+}
+
+func (f *fakeInterviews) CompleteInterview(_ context.Context, userID, sessionID string, epoch, finalSequence int) (api.CompletionReceiptView, error) {
+	f.users = append(f.users, fmt.Sprintf("complete:%s:%s:%d:%d", userID, sessionID, epoch, finalSequence))
+	return f.receipt, f.err
 }
 
 func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
@@ -479,5 +486,41 @@ func TestTheTranscriptCarriesProvenanceAcrossTheWire(t *testing.T) {
 	}
 	if len(body.OrphanCorrections) != 1 || body.OrphanCorrections[0] != 9 {
 		t.Fatalf("orphans = %v", body.OrphanCorrections)
+	}
+}
+
+func TestCompletionAnswersTheReceipt(t *testing.T) {
+	interviews := &fakeInterviews{receipt: api.CompletionReceiptView{
+		SessionID: "00000000-0000-7000-8000-0000000000e1", State: "evaluating",
+		SealedEpoch: 1, SealedSequence: 5,
+		Gaps:             [][2]int{{4, 4}},
+		TranscriptDigest: "sha256:abc", BundleDigest: "sha256:def",
+		MediaStatus: "missing", Warnings: []string{"MEDIA_MISSING", "SEQUENCE_GAPS_RECORDED"},
+		SealedAt: time.Date(2026, 8, 26, 14, 0, 0, 0, time.UTC),
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := doJSON(t, handler, http.MethodPost,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/complete",
+		`{"connection_epoch":1,"final_sequence":5}`, sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	if interviews.users[0] != "complete:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1:1:5" {
+		t.Fatalf("the port saw %v", interviews.users)
+	}
+
+	var body struct {
+		State    string   `json:"state"`
+		Warnings []string `json:"warnings"`
+		Gaps     []struct {
+			From int `json:"from"`
+		} `json:"gaps"`
+		MediaStatus string `json:"media_status"`
+	}
+	decodeInto(t, response, &body)
+	if body.State != "evaluating" || body.MediaStatus != "missing" ||
+		len(body.Warnings) != 2 || len(body.Gaps) != 1 || body.Gaps[0].From != 4 {
+		t.Fatalf("receipt = %+v", body)
 	}
 }

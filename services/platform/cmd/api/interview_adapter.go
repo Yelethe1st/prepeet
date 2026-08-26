@@ -26,6 +26,40 @@ type interviewAdapter struct {
 	registry  *content.Store
 	starter   *interview.Starter
 	events    *interview.Events
+	completer *interview.Completer
+}
+
+// CompleteInterview seals the owner's practice session, translating each
+// refusal onto the wire's stable codes.
+func (a interviewAdapter) CompleteInterview(ctx context.Context, userID, sessionID string, epoch, finalSequence int) (api.CompletionReceiptView, error) {
+	receipt, err := a.completer.Complete(ctx, sessionID, "practice", userID, "", epoch, finalSequence)
+	switch {
+	case errors.Is(err, interview.ErrNotFound):
+		return api.CompletionReceiptView{}, api.ErrSessionMissing
+	case errors.Is(err, interview.ErrCompleteNotRunning):
+		return api.CompletionReceiptView{}, &api.StartRefusedError{Code: "SESSION_NOT_RUNNING",
+			Message: "Only a running session can complete."}
+	case errors.Is(err, interview.ErrSealConflict):
+		return api.CompletionReceiptView{}, &api.StartRefusedError{Code: "SEAL_CONFLICT",
+			Message: "This session already sealed at a different cursor."}
+	case errors.Is(err, interview.ErrEpochStale):
+		return api.CompletionReceiptView{}, &api.StartRefusedError{Code: "EPOCH_STALE",
+			Message: "This connection was superseded by a newer one."}
+	case err != nil:
+		return api.CompletionReceiptView{}, err
+	}
+
+	view := api.CompletionReceiptView{
+		SessionID: receipt.SessionID, State: string(receipt.State),
+		SealedEpoch: receipt.SealedEpoch, SealedSequence: receipt.SealedSequence,
+		TranscriptDigest: receipt.TranscriptDigest, BundleDigest: receipt.BundleDigest,
+		MediaStatus: receipt.MediaStatus, Warnings: receipt.Warnings,
+		SealedAt: receipt.SealedAt,
+	}
+	for _, gap := range receipt.Gaps {
+		view.Gaps = append(view.Gaps, [2]int{gap.From, gap.To})
+	}
+	return view, nil
 }
 
 // IngestEvents accepts one control batch under the owner's practice scope.

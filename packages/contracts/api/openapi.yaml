@@ -1059,6 +1059,47 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /interviews/{sessionId}/complete:
+    post:
+      tags: [interview]
+      operationId: completeInterview
+      summary: Seal the transcript and hand the session to evaluation
+      description: |
+        Idempotent to the receipt: completing twice with the same final
+        cursor answers the same seal and causes no second evaluation, while
+        a different cursor is SEAL_CONFLICT. Gaps under the final cursor
+        are recorded, never silently closed, and missing optional media
+        continues to evaluation with an explicit warning attached.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteInterviewRequest"
+      responses:
+        "200":
+          description: The receipt, identical however many times it is asked.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionReceipt"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: SESSION_NOT_RUNNING, SEAL_CONFLICT or EPOCH_STALE.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /me:
     get:
       tags: [authentication]
@@ -1616,6 +1657,43 @@ components:
           type: string
           enum: [admin, recruiter, hiring_manager, viewer]
         expected_version: { type: integer }
+
+    CompleteInterviewRequest:
+      type: object
+      required: [connection_epoch, final_sequence]
+      properties:
+        connection_epoch: { type: integer }
+        final_sequence:
+          type: integer
+          description: The last conversational sequence the client sent.
+
+    CompletionReceipt:
+      type: object
+      required:
+        [session_id, state, sealed_epoch, sealed_sequence, gaps,
+         transcript_digest, media_status, warnings, sealed_at]
+      properties:
+        session_id: { type: string, format: uuid }
+        state: { type: string }
+        sealed_epoch: { type: integer }
+        sealed_sequence: { type: integer }
+        gaps:
+          type: array
+          items:
+            type: object
+            required: [from, to]
+            properties:
+              from: { type: integer }
+              to: { type: integer }
+        transcript_digest: { type: string }
+        bundle_digest: { type: string }
+        media_status:
+          type: string
+          enum: [none_by_choice, missing, finalized]
+        warnings:
+          type: array
+          items: { type: string }
+        sealed_at: { type: string, format: date-time }
 
     TranscriptView:
       type: object

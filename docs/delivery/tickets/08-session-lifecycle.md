@@ -119,9 +119,30 @@ Accept the final cursor, reject later conversational events, reconcile sequence 
 transcript, await media for a bounded period, then persist evaluation input digests.
 
 **Done when**
-- [ ] Completion is idempotent; a duplicate request produces the same receipt and no second evaluation.
-- [ ] Sequence gaps are recorded rather than silently closed.
-- [ ] Missing optional media continues to evaluation with an explicit warning attached.
+- [x] Completion is idempotent; a duplicate request produces the same receipt and no second evaluation.
+- [x] Sequence gaps are recorded rather than silently closed.
+- [x] Missing optional media continues to evaluation with an explicit warning attached.
+
+**Done.** Completion freezes the record as one immutable seal per session: the final cursor, the
+gaps standing under it, the digest of the effective transcript (deterministic from the log
+alone), the bundle digest it ran under, and the media status with its warnings. Idempotency is
+the seal's primary key: a duplicate completion converges on the row and answers the identical
+receipt - five concurrent completions proven to agree - with exactly one session_completed event
+and no second pass through the states; a different final cursor is SEAL_CONFLICT, not a retry.
+
+Gaps are the second box's words exactly: recorded, never closed - the missing sequence appears
+in the receipt as its precise range plus a SEQUENCE_GAPS_RECORDED warning, and evaluation will
+read it as coverage. Media follows the session's own recorded choice: transcript-only completes
+as none_by_choice with no warning, because reporting a person's own decision back to them as a
+warning would be noise; an audio session with nothing produced completes to evaluating with
+MEDIA_MISSING attached and nothing blocked. The bounded media wait becomes a real timer when
+RTC-05's egress exists to wait for; today the status is known at the seal, which is what
+evaluating's entry condition requires.
+
+The seal also ends the conversation: ingest refuses conversational events after it
+(EVENT_AFTER_SEAL) while a leave or connection event still lands, because a goodbye is not
+testimony, and the sealed digest is proven untouched by the attempt. POST
+/interviews/{id}/complete serves the receipt.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md)
 

@@ -51,6 +51,17 @@ var ephemeralEventTypes = map[string]bool{
 	"device.input_level":         true,
 }
 
+// Conversational types end at the seal: once completion freezes the
+// record, these are refused, because a transcript that can still grow was
+// never sealed.
+var conversationalEventTypes = map[string]bool{
+	"transcript.segment.partial":   true,
+	"transcript.segment.final":     true,
+	"transcript.segment.corrected": true,
+	"turn.boundary":                true,
+	"interruption":                 true,
+}
+
 // Protocol refusals.
 var (
 	ErrEpochStale = errors.New("interview: EPOCH_STALE: this connection was superseded; resume to continue")
@@ -174,9 +185,25 @@ func (e *Events) Ingest(ctx context.Context, sessionID, mode, candidateID, tenan
 		return Acknowledgment{}, ErrEpochStale
 	}
 
+	// A sealed transcript takes no more conversation. Non-conversational
+	// events (leaving, connection state) still land, because a goodbye is
+	// not testimony.
+	sealed := false
+	if _, err := db.New(tx).GetSeal(ctx, sessionID); err == nil {
+		sealed = true
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return Acknowledgment{}, fmt.Errorf("interview: checking the seal: %w", err)
+	}
+
 	sawEstablished := false
 	outcomes := make([]EventOutcome, 0, len(events))
 	for _, event := range events {
+		if sealed && conversationalEventTypes[event.Type] {
+			outcomes = append(outcomes, EventOutcome{
+				EventID: event.EventID, Status: "refused", Reason: "EVENT_AFTER_SEAL",
+			})
+			continue
+		}
 		outcome := e.apply(ctx, tx, session, event)
 		if outcome.Status == "accepted" && event.Type == "connection.established" {
 			sawEstablished = true

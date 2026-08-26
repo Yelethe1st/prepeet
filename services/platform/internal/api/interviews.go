@@ -45,6 +45,23 @@ type Interviews interface {
 	ReplayEvents(ctx context.Context, userID, sessionID string, afterEpoch, afterSequence int) ([]ControlEventOut, error)
 	// Transcript answers the assembled read model, provenance included.
 	Transcript(ctx context.Context, userID, sessionID string) (TranscriptView, error)
+	// CompleteInterview seals at the final cursor, idempotently to the
+	// receipt. Refusals arrive as *StartRefusedError with their codes.
+	CompleteInterview(ctx context.Context, userID, sessionID string, epoch, finalSequence int) (CompletionReceiptView, error)
+}
+
+// CompletionReceiptView mirrors the contract at the port.
+type CompletionReceiptView struct {
+	SessionID        string
+	State            string
+	SealedEpoch      int
+	SealedSequence   int
+	Gaps             [][2]int
+	TranscriptDigest string
+	BundleDigest     string
+	MediaStatus      string
+	Warnings         []string
+	SealedAt         time.Time
 }
 
 // TranscriptView mirrors the contract at the port.
@@ -455,6 +472,58 @@ func (i *interviews) ReplayControlEvents(ctx context.Context, request prepeetapi
 	}, nil
 }
 
+// CompleteInterview seals the session.
+func (i *interviews) CompleteInterview(ctx context.Context, request prepeetapi.CompleteInterviewRequestObject) (prepeetapi.CompleteInterviewResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	receipt, err := i.flows.CompleteInterview(ctx, principal.UserID, request.SessionID.String(),
+		request.Body.ConnectionEpoch, request.Body.FinalSequence)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	sessionID, err := uuid.Parse(receipt.SessionID)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	body := prepeetapi.CompletionReceipt{
+		SessionID: sessionID, State: receipt.State,
+		SealedEpoch: receipt.SealedEpoch, SealedSequence: receipt.SealedSequence,
+		TranscriptDigest: receipt.TranscriptDigest,
+		MediaStatus:      prepeetapi.CompletionReceiptMediaStatus(receipt.MediaStatus),
+		Warnings:         receipt.Warnings,
+		SealedAt:         receipt.SealedAt,
+		Gaps: make([]struct {
+			From int `json:"from"`
+			To   int `json:"to"`
+		}, 0, len(receipt.Gaps)),
+	}
+	if body.Warnings == nil {
+		body.Warnings = []string{}
+	}
+	if receipt.BundleDigest != "" {
+		digest := receipt.BundleDigest
+		body.BundleDigest = &digest
+	}
+	for _, gap := range receipt.Gaps {
+		body.Gaps = append(body.Gaps, struct {
+			From int `json:"from"`
+			To   int `json:"to"`
+		}{From: gap[0], To: gap[1]})
+	}
+	return prepeetapi.CompleteInterview200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.CompleteInterview200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetTranscript answers the assembled transcript.
 func (i *interviews) GetTranscript(ctx context.Context, request prepeetapi.GetTranscriptRequestObject) (prepeetapi.GetTranscriptResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -568,6 +637,7 @@ var (
 	_ prepeetapi.IngestControlEventsResponseObject = failure{}
 	_ prepeetapi.ReplayControlEventsResponseObject = failure{}
 	_ prepeetapi.GetTranscriptResponseObject       = failure{}
+	_ prepeetapi.CompleteInterviewResponseObject   = failure{}
 )
 
 func (f failure) VisitCreateInterviewResponse(w http.ResponseWriter) error     { return f.write(w) }
@@ -577,3 +647,4 @@ func (f failure) VisitStartInterviewResponse(w http.ResponseWriter) error      {
 func (f failure) VisitIngestControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitReplayControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       { return f.write(w) }
+func (f failure) VisitCompleteInterviewResponse(w http.ResponseWriter) error   { return f.write(w) }

@@ -121,3 +121,22 @@ FROM interview.control_events
 WHERE session_id = sqlc.arg(session_id)::uuid
   AND (connection_epoch, sequence) > (sqlc.arg(after_epoch)::integer, sqlc.arg(after_sequence)::integer)
 ORDER BY connection_epoch, sequence;
+
+-- ── SES-04: the seal.
+
+-- name: InsertSeal :exec
+INSERT INTO interview.seals
+    (session_id, mode, candidate_id, tenant_id, sealed_epoch, sealed_sequence,
+     gaps, transcript_digest, bundle_digest, media_status, warnings)
+VALUES (sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text, sqlc.arg(candidate_id)::uuid,
+        nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        sqlc.arg(sealed_epoch)::integer, sqlc.arg(sealed_sequence)::integer,
+        sqlc.arg(gaps)::jsonb, sqlc.arg(transcript_digest)::text,
+        sqlc.arg(bundle_digest)::text, sqlc.arg(media_status)::text,
+        sqlc.arg(warnings)::jsonb);
+
+-- name: GetSeal :one
+SELECT session_id::text AS session_id, sealed_epoch, sealed_sequence,
+       gaps, transcript_digest, bundle_digest, media_status, warnings, created_at
+FROM interview.seals
+WHERE session_id = sqlc.arg(session_id)::uuid;

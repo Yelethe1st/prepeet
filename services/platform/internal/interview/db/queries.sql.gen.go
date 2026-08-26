@@ -44,6 +44,42 @@ func (q *Queries) ControlEventExists(ctx context.Context, eventID string) (bool,
 	return present, err
 }
 
+const getSeal = `-- name: GetSeal :one
+SELECT session_id::text AS session_id, sealed_epoch, sealed_sequence,
+       gaps, transcript_digest, bundle_digest, media_status, warnings, created_at
+FROM interview.seals
+WHERE session_id = $1::uuid
+`
+
+type GetSealRow struct {
+	SessionID        string
+	SealedEpoch      int32
+	SealedSequence   int32
+	Gaps             []byte
+	TranscriptDigest string
+	BundleDigest     string
+	MediaStatus      string
+	Warnings         []byte
+	CreatedAt        time.Time
+}
+
+func (q *Queries) GetSeal(ctx context.Context, sessionID string) (GetSealRow, error) {
+	row := q.db.QueryRow(ctx, getSeal, sessionID)
+	var i GetSealRow
+	err := row.Scan(
+		&i.SessionID,
+		&i.SealedEpoch,
+		&i.SealedSequence,
+		&i.Gaps,
+		&i.TranscriptDigest,
+		&i.BundleDigest,
+		&i.MediaStatus,
+		&i.Warnings,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getSession = `-- name: GetSession :one
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
@@ -229,6 +265,51 @@ func (q *Queries) InsertControlEvent(ctx context.Context, arg InsertControlEvent
 		arg.EventType,
 		arg.Payload,
 		arg.OccurredAt,
+	)
+	return err
+}
+
+const insertSeal = `-- name: InsertSeal :exec
+
+INSERT INTO interview.seals
+    (session_id, mode, candidate_id, tenant_id, sealed_epoch, sealed_sequence,
+     gaps, transcript_digest, bundle_digest, media_status, warnings)
+VALUES ($1::uuid, $2::text, $3::uuid,
+        nullif($4::text, '')::uuid,
+        $5::integer, $6::integer,
+        $7::jsonb, $8::text,
+        $9::text, $10::text,
+        $11::jsonb)
+`
+
+type InsertSealParams struct {
+	SessionID        string
+	Mode             string
+	CandidateID      string
+	TenantID         string
+	SealedEpoch      int32
+	SealedSequence   int32
+	Gaps             []byte
+	TranscriptDigest string
+	BundleDigest     string
+	MediaStatus      string
+	Warnings         []byte
+}
+
+// ── SES-04: the seal.
+func (q *Queries) InsertSeal(ctx context.Context, arg InsertSealParams) error {
+	_, err := q.db.Exec(ctx, insertSeal,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.SealedEpoch,
+		arg.SealedSequence,
+		arg.Gaps,
+		arg.TranscriptDigest,
+		arg.BundleDigest,
+		arg.MediaStatus,
+		arg.Warnings,
 	)
 	return err
 }

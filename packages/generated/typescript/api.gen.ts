@@ -764,6 +764,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Seal the transcript and hand the session to evaluation
+         * @description Idempotent to the receipt: completing twice with the same final
+         *     cursor answers the same seal and causes no second evaluation, while
+         *     a different cursor is SEAL_CONFLICT. Gaps under the final cursor
+         *     are recorded, never silently closed, and missing optional media
+         *     continues to evaluation with an explicit warning attached.
+         */
+        post: operations["completeInterview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -1022,6 +1046,29 @@ export interface components {
             /** @enum {string} */
             role: "admin" | "recruiter" | "hiring_manager" | "viewer";
             expected_version: number;
+        };
+        CompleteInterviewRequest: {
+            connection_epoch: number;
+            /** @description The last conversational sequence the client sent. */
+            final_sequence: number;
+        };
+        CompletionReceipt: {
+            /** Format: uuid */
+            session_id: string;
+            state: string;
+            sealed_epoch: number;
+            sealed_sequence: number;
+            gaps: {
+                from: number;
+                to: number;
+            }[];
+            transcript_digest: string;
+            bundle_digest?: string;
+            /** @enum {string} */
+            media_status: "none_by_choice" | "missing" | "finalized";
+            warnings: string[];
+            /** Format: date-time */
+            sealed_at: string;
         };
         TranscriptView: {
             segments: components["schemas"]["TranscriptSegment"][];
@@ -2584,6 +2631,45 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    completeInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteInterviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The receipt, identical however many times it is asked. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompletionReceipt"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description SESSION_NOT_RUNNING, SEAL_CONFLICT or EPOCH_STALE. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getCurrentUser: {

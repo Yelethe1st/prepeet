@@ -1,12 +1,12 @@
 import Link from "next/link";
+import { Suspense } from "react";
+
+import { SessionsScreen } from "@/features/sessions/SessionsScreen";
 
 /**
- * Placeholder for the candidate's practice history.
- *
- * The real screen is ported under PRO and SES. This exists so the shell has a
- * destination that is not a dead link, and so signing in lands somewhere rather
- * than on a marketing page. The one real thing it offers is the wizard, which
- * is CAT-04's and already live.
+ * The candidate's practice home: the whole session history with the way
+ * onward from every state, and the wizard for the next one. Suspense wraps
+ * the screen because the filter lives in the URL's search params.
  */
 export default function PracticePage() {
   return (
@@ -25,7 +25,11 @@ export default function PracticePage() {
           Start a practice interview
         </Link>
       </div>
-      <p className="hint">The session list is ported with SES-07.</p>
+      <section aria-label="Session history" className="mt-6">
+        <Suspense>
+          <SessionsScreen />
+        </Suspense>
+      </section>
     </>
   );
 }

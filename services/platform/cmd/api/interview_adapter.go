@@ -592,6 +592,39 @@ func (a interviewAdapter) GetPractice(ctx context.Context, userID, sessionID str
 	return view, nil
 }
 
+// MySessions answers the owner's whole practice history, newest first.
+func (a interviewAdapter) MySessions(ctx context.Context, userID string) ([]api.InterviewSession, error) {
+	sessions, err := a.sessions.ListMine(ctx, "practice", userID, "")
+	if err != nil {
+		return nil, err
+	}
+	views := make([]api.InterviewSession, 0, len(sessions))
+	for _, session := range sessions {
+		var config struct {
+			Discipline string `json:"discipline"`
+			Role       string `json:"role"`
+			Shape      string `json:"shape"`
+			Minutes    int    `json:"minutes"`
+			Persona    string `json:"persona"`
+		}
+		_ = json.Unmarshal(session.Config, &config)
+		views = append(views, api.InterviewSession{
+			ID: session.ID, Mode: session.Mode, State: string(session.State),
+			Config: api.InterviewSelection{
+				Discipline: config.Discipline, Role: config.Role,
+				Shape: config.Shape, Minutes: config.Minutes, Persona: config.Persona,
+			},
+			RecordingPreference: session.RecordingPreference,
+			ConsentVersion:      session.ConsentVersion,
+			FailureCode:         session.FailureCode,
+			ConnectionEpoch:     session.ConnectionEpoch,
+			AcceptedSequence:    session.AcceptedSequence,
+			CreatedAt:           session.CreatedAt,
+		})
+	}
+	return views, nil
+}
+
 // selectionErrors maps the catalogue's refusals onto the API's validation
 // error, every field at once.
 func selectionErrors(catalogue catalog.Catalogue, selection api.InterviewSelection) *api.ValidationError {

@@ -53,6 +53,9 @@ type Interviews interface {
 	// evaluation has not landed; ErrSessionMissing when the session is
 	// not the caller's to see.
 	Results(ctx context.Context, userID, sessionID string) (EvaluationResultView, error)
+	// MySessions answers every session the caller owns, newest first,
+	// every lifecycle state included.
+	MySessions(ctx context.Context, userID string) ([]InterviewSession, error)
 	// Review answers the derived coaching. Same refusals as Results; a
 	// coaching failure is NOT an error here - it arrives as a view with
 	// CoachingAvailable false, because the evaluation stands either way.
@@ -934,6 +937,37 @@ func (i *interviews) GetReview(ctx context.Context, request prepeetapi.GetReview
 	}, nil
 }
 
+// ListMySessions answers the caller's whole session history.
+func (i *interviews) ListMySessions(ctx context.Context, _ prepeetapi.ListMySessionsRequestObject) (prepeetapi.ListMySessionsResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	sessions, err := i.flows.MySessions(ctx, principal.UserID)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	encoded := make([]prepeetapi.InterviewSession, 0, len(sessions))
+	for _, session := range sessions {
+		body, err := interviewSessionBody(session)
+		if err != nil {
+			return nil, err
+		}
+		encoded = append(encoded, body)
+	}
+	return prepeetapi.ListMySessions200JSONResponse{
+		Body: struct {
+			Sessions []prepeetapi.InterviewSession `json:"sessions"`
+		}{Sessions: encoded},
+		Headers: prepeetapi.ListMySessions200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetPracticeConsent answers the current consent text with its version.
 func (i *interviews) GetPracticeConsent(ctx context.Context, _ prepeetapi.GetPracticeConsentRequestObject) (prepeetapi.GetPracticeConsentResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -985,6 +1019,7 @@ var (
 	_ prepeetapi.GetTranscriptResponseObject       = failure{}
 	_ prepeetapi.GetResultsResponseObject          = failure{}
 	_ prepeetapi.GetReviewResponseObject           = failure{}
+	_ prepeetapi.ListMySessionsResponseObject      = failure{}
 	_ prepeetapi.CompleteInterviewResponseObject   = failure{}
 )
 
@@ -997,4 +1032,5 @@ func (f failure) VisitReplayControlEventsResponse(w http.ResponseWriter) error {
 func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       { return f.write(w) }
 func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
+func (f failure) VisitListMySessionsResponse(w http.ResponseWriter) error      { return f.write(w) }
 func (f failure) VisitCompleteInterviewResponse(w http.ResponseWriter) error   { return f.write(w) }

@@ -79,6 +79,14 @@ func (f *fakeInterviews) Results(_ context.Context, userID, sessionID string) (a
 	return f.result, f.err
 }
 
+func (f *fakeInterviews) MySessions(_ context.Context, userID string) ([]api.InterviewSession, error) {
+	f.users = append(f.users, "list:"+userID)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return []api.InterviewSession{f.created}, nil
+}
+
 func (f *fakeInterviews) Review(_ context.Context, userID, sessionID string) (api.ReviewView, error) {
 	f.users = append(f.users, "review:"+userID+":"+sessionID)
 	return f.review, f.err
@@ -890,5 +898,33 @@ func TestReviewBeforeEvaluationSaysNotReady(t *testing.T) {
 		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/review", sessionCookie())
 	if response.Code != http.StatusConflict {
 		t.Fatalf("status %d, want 409", response.Code)
+	}
+}
+
+func TestTheSessionListAnswersUnderTheCallersOwnUser(t *testing.T) {
+	interviews := &fakeInterviews{created: api.InterviewSession{
+		ID: "00000000-0000-7000-8000-0000000000e1", Mode: "practice", State: "expired",
+		Config:              api.InterviewSelection{Discipline: "d", Role: "r", Shape: "s", Minutes: 40, Persona: "p"},
+		RecordingPreference: "transcript_only", ConsentVersion: "1.0.0",
+		CreatedAt: time.Date(2026, 8, 27, 10, 0, 0, 0, time.UTC),
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler, "/api/v1/me/sessions", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		Sessions []struct {
+			State string `json:"state"`
+		} `json:"sessions"`
+	}
+	decodeInto(t, response, &body)
+	// An expired session is history, not a hidden row.
+	if len(body.Sessions) != 1 || body.Sessions[0].State != "expired" {
+		t.Fatalf("sessions = %+v", body.Sessions)
+	}
+	if interviews.users[0] != "list:00000000-0000-7000-8000-0000000000f9" {
+		t.Fatalf("the port saw %v", interviews.users)
 	}
 }

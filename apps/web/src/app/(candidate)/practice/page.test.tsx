@@ -1,15 +1,17 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
 import PracticePage from "./page";
 
+vi.mock("@/features/sessions/SessionsScreen", () => ({
+  SessionsScreen: () => <p>history</p>,
+}));
+
 /**
- * The practice destination.
- *
- * A placeholder until SES-07 ports the real screen, and tested anyway: it is
- * where signing in lands, so an empty or unheaded page here is the first thing
- * a new person sees.
+ * The practice destination: where signing in lands. The heading and the
+ * wizard entry are this page's own; the history is SessionsScreen's and
+ * has its own suite.
  */
 describe("PracticePage", () => {
   it("has exactly one first-level heading", () => {

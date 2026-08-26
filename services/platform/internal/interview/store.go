@@ -400,3 +400,36 @@ func (s *Store) StampTimingPolicy(ctx context.Context, session Session, policy T
 	}
 	return tx.Commit(ctx)
 }
+
+// ListMine answers every session the scope can see, newest first: the
+// owner's whole history, every lifecycle state included - a failed or
+// expired session is history too, never a row to hide.
+func (s *Store) ListMine(ctx context.Context, mode, candidateID, tenantID string) ([]Session, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("interview: beginning list: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, mode, candidateID, tenantID); err != nil {
+		return nil, err
+	}
+	rows, err := db.New(tx).ListSessions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("interview: listing sessions: %w", err)
+	}
+	sessions := make([]Session, 0, len(rows))
+	for _, row := range rows {
+		sessions = append(sessions, Session{
+			ID: row.ID, Mode: row.Mode, CandidateID: row.CandidateID, TenantID: row.TenantID,
+			BlueprintID: row.BlueprintID, Config: json.RawMessage(row.Config),
+			RecordingPreference: row.RecordingPreference, ConsentVersion: row.ConsentVersion,
+			ConnectionEpoch: int(row.ConnectionEpoch), AcceptedSequence: int(row.AcceptedSequence),
+			State: State(row.State), Version: int(row.Version),
+			BundleRef: row.BundleRef, BundleDigest: row.BundleDigest,
+			BundleRevision: int(row.BundleRevision), FailureCode: row.FailureCode,
+			TimingPolicyVersion: int(row.TimingPolicyVersion),
+			CreatedAt:           row.CreatedAt, StateChangedAt: row.StateChangedAt,
+		})
+	}
+	return sessions, nil
+}

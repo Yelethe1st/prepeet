@@ -489,6 +489,85 @@ func (q *Queries) ListMediaTracks(ctx context.Context, sessionID string) ([]List
 	return items, nil
 }
 
+const listSessions = `-- name: ListSessions :many
+SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
+       coalesce(tenant_id::text, '')::text AS tenant_id,
+       blueprint_id, config, recording_preference, consent_version,
+       connection_epoch, accepted_sequence, state, version,
+       coalesce(bundle_ref, '')::text AS bundle_ref,
+       coalesce(bundle_digest, '')::text AS bundle_digest,
+       coalesce(bundle_revision, 0)::integer AS bundle_revision,
+       coalesce(failure_code, '')::text AS failure_code,
+       coalesce(timing_policy_version, 0)::integer AS timing_policy_version,
+       created_at, state_changed_at
+FROM interview.sessions
+ORDER BY created_at DESC
+`
+
+type ListSessionsRow struct {
+	ID                  string
+	Mode                string
+	CandidateID         string
+	TenantID            string
+	BlueprintID         string
+	Config              []byte
+	RecordingPreference string
+	ConsentVersion      string
+	ConnectionEpoch     int32
+	AcceptedSequence    int32
+	State               string
+	Version             int32
+	BundleRef           string
+	BundleDigest        string
+	BundleRevision      int32
+	FailureCode         string
+	TimingPolicyVersion int32
+	CreatedAt           time.Time
+	StateChangedAt      time.Time
+}
+
+// The owner's history, newest first. RLS scopes the rows; the ORDER is
+// the only policy here.
+func (q *Queries) ListSessions(ctx context.Context) ([]ListSessionsRow, error) {
+	rows, err := q.db.Query(ctx, listSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSessionsRow{}
+	for rows.Next() {
+		var i ListSessionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Mode,
+			&i.CandidateID,
+			&i.TenantID,
+			&i.BlueprintID,
+			&i.Config,
+			&i.RecordingPreference,
+			&i.ConsentVersion,
+			&i.ConnectionEpoch,
+			&i.AcceptedSequence,
+			&i.State,
+			&i.Version,
+			&i.BundleRef,
+			&i.BundleDigest,
+			&i.BundleRevision,
+			&i.FailureCode,
+			&i.TimingPolicyVersion,
+			&i.CreatedAt,
+			&i.StateChangedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const persistCursor = `-- name: PersistCursor :execrows
 UPDATE interview.sessions
 SET accepted_sequence = $1::integer

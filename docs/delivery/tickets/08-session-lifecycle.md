@@ -207,9 +207,23 @@ recorded as coverage rather than as poor performance.
 machine, and shows no expired, cancelled, composition-failed or archived sessions.*
 
 **Done when**
-- [ ] Every lifecycle state the machine can reach is representable in the list.
-- [ ] Each state offers the action that actually applies to it.
-- [ ] Filters persist in the URL and survive a refresh.
+- [x] Every lifecycle state the machine can reach is representable in the list.
+- [x] Each state offers the action that actually applies to it.
+- [x] Filters persist in the URL and survive a refresh.
+
+**Built at /practice, replacing the placeholder, with the recorded prototype gap made
+structural.** The state vocabulary is data (states.ts): all sixteen states from the schema's own
+CHECK, each with its candidate-facing label, filter group and the one action that applies -
+rejoin through prepare for the live family, the processing page for the sealing and failed
+family, results for the finished, the wizard for the dead ends, with failure codes shown inline.
+The completeness test walks the machine's list against the vocabulary, so an invented
+"abandoned" state or a hidden expired row - the gap the ticket recorded - fails the build. An
+unknown future state renders as itself with the safest action rather than crashing history.
+
+The server side is GET /me/sessions: every session the scope can see, newest first, failed and
+expired rows included on purpose. Filters live in the URL (?filter=), read on load and written
+on change, so refresh and shared links keep them; the empty history offers the wizard rather
+than a blank table.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md) · [information-architecture.md](../../product/information-architecture.md)
 

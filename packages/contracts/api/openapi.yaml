@@ -1173,6 +1173,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /me/sessions:
+    get:
+      tags: [interview]
+      operationId: listMySessions
+      summary: Every session the caller owns, every lifecycle state included
+      description: |
+        The whole history, newest first: a failed, expired or cancelled
+        session is history too, never a hidden row. Practice only today;
+        screening participation surfaces arrive with their epic.
+      responses:
+        "200":
+          description: The sessions.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions]
+                properties:
+                  sessions:
+                    type: array
+                    items: { $ref: "#/components/schemas/InterviewSession" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
   /me:
     get:
       tags: [authentication]

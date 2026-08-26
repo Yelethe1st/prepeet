@@ -184,3 +184,19 @@ SET state = sqlc.arg(state)::text,
 WHERE session_id = sqlc.arg(session_id)::uuid
   AND track = sqlc.arg(track)::text
   AND state = 'recording';
+
+-- name: ListSessions :many
+-- The owner's history, newest first. RLS scopes the rows; the ORDER is
+-- the only policy here.
+SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
+       coalesce(tenant_id::text, '')::text AS tenant_id,
+       blueprint_id, config, recording_preference, consent_version,
+       connection_epoch, accepted_sequence, state, version,
+       coalesce(bundle_ref, '')::text AS bundle_ref,
+       coalesce(bundle_digest, '')::text AS bundle_digest,
+       coalesce(bundle_revision, 0)::integer AS bundle_revision,
+       coalesce(failure_code, '')::text AS failure_code,
+       coalesce(timing_policy_version, 0)::integer AS timing_policy_version,
+       created_at, state_changed_at
+FROM interview.sessions
+ORDER BY created_at DESC;

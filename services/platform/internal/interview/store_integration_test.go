@@ -366,3 +366,95 @@ func TestTheBundleDocumentPersistsWithReadyAndFreezes(t *testing.T) {
 		t.Fatal("a persisted bundle was deleted; a review has nothing to reconstruct from")
 	}
 }
+
+func TestEveryTransitionCarriesItsActorIntoTheAudit(t *testing.T) {
+	// SES-01's third criterion, walked edge by edge: each transition writes
+	// exactly one audit row, the row names the actor who carried authority -
+	// person or automation - and a transition the catalogue defines no event
+	// for still audits without inventing one.
+	ctx := context.Background()
+	session := createPractice(t)
+	store := interview.NewStore(pool)
+
+	automation := interview.Actor{ID: candidateID, Type: "service"}
+
+	composing, err := store.Transition(ctx, session, interview.StateComposing, interview.Effects{}, candidate)
+	if err != nil {
+		t.Fatalf("to composing: %v", err)
+	}
+	failed, err := store.Transition(ctx, composing, interview.StateCompositionFailed,
+		interview.Effects{FailureCode: "FAILURE_CODE_PROVIDER_UNAVAILABLE"}, automation)
+	if err != nil {
+		t.Fatalf("to composition_failed: %v", err)
+	}
+	if _, err := store.Transition(ctx, failed, interview.StateComposing, interview.Effects{}, candidate); err != nil {
+		t.Fatalf("retry to composing: %v", err)
+	}
+
+	conn, err := pgx.Connect(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	rows, err := conn.Query(ctx, `
+		SELECT action, actor_id::text, actor_type, outcome
+		FROM audit.events WHERE subject_id = $1 ORDER BY occurred_at, action`, session.ID)
+	if err != nil {
+		t.Fatalf("reading audit: %v", err)
+	}
+	defer rows.Close()
+
+	type auditRow struct{ action, actorID, actorType, outcome string }
+	var trail []auditRow
+	for rows.Next() {
+		var row auditRow
+		if err := rows.Scan(&row.action, &row.actorID, &row.actorType, &row.outcome); err != nil {
+			t.Fatalf("scanning: %v", err)
+		}
+		trail = append(trail, row)
+	}
+
+	// One row per act: the create and three transitions. No transition is
+	// unaccounted for, and none is double-counted.
+	if len(trail) != 4 {
+		t.Fatalf("the trail holds %d rows for 4 acts: %+v", len(trail), trail)
+	}
+	counts := map[string]int{}
+	for _, row := range trail {
+		counts[row.action]++
+		if row.actorID != candidateID {
+			t.Errorf("%s recorded actor %s, want the acting user", row.action, row.actorID)
+		}
+		if row.outcome != "allowed" {
+			t.Errorf("%s recorded outcome %s", row.action, row.outcome)
+		}
+	}
+	if counts["interview.session_composing"] != 2 || counts["interview.session_composition_failed"] != 1 {
+		t.Fatalf("actions = %v", counts)
+	}
+
+	// The automation's transition says so: acting FOR the person, AS a
+	// service, and the distinction survives into the row.
+	for _, row := range trail {
+		if row.action == "interview.session_composition_failed" && row.actorType != "service" {
+			t.Errorf("the automated transition recorded actor_type %q, want service", row.actorType)
+		}
+		if row.action == "interview.session_created" && row.actorType != "user" {
+			t.Errorf("the person's own act recorded actor_type %q, want user", row.actorType)
+		}
+	}
+
+	// Eventless transitions invented no events: the outbox holds only the
+	// created event for this session - composing and composition_failed have
+	// no catalogued event and must not fabricate one.
+	var events int
+	if err := conn.QueryRow(ctx, `
+		SELECT count(*) FROM integration.outbox
+		WHERE payload->>'session_id' = $1`, session.ID).Scan(&events); err != nil {
+		t.Fatalf("counting events: %v", err)
+	}
+	if events != 1 {
+		t.Fatalf("%d events for a created+composing+failed+retried session, want only session_created", events)
+	}
+}

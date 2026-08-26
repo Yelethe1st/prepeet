@@ -17,9 +17,25 @@ archived, plus the exceptional terminals: cancelled, expired, composition failed
 finalization failed, evaluation failed.
 
 **Done when**
-- [ ] Invalid transitions are rejected with a stable error code, not a 500.
-- [ ] Optimistic concurrency rejects a stale write rather than silently overwriting.
-- [ ] Every transition records authorised actor, emitted events, and audit entry.
+- [x] Invalid transitions are rejected with a stable error code, not a 500.
+- [x] Optimistic concurrency rejects a stale write rather than silently overwriting.
+- [x] Every transition records authorised actor, emitted events, and audit entry.
+
+**Done.** The machine holds the spec's exact edge set - every edge in the diagram allowed, every
+edge outside it refused, self-transitions refused, terminals terminal except the authorized
+retries - and an invalid transition is a typed TransitionError carrying SESSION_TRANSITION_INVALID,
+proven against the real store. Optimistic concurrency is the schema's own version guard: a stale
+write is ErrStaleVersion and the world it tried to overwrite is proven unchanged. The third box
+is walked edge by edge: each transition writes exactly one audit row in its own transaction,
+the row carries the acting user AND whether a person or automation carried their authority
+(actor_type survives the distinction), catalogued events publish in the same transaction, and a
+transition the catalogue defines no event for audits without inventing one. The restart proof
+holds the exactly-once shape across a worker death.
+
+One boundary note: no HTTP endpoint issues user-driven transitions yet - creation transitions
+internally and the workflow transitions as a service. When SES-02's start and the cancel
+endpoints land, TransitionError maps to its stable code at the wire the way every other typed
+refusal here does.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md)
 

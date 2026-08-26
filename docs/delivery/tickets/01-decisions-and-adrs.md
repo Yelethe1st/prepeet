@@ -308,15 +308,24 @@ and decide what happens when a hiring-record duty and a deletion request collide
 
 ### DEC-16 · Decide the billing unit, quota behaviour and overage messaging
 
-**Depends on** DEC-01 · **Blocks** TEN-08, OPS-05, INT-06
+**Depends on** DEC-01 · **Blocks** TEN-08, OPS-05, INT-06 · **Done** 2026-08-26
 
 What a tenant is charged for — created, started, or completed sessions — and what happens at the limit.
 An insufficient-evidence session is the awkward case: decide whether it is billable.
 
 **Done when**
-- [ ] Billing unit decided, including the insufficient-evidence and abandoned-session cases.
-- [ ] Quota behaviour at limit decided: block, bill overage, or notify only.
-- [ ] Candidate-facing consequence of a tenant hitting its limit is defined and never mid-interview.
+- [x] Billing unit decided, including the insufficient-evidence and abandoned-session cases.
+- [x] Quota behaviour at limit decided: block, bill overage, or notify only.
+- [x] Candidate-facing consequence of a tenant hitting its limit is defined and never mid-interview.
+
+**[ADR-0014](../../architecture/decisions/0014-billing-unit-and-quota-behaviour.md).** A started
+session is the unit, metered on the first in_progress transition, which the state machine already
+makes exactly-once. Insufficient evidence is billable, the first sixty seconds are not, and a
+session interrupted by us never is. At the limit new starts are refused after a soft warning at
+80 percent; quota is reserved at start so in-flight interviews always complete, and the candidate
+who is refused sees capacity language with no billing vocabulary. Overage is deferred as a future
+configurable option, not decided against. Price points and currency stay open and attach to the
+unit later without touching the ledger.
 
 **Spec** [cost-and-capacity-model.md](../../operations/cost-and-capacity-model.md)
 

@@ -136,6 +136,24 @@ covers. Two gates stand:
 
 ## Consequences
 
+- **The loop carries a measured latency budget, not a hope.** From the
+  candidate's end of speech to first audible response: p50 at or under
+  900ms, p95 at or under 1.5s, measured in the browser harness against the
+  real stack (RTC-01's acceptance). Persona pacing is deliberate pause
+  added on top of the floor, never a mask absorbed into it, so pipeline
+  variance hides inside intent. An interview wants a considered beat, not
+  an instant one; the budget encodes the natural band rather than chasing
+  the assistant-grade minimum.
+- **The speech-to-speech escape hatch is inside the tent.** A vendor
+  realtime model (OpenAI Realtime, Gemini Live) can run as a participant in
+  a LiveKit room through the agents framework, so if measurement ever says
+  a composed loop does not feel right for some persona or shape, the
+  correction is an engine swap behind the same SFU, grants, recording and
+  topology - not an architecture change. Any such trial is gated on the
+  provider terms review this ADR already requires for anything that hears
+  Restricted audio, and on the evidence-integrity constraint: whatever the
+  engine, the transcript the evaluation quotes must be exactly what the
+  interviewer acted on.
 - We own SFU operations: upgrades, TURN, capacity. Bounded at the start:
   LiveKit is a single binary with embedded TURN, and single-node serves the
   local stack and first production scale.

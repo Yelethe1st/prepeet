@@ -19,6 +19,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0011](0011-artifact-registry-review-publication-and-rollback.md) | Artifacts: git authors, the database registry publishes immutably by trigger, sessions pin digests, rollback is a pointer move, and the publisher must not be the drafter | 2026-08-26 |
 | [0012](0012-livekit-carries-live-voice.md) | LiveKit self-hosted in eu-west-2 carries live voice behind our own Python agent; Go mints session-scoped room grants; degradation pauses and resumes, never continues degraded into evaluation | 2026-08-26 |
 | [0013](0013-recording-capture-format-alignment-retention.md) | Recording is server-side SFU egress: two Opus/WebM tracks on the room's single clock; transcript-only sessions never write audio at all; durations stay with the retention decision | 2026-08-26 |
+| [0014](0014-billing-unit-and-quota-behaviour.md) | A started session is the billing unit, metered exactly-once on the first in_progress transition; the limit blocks new starts after a soft warning and never touches an interview in flight | 2026-08-26 |
 
 ## Required initial ADRs
 

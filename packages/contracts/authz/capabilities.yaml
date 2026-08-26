@@ -206,6 +206,13 @@ capabilities:
       Integrations move candidate data to systems outside Prepeet, so this
       needs recent authentication.
 
+  - name: tenant.member_read
+    tenant: true
+    reason: >-
+      Seeing who belongs to the workspace, with each person's role. Every
+      membership role holds it, because a colleague list is not authority
+      over anyone and hiding it only obscures who to ask for access.
+
   - name: tenant.member_manage
     tenant: true
     step_up: true
@@ -356,6 +363,7 @@ roles:
       - evaluation.read_screen
       - evaluation.review
       - appeal.raise
+      - tenant.member_read
       - rubric.read
 
   - name: hiring_manager
@@ -373,6 +381,7 @@ roles:
       - evaluation.review
       - appeal.raise
       - appeal.manage
+      - tenant.member_read
       - rubric.read
 
   - name: viewer
@@ -385,6 +394,7 @@ roles:
       - campaign.read
       - invitation.read
       - evaluation.read_screen
+      - tenant.member_read
       - rubric.read
 
   - name: admin
@@ -404,6 +414,7 @@ roles:
       - evaluation.review
       - appeal.raise
       - appeal.manage
+      - tenant.member_read
       - rubric.read
       - rubric.draft
       - rubric.publish
@@ -428,6 +439,7 @@ roles:
       - evaluation.review
       - appeal.raise
       - appeal.manage
+      - tenant.member_read
       - rubric.read
       - rubric.draft
       - rubric.publish

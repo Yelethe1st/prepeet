@@ -512,7 +512,11 @@ func (s *Service) Capabilities(ctx context.Context, sessionToken string) ([]auth
 	if row.RevokedAt != nil || !s.clock().Before(row.ExpiresAt) {
 		return nil, ErrSessionInvalid
 	}
+	return s.grantsFor(ctx, row)
+}
 
+// grantsFor derives what one session may do, right now, from its row.
+func (s *Service) grantsFor(ctx context.Context, row SessionRow) ([]authz.Capability, error) {
 	// Everybody holds the untenanted bundle. It is their own data, and it does
 	// not depend on any workspace, so stepping into one adds authority rather
 	// than replacing it.
@@ -534,6 +538,48 @@ func (s *Service) Capabilities(ctx context.Context, sessionToken string) ([]auth
 	}
 
 	return append(granted, authz.CapabilitiesOf(authz.Role(role))...), nil
+}
+
+// ForbiddenError is a refusal from policy evaluation, carrying the reason
+// the audit record needs. The reason is not for the client.
+type ForbiddenError struct {
+	Reason string
+}
+
+func (e *ForbiddenError) Error() string { return "identity: forbidden: " + e.Reason }
+
+// Authorize resolves a session and decides one capability through the one
+// policy code path.
+//
+// Everything IAM-04 promised holds by construction here rather than per
+// endpoint: an expired context is expired before it is under-privileged,
+// step-up capabilities check when the person last proved who they are - not
+// when their session was issued - and deny is the default for everything
+// unknown or missing. A handler that wants tenant authority calls this and
+// nothing else.
+func (s *Service) Authorize(ctx context.Context, sessionToken string, capability authz.Capability) (SessionRow, error) {
+	row, err := s.Lookup(ctx, sessionToken)
+	if err != nil {
+		return SessionRow{}, err
+	}
+
+	granted, err := s.grantsFor(ctx, row)
+	if err != nil {
+		return SessionRow{}, err
+	}
+
+	decision := authz.Context{
+		Subject:         authz.Subject{ID: row.UserID, Type: authz.SubjectUser},
+		ActiveTenant:    row.ActiveTenantID,
+		Capabilities:    granted,
+		AuthenticatedAt: row.AuthenticatedAt,
+		IssuedAt:        row.IssuedAt,
+		ExpiresAt:       row.ExpiresAt,
+	}.Can(capability, authz.Request{Tenant: row.ActiveTenantID}, s.clock())
+	if !decision.Allowed {
+		return SessionRow{}, &ForbiddenError{Reason: decision.Reason}
+	}
+	return row, nil
 }
 
 // User is what GET /me reports about a person.

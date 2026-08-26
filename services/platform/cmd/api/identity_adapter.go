@@ -6,6 +6,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/authz"
 )
 
 // identityAdapter presents the identity context as the port the API layer
@@ -57,6 +58,26 @@ func (a identityAdapter) Refresh(ctx context.Context, refreshToken string) (api.
 func (a identityAdapter) Lookup(ctx context.Context, sessionToken string) (api.Principal, error) {
 	row, err := a.service.Lookup(ctx, sessionToken)
 	if err != nil {
+		return api.Principal{}, a.translate(err)
+	}
+	return api.Principal{
+		UserID:          row.UserID,
+		SessionID:       row.ID,
+		AuthenticatedAt: row.AuthenticatedAt,
+		ActiveTenantID:  row.ActiveTenantID,
+	}, nil
+}
+
+// Authorize resolves the session and decides one capability through the
+// single policy path. A denial arrives as api.ErrForbidden whatever the
+// reason was: the reason is the audit record's, not the client's.
+func (a identityAdapter) Authorize(ctx context.Context, sessionToken, capability string) (api.Principal, error) {
+	row, err := a.service.Authorize(ctx, sessionToken, authz.Capability(capability))
+	if err != nil {
+		var forbidden *identity.ForbiddenError
+		if errors.As(err, &forbidden) {
+			return api.Principal{}, api.ErrForbidden
+		}
 		return api.Principal{}, a.translate(err)
 	}
 	return api.Principal{

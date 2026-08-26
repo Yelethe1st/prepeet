@@ -29,11 +29,20 @@ WHERE id = $1 AND status <> 'deleted';
 -- name: MembershipExists :one
 -- The one membership check in the system. Everything downstream reads the
 -- selection from the session rather than re-deriving it, so this is the only
--- place it can be got wrong.
+-- place it can be got wrong. An invited membership counts: selecting the
+-- workspace is how an invitation is accepted, and the activation below runs
+-- in the same transaction. A revoked one never does.
 SELECT EXISTS (
     SELECT 1 FROM tenancy.memberships
-    WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'
+    WHERE user_id = $1 AND tenant_id = $2 AND status IN ('active', 'invited')
 ) AS permitted;
+
+-- name: ActivateInvitedMembership :execrows
+-- Selecting the workspace accepts the invitation. Runs under the tenant's
+-- own scope, entered only after the membership check above passed.
+UPDATE tenancy.memberships
+SET status = 'active', version = version + 1, updated_at = now()
+WHERE user_id = $1 AND tenant_id = $2 AND status = 'invited';
 
 -- name: SetSessionActiveTenant :exec
 -- An empty string clears the selection rather than failing, which is what
@@ -252,3 +261,70 @@ INSERT INTO audit.events
 VALUES (sqlc.arg(id)::uuid, NULL, sqlc.arg(actor_id)::uuid, 'user',
         sqlc.arg(action)::text, 'elevation', sqlc.arg(grant_id)::text,
         sqlc.arg(outcome)::text, sqlc.arg(detail)::jsonb);
+
+-- ── TEN-02: member administration. Every statement here runs in a
+-- transaction scoped to the administrator's active tenant, so the policy
+-- from 0001 confines each to one workspace.
+
+-- name: ListMembers :many
+SELECT m.id::text AS membership_id, m.user_id::text AS user_id,
+       coalesce(u.email::text, '')::text AS email,
+       m.role, m.status, m.version, m.created_at
+FROM tenancy.memberships m
+JOIN identity.users u ON u.id = m.user_id
+WHERE m.tenant_id = sqlc.arg(tenant_id)::uuid
+ORDER BY m.created_at, m.id;
+
+-- name: FindActiveUserByEmail :one
+SELECT id::text AS id FROM identity.users
+WHERE email = sqlc.arg(email) AND status = 'active';
+
+-- name: FindMembershipInTenant :one
+SELECT id::text AS id, user_id::text AS user_id, role, status, version
+FROM tenancy.memberships
+WHERE id = sqlc.arg(id)::uuid AND tenant_id = sqlc.arg(tenant_id)::uuid;
+
+-- name: FindMembershipByUser :one
+SELECT id::text AS id, role, status, version
+FROM tenancy.memberships
+WHERE user_id = sqlc.arg(user_id)::uuid AND tenant_id = sqlc.arg(tenant_id)::uuid;
+
+-- name: InsertInvitedMembership :exec
+INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(tenant_id)::uuid, sqlc.arg(user_id)::uuid,
+        'invited', sqlc.arg(role)::text);
+
+-- name: ReinviteMembership :execrows
+-- A revoked person invited again gets their old row back as a fresh
+-- invitation, because the row's history - decisions they recorded - is why
+-- it was never deleted.
+UPDATE tenancy.memberships
+SET status = 'invited', role = sqlc.arg(role)::text,
+    version = version + 1, updated_at = now()
+WHERE id = sqlc.arg(id)::uuid AND status = 'revoked';
+
+-- name: ChangeMembershipRole :execrows
+-- Version-guarded, and never touching an owner: the anchor role is not this
+-- surface's to assign or remove.
+UPDATE tenancy.memberships
+SET role = sqlc.arg(role)::text, version = version + 1, updated_at = now()
+WHERE id = sqlc.arg(id)::uuid
+  AND version = sqlc.arg(expected_version)::integer
+  AND role <> 'owner';
+
+-- name: RevokeMembership :execrows
+UPDATE tenancy.memberships
+SET status = 'revoked', version = version + 1, updated_at = now()
+WHERE id = sqlc.arg(id)::uuid
+  AND version = sqlc.arg(expected_version)::integer
+  AND role <> 'owner' AND status <> 'revoked';
+
+-- name: InsertTenantAuditEvent :exec
+-- The member-administration audit row: tenant-scoped, with the detail the
+-- box demands - a role change carries the previous value.
+INSERT INTO audit.events
+    (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, detail)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(tenant_id)::uuid, sqlc.arg(actor_id)::uuid, 'user',
+        sqlc.arg(action)::text, nullif(sqlc.arg(subject_type)::text, ''),
+        nullif(sqlc.arg(subject_id)::text, ''), sqlc.arg(outcome)::text,
+        sqlc.arg(detail)::jsonb);

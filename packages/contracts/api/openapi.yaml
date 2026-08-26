@@ -39,6 +39,8 @@ tags:
     description: The interview catalogue - disciplines, roles, shapes and personas - served from the artifact registry, never hardcoded.
   - name: interview
     description: Interview sessions - creation from a validated catalogue selection; the lifecycle endpoints arrive with the session tickets.
+  - name: tenant
+    description: Workspace administration - members and roles. Every operation is decided by the capability catalogue, tenant-scoped, and audited.
 
 paths:
   /healthz:
@@ -767,6 +769,114 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /tenant/members:
+    get:
+      tags: [tenant]
+      operationId: listMembers
+      summary: Everyone in the active workspace
+      description: |
+        Invited members are visible before they accept; revoked members keep
+        their row because the decisions they recorded stay attributed to
+        them. Needs tenant.member_read under an active tenant.
+      responses:
+        "200":
+          description: The members.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [tenant]
+      operationId: inviteMember
+      summary: Invite an existing account to the workspace
+      description: |
+        The address must already have an account; the invitation is accepted
+        by selecting the workspace. Needs tenant.member_manage, which
+        requires recent authentication. The owner role cannot be assigned
+        here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteMemberRequest"
+      responses:
+        "201":
+          description: The invited membership.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/MemberConflict" }
+
+  /tenant/members/{membershipId}:
+    patch:
+      tags: [tenant]
+      operationId: changeMemberRole
+      summary: Move a member to another role
+      description: |
+        Version-guarded against concurrent administrators, audited with the
+        previous role, and never touching an owner: the anchor role is not
+        this surface's to assign or remove.
+      parameters:
+        - $ref: "#/components/parameters/MembershipId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeMemberRoleRequest"
+      responses:
+        "200":
+          description: The membership after the change.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/MemberConflict" }
+    delete:
+      tags: [tenant]
+      operationId: revokeMember
+      summary: Revoke a member's access
+      description: |
+        Effective on their next request - nothing caches what a membership
+        grants. The row survives with its history; removing the record
+        entirely is a data-deletion request.
+      parameters:
+        - $ref: "#/components/parameters/MembershipId"
+        - name: expectedVersion
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: The membership is revoked.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/MemberConflict" }
+
   /me:
     get:
       tags: [authentication]
@@ -893,6 +1003,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    MembershipId:
+      name: membershipId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -921,6 +1036,26 @@ components:
         type: string
 
   responses:
+    Forbidden:
+      description: The session holds no capability covering this.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    MemberConflict:
+      description: The membership is not in a state this operation applies to, or changed since it was read.
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
     NotFound:
       description: |
         Nothing at this identifier in this scope - which deliberately covers
@@ -1223,6 +1358,54 @@ components:
         documents:
           type: array
           items: { $ref: "#/components/schemas/Document" }
+
+    Member:
+      type: object
+      required: [membership_id, user_id, email, role, status, version, created_at]
+      properties:
+        membership_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        email: { type: string }
+        role:
+          $ref: "#/components/schemas/TenantRole"
+        status:
+          type: string
+          enum: [invited, active, revoked]
+        version: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    MemberList:
+      type: object
+      required: [members]
+      properties:
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/Member" }
+
+    TenantRole:
+      type: string
+      description: |
+        The tenant role vocabulary from the capability contract. owner is
+        readable but never assignable through this API.
+      enum: [owner, admin, recruiter, hiring_manager, viewer]
+
+    InviteMemberRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email }
+        role:
+          type: string
+          enum: [admin, recruiter, hiring_manager, viewer]
+
+    ChangeMemberRoleRequest:
+      type: object
+      required: [role, expected_version]
+      properties:
+        role:
+          type: string
+          enum: [admin, recruiter, hiring_manager, viewer]
+        expected_version: { type: integer }
 
     CreateInterviewRequest:
       type: object

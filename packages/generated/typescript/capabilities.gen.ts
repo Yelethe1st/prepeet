@@ -148,6 +148,11 @@ export const CAPABILITIES = [
   // so it needs recent authentication.
   "tenant.member_manage",
 
+  // Seeing who belongs to the workspace, with each person's role. Every
+  // membership role holds it, because a colleague list is not authority
+  // over anyone and hiding it only obscures who to ask for access.
+  "tenant.member_read",
+
   // Retention determines when candidate data is destroyed, which is
   // irreversible.
   "tenant.retention_manage",

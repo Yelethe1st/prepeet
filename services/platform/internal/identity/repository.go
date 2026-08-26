@@ -123,6 +123,28 @@ func (r *PostgresRepository) SetActiveTenant(ctx context.Context, sessionID, use
 			}
 			return ErrNoMembership
 		}
+
+		// Selecting the workspace is how an invitation is accepted. The
+		// tenant scope is entered only now, after the membership check
+		// passed - the same legitimation CreateOrganisationAccount uses -
+		// because the invited row's own policy is tenant-scoped.
+		if err := database.SetTenant(ctx, tx, tenantID); err != nil {
+			return err
+		}
+		accepted, err := q.ActivateInvitedMembership(ctx, db.ActivateInvitedMembershipParams{
+			UserID: userID, TenantID: tenantID,
+		})
+		if err != nil {
+			return fmt.Errorf("identity: accepting the invitation: %w", err)
+		}
+		if accepted > 0 {
+			if err := writeAudit(ctx, q, auditEvent{
+				actorID: userID, action: "identity.membership_accepted", outcome: "allowed",
+				subjectType: "tenant", subjectID: tenantID, requestID: requestID,
+			}); err != nil {
+				return err
+			}
+		}
 	}
 
 	if err := q.SetSessionActiveTenant(ctx, db.SetSessionActiveTenantParams{

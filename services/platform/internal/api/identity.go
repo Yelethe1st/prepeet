@@ -37,6 +37,11 @@ type Identity interface {
 	// family and returns ErrSessionRejected.
 	Refresh(ctx context.Context, refreshToken string) (Session, error)
 
+	// Authorize resolves the session AND decides one capability through the
+	// single policy path. The Principal comes back only when the decision
+	// allowed; a denial is ErrForbidden however it was reached, because the
+	// decision's reason belongs to the audit record, not to the client.
+	Authorize(ctx context.Context, sessionToken, capability string) (Principal, error)
 	// Lookup resolves a session token to who is acting. It returns
 	// ErrSessionRejected for a token that is missing, expired, retired or
 	// revoked, since none of those is a distinction the caller may act on.

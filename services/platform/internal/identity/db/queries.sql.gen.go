@@ -10,6 +10,27 @@ import (
 	"time"
 )
 
+const activateInvitedMembership = `-- name: ActivateInvitedMembership :execrows
+UPDATE tenancy.memberships
+SET status = 'active', version = version + 1, updated_at = now()
+WHERE user_id = $1 AND tenant_id = $2 AND status = 'invited'
+`
+
+type ActivateInvitedMembershipParams struct {
+	UserID   string
+	TenantID string
+}
+
+// Selecting the workspace accepts the invitation. Runs under the tenant's
+// own scope, entered only after the membership check above passed.
+func (q *Queries) ActivateInvitedMembership(ctx context.Context, arg ActivateInvitedMembershipParams) (int64, error) {
+	result, err := q.db.Exec(ctx, activateInvitedMembership, arg.UserID, arg.TenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const activeElevationByUser = `-- name: ActiveElevationByUser :one
 SELECT id::text AS id, reason, ticket, granted_at, expires_at
 FROM identity.elevations
@@ -41,6 +62,30 @@ func (q *Queries) ActiveElevationByUser(ctx context.Context, userID string) (Act
 		&i.ExpiresAt,
 	)
 	return i, err
+}
+
+const changeMembershipRole = `-- name: ChangeMembershipRole :execrows
+UPDATE tenancy.memberships
+SET role = $1::text, version = version + 1, updated_at = now()
+WHERE id = $2::uuid
+  AND version = $3::integer
+  AND role <> 'owner'
+`
+
+type ChangeMembershipRoleParams struct {
+	Role            string
+	ID              string
+	ExpectedVersion int32
+}
+
+// Version-guarded, and never touching an owner: the anchor role is not this
+// surface's to assign or remove.
+func (q *Queries) ChangeMembershipRole(ctx context.Context, arg ChangeMembershipRoleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, changeMembershipRole, arg.Role, arg.ID, arg.ExpectedVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const findActionTokenByHash = `-- name: FindActionTokenByHash :one
@@ -76,6 +121,18 @@ func (q *Queries) FindActionTokenByHash(ctx context.Context, tokenHash string) (
 		&i.Attempts,
 	)
 	return i, err
+}
+
+const findActiveUserByEmail = `-- name: FindActiveUserByEmail :one
+SELECT id::text AS id FROM identity.users
+WHERE email = $1 AND status = 'active'
+`
+
+func (q *Queries) FindActiveUserByEmail(ctx context.Context, email string) (string, error) {
+	row := q.db.QueryRow(ctx, findActiveUserByEmail, email)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const findCredentialsByEmail = `-- name: FindCredentialsByEmail :one
@@ -139,6 +196,68 @@ func (q *Queries) FindLiveOTP(ctx context.Context, userID string) (FindLiveOTPRo
 		&i.TokenHash,
 		&i.ExpiresAt,
 		&i.Attempts,
+	)
+	return i, err
+}
+
+const findMembershipByUser = `-- name: FindMembershipByUser :one
+SELECT id::text AS id, role, status, version
+FROM tenancy.memberships
+WHERE user_id = $1::uuid AND tenant_id = $2::uuid
+`
+
+type FindMembershipByUserParams struct {
+	UserID   string
+	TenantID string
+}
+
+type FindMembershipByUserRow struct {
+	ID      string
+	Role    string
+	Status  string
+	Version int32
+}
+
+func (q *Queries) FindMembershipByUser(ctx context.Context, arg FindMembershipByUserParams) (FindMembershipByUserRow, error) {
+	row := q.db.QueryRow(ctx, findMembershipByUser, arg.UserID, arg.TenantID)
+	var i FindMembershipByUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Role,
+		&i.Status,
+		&i.Version,
+	)
+	return i, err
+}
+
+const findMembershipInTenant = `-- name: FindMembershipInTenant :one
+SELECT id::text AS id, user_id::text AS user_id, role, status, version
+FROM tenancy.memberships
+WHERE id = $1::uuid AND tenant_id = $2::uuid
+`
+
+type FindMembershipInTenantParams struct {
+	ID       string
+	TenantID string
+}
+
+type FindMembershipInTenantRow struct {
+	ID      string
+	UserID  string
+	Role    string
+	Status  string
+	Version int32
+}
+
+func (q *Queries) FindMembershipInTenant(ctx context.Context, arg FindMembershipInTenantParams) (FindMembershipInTenantRow, error) {
+	row := q.db.QueryRow(ctx, findMembershipInTenant, arg.ID, arg.TenantID)
+	var i FindMembershipInTenantRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Role,
+		&i.Status,
+		&i.Version,
 	)
 	return i, err
 }
@@ -435,6 +554,29 @@ func (q *Queries) InsertElevationAudit(ctx context.Context, arg InsertElevationA
 	return err
 }
 
+const insertInvitedMembership = `-- name: InsertInvitedMembership :exec
+INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
+VALUES ($1::uuid, $2::uuid, $3::uuid,
+        'invited', $4::text)
+`
+
+type InsertInvitedMembershipParams struct {
+	ID       string
+	TenantID string
+	UserID   string
+	Role     string
+}
+
+func (q *Queries) InsertInvitedMembership(ctx context.Context, arg InsertInvitedMembershipParams) error {
+	_, err := q.db.Exec(ctx, insertInvitedMembership,
+		arg.ID,
+		arg.TenantID,
+		arg.UserID,
+		arg.Role,
+	)
+	return err
+}
+
 const insertOwningMembership = `-- name: InsertOwningMembership :exec
 INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
 VALUES ($1, $2, $3, 'active', 'owner')
@@ -512,6 +654,42 @@ func (q *Queries) InsertTenant(ctx context.Context, arg InsertTenantParams) erro
 	return err
 }
 
+const insertTenantAuditEvent = `-- name: InsertTenantAuditEvent :exec
+INSERT INTO audit.events
+    (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, detail)
+VALUES ($1::uuid, $2::uuid, $3::uuid, 'user',
+        $4::text, nullif($5::text, ''),
+        nullif($6::text, ''), $7::text,
+        $8::jsonb)
+`
+
+type InsertTenantAuditEventParams struct {
+	ID          string
+	TenantID    string
+	ActorID     string
+	Action      string
+	SubjectType string
+	SubjectID   string
+	Outcome     string
+	Detail      []byte
+}
+
+// The member-administration audit row: tenant-scoped, with the detail the
+// box demands - a role change carries the previous value.
+func (q *Queries) InsertTenantAuditEvent(ctx context.Context, arg InsertTenantAuditEventParams) error {
+	_, err := q.db.Exec(ctx, insertTenantAuditEvent,
+		arg.ID,
+		arg.TenantID,
+		arg.ActorID,
+		arg.Action,
+		arg.SubjectType,
+		arg.SubjectID,
+		arg.Outcome,
+		arg.Detail,
+	)
+	return err
+}
+
 const insertUser = `-- name: InsertUser :exec
 INSERT INTO identity.users (id, email) VALUES ($1, $2)
 `
@@ -565,6 +743,58 @@ func (q *Queries) ListActiveElevations(ctx context.Context) ([]ListActiveElevati
 			&i.Ticket,
 			&i.GrantedAt,
 			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMembers = `-- name: ListMembers :many
+
+SELECT m.id::text AS membership_id, m.user_id::text AS user_id,
+       coalesce(u.email::text, '')::text AS email,
+       m.role, m.status, m.version, m.created_at
+FROM tenancy.memberships m
+JOIN identity.users u ON u.id = m.user_id
+WHERE m.tenant_id = $1::uuid
+ORDER BY m.created_at, m.id
+`
+
+type ListMembersRow struct {
+	MembershipID string
+	UserID       string
+	Email        string
+	Role         string
+	Status       string
+	Version      int32
+	CreatedAt    time.Time
+}
+
+// ── TEN-02: member administration. Every statement here runs in a
+// transaction scoped to the administrator's active tenant, so the policy
+// from 0001 confines each to one workspace.
+func (q *Queries) ListMembers(ctx context.Context, tenantID string) ([]ListMembersRow, error) {
+	rows, err := q.db.Query(ctx, listMembers, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMembersRow{}
+	for rows.Next() {
+		var i ListMembersRow
+		if err := rows.Scan(
+			&i.MembershipID,
+			&i.UserID,
+			&i.Email,
+			&i.Role,
+			&i.Status,
+			&i.Version,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -651,7 +881,7 @@ func (q *Queries) MarkEmailVerified(ctx context.Context, userID string) error {
 const membershipExists = `-- name: MembershipExists :one
 SELECT EXISTS (
     SELECT 1 FROM tenancy.memberships
-    WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'
+    WHERE user_id = $1 AND tenant_id = $2 AND status IN ('active', 'invited')
 ) AS permitted
 `
 
@@ -662,7 +892,9 @@ type MembershipExistsParams struct {
 
 // The one membership check in the system. Everything downstream reads the
 // selection from the session rather than re-deriving it, so this is the only
-// place it can be got wrong.
+// place it can be got wrong. An invited membership counts: selecting the
+// workspace is how an invitation is accepted, and the activation below runs
+// in the same transaction. A revoked one never does.
 func (q *Queries) MembershipExists(ctx context.Context, arg MembershipExistsParams) (bool, error) {
 	row := q.db.QueryRow(ctx, membershipExists, arg.UserID, arg.TenantID)
 	var permitted bool
@@ -685,6 +917,29 @@ func (q *Queries) RecordTokenAttempt(ctx context.Context, id string) (int32, err
 	var attempts int32
 	err := row.Scan(&attempts)
 	return attempts, err
+}
+
+const reinviteMembership = `-- name: ReinviteMembership :execrows
+UPDATE tenancy.memberships
+SET status = 'invited', role = $1::text,
+    version = version + 1, updated_at = now()
+WHERE id = $2::uuid AND status = 'revoked'
+`
+
+type ReinviteMembershipParams struct {
+	Role string
+	ID   string
+}
+
+// A revoked person invited again gets their old row back as a fresh
+// invitation, because the row's history - decisions they recorded - is why
+// it was never deleted.
+func (q *Queries) ReinviteMembership(ctx context.Context, arg ReinviteMembershipParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reinviteMembership, arg.Role, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const retireSession = `-- name: RetireSession :exec
@@ -764,6 +1019,27 @@ type RevokeFamilyParams struct {
 func (q *Queries) RevokeFamily(ctx context.Context, arg RevokeFamilyParams) error {
 	_, err := q.db.Exec(ctx, revokeFamily, arg.RevokedAt, arg.Reason, arg.FamilyID)
 	return err
+}
+
+const revokeMembership = `-- name: RevokeMembership :execrows
+UPDATE tenancy.memberships
+SET status = 'revoked', version = version + 1, updated_at = now()
+WHERE id = $1::uuid
+  AND version = $2::integer
+  AND role <> 'owner' AND status <> 'revoked'
+`
+
+type RevokeMembershipParams struct {
+	ID              string
+	ExpectedVersion int32
+}
+
+func (q *Queries) RevokeMembership(ctx context.Context, arg RevokeMembershipParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeMembership, arg.ID, arg.ExpectedVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setSessionActiveTenant = `-- name: SetSessionActiveTenant :exec

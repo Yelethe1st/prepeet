@@ -146,6 +146,11 @@ const (
 	// so it needs recent authentication.
 	TenantMemberManage Capability = "tenant.member_manage"
 
+	// Seeing who belongs to the workspace, with each person's role. Every
+	// membership role holds it, because a colleague list is not authority
+	// over anyone and hiding it only obscures who to ask for access.
+	TenantMemberRead Capability = "tenant.member_read"
+
 	// Retention determines when candidate data is destroyed, which is
 	// irreversible.
 	TenantRetentionManage Capability = "tenant.retention_manage"
@@ -189,6 +194,7 @@ var catalogue = map[Capability]Requirement{
 	TenantBillingRead:             {Tenant: true},
 	TenantIntegrationManage:       {Tenant: true, StepUp: true},
 	TenantMemberManage:            {Tenant: true, StepUp: true},
+	TenantMemberRead:              {Tenant: true},
 	TenantRetentionManage:         {Tenant: true, StepUp: true},
 	TenantSettingsManage:          {Tenant: true},
 }
@@ -252,6 +258,7 @@ var bundles = map[Role][]Capability{
 		TenantBillingRead,
 		TenantIntegrationManage,
 		TenantMemberManage,
+		TenantMemberRead,
 		TenantRetentionManage,
 		TenantSettingsManage,
 	},
@@ -276,6 +283,7 @@ var bundles = map[Role][]Capability{
 		InvitationManage,
 		InvitationRead,
 		RubricRead,
+		TenantMemberRead,
 	},
 	RoleOwner: {
 		AppealManage,
@@ -292,6 +300,7 @@ var bundles = map[Role][]Capability{
 		TenantBillingRead,
 		TenantIntegrationManage,
 		TenantMemberManage,
+		TenantMemberRead,
 		TenantRetentionManage,
 		TenantSettingsManage,
 	},
@@ -304,11 +313,13 @@ var bundles = map[Role][]Capability{
 		InvitationManage,
 		InvitationRead,
 		RubricRead,
+		TenantMemberRead,
 	},
 	RoleViewer: {
 		CampaignRead,
 		EvaluationReadScreen,
 		InvitationRead,
 		RubricRead,
+		TenantMemberRead,
 	},
 }

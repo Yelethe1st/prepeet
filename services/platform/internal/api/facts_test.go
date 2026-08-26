@@ -38,6 +38,7 @@ func serveFacts(t *testing.T, documents *fakeDocuments) http.Handler {
 		Documents:   documents,
 		Catalog:     &fakeCatalog{},
 		Interviews:  &fakeInterviews{},
+		Members:     &fakeMembers{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

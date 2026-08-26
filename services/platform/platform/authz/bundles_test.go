@@ -151,7 +151,8 @@ func TestTheViewerCanChangeNothing(t *testing.T) {
 
 	for _, capability := range authz.CapabilitiesOf(authz.RoleViewer) {
 		name := string(capability)
-		if !strings.HasSuffix(name, ".read") && !strings.HasSuffix(name, ".read_screen") {
+		if !strings.HasSuffix(name, ".read") && !strings.HasSuffix(name, ".read_screen") &&
+			!strings.HasSuffix(name, "_read") {
 			t.Errorf("the viewer holds %q, which is not a read", name)
 		}
 	}

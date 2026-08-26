@@ -115,6 +115,13 @@ type fakeIdentity struct {
 	selectErr error
 }
 
+// Authorize answers like Lookup by default: the capability-refusal paths are
+// the members suite's subject, through authorizingIdentity.
+func (f *fakeIdentity) Authorize(_ context.Context, presented, _ string) (api.Principal, error) {
+	f.lookedUp = append(f.lookedUp, presented)
+	return f.principal, f.lookupErr
+}
+
 // The token flows, recorded and scripted like everything else on the fake.
 func (f *fakeIdentity) RequestTokenEmail(_ context.Context, kind, email string) error {
 	f.tokenRequests = append(f.tokenRequests, kind+":"+email)
@@ -242,6 +249,7 @@ func serveWith(t *testing.T, identity api.Identity, candidates api.CandidateProf
 		Documents:   &fakeDocuments{},
 		Catalog:     &fakeCatalog{},
 		Interviews:  &fakeInterviews{},
+		Members:     &fakeMembers{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -259,6 +267,7 @@ func serveIn(t *testing.T, identity api.Identity, environment config.Environment
 		Documents:   &fakeDocuments{},
 		Catalog:     &fakeCatalog{},
 		Interviews:  &fakeInterviews{},
+		Members:     &fakeMembers{},
 		Environment: environment,
 	})
 	if err != nil {

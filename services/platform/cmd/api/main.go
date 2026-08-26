@@ -134,6 +134,7 @@ func main() {
 		Candidates: candidates,
 		Documents:  candidates,
 		Catalog:    newCatalogAdapter(content.NewStore(pool)),
+		Members:    membersAdapter{members: identity.NewMembers(identity.NewRepository(pool))},
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

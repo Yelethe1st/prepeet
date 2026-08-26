@@ -29,7 +29,9 @@ type ServerConfig struct {
 	// Catalog serves the interview catalogue from the artifact registry.
 	Catalog Catalog
 	// Interviews serves session creation from a validated selection.
-	Interviews  Interviews
+	Interviews Interviews
+	// Members serves workspace member administration.
+	Members     TenantMembers
 	Environment config.Environment
 	// Health is consulted by the readiness probe. Optional: a nil registry
 	// reports ready, which is correct for a process with no dependencies.
@@ -57,6 +59,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Interviews == nil {
 		return nil, errors.New("api: an Interviews is required")
 	}
+	if cfg.Members == nil {
+		return nil, errors.New("api: a TenantMembers is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -80,6 +85,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	handlers.interviews = interviews{
 		authentication: &handlers.authentication,
 		flows:          cfg.Interviews,
+	}
+	handlers.members = members{
+		authentication: &handlers.authentication,
+		flows:          cfg.Members,
 	}
 
 	strict := prepeetapi.NewStrictHandlerWithOptions(handlers,
@@ -144,6 +153,7 @@ type server struct {
 	documents
 	catalog
 	interviews
+	members
 	health *health.Registry
 }
 

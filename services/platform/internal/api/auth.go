@@ -346,6 +346,16 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.code = string(prepeetapi.NOTFOUND)
 		base.message = "There is no session at that identifier."
 		return base
+	case errors.Is(err, ErrMemberMissing):
+		base.status = http.StatusNotFound
+		base.code = string(prepeetapi.NOTFOUND)
+		base.message = "There is no membership at that identifier."
+		return base
+	case errors.Is(err, ErrMemberConflict):
+		base.status = http.StatusConflict
+		base.code = string(prepeetapi.FORBIDDEN)
+		base.message = "That membership is not in a state this operation applies to, or changed since it was read."
+		return base
 	case errors.Is(err, ErrDocumentConflict):
 		base.status = http.StatusConflict
 		base.code = string(prepeetapi.FORBIDDEN)

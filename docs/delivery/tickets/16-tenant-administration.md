@@ -33,8 +33,27 @@ role can actually do.
 
 **Done when**
 - [ ] The permission matrix is generated from the capability catalogue, not written by hand.
-- [ ] Removing a member revokes access immediately, including active sessions.
-- [ ] Scope changes are audited and take effect without a redeploy.
+- [x] Removing a member revokes access immediately, including active sessions.
+- [x] Scope changes are audited and take effect without a redeploy.
+
+**The backend is done; the screen remains.** The member lifecycle runs end to end: an
+administrator invites an existing account (the email journey joins when notification owns it),
+the invitation is accepted by selecting the workspace - which is also where a revoked-then-
+reinvited person gets their original row back, because the decisions they recorded stay
+attributed - and every operation is decided by the one policy path: the handler names the
+capability, identity.Authorize builds the authz context from the live session and lets Can
+decide, so member_manage's step-up requirement holds without the endpoint knowing it exists.
+
+The two closed boxes are proven on live sessions, not claimed: a role change lands on the
+member's very next request (the demoted recruiter's own session loses campaign.manage with no
+re-login), its audit row carries previous_role, and a revocation strips a still-signed-in
+session immediately - capabilities are recomputed from the membership per request, so there is
+nothing to propagate and nothing to redeploy. The owner's row is untouchable through this
+surface and 'owner' is not assignable here: ownership transfer is a deliberate act for a later
+flow, and the anchor means a workspace always has an administrator nobody inside it can remove.
+Cross-tenant confinement is the schema's own scope, tested by an administrator of one workspace
+failing to see or touch another's membership even by id. What remains is the members screen and
+the matrix generated from the catalogue's own bundles.
 
 **In progress: the role model is in.** The vocabulary from the prototype's matrix - recruiter,
 hiring_manager, viewer, admin, beside the creator-anchored owner - lives in the capability

@@ -581,6 +581,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenant/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everyone in the active workspace
+         * @description Invited members are visible before they accept; revoked members keep
+         *     their row because the decisions they recorded stay attributed to
+         *     them. Needs tenant.member_read under an active tenant.
+         */
+        get: operations["listMembers"];
+        put?: never;
+        /**
+         * Invite an existing account to the workspace
+         * @description The address must already have an account; the invitation is accepted
+         *     by selecting the workspace. Needs tenant.member_manage, which
+         *     requires recent authentication. The owner role cannot be assigned
+         *     here.
+         */
+        post: operations["inviteMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenant/members/{membershipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a member's access
+         * @description Effective on their next request - nothing caches what a membership
+         *     grants. The row survives with its history; removing the record
+         *     entirely is a data-deletion request.
+         */
+        delete: operations["revokeMember"];
+        options?: never;
+        head?: never;
+        /**
+         * Move a member to another role
+         * @description Version-guarded against concurrent administrators, audited with the
+         *     previous role, and never touching an owner: the anchor role is not
+         *     this surface's to assign or remove.
+         */
+        patch: operations["changeMemberRole"];
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -789,6 +846,39 @@ export interface components {
         };
         DocumentList: {
             documents: components["schemas"]["Document"][];
+        };
+        Member: {
+            /** Format: uuid */
+            membership_id: string;
+            /** Format: uuid */
+            user_id: string;
+            email: string;
+            role: components["schemas"]["TenantRole"];
+            /** @enum {string} */
+            status: "invited" | "active" | "revoked";
+            version: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        MemberList: {
+            members: components["schemas"]["Member"][];
+        };
+        /**
+         * @description The tenant role vocabulary from the capability contract. owner is
+         *     readable but never assignable through this API.
+         * @enum {string}
+         */
+        TenantRole: "owner" | "admin" | "recruiter" | "hiring_manager" | "viewer";
+        InviteMemberRequest: {
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            role: "admin" | "recruiter" | "hiring_manager" | "viewer";
+        };
+        ChangeMemberRoleRequest: {
+            /** @enum {string} */
+            role: "admin" | "recruiter" | "hiring_manager" | "viewer";
+            expected_version: number;
         };
         CreateInterviewRequest: {
             /**
@@ -1102,6 +1192,26 @@ export interface components {
         };
     };
     responses: {
+        /** @description The session holds no capability covering this. */
+        Forbidden: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The membership is not in a state this operation applies to, or changed since it was read. */
+        MemberConflict: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /**
          * @description Nothing at this identifier in this scope - which deliberately covers
          *     both absence and somebody else's resource, so an identifier cannot be
@@ -1208,6 +1318,7 @@ export interface components {
         DocumentId: string;
         FactId: string;
         SessionId: string;
+        MembershipId: string;
         /**
          * @description Scoped to tenant, endpoint and key together. A replay carrying the same
          *     body returns the stored response; a replay carrying a different body is
@@ -1954,6 +2065,117 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The members. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    inviteMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description The invited membership. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["MemberConflict"];
+        };
+    };
+    revokeMember: {
+        parameters: {
+            query: {
+                expectedVersion: number;
+            };
+            header?: never;
+            path: {
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The membership is revoked. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["MemberConflict"];
+        };
+    };
+    changeMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeMemberRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description The membership after the change. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["MemberConflict"];
         };
     };
     getCurrentUser: {

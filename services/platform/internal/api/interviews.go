@@ -68,6 +68,7 @@ type EvaluationResultView struct {
 	ModelVersion        string
 	PolicyVersion       string
 	Competencies        []CompetencyResultView
+	Evidence            []EvidenceSpanView
 	Contradictions      []ContradictionView
 	CoverageReached     []string
 	CoverageNotReached  []string
@@ -98,6 +99,17 @@ const FramingContradictions = "These statements appear to conflict. " +
 // FramingConfidence ships beside every confidence label (ADR-0015).
 const FramingConfidence = "Confidence describes how much verifiable evidence this session produced " +
 	"for each competency. It is not a prediction of performance in any role."
+
+// EvidenceSpanView is one stored span: the exact sentence behind a score.
+type EvidenceSpanView struct {
+	ID              string
+	CompetencyID    string
+	Kind            string
+	Quote           string
+	SegmentSequence int
+	StartMs         int
+	EndMs           int
+}
 
 // ContradictionView pairs two statements that appear to conflict, both
 // sides quoted with timestamps. A clarification prompt, never a judgment.
@@ -729,6 +741,15 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 	}
 	if body.Warnings == nil {
 		body.Warnings = []string{}
+	}
+	body.Evidence = make([]prepeetapi.EvidenceSpanView, 0, len(result.Evidence))
+	for _, span := range result.Evidence {
+		body.Evidence = append(body.Evidence, prepeetapi.EvidenceSpanView{
+			ID: span.ID, CompetencyID: span.CompetencyID,
+			Kind:  prepeetapi.EvidenceSpanViewKind(span.Kind),
+			Quote: span.Quote, SegmentSequence: span.SegmentSequence,
+			StartMs: span.StartMs, EndMs: span.EndMs,
+		})
 	}
 	body.Contradictions = make([]prepeetapi.ContradictionView, 0, len(result.Contradictions))
 	for _, pair := range result.Contradictions {

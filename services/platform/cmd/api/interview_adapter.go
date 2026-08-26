@@ -52,9 +52,12 @@ func (a interviewAdapter) Results(ctx context.Context, userID, sessionID string)
 		return api.EvaluationResultView{}, err
 	}
 
-	pairs, err := a.results.Contradictions(ctx, evaluation.SessionRef{
-		SessionID: sessionID, Mode: "practice", CandidateID: userID,
-	})
+	ref := evaluation.SessionRef{SessionID: sessionID, Mode: "practice", CandidateID: userID}
+	pairs, err := a.results.Contradictions(ctx, ref)
+	if err != nil {
+		return api.EvaluationResultView{}, err
+	}
+	spans, err := a.results.List(ctx, ref)
 	if err != nil {
 		return api.EvaluationResultView{}, err
 	}
@@ -77,6 +80,13 @@ func (a interviewAdapter) Results(ctx context.Context, userID, sessionID string)
 		ResultDigest:        result.ResultDigest,
 		Warnings:            result.Warnings,
 		CreatedAt:           result.CreatedAt,
+	}
+	for _, span := range spans {
+		view.Evidence = append(view.Evidence, api.EvidenceSpanView{
+			ID: span.ID, CompetencyID: span.CompetencyID, Kind: span.Kind,
+			Quote: span.Quote, SegmentSequence: span.SegmentSequence,
+			StartMs: span.StartMs, EndMs: span.EndMs,
+		})
 	}
 	for _, pair := range pairs {
 		view.Contradictions = append(view.Contradictions, api.ContradictionView{

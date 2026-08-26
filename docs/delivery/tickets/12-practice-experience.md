@@ -16,9 +16,28 @@ Overall evidence summary, competency results with sufficiency, the evidence behi
 and gaps, transcript and synchronised audio replay.
 
 **Done when**
-- [ ] Every score can be expanded to the exact sentences that produced it.
-- [ ] Insufficient competencies read as insufficient, never as zero or as a low band.
+- [x] Every score can be expanded to the exact sentences that produced it.
+- [x] Insufficient competencies read as insufficient, never as zero or as a low band.
 - [ ] Audio replay jumps to the evidence timestamp and works by keyboard.
+
+**Built at /session/[id]/results, ported from candidate-session-results with two recorded
+deviations.** First, no score ring: the prototype shows 74/100, and ADR-0015 forbids numeric
+display until QUA-03 calibrates, so the outcome is per-competency bands and confidence labels
+with the server's framing sentence, and a test fails if anything numeric-looking appears.
+Second, no audio player yet: RTC-05 has not shipped, so replay is an honest absence rather than
+the prototype's simulated playhead, which is why the third box stays open. The jump mechanism
+that box describes is built and keyboard-proven - every evidence timestamp and both sides of
+each contradiction move focus to the exact transcript segment - and the same jump will drive
+the recording when it exists.
+
+The server now serves the evidence spans on the results response, so each competency expands to
+its exact quoted sentences with kind labels, joined by evidence_ids. Insufficient renders
+through the WEB-04 InsufficientEvidenceState with the two reasons kept distinct: "this never
+came up" (the plan's problem) versus "insufficient evidence" (thin answers), never band
+styling. RESULT_NOT_READY renders as the processing state and polls; failures render the
+ErrorState with the request reference. The transcript shows effective text with evidence-carrying
+turns marked; the prototype's search, PDF export and share dialog are deferred to their own
+tickets rather than shipped as decoration.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md)
 

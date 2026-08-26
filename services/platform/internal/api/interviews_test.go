@@ -576,6 +576,11 @@ func resultFixture() api.EvaluationResultView {
 				ReasonCodes: []string{},
 			},
 		},
+		Evidence: []api.EvidenceSpanView{{
+			ID: "sp-2", CompetencyID: "systems-design", Kind: "supporting",
+			Quote: "we cut latency by 40 percent", SegmentSequence: 3,
+			StartMs: 61_000, EndMs: 64_000,
+		}},
 		Contradictions: []api.ContradictionView{{
 			Topic: []string{"migration", "payments", "team"},
 			SideA: api.ContradictionSideView{
@@ -633,6 +638,10 @@ func TestResultsKeepUnassessedApartFromPoorOnTheWire(t *testing.T) {
 			Reached    []string `json:"reached"`
 			NotReached []string `json:"not_reached"`
 		} `json:"coverage"`
+		Evidence []struct {
+			Quote   string `json:"quote"`
+			StartMs int    `json:"start_ms"`
+		} `json:"evidence"`
 	}
 	decodeInto(t, response, &body)
 
@@ -677,6 +686,10 @@ func TestResultsKeepUnassessedApartFromPoorOnTheWire(t *testing.T) {
 	if !reflect.DeepEqual(body.Coverage.Reached, []string{"clinical-reasoning", "systems-design"}) ||
 		!reflect.DeepEqual(body.Coverage.NotReached, []string{"never-raised"}) {
 		t.Fatalf("coverage = %+v", body.Coverage)
+	}
+	if len(body.Evidence) != 1 || body.Evidence[0].Quote != "we cut latency by 40 percent" ||
+		body.Evidence[0].StartMs != 61_000 {
+		t.Fatalf("evidence = %+v", body.Evidence)
 	}
 
 	// The third box on the wire: no overall or averaged number exists for

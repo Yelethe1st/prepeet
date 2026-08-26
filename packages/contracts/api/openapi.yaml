@@ -1735,8 +1735,8 @@ components:
     EvaluationResultView:
       type: object
       required: [session_id, rubric, aggregation_version, extraction_version,
-                 model_version, policy_version, competencies, coverage,
-                 contradictions, framing, covered_competencies,
+                 model_version, policy_version, competencies, evidence,
+                 coverage, contradictions, framing, covered_competencies,
                  total_competencies, result_digest, warnings, created_at]
       properties:
         session_id: { type: string, format: uuid }
@@ -1768,6 +1768,13 @@ components:
             not_reached:
               type: array
               items: { type: string }
+        evidence:
+          type: array
+          description: |
+            The stored evidence spans behind the competency results, so
+            every score expands to the exact sentences that produced it.
+            Joined by the evidence_ids on each competency result.
+          items: { $ref: "#/components/schemas/EvidenceSpanView" }
         contradictions:
           type: array
           description: |
@@ -1795,6 +1802,21 @@ components:
           type: array
           items: { type: string }
         created_at: { type: string, format: date-time }
+
+    EvidenceSpanView:
+      type: object
+      required: [id, competency_id, kind, quote, segment_sequence,
+                 start_ms, end_ms]
+      properties:
+        id: { type: string }
+        competency_id: { type: string }
+        kind:
+          type: string
+          enum: [supporting, contradictory, claim_unverified, gap]
+        quote: { type: string }
+        segment_sequence: { type: integer }
+        start_ms: { type: integer }
+        end_ms: { type: integer }
 
     ContradictionView:
       type: object

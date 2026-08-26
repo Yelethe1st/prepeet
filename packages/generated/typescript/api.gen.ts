@@ -1117,6 +1117,12 @@ export interface components {
                 not_reached: string[];
             };
             /**
+             * @description The stored evidence spans behind the competency results, so
+             *     every score expands to the exact sentences that produced it.
+             *     Joined by the evidence_ids on each competency result.
+             */
+            evidence: components["schemas"]["EvidenceSpanView"][];
+            /**
              * @description Pairs of statements that appear to conflict, both sides quoted
              *     with timestamps. Clarification prompts, never judgments: no
              *     honesty, integrity or credibility inference exists anywhere in
@@ -1140,6 +1146,16 @@ export interface components {
             warnings: string[];
             /** Format: date-time */
             created_at: string;
+        };
+        EvidenceSpanView: {
+            id: string;
+            competency_id: string;
+            /** @enum {string} */
+            kind: "supporting" | "contradictory" | "claim_unverified" | "gap";
+            quote: string;
+            segment_sequence: number;
+            start_ms: number;
+            end_ms: number;
         };
         ContradictionView: {
             /** @description The shared subject tokens that made the pair. */

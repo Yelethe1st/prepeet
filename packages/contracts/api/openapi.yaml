@@ -1059,6 +1059,43 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /interviews/{sessionId}/results:
+    get:
+      tags: [interview]
+      operationId: getResults
+      summary: The evaluation result, sufficiency and coverage included
+      description: |
+        One immutable result per session, judged by the rubric the session
+        PINNED at composition, whose reference, version and digest are
+        echoed here. Insufficient evidence is its own outcome: an
+        unassessed competency carries a reason - NOT_DISCUSSED when the
+        conversation never reached it, INSUFFICIENT_EVIDENCE when it did
+        but too thinly - and never a band. There is no overall score:
+        nothing here averages unassessed as zero.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: The stored result.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluationResultView"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: RESULT_NOT_READY while evaluation has not landed.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /interviews/{sessionId}/complete:
     post:
       tags: [interview]
@@ -1694,6 +1731,72 @@ components:
           type: array
           items: { type: string }
         sealed_at: { type: string, format: date-time }
+
+    EvaluationResultView:
+      type: object
+      required: [session_id, rubric, aggregation_version, extraction_version,
+                 model_version, policy_version, competencies, coverage,
+                 covered_competencies, total_competencies, result_digest,
+                 warnings, created_at]
+      properties:
+        session_id: { type: string, format: uuid }
+        rubric:
+          type: object
+          required: [reference, version, digest]
+          description: The pin the session composed with, not the published head.
+          properties:
+            reference: { type: string }
+            version: { type: string }
+            digest: { type: string }
+        aggregation_version: { type: string }
+        extraction_version: { type: string }
+        model_version:
+          type: string
+          description: The literal none until a model stands behind this contract.
+        policy_version: { type: string }
+        competencies:
+          type: array
+          items: { $ref: "#/components/schemas/CompetencyResultView" }
+        coverage:
+          type: object
+          required: [reached, not_reached]
+          description: What the conversation reached and what it did not, by name.
+          properties:
+            reached:
+              type: array
+              items: { type: string }
+            not_reached:
+              type: array
+              items: { type: string }
+        covered_competencies: { type: integer }
+        total_competencies: { type: integer }
+        result_digest: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        created_at: { type: string, format: date-time }
+
+    CompetencyResultView:
+      type: object
+      required: [competency_id, status, evidence_count, supporting,
+                 contradictory, unverified, gaps, reason_codes]
+      properties:
+        competency_id: { type: string }
+        status:
+          type: string
+          enum: [assessed, unassessed]
+          description: Unassessed is its own outcome, never a low band.
+        band:
+          type: string
+          description: Present only when status is assessed.
+        evidence_count: { type: integer }
+        supporting: { type: integer }
+        contradictory: { type: integer }
+        unverified: { type: integer }
+        gaps: { type: integer }
+        reason_codes:
+          type: array
+          items: { type: string }
 
     TranscriptView:
       type: object

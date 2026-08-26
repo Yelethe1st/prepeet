@@ -93,11 +93,22 @@ type CompetencyResult struct {
 	ReasonCodes []string `json:"reason_codes"`
 }
 
-// Aggregation is the whole result's content.
+// Coverage names what the conversation reached and what it did not, by
+// competency id. The names matter: a count alone cannot tell a candidate
+// or reviewer WHICH competency went undiscussed.
+type Coverage struct {
+	Reached    []string `json:"reached"`
+	NotReached []string `json:"not_reached"`
+}
+
+// Aggregation is the whole result's content. There is deliberately no
+// overall band or score across competencies: any such average would need
+// a rule for unassessed, and every candidate rule (zero, exclusion,
+// imputation) misrepresents silence one way or another.
 type Aggregation struct {
 	Competencies []CompetencyResult `json:"competencies"`
-	// Coverage is how many competencies had any evidence at all, over the
-	// total asked about.
+	Coverage     Coverage           `json:"coverage"`
+	// The counts restate the named lists for cheap display.
 	CoveredCompetencies int `json:"covered_competencies"`
 	TotalCompetencies   int `json:"total_competencies"`
 }
@@ -111,7 +122,6 @@ func Aggregate(rubric Rubric, competencies []Competency, spans []Span) Aggregati
 	}
 
 	results := make([]CompetencyResult, 0, len(competencies))
-	covered := 0
 	for _, competency := range competencies {
 		evidence := byCompetency[competency.ID]
 		result := CompetencyResult{
@@ -131,15 +141,18 @@ func Aggregate(rubric Rubric, competencies []Competency, spans []Span) Aggregati
 				result.Gaps++
 			}
 		}
-		if result.EvidenceCount > 0 {
-			covered++
-		}
-
-		// Sufficiency before scoring: below the threshold there is no band,
-		// and the reason says so by name.
+		// Sufficiency before scoring: below the threshold there is no
+		// band. The reason distinguishes the two ways evidence falls
+		// short, because they call for different remedies: a competency
+		// the conversation never reached is the plan's problem, thin
+		// evidence on one it did reach is the answer's.
 		if result.Supporting < rubric.Sufficiency.MinSupporting {
 			result.Status = "unassessed"
-			result.ReasonCodes = append(result.ReasonCodes, "INSUFFICIENT_EVIDENCE")
+			if result.EvidenceCount == 0 {
+				result.ReasonCodes = append(result.ReasonCodes, "NOT_DISCUSSED")
+			} else {
+				result.ReasonCodes = append(result.ReasonCodes, "INSUFFICIENT_EVIDENCE")
+			}
 			if result.Gaps > 0 {
 				result.ReasonCodes = append(result.ReasonCodes, "GAPS_ACKNOWLEDGED")
 			}
@@ -168,9 +181,29 @@ func Aggregate(rubric Rubric, competencies []Competency, spans []Span) Aggregati
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].CompetencyID < results[j].CompetencyID
 	})
+	coverage := CoverageOf(results)
 	return Aggregation{
 		Competencies:        results,
-		CoveredCompetencies: covered,
+		Coverage:            coverage,
+		CoveredCompetencies: len(coverage.Reached),
 		TotalCompetencies:   len(competencies),
 	}
+}
+
+// CoverageOf derives the named coverage from competency results. It is a
+// pure function of the results so a stored result reconstructs the same
+// coverage it was computed with - nothing extra to persist, nothing to
+// drift.
+func CoverageOf(results []CompetencyResult) Coverage {
+	coverage := Coverage{Reached: []string{}, NotReached: []string{}}
+	for _, result := range results {
+		if result.EvidenceCount > 0 {
+			coverage.Reached = append(coverage.Reached, result.CompetencyID)
+		} else {
+			coverage.NotReached = append(coverage.NotReached, result.CompetencyID)
+		}
+	}
+	sort.Strings(coverage.Reached)
+	sort.Strings(coverage.NotReached)
+	return coverage
 }

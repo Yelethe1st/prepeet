@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ type fakeInterviews struct {
 	epoch      int
 	replayed   []api.ControlEventOut
 	transcript api.TranscriptView
+	result     api.EvaluationResultView
 	receipt    api.CompletionReceiptView
 	consent    api.PracticeConsent
 	err        error
@@ -68,6 +70,11 @@ func (f *fakeInterviews) ReplayEvents(_ context.Context, userID, sessionID strin
 func (f *fakeInterviews) Transcript(_ context.Context, userID, sessionID string) (api.TranscriptView, error) {
 	f.users = append(f.users, "transcript:"+userID+":"+sessionID)
 	return f.transcript, f.err
+}
+
+func (f *fakeInterviews) Results(_ context.Context, userID, sessionID string) (api.EvaluationResultView, error) {
+	f.users = append(f.users, "results:"+userID+":"+sessionID)
+	return f.result, f.err
 }
 
 func (f *fakeInterviews) CompleteInterview(_ context.Context, userID, sessionID string, epoch, finalSequence int) (api.CompletionReceiptView, error) {
@@ -522,5 +529,157 @@ func TestCompletionAnswersTheReceipt(t *testing.T) {
 	if body.State != "evaluating" || body.MediaStatus != "missing" ||
 		len(body.Warnings) != 2 || len(body.Gaps) != 1 || body.Gaps[0].From != 4 {
 		t.Fatalf("receipt = %+v", body)
+	}
+}
+
+// EVL-03's API surface: the insufficient-evidence outcome distinct on the
+// wire, coverage named both ways, and nothing anywhere for silence to
+// drag toward zero.
+
+func resultFixture() api.EvaluationResultView {
+	return api.EvaluationResultView{
+		SessionID: "00000000-0000-7000-8000-0000000000e1",
+		Rubric: api.RubricPinView{
+			Reference: "rubric/practice-default", Version: "1.0.0", Digest: "sha256:abc",
+		},
+		AggregationVersion: "aggregate-1", ExtractionVersion: "evidence-1",
+		ModelVersion: "none", PolicyVersion: "none",
+		Competencies: []api.CompetencyResultView{
+			{
+				CompetencyID: "clinical-reasoning", Status: "unassessed",
+				EvidenceCount: 1, Supporting: 1,
+				ReasonCodes: []string{"INSUFFICIENT_EVIDENCE"},
+			},
+			{
+				CompetencyID: "never-raised", Status: "unassessed",
+				ReasonCodes: []string{"NOT_DISCUSSED"},
+			},
+			{
+				CompetencyID: "systems-design", Status: "assessed", Band: "strong",
+				EvidenceCount: 4, Supporting: 4,
+				ReasonCodes: []string{},
+			},
+		},
+		CoverageReached:     []string{"clinical-reasoning", "systems-design"},
+		CoverageNotReached:  []string{"never-raised"},
+		CoveredCompetencies: 2, TotalCompetencies: 3,
+		ResultDigest: "sha256:def", Warnings: []string{},
+		CreatedAt: time.Date(2026, 8, 26, 15, 0, 0, 0, time.UTC),
+	}
+}
+
+func TestResultsNeedASession(t *testing.T) {
+	handler := serveInterviews(t, &fakeInterviews{})
+
+	response := get(t, handler, "/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results")
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("no session got %d, want 401", response.Code)
+	}
+}
+
+func TestResultsKeepUnassessedApartFromPoorOnTheWire(t *testing.T) {
+	interviews := &fakeInterviews{result: resultFixture()}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+
+	var body struct {
+		Rubric struct {
+			Reference string `json:"reference"`
+			Version   string `json:"version"`
+			Digest    string `json:"digest"`
+		} `json:"rubric"`
+		ModelVersion string `json:"model_version"`
+		Competencies []struct {
+			CompetencyID string   `json:"competency_id"`
+			Status       string   `json:"status"`
+			Band         *string  `json:"band"`
+			ReasonCodes  []string `json:"reason_codes"`
+		} `json:"competencies"`
+		Coverage struct {
+			Reached    []string `json:"reached"`
+			NotReached []string `json:"not_reached"`
+		} `json:"coverage"`
+	}
+	decodeInto(t, response, &body)
+
+	if body.Rubric.Reference != "rubric/practice-default" || body.Rubric.Digest != "sha256:abc" {
+		t.Fatalf("the pin is not echoed: %+v", body.Rubric)
+	}
+	if body.ModelVersion != "none" {
+		t.Fatalf("model_version = %q, want the honest none", body.ModelVersion)
+	}
+	byID := map[string]struct {
+		CompetencyID string   `json:"competency_id"`
+		Status       string   `json:"status"`
+		Band         *string  `json:"band"`
+		ReasonCodes  []string `json:"reason_codes"`
+	}{}
+	for _, c := range body.Competencies {
+		byID[c.CompetencyID] = c
+	}
+	thin := byID["clinical-reasoning"]
+	if thin.Status != "unassessed" || thin.Band != nil {
+		t.Fatalf("insufficient evidence must be its own state with no band: %+v", thin)
+	}
+	if len(thin.ReasonCodes) != 1 || thin.ReasonCodes[0] != "INSUFFICIENT_EVIDENCE" {
+		t.Fatalf("reasons = %v", thin.ReasonCodes)
+	}
+	silent := byID["never-raised"]
+	if len(silent.ReasonCodes) != 1 || silent.ReasonCodes[0] != "NOT_DISCUSSED" {
+		t.Fatalf("an unreached competency must say NOT_DISCUSSED: %+v", silent)
+	}
+	assessed := byID["systems-design"]
+	if assessed.Status != "assessed" || assessed.Band == nil || *assessed.Band != "strong" {
+		t.Fatalf("assessed = %+v", assessed)
+	}
+	if !reflect.DeepEqual(body.Coverage.Reached, []string{"clinical-reasoning", "systems-design"}) ||
+		!reflect.DeepEqual(body.Coverage.NotReached, []string{"never-raised"}) {
+		t.Fatalf("coverage = %+v", body.Coverage)
+	}
+
+	// The third box on the wire: no overall or averaged number exists for
+	// unassessed to be zero in.
+	var raw map[string]any
+	decodeInto(t, response, &raw)
+	for _, forbidden := range []string{"overall", "overall_band", "score", "overall_score"} {
+		if _, present := raw[forbidden]; present {
+			t.Fatalf("the result carries %q; any overall number would need a rule for unassessed", forbidden)
+		}
+	}
+}
+
+func TestResultsBeforeEvaluationSayNotReadyByName(t *testing.T) {
+	interviews := &fakeInterviews{err: api.ErrResultNotReady}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results", sessionCookie())
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status %d, want 409", response.Code)
+	}
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	decodeInto(t, response, &body)
+	if body.Error.Code != "RESULT_NOT_READY" {
+		t.Fatalf("code = %q", body.Error.Code)
+	}
+}
+
+func TestSomeoneElsesResultsDoNotExist(t *testing.T) {
+	interviews := &fakeInterviews{err: api.ErrSessionMissing}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results", sessionCookie())
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status %d, want 404", response.Code)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -48,6 +49,54 @@ type Interviews interface {
 	// CompleteInterview seals at the final cursor, idempotently to the
 	// receipt. Refusals arrive as *StartRefusedError with their codes.
 	CompleteInterview(ctx context.Context, userID, sessionID string, epoch, finalSequence int) (CompletionReceiptView, error)
+	// Results answers the stored evaluation. ErrResultNotReady while
+	// evaluation has not landed; ErrSessionMissing when the session is
+	// not the caller's to see.
+	Results(ctx context.Context, userID, sessionID string) (EvaluationResultView, error)
+}
+
+// ErrResultNotReady says evaluation has not landed yet: the session is
+// real and the caller's own, so this is a state, never a 404.
+var ErrResultNotReady = errors.New("api: the evaluation result is not ready")
+
+// EvaluationResultView mirrors the contract at the port.
+type EvaluationResultView struct {
+	SessionID           string
+	Rubric              RubricPinView
+	AggregationVersion  string
+	ExtractionVersion   string
+	ModelVersion        string
+	PolicyVersion       string
+	Competencies        []CompetencyResultView
+	CoverageReached     []string
+	CoverageNotReached  []string
+	CoveredCompetencies int
+	TotalCompetencies   int
+	ResultDigest        string
+	Warnings            []string
+	CreatedAt           time.Time
+}
+
+// RubricPinView is the rubric the session composed with, echoed so a
+// result is always read against exactly what judged it.
+type RubricPinView struct {
+	Reference string
+	Version   string
+	Digest    string
+}
+
+// CompetencyResultView is one competency's outcome. Band is empty
+// whenever Status is unassessed: unknown is a state, never a low score.
+type CompetencyResultView struct {
+	CompetencyID  string
+	Status        string
+	Band          string
+	EvidenceCount int
+	Supporting    int
+	Contradictory int
+	Unverified    int
+	Gaps          int
+	ReasonCodes   []string
 }
 
 // CompletionReceiptView mirrors the contract at the port.
@@ -588,6 +637,79 @@ func (i *interviews) GetTranscript(ctx context.Context, request prepeetapi.GetTr
 	}, nil
 }
 
+// GetResults answers the stored evaluation with sufficiency and coverage.
+func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResultsRequestObject) (prepeetapi.GetResultsResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	result, err := i.flows.Results(ctx, principal.UserID, request.SessionID.String())
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	sessionID, err := uuid.Parse(result.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("api: the result's session id is not a uuid: %w", err)
+	}
+	body := prepeetapi.EvaluationResultView{
+		SessionID:           sessionID,
+		AggregationVersion:  result.AggregationVersion,
+		ExtractionVersion:   result.ExtractionVersion,
+		ModelVersion:        result.ModelVersion,
+		PolicyVersion:       result.PolicyVersion,
+		Competencies:        make([]prepeetapi.CompetencyResultView, 0, len(result.Competencies)),
+		CoveredCompetencies: result.CoveredCompetencies,
+		TotalCompetencies:   result.TotalCompetencies,
+		ResultDigest:        result.ResultDigest,
+		Warnings:            result.Warnings,
+		CreatedAt:           result.CreatedAt,
+	}
+	body.Rubric.Reference = result.Rubric.Reference
+	body.Rubric.Version = result.Rubric.Version
+	body.Rubric.Digest = result.Rubric.Digest
+	body.Coverage.Reached = result.CoverageReached
+	body.Coverage.NotReached = result.CoverageNotReached
+	if body.Coverage.Reached == nil {
+		body.Coverage.Reached = []string{}
+	}
+	if body.Coverage.NotReached == nil {
+		body.Coverage.NotReached = []string{}
+	}
+	if body.Warnings == nil {
+		body.Warnings = []string{}
+	}
+	for _, competency := range result.Competencies {
+		encoded := prepeetapi.CompetencyResultView{
+			CompetencyID:  competency.CompetencyID,
+			Status:        prepeetapi.CompetencyResultViewStatus(competency.Status),
+			EvidenceCount: competency.EvidenceCount,
+			Supporting:    competency.Supporting,
+			Contradictory: competency.Contradictory,
+			Unverified:    competency.Unverified,
+			Gaps:          competency.Gaps,
+			ReasonCodes:   competency.ReasonCodes,
+		}
+		if encoded.ReasonCodes == nil {
+			encoded.ReasonCodes = []string{}
+		}
+		if competency.Band != "" {
+			band := competency.Band
+			encoded.Band = &band
+		}
+		body.Competencies = append(body.Competencies, encoded)
+	}
+	return prepeetapi.GetResults200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.GetResults200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetPracticeConsent answers the current consent text with its version.
 func (i *interviews) GetPracticeConsent(ctx context.Context, _ prepeetapi.GetPracticeConsentRequestObject) (prepeetapi.GetPracticeConsentResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -637,6 +759,7 @@ var (
 	_ prepeetapi.IngestControlEventsResponseObject = failure{}
 	_ prepeetapi.ReplayControlEventsResponseObject = failure{}
 	_ prepeetapi.GetTranscriptResponseObject       = failure{}
+	_ prepeetapi.GetResultsResponseObject          = failure{}
 	_ prepeetapi.CompleteInterviewResponseObject   = failure{}
 )
 
@@ -647,4 +770,5 @@ func (f failure) VisitStartInterviewResponse(w http.ResponseWriter) error      {
 func (f failure) VisitIngestControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitReplayControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       { return f.write(w) }
+func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitCompleteInterviewResponse(w http.ResponseWriter) error   { return f.write(w) }

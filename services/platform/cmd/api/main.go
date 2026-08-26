@@ -24,6 +24,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
@@ -160,6 +161,7 @@ func main() {
 				sealedInputWriter{store: uploads},
 				competencySource(catalog.NewService(registrySource{registry: content.NewStore(pool)})),
 			),
+			results: evaluation.NewStore(pool),
 		},
 		Environment: cfg.Environment,
 		Health:      checks,

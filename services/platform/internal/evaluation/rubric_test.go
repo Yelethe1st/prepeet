@@ -160,3 +160,101 @@ func TestTheShippedRubricParses(t *testing.T) {
 		t.Fatalf("the shipped rubric does not parse: %v", err)
 	}
 }
+
+// EVL-03: coverage and the insufficient-evidence outcome as first-class
+// facts, not derivable side effects.
+
+func TestSilenceAndThinEvidenceAreDistinctReasons(t *testing.T) {
+	rubric := rubricFixture(t)
+	competencies := []evaluation.Competency{
+		{ID: "never-raised", Name: "Never raised"},
+		{ID: "touched-once", Name: "Touched once"},
+	}
+	spans := evidence("touched-once", "supporting", 1)
+
+	aggregation := evaluation.Aggregate(rubric, competencies, spans)
+
+	byID := map[string]evaluation.CompetencyResult{}
+	for _, result := range aggregation.Competencies {
+		byID[result.CompetencyID] = result
+	}
+
+	silent := byID["never-raised"]
+	if silent.Status != "unassessed" || !hasReason(silent, "NOT_DISCUSSED") {
+		t.Fatalf("a competency the conversation never reached must say NOT_DISCUSSED: %+v", silent)
+	}
+	if hasReason(silent, "INSUFFICIENT_EVIDENCE") {
+		t.Fatalf("NOT_DISCUSSED and INSUFFICIENT_EVIDENCE name different failures; both on one result blurs them: %+v", silent)
+	}
+
+	thin := byID["touched-once"]
+	if thin.Status != "unassessed" || !hasReason(thin, "INSUFFICIENT_EVIDENCE") {
+		t.Fatalf("a discussed competency below the threshold must say INSUFFICIENT_EVIDENCE: %+v", thin)
+	}
+	if hasReason(thin, "NOT_DISCUSSED") {
+		t.Fatalf("the conversation did reach this competency: %+v", thin)
+	}
+}
+
+func TestCoverageNamesWhatWasReachedAndWhatWasNot(t *testing.T) {
+	rubric := rubricFixture(t)
+	competencies := []evaluation.Competency{
+		{ID: "a-reached", Name: "A"},
+		{ID: "b-silent", Name: "B"},
+		{ID: "c-reached", Name: "C"},
+	}
+	spans := append(evidence("a-reached", "supporting", 1),
+		evidence("c-reached", "supporting", 2)...)
+
+	aggregation := evaluation.Aggregate(rubric, competencies, spans)
+
+	if got, want := aggregation.Coverage.Reached, []string{"a-reached", "c-reached"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("reached = %v, want %v", got, want)
+	}
+	if got, want := aggregation.Coverage.NotReached, []string{"b-silent"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("not reached = %v, want %v", got, want)
+	}
+	if aggregation.CoveredCompetencies != 2 || aggregation.TotalCompetencies != 3 {
+		t.Fatalf("counts disagree with the named lists: %d/%d", aggregation.CoveredCompetencies, aggregation.TotalCompetencies)
+	}
+}
+
+func TestUnassessedCompetenciesNeverLowerAnAssessedResult(t *testing.T) {
+	// The third box, as a property: the same evidence about the same
+	// competency earns the same band whether or not other competencies
+	// went unassessed. There is no overall number anywhere in the
+	// aggregation for silence to drag toward zero.
+	rubric := rubricFixture(t)
+	spans := evidence("systems-design", "supporting", 4)
+
+	alone := evaluation.Aggregate(rubric, []evaluation.Competency{{ID: "systems-design", Name: "Systems design"}}, spans)
+	crowded := evaluation.Aggregate(rubric, []evaluation.Competency{
+		{ID: "systems-design", Name: "Systems design"},
+		{ID: "silent-one", Name: "Silent one"},
+		{ID: "silent-two", Name: "Silent two"},
+	}, spans)
+
+	var aloneResult, crowdedResult evaluation.CompetencyResult
+	for _, r := range alone.Competencies {
+		if r.CompetencyID == "systems-design" {
+			aloneResult = r
+		}
+	}
+	for _, r := range crowded.Competencies {
+		if r.CompetencyID == "systems-design" {
+			crowdedResult = r
+		}
+	}
+	if !reflect.DeepEqual(aloneResult, crowdedResult) {
+		t.Fatalf("silence elsewhere changed an assessed result:\nalone   %+v\ncrowded %+v", aloneResult, crowdedResult)
+	}
+}
+
+func hasReason(result evaluation.CompetencyResult, code string) bool {
+	for _, reason := range result.ReasonCodes {
+		if reason == code {
+			return true
+		}
+	}
+	return false
+}

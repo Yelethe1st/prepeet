@@ -89,9 +89,26 @@ Decide, per competency, whether there is enough evidence to say anything at all 
 enough" as its own outcome rather than as a low score.
 
 **Done when**
-- [ ] Insufficient evidence is a distinct state everywhere it appears: API, storage, and every surface.
-- [ ] Coverage reports what the conversation reached and what it did not.
-- [ ] No aggregate score is computed in a way that treats unassessed as zero.
+- [x] Insufficient evidence is a distinct state everywhere it appears: API, storage, and every surface.
+- [x] Coverage reports what the conversation reached and what it did not.
+- [x] No aggregate score is computed in a way that treats unassessed as zero.
+
+**Done.** Unassessed is now two distinct facts, because they call for different remedies:
+NOT_DISCUSSED when the conversation never reached the competency (the plan's problem) and
+INSUFFICIENT_EVIDENCE when it did but too thinly (the answer's). Storage carries the status and
+reason codes in the result's competency rows; the new GET /interviews/{id}/results endpoint types
+status as an enum (assessed, unassessed) with band present only when assessed, and answers
+RESULT_NOT_READY as its own 409 - never a 404 - after ownership is confirmed first, so "not
+yours" and "not ready" share no answer. The surfaces that exist today are storage and the API;
+PRC-01 (the results screen) and the recruiter views inherit the typed state from this contract.
+
+Coverage names both sets - reached and not_reached by competency id - derived as a pure function
+of the competency results so a stored result reconstructs the same coverage it was computed with,
+with nothing extra to persist or drift. The third box is held two ways: a property test proves
+the same evidence earns the same band whether or not other competencies went unassessed, and the
+aggregation deliberately has no overall number at all - any average would need a rule for
+unassessed, and every candidate rule (zero, exclusion, imputation) misrepresents silence. The
+wire test enforces the absence.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md) · [responsible-hiring.md](../../security/responsible-hiring.md)
 

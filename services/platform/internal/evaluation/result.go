@@ -29,6 +29,11 @@ type RubricPin struct {
 	Body      []byte
 }
 
+// ErrNoResult says the session has no stored evaluation yet: distinct
+// from the session not existing, because "still evaluating" and "not
+// yours to see" must never share an answer.
+var ErrNoResult = errors.New("evaluation: no result for this session")
+
 // Result is one stored evaluation.
 type Result struct {
 	ID                 string
@@ -132,6 +137,9 @@ func (s *Store) ResultOf(ctx context.Context, ref SessionRef) (Result, error) {
 	}
 
 	row, err := db.New(tx).GetResult(ctx, ref.SessionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Result{}, ErrNoResult
+	}
 	if err != nil {
 		return Result{}, err
 	}
@@ -151,6 +159,7 @@ func (s *Store) ResultOf(ctx context.Context, ref SessionRef) (Result, error) {
 		PolicyVersion: row.PolicyVersion,
 		Aggregation: Aggregation{
 			Competencies:        competencies,
+			Coverage:            CoverageOf(competencies),
 			CoveredCompetencies: int(row.CoveredCompetencies),
 			TotalCompetencies:   int(row.TotalCompetencies),
 		},
@@ -162,5 +171,3 @@ func isUnique(err error) bool {
 	var pgErr interface{ SQLState() string }
 	return errors.As(err, &pgErr) && pgErr.SQLState() == "23505"
 }
-
-var _ = pgx.ErrNoRows

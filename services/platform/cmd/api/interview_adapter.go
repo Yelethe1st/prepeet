@@ -11,6 +11,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/billing"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/realtime"
@@ -27,6 +28,63 @@ type interviewAdapter struct {
 	starter   *interview.Starter
 	events    *interview.Events
 	completer *interview.Completer
+	results   *evaluation.Store
+}
+
+// Results answers the owner's stored evaluation. The session is confirmed
+// theirs FIRST, so "not yours" and "not ready" never share an answer: a
+// stranger learns nothing, the owner learns the honest state.
+func (a interviewAdapter) Results(ctx context.Context, userID, sessionID string) (api.EvaluationResultView, error) {
+	if _, err := a.sessions.Get(ctx, sessionID, "practice", userID, ""); err != nil {
+		if errors.Is(err, interview.ErrNotFound) {
+			return api.EvaluationResultView{}, api.ErrSessionMissing
+		}
+		return api.EvaluationResultView{}, err
+	}
+
+	result, err := a.results.ResultOf(ctx, evaluation.SessionRef{
+		SessionID: sessionID, Mode: "practice", CandidateID: userID,
+	})
+	if errors.Is(err, evaluation.ErrNoResult) {
+		return api.EvaluationResultView{}, api.ErrResultNotReady
+	}
+	if err != nil {
+		return api.EvaluationResultView{}, err
+	}
+
+	view := api.EvaluationResultView{
+		SessionID: result.SessionID,
+		Rubric: api.RubricPinView{
+			Reference: result.RubricReference,
+			Version:   result.RubricVersion,
+			Digest:    result.RubricDigest,
+		},
+		AggregationVersion:  result.AggregationVersion,
+		ExtractionVersion:   result.ExtractionVersion,
+		ModelVersion:        result.ModelVersion,
+		PolicyVersion:       result.PolicyVersion,
+		CoverageReached:     result.Aggregation.Coverage.Reached,
+		CoverageNotReached:  result.Aggregation.Coverage.NotReached,
+		CoveredCompetencies: result.Aggregation.CoveredCompetencies,
+		TotalCompetencies:   result.Aggregation.TotalCompetencies,
+		ResultDigest:        result.ResultDigest,
+		Warnings:            result.Warnings,
+		CreatedAt:           result.CreatedAt,
+	}
+	for _, competency := range result.Aggregation.Competencies {
+		view.Competencies = append(view.Competencies, api.CompetencyResultView{
+			CompetencyID:  competency.CompetencyID,
+			Status:        competency.Status,
+			Band:          competency.Band,
+			EvidenceCount: competency.EvidenceCount,
+			Supporting:    competency.Supporting,
+			Contradictory: competency.Contradictory,
+			Unverified:    competency.Unverified,
+			Gaps:          competency.Gaps,
+			ReasonCodes:   competency.ReasonCodes,
+		})
+	}
+	return view, nil
 }
 
 // CompleteInterview seals the owner's practice session, translating each

@@ -764,6 +764,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The evaluation result, sufficiency and coverage included
+         * @description One immutable result per session, judged by the rubric the session
+         *     PINNED at composition, whose reference, version and digest are
+         *     echoed here. Insufficient evidence is its own outcome: an
+         *     unassessed competency carries a reason - NOT_DISCUSSED when the
+         *     conversation never reached it, INSUFFICIENT_EVIDENCE when it did
+         *     but too thinly - and never a band. There is no overall score:
+         *     nothing here averages unassessed as zero.
+         */
+        get: operations["getResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews/{sessionId}/complete": {
         parameters: {
             query?: never;
@@ -1069,6 +1095,49 @@ export interface components {
             warnings: string[];
             /** Format: date-time */
             sealed_at: string;
+        };
+        EvaluationResultView: {
+            /** Format: uuid */
+            session_id: string;
+            /** @description The pin the session composed with, not the published head. */
+            rubric: {
+                reference: string;
+                version: string;
+                digest: string;
+            };
+            aggregation_version: string;
+            extraction_version: string;
+            /** @description The literal none until a model stands behind this contract. */
+            model_version: string;
+            policy_version: string;
+            competencies: components["schemas"]["CompetencyResultView"][];
+            /** @description What the conversation reached and what it did not, by name. */
+            coverage: {
+                reached: string[];
+                not_reached: string[];
+            };
+            covered_competencies: number;
+            total_competencies: number;
+            result_digest: string;
+            warnings: string[];
+            /** Format: date-time */
+            created_at: string;
+        };
+        CompetencyResultView: {
+            competency_id: string;
+            /**
+             * @description Unassessed is its own outcome, never a low band.
+             * @enum {string}
+             */
+            status: "assessed" | "unassessed";
+            /** @description Present only when status is assessed. */
+            band?: string;
+            evidence_count: number;
+            supporting: number;
+            contradictory: number;
+            unverified: number;
+            gaps: number;
+            reason_codes: string[];
         };
         TranscriptView: {
             segments: components["schemas"]["TranscriptSegment"][];
@@ -2631,6 +2700,41 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stored result. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationResultView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description RESULT_NOT_READY while evaluation has not landed. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     completeInterview: {

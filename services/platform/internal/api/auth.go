@@ -351,6 +351,11 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.code = string(prepeetapi.NOTFOUND)
 		base.message = "There is no fact at that identifier."
 		return base
+	case errors.Is(err, ErrResultNotReady):
+		base.status = http.StatusConflict
+		base.code = "RESULT_NOT_READY"
+		base.message = "Evaluation has not finished for this session. Ask again shortly."
+		return base
 	case errors.Is(err, ErrSessionMissing):
 		base.status = http.StatusNotFound
 		base.code = string(prepeetapi.NOTFOUND)

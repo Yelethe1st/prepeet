@@ -49,9 +49,29 @@ provider credentials scoped to this session and this attempt.
 speaker, connection and browser checks, accommodations, and consent that actually blocks start.
 
 **Done when**
-- [ ] Start is disabled until the microphone check passes and required consent is given.
-- [ ] The blocked state names which requirement is missing and moves focus to it.
-- [ ] Optional model-improvement consent is separate, off by default, and never bundled.
+- [x] Start is disabled until the microphone check passes and required consent is given.
+- [x] The blocked state names which requirement is missing and moves focus to it.
+- [x] Optional model-improvement consent is separate, off by default, and never bundled.
+
+**Done, holding the gate for SES-02.** /session/[id]/prepare carries the prototype whole: the
+brief and interviewer from the session's own config named through the catalogue, four device
+checks (microphone and browser required, speaker and connection recommended and never gating),
+the accessibility switches, the consent card and the gated start. The gate's rules are pure and
+pinned: an unsupported browser outranks everything because nothing else can be fixed in one, a
+failed microphone reads differently from an unrun one, and consent blocks last so the choice
+gets full attention. "Take me to what is missing" moves focus to the one named problem - the
+mic's test button or the consent checkbox - and the fix-me hand hides when the browser itself is
+the problem, exactly as the prototype decides it.
+
+The microphone check opens the microphone, measures level and closes it; no audio leaves the
+browser, and the page says nothing is recorded until start wherever it matters. The optional
+model-improvement consent is its own checkbox, off, with the required consent proven not to drag
+it along and the optional one alone proven to open nothing. The accessibility switches arrive
+pre-set from the profile - captions and extended thinking time honoured by default, PRO-01's
+promise kept for the prepare half. A composing session says so and polls itself to readiness; a
+failed composition is an honest error with its taxonomy code, not a dead page. Pressing start is
+SES-02's: this screen readies everything, holds the gate, and will hand SES-02 the session
+toggles and consents it collected.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md) · [responsible-hiring.md](../../security/responsible-hiring.md)
 

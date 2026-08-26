@@ -558,6 +558,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One practice session, as its owner sees it
+         * @description The prepare screen's read: state, configuration and the recording
+         *     choice. Owner-scoped by the session - the path names a session, but
+         *     only its owner's token resolves it, and somebody else's session is
+         *     indistinguishable from none.
+         */
+        get: operations["getInterview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -818,6 +841,8 @@ export interface components {
             recording_preference: "audio_and_transcript" | "transcript_only";
             /** @description The consent text version the preference was chosen against. */
             consent_version: string;
+            /** @description The stable refusal code, present in a *_failed state. */
+            failure_code?: string;
             /** Format: date-time */
             created_at: string;
         };
@@ -1182,6 +1207,7 @@ export interface components {
     parameters: {
         DocumentId: string;
         FactId: string;
+        SessionId: string;
         /**
          * @description Scoped to tenant, endpoint and key together. A replay carrying the same
          *     body returns the stored response; a replay carrying a different body is
@@ -1903,6 +1929,31 @@ export interface operations {
             };
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
+        };
+    };
+    getInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewSession"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
         };
     };
     getCurrentUser: {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	api "github.com/Yelethe1st/prepeet/services/platform/internal/api"
@@ -132,6 +133,43 @@ func (a interviewAdapter) CreatePractice(ctx context.Context, userID string, sel
 		RecordingPreference: composing.RecordingPreference,
 		ConsentVersion:      composing.ConsentVersion,
 		CreatedAt:           composing.CreatedAt,
+	}, nil
+}
+
+// GetPractice reads one practice session under its owner's scope. Absence
+// and somebody else's session answer identically, because the store's own
+// scoping makes the row not exist for anyone but the owner.
+func (a interviewAdapter) GetPractice(ctx context.Context, userID, sessionID string) (api.InterviewSession, error) {
+	session, err := a.sessions.Get(ctx, sessionID, "practice", userID, "")
+	if errors.Is(err, interview.ErrNotFound) {
+		return api.InterviewSession{}, api.ErrSessionMissing
+	}
+	if err != nil {
+		return api.InterviewSession{}, err
+	}
+
+	var selection api.InterviewSelection
+	var config struct {
+		Discipline string `json:"discipline"`
+		Role       string `json:"role"`
+		Shape      string `json:"shape"`
+		Minutes    int    `json:"minutes"`
+		Persona    string `json:"persona"`
+	}
+	if err := json.Unmarshal(session.Config, &config); err == nil {
+		selection = api.InterviewSelection{
+			Discipline: config.Discipline, Role: config.Role,
+			Shape: config.Shape, Minutes: config.Minutes, Persona: config.Persona,
+		}
+	}
+
+	return api.InterviewSession{
+		ID: session.ID, Mode: session.Mode, State: string(session.State),
+		Config:              selection,
+		RecordingPreference: session.RecordingPreference,
+		ConsentVersion:      session.ConsentVersion,
+		FailureCode:         session.FailureCode,
+		CreatedAt:           session.CreatedAt,
 	}, nil
 }
 

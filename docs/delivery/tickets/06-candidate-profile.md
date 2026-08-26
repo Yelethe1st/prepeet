@@ -28,8 +28,9 @@ carry the clause, the structural guard demands it of every future one, and the a
 pins the exact shape that leaked. Owner scoping at the HTTP surface is the absence of a
 parameter: /me/profile has no way to name anybody else. The empty profile is the valid zero
 value, first reads return it rather than an error, and every bound refuses with a field-level
-code. The middle box stays open until SES-03's prepare screen exists to do the honouring; the
-columns are explicit and the contract exposes them so that screen has one obvious source.
+code. The middle box is half-kept since SES-03: the prepare screen arrives with captions and extended
+thinking time pre-set from these columns. It closes fully when the live screen exists to honour
+them mid-interview.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md)
 

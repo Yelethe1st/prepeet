@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -28,7 +29,14 @@ type Interviews interface {
 	// PracticeConsent answers the currently published consent text, whose
 	// version is what creation must echo back.
 	PracticeConsent(ctx context.Context) (PracticeConsent, error)
+	// GetPractice answers one practice session as its owner sees it.
+	// Somebody else's session fails with ErrSessionMissing, exactly like
+	// none: existence is not answered across owners.
+	GetPractice(ctx context.Context, userID, sessionID string) (InterviewSession, error)
 }
+
+// ErrSessionMissing covers absence and somebody else's session alike.
+var ErrSessionMissing = errors.New("api: no such session")
 
 // InterviewSelection is the wizard's validated choice set.
 type InterviewSelection struct {
@@ -70,6 +78,7 @@ type InterviewSession struct {
 	Config              InterviewSelection
 	RecordingPreference string
 	ConsentVersion      string
+	FailureCode         string
 	CreatedAt           time.Time
 }
 
@@ -121,27 +130,66 @@ func (i *interviews) CreateInterview(ctx context.Context, request prepeetapi.Cre
 		return i.authentication.failed(ctx, err), nil
 	}
 
-	id, err := uuid.Parse(created.ID)
+	body, err := interviewSessionBody(created)
 	if err != nil {
 		return i.authentication.failed(ctx, err), nil
 	}
 	return prepeetapi.CreateInterview201JSONResponse{
-		Body: prepeetapi.InterviewSession{
-			ID:    id,
-			Mode:  prepeetapi.InterviewSessionMode(created.Mode),
-			State: created.State,
-			Config: prepeetapi.InterviewConfig{
-				Discipline: created.Config.Discipline,
-				Role:       created.Config.Role,
-				Shape:      created.Config.Shape,
-				Minutes:    created.Config.Minutes,
-				Persona:    created.Config.Persona,
-			},
-			RecordingPreference: prepeetapi.InterviewSessionRecordingPreference(created.RecordingPreference),
-			ConsentVersion:      created.ConsentVersion,
-			CreatedAt:           created.CreatedAt,
-		},
+		Body:    body,
 		Headers: prepeetapi.CreateInterview201ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// interviewSessionBody encodes one session for the wire.
+func interviewSessionBody(session InterviewSession) (prepeetapi.InterviewSession, error) {
+	id, err := uuid.Parse(session.ID)
+	if err != nil {
+		return prepeetapi.InterviewSession{}, err
+	}
+	body := prepeetapi.InterviewSession{
+		ID:    id,
+		Mode:  prepeetapi.InterviewSessionMode(session.Mode),
+		State: session.State,
+		Config: prepeetapi.InterviewConfig{
+			Discipline: session.Config.Discipline,
+			Role:       session.Config.Role,
+			Shape:      session.Config.Shape,
+			Minutes:    session.Config.Minutes,
+			Persona:    session.Config.Persona,
+		},
+		RecordingPreference: prepeetapi.InterviewSessionRecordingPreference(session.RecordingPreference),
+		ConsentVersion:      session.ConsentVersion,
+		CreatedAt:           session.CreatedAt,
+	}
+	if session.FailureCode != "" {
+		code := session.FailureCode
+		body.FailureCode = &code
+	}
+	return body, nil
+}
+
+// GetInterview answers one session for the prepare screen.
+func (i *interviews) GetInterview(ctx context.Context, request prepeetapi.GetInterviewRequestObject) (prepeetapi.GetInterviewResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	session, err := i.flows.GetPractice(ctx, principal.UserID, request.SessionID.String())
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	body, err := interviewSessionBody(session)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	return prepeetapi.GetInterview200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.GetInterview200ResponseHeaders{CacheControl: NoStore},
 	}, nil
 }
 
@@ -189,7 +237,9 @@ func consentChoiceBody(choice ConsentChoiceView) prepeetapi.ConsentChoice {
 var (
 	_ prepeetapi.CreateInterviewResponseObject    = failure{}
 	_ prepeetapi.GetPracticeConsentResponseObject = failure{}
+	_ prepeetapi.GetInterviewResponseObject       = failure{}
 )
 
 func (f failure) VisitCreateInterviewResponse(w http.ResponseWriter) error    { return f.write(w) }
 func (f failure) VisitGetPracticeConsentResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitGetInterviewResponse(w http.ResponseWriter) error       { return f.write(w) }

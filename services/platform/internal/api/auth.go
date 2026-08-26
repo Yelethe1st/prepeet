@@ -341,6 +341,11 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.code = string(prepeetapi.NOTFOUND)
 		base.message = "There is no fact at that identifier."
 		return base
+	case errors.Is(err, ErrSessionMissing):
+		base.status = http.StatusNotFound
+		base.code = string(prepeetapi.NOTFOUND)
+		base.message = "There is no session at that identifier."
+		return base
 	case errors.Is(err, ErrDocumentConflict):
 		base.status = http.StatusConflict
 		base.code = string(prepeetapi.FORBIDDEN)

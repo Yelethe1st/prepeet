@@ -35,6 +35,11 @@ func (f *fakeInterviews) PracticeConsent(_ context.Context) (api.PracticeConsent
 	return f.consent, f.err
 }
 
+func (f *fakeInterviews) GetPractice(_ context.Context, userID, sessionID string) (api.InterviewSession, error) {
+	f.users = append(f.users, userID+":"+sessionID)
+	return f.created, f.err
+}
+
 func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
 	t.Helper()
 	handler, err := api.NewServer(api.ServerConfig{
@@ -206,5 +211,58 @@ func TestARecordingPreferenceOutsideTheEnumIsRefused(t *testing.T) {
 	}
 	if interviews.selection != nil {
 		t.Fatal("the unknown preference reached the port")
+	}
+}
+
+func TestASessionIsReadableByItsOwnerAlone(t *testing.T) {
+	interviews := &fakeInterviews{created: api.InterviewSession{
+		ID: "00000000-0000-7000-8000-0000000000e1", Mode: "practice", State: "ready",
+		Config: api.InterviewSelection{
+			Discipline: "software-engineering", Role: "rl_swe",
+			Shape: "shape_technical", Minutes: 40, Persona: "per_ravi",
+		},
+		RecordingPreference: "audio_and_transcript", ConsentVersion: "1.0.0",
+		CreatedAt: time.Date(2026, 8, 26, 10, 0, 0, 0, time.UTC),
+	}}
+	handler := serveInterviews(t, interviews)
+
+	request := httptest.NewRequest(http.MethodGet,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1", nil)
+	request.AddCookie(sessionCookie())
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+
+	// The session's owner reached the port beside the id: the port decides
+	// visibility from both, so somebody else's session is a 404, not a leak.
+	if interviews.users[0] != "00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1" {
+		t.Fatalf("the port saw %s", interviews.users[0])
+	}
+
+	var body struct {
+		State  string `json:"state"`
+		Config struct {
+			Persona string `json:"persona"`
+		} `json:"config"`
+		RecordingPreference string `json:"recording_preference"`
+	}
+	decodeInto(t, response, &body)
+	if body.State != "ready" || body.Config.Persona != "per_ravi" || body.RecordingPreference != "audio_and_transcript" {
+		t.Fatalf("body = %+v", body)
+	}
+}
+
+func TestSomebodyElsesSessionIsNotFound(t *testing.T) {
+	handler := serveInterviews(t, &fakeInterviews{err: api.ErrSessionMissing})
+
+	request := httptest.NewRequest(http.MethodGet,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1", nil)
+	request.AddCookie(sessionCookie())
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status %d, want 404: %s", response.Code, response.Body)
 	}
 }

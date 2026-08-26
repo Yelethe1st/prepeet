@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, Ref, ReactNode } from "react";
 
 /**
  * The button variants the prototype defines in components.css.
@@ -9,7 +9,16 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
 
-export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> {
+export interface ButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "className"
+> {
+  /**
+   * React 19 ref-as-prop, reaching the underlying button. Exists because the
+   * prepare screen moves focus to "the one thing blocking start", and a
+   * focus target the design system cannot name is a focus that goes nowhere.
+   */
+  ref?: Ref<HTMLButtonElement>;
   variant?: ButtonVariant;
   size?: ButtonSize;
   /** Fills the width of its container, as the sign-in button does. */
@@ -38,7 +47,8 @@ const base =
 
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-primary text-primary-fg hover:bg-primary-hover",
-  secondary: "bg-surface text-fg border border-border-strong shadow-xs hover:bg-surface-2",
+  secondary:
+    "bg-surface text-fg border border-border-strong shadow-xs hover:bg-surface-2",
   ghost: "bg-transparent text-fg-2 hover:bg-surface-3 hover:text-fg",
   danger: "bg-danger text-primary-fg hover:bg-danger-hover",
 };

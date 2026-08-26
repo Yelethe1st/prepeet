@@ -11,12 +11,14 @@ Recorded honestly, because a claim about process is worth less than the record.
 
 Test-first: `lib/api/client.ts`, `shared/components/Field.tsx`,
 `features/auth/SignInForm.tsx`, `features/auth/RegisterForm.tsx`, the whole of
-`shared/states/`, `features/profile/facts.ts` and `CvSection.tsx`, and
-`features/interview/rules.ts` and `Wizard.tsx`. The test was written, run red,
-and then satisfied.
+`shared/states/`, `features/profile/facts.ts` and `CvSection.tsx`,
+`features/interview/rules.ts` and `Wizard.tsx`, and `features/prepare/gate.ts`
+and `PrepareScreen.tsx`. The test was written, run red, and then satisfied.
 
 Written together: `Button.tsx`, `Banner.tsx`, `features/profile/api.ts`,
-`features/interview/api.ts`.
+`features/interview/api.ts`, `features/prepare/api.ts` and `checks.ts` - the
+check runners' hardware behaviour is untestable in jsdom and is faked in the
+screen's suite; the browser harness is where it gets proven.
 
 Test-after: `features/auth/api.ts`, `features/auth/AuthShell.tsx`, the stylesheet
 and theme tests, and both route pages. The pages are the worst of these: they

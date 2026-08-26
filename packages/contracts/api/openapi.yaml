@@ -742,6 +742,31 @@ paths:
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
 
+  /interviews/{sessionId}:
+    get:
+      tags: [interview]
+      operationId: getInterview
+      summary: One practice session, as its owner sees it
+      description: |
+        The prepare screen's read: state, configuration and the recording
+        choice. Owner-scoped by the session - the path names a session, but
+        only its owner's token resolves it, and somebody else's session is
+        indistinguishable from none.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: The session.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewSession"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /me:
     get:
       tags: [authentication]
@@ -860,6 +885,11 @@ components:
       schema: { type: string, format: uuid }
     FactId:
       name: factId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SessionId:
+      name: sessionId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -1271,6 +1301,9 @@ components:
         consent_version:
           type: string
           description: The consent text version the preference was chosen against.
+        failure_code:
+          type: string
+          description: The stable refusal code, present in a *_failed state.
         created_at: { type: string, format: date-time }
 
     InterviewConfig:

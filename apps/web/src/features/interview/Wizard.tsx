@@ -158,10 +158,15 @@ export function Wizard({
         </h2>
         <p className="mt-2 text-sm text-fg-2">
           We are pinning the exact plan, questions and interviewer configuration
-          for this session. The prepare screen - device checks and consent -
-          opens from here once it is built; until then your session is safe and
-          visible to nobody but you.
+          for this session. Head to the prepare screen for the brief, the device
+          checks and consent - nothing is recorded until you press start there.
         </p>
+        <a
+          className="mt-4 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-fg"
+          href={`/session/${create.data.id}/prepare`}
+        >
+          Go to the prepare screen
+        </a>
         <p className="mt-2 font-mono text-2xs text-fg-3">
           Session {create.data.id}
         </p>

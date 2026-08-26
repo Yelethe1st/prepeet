@@ -32,11 +32,25 @@ Invite, assign capability bundles, scope a recruiter to campaigns, remove access
 role can actually do.
 
 **Done when**
-- [ ] The permission matrix is generated from the capability catalogue, not written by hand.
+- [x] The permission matrix is generated from the capability catalogue, not written by hand.
 - [x] Removing a member revokes access immediately, including active sessions.
 - [x] Scope changes are audited and take effect without a redeploy.
 
-**The backend is done; the screen remains.** The member lifecycle runs end to end: an
+**Done.** The screen landed on the backend below: /workspace/members shows everyone with role and
+status, revealed by tenant.member_read so a read-only member sees the workspace without controls
+rather than a broken form (the note says which role changes things), the owner's row offers
+controls to nobody, and every change carries the version its row was read at - a conflict shows
+the refusal and rereads rather than retrying blind. The invitation form explains its own floor:
+the address must already hold an account, and acceptance is opening the workspace.
+
+The first box is held the strong way: authzgen now emits the bundles, role reasons, capability
+reasons and the scoped set into the TypeScript contract, and the matrix on the page is derived
+from those at render - the tests pin that every cell traces to the generated bundles and every
+"scoped" marking to the contract's own scope requirement, so the table an administrator reads
+and the authority the server grants cannot drift apart. The words on screen are the reasons
+legal and security reviewed, verbatim.
+
+The member lifecycle runs end to end: an
 administrator invites an existing account (the email journey joins when notification owns it),
 the invitation is accepted by selecting the workspace - which is also where a revoked-then-
 reinvited person gets their original row back, because the decisions they recorded stay

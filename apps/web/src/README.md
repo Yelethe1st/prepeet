@@ -12,8 +12,9 @@ Recorded honestly, because a claim about process is worth less than the record.
 Test-first: `lib/api/client.ts`, `shared/components/Field.tsx`,
 `features/auth/SignInForm.tsx`, `features/auth/RegisterForm.tsx`, the whole of
 `shared/states/`, `features/profile/facts.ts` and `CvSection.tsx`,
-`features/interview/rules.ts` and `Wizard.tsx`, and `features/prepare/gate.ts`
-and `PrepareScreen.tsx`. The test was written, run red, and then satisfied.
+`features/interview/rules.ts` and `Wizard.tsx`, `features/prepare/gate.ts`
+and `PrepareScreen.tsx`, and `features/members/matrix.ts` and
+`MembersScreen.tsx`. The test was written, run red, and then satisfied.
 
 Written together: `Button.tsx`, `Banner.tsx`, `features/profile/api.ts`,
 `features/interview/api.ts`, `features/prepare/api.ts` and `checks.ts` - the

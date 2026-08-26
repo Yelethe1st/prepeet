@@ -182,3 +182,163 @@ export const ROLES = [
 ] as const;
 
 export type Role = (typeof ROLES)[number];
+
+/**
+ * What each role's bundle grants, for DISPLAY: the permission matrix a
+ * tenant administrator reads is generated from this, so the screen and the
+ * server cannot disagree about what a role does. Never used to decide -
+ * authority arrives as the session's own capability list.
+ */
+export const BUNDLES = {
+  admin: [
+    "campaign.read",
+    "campaign.manage",
+    "invitation.read",
+    "invitation.manage",
+    "evaluation.read_screen",
+    "evaluation.review",
+    "appeal.raise",
+    "appeal.manage",
+    "tenant.member_read",
+    "rubric.read",
+    "rubric.draft",
+    "rubric.publish",
+    "tenant.member_manage",
+    "tenant.settings_manage",
+    "tenant.retention_manage",
+    "tenant.billing_read",
+    "tenant.integration_manage",
+  ],
+  candidate: [
+    "candidate.profile.read_own",
+    "candidate.profile.write_own",
+    "candidate.practice.read_own",
+    "candidate.practice.delete_own",
+    "session.create_practice",
+    "session.accept_invitation",
+    "session.participate",
+    "session.read_own_practice",
+    "session.read_screen_confirmation",
+  ],
+  hiring_manager: [
+    "campaign.read",
+    "campaign.manage",
+    "invitation.read",
+    "invitation.manage",
+    "evaluation.read_screen",
+    "evaluation.review",
+    "appeal.raise",
+    "appeal.manage",
+    "tenant.member_read",
+    "rubric.read",
+  ],
+  owner: [
+    "campaign.read",
+    "campaign.manage",
+    "invitation.read",
+    "invitation.manage",
+    "evaluation.read_screen",
+    "evaluation.review",
+    "appeal.raise",
+    "appeal.manage",
+    "tenant.member_read",
+    "rubric.read",
+    "rubric.draft",
+    "rubric.publish",
+    "tenant.member_manage",
+    "tenant.settings_manage",
+    "tenant.retention_manage",
+    "tenant.billing_read",
+    "tenant.integration_manage",
+  ],
+  recruiter: [
+    "campaign.read",
+    "campaign.manage",
+    "invitation.read",
+    "invitation.manage",
+    "evaluation.read_screen",
+    "evaluation.review",
+    "appeal.raise",
+    "tenant.member_read",
+    "rubric.read",
+  ],
+  viewer: [
+    "campaign.read",
+    "invitation.read",
+    "evaluation.read_screen",
+    "tenant.member_read",
+    "rubric.read",
+  ],
+} as const satisfies Record<Role, readonly Capability[]>;
+
+/**
+ * Why each role exists, in the contract's own words - what an administrator
+ * reads before granting one.
+ */
+export const ROLE_REASONS = {
+  admin: "The tenant administrator: full access to every candidate in the workspace and to all configuration - rubrics, members, integrations, retention and billing. Granted sparingly, and identical in capability to owner: what distinguishes an owner is being anchored to the workspace's creation, not holding more.",
+  candidate: "What somebody holds with no tenant membership. Every capability here is owner-scoped, so it reaches that person's own data and nothing else. No tenant authority can satisfy any of them, which is what keeps practice private from employers.",
+  hiring_manager: "A recruiter who additionally answers for outcomes: everything the recruiting work needs, plus resolving the re-reviews recruiters raise. Still scoped, still no workspace configuration.",
+  owner: "Whoever created the workspace, and anybody they make an owner. The same capabilities as admin; the anchor exists so a workspace always has an administrator nobody inside it can remove.",
+  recruiter: "Somebody invited to a workspace to do the recruiting work. They can see what exists and act on the campaigns they are assigned to, raise a re-review but not resolve one, and they cannot change how the workspace itself is configured.",
+  viewer: "Read-only. Can see campaigns, invitations and the evaluations they are scoped to, and cannot record a decision, send an invitation or change anything - the role for oversight without authority.",
+} as const satisfies Record<Role, string>;
+
+/**
+ * Each capability's reason, in the contract's words: what the permission
+ * matrix shows beside a row, so the explanation on screen is the one legal
+ * and security reviewed.
+ */
+export const CAPABILITY_REASONS = {
+  "appeal.manage": "Handling a candidate's appeal against an evaluation, resolving a re-review included. Wider than raising one, because changing an evaluation's standing answers for the workspace.",
+  "appeal.raise": "Raising a re-review of an evaluation. Asking the question is separate from answering it: anyone doing the recruiting work can flag an evaluation they can already read, and appeal.manage decides what happens to it.",
+  "campaign.manage": "Changing a campaign needs an explicit assignment to it. Tenant membership is not authority over every campaign in the tenant.",
+  "campaign.read": "Reading campaigns inside one tenant. Unscoped, because a recruiter may see which campaigns exist before being assigned to one.",
+  "candidate.practice.delete_own": "Deleting practice history is irreversible, so it needs recent authentication rather than a session opened this morning.",
+  "candidate.practice.read_own": "Practice history is the candidate's alone. This is the capability that makes practice private, and no tenant authority satisfies it.",
+  "candidate.profile.read_own": "A candidate's own profile. Owner rather than tenant, because an employer must never reach it.",
+  "candidate.profile.write_own": "Only the candidate edits their own profile. Nobody edits it on their behalf.",
+  "content.artifact_draft": "Drafting a platform artifact - a persona, prompt, rubric or policy. Platform authority because these shape every tenant's interviews; a draft changes nothing until somebody else publishes it.",
+  "content.artifact_publish": "Publishing changes how every future candidate is evaluated, which is the definition of what step-up exists for. ADR-0011 adds the structural half: the registry refuses a publish whose actor drafted the version, so this capability alone is never sufficient for one person to ship their own artifact.",
+  "content.artifact_rollback": "Rolling back repoints the current version to an earlier publication. Step-up for publishing's reason, and it is its own capability rather than publish reused, because who may react to a bad artifact is a different and usually wider question than who may ship one.",
+  "evaluation.compare": "Comparing candidates. Scoped and step-up: comparison is off by default under responsible-hiring.md and is the most consequential thing a recruiter can do.",
+  "evaluation.read_screen": "Reading a screening evaluation. Scoped, because an evaluation belongs to a campaign and not to everyone in the tenant.",
+  "evaluation.review": "Recording a human review of an evaluation. Step-up, because it changes how a candidate is assessed.",
+  "invitation.manage": "Issuing or revoking an invitation affects a candidate's access, so it is scoped to the campaign rather than to the tenant.",
+  "invitation.read": "Reading invitations for a campaign the recruiter is assigned to.",
+  "platform.analytics_read": "Aggregate platform analytics. Platform authority, which is separate from tenant authority rather than a superset of it.",
+  "platform.audit_read": "Reading the audit trail, which is itself an auditable act.",
+  "platform.operations_execute": "Running an operational action. Privileged: it needs an active elevation carrying a reason and a ticket.",
+  "platform.operations_read": "Reading operational state across the platform.",
+  "platform.privileged_elevate": "Requesting elevation. Privileged and step-up, because it is the gate every other privileged action passes through.",
+  "platform.quota_manage": "Changing a tenant's quota.",
+  "rubric.draft": "Drafting a rubric. Unpublished drafts change nothing.",
+  "rubric.publish": "Publishing a rubric changes how every future candidate is evaluated, so it needs recent authentication.",
+  "rubric.read": "Reading the tenant's rubric library.",
+  "session.accept_invitation": "Accepting a screening invitation is the candidate's decision and nobody else's.",
+  "session.create_practice": "A candidate starts their own practice session. Owner, because a recruiter starting one on somebody's behalf would be practice data an employer produced.",
+  "session.participate": "Being in the interview. Owner, because participation is by the person invited.",
+  "session.read_own_practice": "Reading one's own practice session.",
+  "session.read_screen_confirmation": "A candidate may see that their screening interview completed. What the employer saw is a different capability.",
+  "tenant.billing_read": "Reading billing and usage.",
+  "tenant.integration_manage": "Integrations move candidate data to systems outside Prepeet, so this needs recent authentication.",
+  "tenant.member_manage": "Adding or removing members changes who can see candidate evidence, so it needs recent authentication.",
+  "tenant.member_read": "Seeing who belongs to the workspace, with each person's role. Every membership role holds it, because a colleague list is not authority over anyone and hiding it only obscures who to ask for access.",
+  "tenant.retention_manage": "Retention determines when candidate data is destroyed, which is irreversible.",
+  "tenant.settings_manage": "Tenant configuration.",
+} as const satisfies Record<Capability, string>;
+
+/**
+ * Capabilities that additionally require an explicit assignment covering the
+ * resource: holding one grants nothing outside the campaigns or roles the
+ * person is scoped to. The matrix renders these as "scoped", because that is
+ * the truth of what the bundle grants.
+ */
+export const SCOPED_CAPABILITIES = [
+  "appeal.manage",
+  "appeal.raise",
+  "campaign.manage",
+  "evaluation.compare",
+  "evaluation.read_screen",
+  "evaluation.review",
+] as const;

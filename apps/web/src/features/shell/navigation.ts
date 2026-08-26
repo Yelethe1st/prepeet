@@ -73,7 +73,9 @@ export const NAVIGATION: readonly NavigationGroup[] = [
       {
         label: "Members",
         href: "/workspace/members",
-        capability: "tenant.member_manage",
+        // member_read, not manage: a read-only member sees who belongs to
+        // the workspace; the screen itself withholds the controls.
+        capability: "tenant.member_read",
       },
       {
         label: "Settings",

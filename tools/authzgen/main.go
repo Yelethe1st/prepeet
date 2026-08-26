@@ -349,6 +349,61 @@ export const ROLES = [
 	out.WriteString(`] as const;
 
 export type Role = (typeof ROLES)[number];
+
+/**
+ * What each role's bundle grants, for DISPLAY: the permission matrix a
+ * tenant administrator reads is generated from this, so the screen and the
+ * server cannot disagree about what a role does. Never used to decide -
+ * authority arrives as the session's own capability list.
+ */
+export const BUNDLES = {
+`)
+	for _, role := range doc.Roles {
+		fmt.Fprintf(&out, "  %s: [\n", role.Name)
+		for _, name := range role.Capabilities {
+			fmt.Fprintf(&out, "    %q,\n", name)
+		}
+		out.WriteString("  ],\n")
+	}
+	out.WriteString(`} as const satisfies Record<Role, readonly Capability[]>;
+
+/**
+ * Why each role exists, in the contract's own words - what an administrator
+ * reads before granting one.
+ */
+export const ROLE_REASONS = {
+`)
+	for _, role := range doc.Roles {
+		fmt.Fprintf(&out, "  %s: %q,\n", role.Name, strings.TrimSpace(role.Reason))
+	}
+	out.WriteString(`} as const satisfies Record<Role, string>;
+
+/**
+ * Each capability's reason, in the contract's words: what the permission
+ * matrix shows beside a row, so the explanation on screen is the one legal
+ * and security reviewed.
+ */
+export const CAPABILITY_REASONS = {
+`)
+	for _, entry := range doc.Capabilities {
+		fmt.Fprintf(&out, "  %q: %q,\n", entry.Name, strings.TrimSpace(entry.Reason))
+	}
+	out.WriteString(`} as const satisfies Record<Capability, string>;
+
+/**
+ * Capabilities that additionally require an explicit assignment covering the
+ * resource: holding one grants nothing outside the campaigns or roles the
+ * person is scoped to. The matrix renders these as "scoped", because that is
+ * the truth of what the bundle grants.
+ */
+export const SCOPED_CAPABILITIES = [
+`)
+	for _, entry := range doc.Capabilities {
+		if entry.Scope != "" {
+			fmt.Fprintf(&out, "  %q,\n", entry.Name)
+		}
+	}
+	out.WriteString(`] as const;
 `)
 
 	return out.String()

@@ -50,7 +50,9 @@ const recruiter: ShellUser = {
     "candidate.practice.read_own",
     "campaign.read",
     "invitation.read",
-    "tenant.member_manage",
+    // The real recruiter bundle grants reading the member list, not
+    // managing it - and reading is what reveals the destination.
+    "tenant.member_read",
   ],
 };
 

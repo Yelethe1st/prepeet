@@ -135,8 +135,23 @@ describe("the CV states", () => {
       await screen.findByRole("alert", {}, { timeout: 8000 }),
     ).toHaveTextContent(/could not be loaded/i);
     expect(screen.getByText("req_9")).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: /try again/i });
+    expect(retry).toBeInTheDocument();
+
+    // The retry is the way back: taking it asks again and the section
+    // recovers, which is what makes the offer worth making.
+    const asked = vi.mocked(api.listDocuments).mock.calls.length;
+    vi.mocked(api.listDocuments).mockResolvedValue([]);
+    vi.mocked(api.listFacts).mockResolvedValue([]);
+    await userEvent.setup().click(retry);
+
+    await waitFor(() =>
+      expect(vi.mocked(api.listDocuments).mock.calls.length).toBeGreaterThan(
+        asked,
+      ),
+    );
     expect(
-      screen.getByRole("button", { name: /try again/i }),
+      await screen.findByRole("heading", { name: /no cv yet/i }),
     ).toBeInTheDocument();
   });
 });

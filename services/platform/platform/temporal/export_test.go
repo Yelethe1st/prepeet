@@ -14,3 +14,16 @@ func LogForTest(logger *slog.Logger, message string, keyvals ...any) {
 	}
 	newLogAdapter(logger).Error(message, keyvals...)
 }
+
+// LogEveryLevelForTest drives the adapter at each level the SDK uses.
+//
+// The SDK picks the level, not us, so every one of them must scrub: a
+// level that forwarded a raw message would be a hole the size of whatever
+// the SDK decided to log that day.
+func LogEveryLevelForTest(logger *slog.Logger, message string, keyvals ...any) {
+	adapter := newLogAdapter(logger)
+	adapter.Debug(message, keyvals...)
+	adapter.Info(message, keyvals...)
+	adapter.Warn(message, keyvals...)
+	adapter.Error(message, keyvals...)
+}

@@ -14,7 +14,7 @@ topology.
 ## Context
 
 Word-level timing is what makes articulation measurable and evidence
-playable: [articulation-system.md](../architecture/../articulation-system.md)
+playable: [articulation-system.md](../articulation-system.md)
 computes words per minute, pause duration and fillers from objective audio
 features a model is never allowed to invent, and evaluation evidence spans
 must point into both transcript and audio. CAT-05 already stores each

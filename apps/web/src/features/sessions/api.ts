@@ -8,8 +8,6 @@ export type InterviewSession = components["schemas"]["InterviewSession"];
 
 /** Every session the caller owns, newest first, every state included. */
 export async function listSessions(): Promise<InterviewSession[]> {
-  const body = await apiFetch<{ sessions: InterviewSession[] }>(
-    "/me/sessions",
-  );
+  const body = await apiFetch<{ sessions: InterviewSession[] }>("/me/sessions");
   return body.sessions;
 }

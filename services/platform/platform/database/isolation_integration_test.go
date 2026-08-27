@@ -577,7 +577,7 @@ func seedMemberships(t *testing.T) {
 		}
 		if _, err := conn.Exec(ctx,
 			`INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
-			 VALUES (gen_random_uuid(), $1, $2, 'active', 'member')
+			 VALUES (gen_random_uuid(), $1, $2, 'active', 'recruiter')
 			 ON CONFLICT (tenant_id, user_id) DO NOTHING`,
 			person.tenantID, person.userID); err != nil {
 			t.Fatalf("seeding membership: %v", err)

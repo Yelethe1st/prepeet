@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -146,5 +146,30 @@ describe("leaving releases everything", () => {
     unmount();
 
     await waitFor(() => expect(endCalls()).toBe(1));
+  });
+});
+
+describe("the room ending on its own", () => {
+  it("shows the ended state when the connection reports it, not a stuck live screen", async () => {
+    freshGrant();
+    const { connection } = liveConnection();
+    // The wrapper hands the screen its own onEnded; capture and fire it,
+    // which is what a disconnect from the SFU does.
+    let ended: (() => void) | undefined;
+    connectLive.mockImplementation(
+      async (_grant: unknown, handlers: { onEnded: () => void }) => {
+        ended = handlers.onEnded;
+        return connection;
+      },
+    );
+
+    render(<LiveScreen sessionId="ses-1" />);
+    await screen.findByText(/you are live/i);
+
+    act(() => ended?.());
+
+    expect(
+      await screen.findByText(/connection has ended/i),
+    ).toBeInTheDocument();
   });
 });

@@ -406,3 +406,83 @@ describe("honest states", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("what the screen does with an absence", () => {
+  it("withheld coaching is stated, and nothing invented takes its place", async () => {
+    renderDelivery({
+      ...delivery,
+      analysis: {
+        ...analysis,
+        coaching: { available: false, note: "coaching withheld: test lie" },
+      },
+    });
+
+    expect(
+      await screen.findByText(/withheld for this session/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("priority-fluency")).not.toBeInTheDocument();
+  });
+
+  it("nothing measurable to change says so rather than inventing a priority", async () => {
+    renderDelivery({
+      ...delivery,
+      analysis: {
+        ...analysis,
+        coaching: {
+          coaching_version: "articulation-coaching-v1",
+          priorities: [],
+          suggested_shape: [],
+        },
+      },
+    });
+
+    expect(
+      await screen.findByText(/nothing measurable needs changing/i),
+    ).toBeInTheDocument();
+  });
+
+  it("a metric the calculator did not produce reads as not measured", async () => {
+    renderDelivery({
+      ...delivery,
+      analysis: { ...analysis, metrics: {}, turns: [] },
+    });
+
+    await screen.findByRole("heading", { name: /what we measured/i });
+    expect(screen.getAllByText(/not measured/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/no answer was long enough/i)).toBeInTheDocument();
+  });
+
+  it("a retake whose original has no analysis says so rather than showing an empty table", async () => {
+    vi.mocked(api.getInterview).mockResolvedValue({
+      ...plainSession,
+      redo_of: {
+        session_id: "00000000-0000-7000-8000-0000000000e0",
+        sequence: 3,
+        question: "Again please.",
+      },
+    });
+    vi.mocked(api.getBaseline).mockResolvedValue(absentBaseline);
+    vi.mocked(api.getTranscript).mockResolvedValue(transcript);
+    vi.mocked(api.getDelivery).mockImplementation(async (id: string) => {
+      if (id === "00000000-0000-7000-8000-0000000000e0") {
+        throw new ApiError({
+          status: 409,
+          code: "DELIVERY_NOT_READY",
+          message: "not yet",
+        });
+      }
+      return delivery;
+    });
+    render(
+      <DeliveryScreen sessionId="00000000-0000-7000-8000-0000000000e1" />,
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryProvider>{children}</QueryProvider>
+        ),
+      },
+    );
+
+    const comparison = await screen.findByTestId("comparison");
+    expect(comparison).toHaveTextContent(/not available to compare yet/i);
+  });
+});

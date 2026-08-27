@@ -438,7 +438,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List the professions the product serves */
+        /**
+         * List the professions the product serves
+         * @description The disciplines the catalogue currently offers, resolved from the
+         *     published catalogue artifact rather than hardcoded, so adding a
+         *     profession is a content change and never a deployment.
+         */
         get: operations["listDisciplines"];
         put?: never;
         post?: never;
@@ -477,7 +482,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List interview shapes with their runnable lengths */
+        /**
+         * List interview shapes with their runnable lengths
+         * @description Each shape with the lengths it can actually be run at, from the
+         *     published catalogue artifact: the wizard offers exactly what the
+         *     catalogue admits, so an unrunnable combination cannot be chosen.
+         */
         get: operations["listInterviewShapes"];
         put?: never;
         post?: never;

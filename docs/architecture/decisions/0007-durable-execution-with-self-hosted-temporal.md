@@ -7,7 +7,7 @@
 **Supersedes:** None  
 **Superseded by:** None
 
-Closes [DEC-04](../../delivery/tickets/01-decisions.md) and unblocks
+Closes [DEC-04](../../delivery/tickets/01-decisions-and-adrs.md) and unblocks
 [PLT-06](../../delivery/tickets/02-platform-foundation.md).
 
 ## Context

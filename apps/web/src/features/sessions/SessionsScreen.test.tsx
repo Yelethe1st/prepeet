@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QueryProvider } from "@/lib/api/QueryProvider";
+import { ApiError } from "@/lib/api/client";
 
 import { SessionsScreen } from "./SessionsScreen";
 import { MACHINE_STATES, STATE_ROWS } from "./states";
@@ -62,7 +63,10 @@ afterEach(() => {
 describe("completeness", () => {
   it("every lifecycle state the machine can reach renders with its own action", async () => {
     const sessions = MACHINE_STATES.map((state, index) =>
-      sessionIn(state, `00000000-0000-7000-8000-0000000000${index.toString(16).padStart(2, "0")}`),
+      sessionIn(
+        state,
+        `00000000-0000-7000-8000-0000000000${index.toString(16).padStart(2, "0")}`,
+      ),
     );
     renderSessions(sessions);
 
@@ -72,7 +76,10 @@ describe("completeness", () => {
       const row = screen.getByTestId(`session-${state}`);
       expect(within(row).getByText(spec.label)).toBeInTheDocument();
       const action = within(row).getByRole("link", { name: spec.action });
-      expect(action).toHaveAttribute("href", spec.href(row.dataset.sessionId ?? ""));
+      expect(action).toHaveAttribute(
+        "href",
+        spec.href(row.dataset.sessionId ?? ""),
+      );
     }
   });
 });
@@ -116,5 +123,76 @@ describe("the empty history", () => {
     expect(
       screen.getByRole("link", { name: /start a practice interview/i }),
     ).toHaveAttribute("href", "/practice/new");
+  });
+});
+
+describe("the states around the list", () => {
+  it("a filter that matches nothing says so and keeps All available", async () => {
+    search = "filter=attention";
+    renderSessions([
+      sessionIn("review_ready", "00000000-0000-7000-8000-0000000000a1"),
+    ]);
+
+    expect(
+      await screen.findByText(/nothing under this filter/i),
+    ).toHaveTextContent(/still exists under All/i);
+  });
+
+  it("choosing All clears the filter from the URL rather than naming it", async () => {
+    search = "filter=finished";
+    renderSessions([
+      sessionIn("review_ready", "00000000-0000-7000-8000-0000000000a1"),
+    ]);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("tab", { name: /^all$/i }));
+
+    expect(replace).toHaveBeenCalledWith("/practice", { scroll: false });
+  });
+
+  it("a state the machine gains later renders as itself with the safest action", async () => {
+    renderSessions([
+      sessionIn("quarantined", "00000000-0000-7000-8000-0000000000a3"),
+    ]);
+
+    const row = await screen.findByTestId("session-quarantined");
+    expect(within(row).getByText("quarantined")).toBeInTheDocument();
+    expect(
+      within(row).getByRole("link", { name: /see status/i }),
+    ).toHaveAttribute(
+      "href",
+      "/session/00000000-0000-7000-8000-0000000000a3/complete",
+    );
+  });
+
+  it("a failure names what is safe and offers a retry", async () => {
+    vi.mocked(api.listSessions).mockRejectedValue(
+      new ApiError({ status: 500, message: "boom", requestId: "req_31" }),
+    );
+    render(<SessionsScreen />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryProvider>{children}</QueryProvider>
+      ),
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/req_31/);
+    expect(alert).toHaveTextContent(/unaffected/i);
+  });
+
+  it("a failure code is shown beside the state that carries one", async () => {
+    const failed = {
+      ...sessionIn(
+        "composition_failed",
+        "00000000-0000-7000-8000-0000000000a4",
+      ),
+      failure_code: "FAILURE_CODE_ARTIFACT_NOT_FOUND",
+    };
+    renderSessions([failed]);
+
+    const row = await screen.findByTestId("session-composition_failed");
+    expect(
+      within(row).getByText("FAILURE_CODE_ARTIFACT_NOT_FOUND"),
+    ).toBeInTheDocument();
   });
 });

@@ -146,7 +146,7 @@ cover: cover-go cover-py cover-web ## Run every suite and enforce the coverage f
 # floor. This needs Docker; `make test-go` stays fast for the red-green loop.
 cover-go:
 	cd $(GO_DIR) && go test -tags integration -race -timeout 15m -coverprofile=coverage.out -covermode=atomic $(GO_COVER_PKGS)
-	@cd $(GO_DIR) && total=$$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $$3); print $$3}'; ) \
+	@cd $(GO_DIR) && total=$$(../../tools/coverage/handwritten.sh coverage.out) \
 		&& ../../tools/coverage/check.sh go "$$total" $(GO_COVERAGE_MIN)
 
 .PHONY: cover-py

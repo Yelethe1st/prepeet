@@ -402,3 +402,91 @@ describe("starting", () => {
     expect(push).not.toHaveBeenCalled();
   });
 });
+
+describe("the checks a person runs themselves", () => {
+  it("the speaker test plays a tone and the person says what they heard", async () => {
+    const played: string[] = [];
+    renderPrepare({ speaker: async () => void played.push("tone") });
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole("button", { name: /test speaker/i }),
+    );
+    expect(played).toHaveLength(1);
+
+    // The tone cannot be measured, so the person answers for it.
+    await user.click(
+      await screen.findByRole("button", { name: /i heard it/i }),
+    );
+    expect(
+      await screen.findByRole("button", { name: /test speaker/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("hearing nothing records a failure rather than passing quietly", async () => {
+    renderPrepare();
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole("button", { name: /test speaker/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: /i heard nothing/i }),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: /test speaker/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("the connection test reports what the runner measured", async () => {
+    renderPrepare({ net: async () => "fail" });
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole("button", { name: /test connection/i }),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: /test connection/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("re-checking the browser asks the runner again", async () => {
+    let asked = 0;
+    renderPrepare({
+      browser: () => {
+        asked += 1;
+        return asked > 1 ? "pass" : "fail";
+      },
+    });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /re-check/i }));
+
+    expect(asked).toBeGreaterThan(1);
+  });
+
+  it("a failed session read offers a retry that asks again", async () => {
+    vi.mocked(api.getInterview).mockRejectedValue(
+      new ApiError({ status: 500, message: "boom", requestId: "req_9" }),
+    );
+    vi.mocked(api.getProfile).mockResolvedValue(profile);
+    vi.mocked(api.fetchCatalogue).mockResolvedValue(catalogue);
+    render(<PrepareScreen sessionId={session.id} runners={runners()} />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryProvider>{children}</QueryProvider>
+      ),
+    });
+    const user = userEvent.setup();
+
+    const alert = await screen.findByRole("alert", {}, { timeout: 5000 });
+    expect(alert).toHaveTextContent(/req_9/);
+    vi.mocked(api.getInterview).mockResolvedValue(session);
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+
+    expect(
+      await screen.findByRole("button", { name: /test speaker/i }),
+    ).toBeInTheDocument();
+  }, 15000);
+});

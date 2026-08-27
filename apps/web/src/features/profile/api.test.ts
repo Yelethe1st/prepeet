@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { uploadCv } from "./api";
+import { listDocuments, listFacts, reviewFact, uploadCv } from "./api";
 import { apiFetch } from "@/lib/api/client";
 
 vi.mock("@/lib/api/client", () => ({
@@ -102,6 +102,36 @@ describe("uploadCv", () => {
 
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith("/me/documents/d1/abort", {
       method: "POST",
+    });
+  });
+});
+
+describe("the profile reads", () => {
+  it("unwraps the document and fact envelopes", async () => {
+    const documents = [{ id: "d1" }];
+    vi.mocked(apiFetch).mockResolvedValue({ documents } as never);
+    await expect(listDocuments()).resolves.toBe(documents);
+    expect(apiFetch).toHaveBeenCalledWith("/me/documents");
+
+    const facts = [{ id: "f1" }];
+    vi.mocked(apiFetch).mockResolvedValue({ facts } as never);
+    await expect(listFacts("d1")).resolves.toBe(facts);
+    expect(apiFetch).toHaveBeenLastCalledWith("/me/documents/d1/facts");
+  });
+});
+
+describe("reviewFact", () => {
+  it("posts the candidate's decision to the fact's own review", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ id: "f1" } as never);
+
+    await reviewFact("f1", {
+      status: "corrected",
+      corrected_value: { title: "Engineer" },
+    });
+
+    expect(apiFetch).toHaveBeenCalledWith("/me/facts/f1/review", {
+      method: "POST",
+      body: { status: "corrected", corrected_value: { title: "Engineer" } },
     });
   });
 });

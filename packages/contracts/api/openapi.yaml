@@ -41,6 +41,8 @@ tags:
     description: Interview sessions - creation from a validated catalogue selection; the lifecycle endpoints arrive with the session tickets.
   - name: tenant
     description: Workspace administration - members and roles. Every operation is decided by the capability catalogue, tenant-scoped, and audited.
+  - name: internal
+    description: The platform's own automation speaking to itself - the voice agent writing the transcript it is the source of. A deployment service token, never a person's session (ADR-0019).
 
 paths:
   /healthz:
@@ -619,6 +621,10 @@ paths:
       tags: [catalog]
       operationId: listDisciplines
       summary: List the professions the product serves
+      description: |
+        The disciplines the catalogue currently offers, resolved from the
+        published catalogue artifact rather than hardcoded, so adding a
+        profession is a content change and never a deployment.
       responses:
         "200":
           description: The disciplines.
@@ -657,6 +663,10 @@ paths:
       tags: [catalog]
       operationId: listInterviewShapes
       summary: List interview shapes with their runnable lengths
+      description: |
+        Each shape with the lengths it can actually be run at, from the
+        published catalogue artifact: the wizard offers exactly what the
+        catalogue admits, so an unrunnable combination cannot be chosen.
       responses:
         "200":
           description: The shapes.

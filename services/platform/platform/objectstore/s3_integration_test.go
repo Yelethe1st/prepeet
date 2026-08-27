@@ -499,3 +499,105 @@ func TestInitiateRejectsAnUnreasonablePartCount(t *testing.T) {
 		})
 	}
 }
+
+// The server-side object path: what the platform itself writes and reads
+// back, as distinct from the presigned path the browser uses. RTC-05 and
+// the sealed evaluation input both depend on it, and the reconciliation
+// it supports is only as good as the digest it computes from the stored
+// bytes rather than from anyone's claim about them.
+
+func TestPutFetchAndStatReadTheBytesBackExactly(t *testing.T) {
+	ctx := context.Background()
+	store := newStore(t)
+	key, err := objectstore.NewKey(objectstore.KeyParts{
+		TenantID: tenantFor(t), SessionID: "ses-1",
+		Purpose: objectstore.PurposeTranscript, Name: "evaluation-input.json",
+	})
+	if err != nil {
+		t.Fatalf("key: %v", err)
+	}
+	body := []byte(`{"session_id":"ses-1","turns":[]}`)
+
+	if err := store.Put(ctx, key, body, "application/json"); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+	fetched, err := store.Fetch(ctx, key)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if !bytes.Equal(fetched, body) {
+		t.Fatalf("fetched %q", fetched)
+	}
+
+	size, digest, err := store.StatDigest(ctx, key)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	sum := sha256.Sum256(body)
+	if digest != "sha256:"+hex.EncodeToString(sum[:]) {
+		t.Fatalf("digest = %q", digest)
+	}
+	if size != int64(len(body)) {
+		t.Fatalf("size = %d, want %d", size, len(body))
+	}
+
+	// Writing the same key again is the idempotent retry completion
+	// depends on: same bytes, same digest, no second object.
+	if err := store.Put(ctx, key, body, "application/json"); err != nil {
+		t.Fatalf("put again: %v", err)
+	}
+	_, again, err := store.StatDigest(ctx, key)
+	if err != nil {
+		t.Fatalf("stat again: %v", err)
+	}
+	if again != digest {
+		t.Fatalf("the retry changed the digest: %q then %q", digest, again)
+	}
+}
+
+func TestAnAbsentObjectIsNotFoundRatherThanEmpty(t *testing.T) {
+	ctx := context.Background()
+	store := newStore(t)
+	key, err := objectstore.NewKey(objectstore.KeyParts{
+		TenantID: tenantFor(t), SessionID: "ses-2",
+		Purpose: objectstore.PurposeMedia, Name: "candidate.webm",
+	})
+	if err != nil {
+		t.Fatalf("key: %v", err)
+	}
+
+	// Reconciliation asks this question of every track: an absent
+	// artifact must fail, because zero bytes read as a silent recording.
+	if _, _, err := store.StatDigest(ctx, key); err == nil {
+		t.Fatal("statting an absent object reported success")
+	}
+	if _, err := store.Fetch(ctx, key); err == nil {
+		t.Fatal("fetching an absent object reported success")
+	}
+}
+
+func TestDeleteRemovesTheObjectAndIsSafeToRepeat(t *testing.T) {
+	ctx := context.Background()
+	store := newStore(t)
+	key, err := objectstore.NewKey(objectstore.KeyParts{
+		TenantID: tenantFor(t), SessionID: "ses-3",
+		Purpose: objectstore.PurposeDocument, Name: "cv.pdf",
+	})
+	if err != nil {
+		t.Fatalf("key: %v", err)
+	}
+	if err := store.Put(ctx, key, []byte("%PDF-1.7"), "application/pdf"); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	if err := store.Delete(ctx, key); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if _, err := store.Fetch(ctx, key); err == nil {
+		t.Fatal("the object survived deletion")
+	}
+	// The record outlives the object, so deleting twice must not error.
+	if err := store.Delete(ctx, key); err != nil {
+		t.Fatalf("second delete: %v", err)
+	}
+}

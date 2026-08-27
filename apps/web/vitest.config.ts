@@ -17,10 +17,16 @@ export default defineConfig({
       // package: openapi-typescript emits interfaces and nothing else, so a
       // package would ship no runtime and exist only to be resolved.
       "@contracts/capabilities": fileURLToPath(
-        new URL("../../packages/generated/typescript/capabilities.gen.ts", import.meta.url),
+        new URL(
+          "../../packages/generated/typescript/capabilities.gen.ts",
+          import.meta.url,
+        ),
       ),
       "@contracts": fileURLToPath(
-        new URL("../../packages/generated/typescript/api.gen.ts", import.meta.url),
+        new URL(
+          "../../packages/generated/typescript/api.gen.ts",
+          import.meta.url,
+        ),
       ),
     },
   },
@@ -45,7 +51,12 @@ export default defineConfig({
       exclude: [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.d.ts",
-                // Barrel files re-export and do nothing.
+        // The route group layout, as the note above says: it returns its
+        // children and nothing else. The exclusion was described here and
+        // never actually made, so the file counted against the floor for a
+        // rule it was meant to be outside of.
+        "src/app/(public)/layout.tsx",
+        // Barrel files re-export and do nothing.
         "src/shared/components/index.ts",
       ],
       // Raised from 80 as the suite grew. A floor well below where the suite

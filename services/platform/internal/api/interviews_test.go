@@ -1250,3 +1250,125 @@ func TestARedoIsANewSessionNamingItsOrigin(t *testing.T) {
 		t.Fatalf("a second redo answered %d, want 409", response.Code)
 	}
 }
+
+func TestReplayAnswersTheTimelineAfterACursor(t *testing.T) {
+	// The recovery read: a client that lost its place asks for everything
+	// after the cursor it holds, and the cursor it asks with reaches the
+	// port unchanged. Replaying from the same cursor must answer the same
+	// events, which is what a client rebuilds itself on.
+	interviews := &fakeInterviews{replayed: []api.ControlEventOut{
+		{
+			EventID: "00000000-0000-7000-8000-0000000000b1", Epoch: 1, Sequence: 4,
+			Type: "turn.boundary", Payload: json.RawMessage(`{"speaker":"candidate"}`),
+			OccurredAt: time.Date(2026, 8, 27, 13, 0, 0, 0, time.UTC),
+		},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/events?after_epoch=1&after_sequence=3",
+		sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		Events []struct {
+			EventID  string         `json:"event_id"`
+			Sequence int            `json:"sequence"`
+			Type     string         `json:"type"`
+			Payload  map[string]any `json:"payload"`
+		} `json:"events"`
+	}
+	decodeInto(t, response, &body)
+	if len(body.Events) != 1 || body.Events[0].Sequence != 4 || body.Events[0].Type != "turn.boundary" {
+		t.Fatalf("events = %+v", body.Events)
+	}
+	if body.Events[0].Payload["speaker"] != "candidate" {
+		t.Fatalf("the payload did not survive: %+v", body.Events[0].Payload)
+	}
+	if interviews.users[0] != "replay:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1" {
+		t.Fatalf("the port saw %v", interviews.users)
+	}
+}
+
+func TestReplayNeedsASessionAndSurfacesARefusal(t *testing.T) {
+	path := "/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/events"
+	if response := get(t, serveInterviews(t, &fakeInterviews{}), path); response.Code != http.StatusUnauthorized {
+		t.Fatalf("no session = %d, want 401", response.Code)
+	}
+	missing := serveInterviews(t, &fakeInterviews{err: api.ErrSessionMissing})
+	if response := get(t, missing, path, sessionCookie()); response.Code != http.StatusNotFound {
+		t.Fatalf("someone else's session = %d, want 404", response.Code)
+	}
+}
+
+func TestTheSessionResponseCarriesItsCursorSealAndOrigin(t *testing.T) {
+	// One read answers everything a screen needs about where a session
+	// stands: the cursor completion would seal at, the durable receipt
+	// once it has, and the answer it retakes when it is a redo. Each is
+	// absent rather than zeroed when it does not apply.
+	sealed := time.Date(2026, 8, 27, 14, 0, 0, 0, time.UTC)
+	interviews := &fakeInterviews{created: api.InterviewSession{
+		ID: "00000000-0000-7000-8000-0000000000e1", Mode: "practice", State: "review_ready",
+		Config:              api.InterviewSelection{Discipline: "d", Role: "r", Shape: "s", Minutes: 5, Persona: "p"},
+		RecordingPreference: "audio_and_transcript", ConsentVersion: "1.0.0",
+		ConnectionEpoch:  2,
+		AcceptedSequence: 9,
+		Seal: &api.SealView{
+			SealedAt: sealed, MediaStatus: "finalized", Warnings: []string{},
+		},
+		RedoOf: &api.RedoOfView{
+			SessionID: "00000000-0000-7000-8000-0000000000e0", Sequence: 3, Question: "Again please.",
+		},
+		CreatedAt: sealed,
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler, "/api/v1/interviews/00000000-0000-7000-8000-0000000000e1", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		Cursor *struct {
+			ConnectionEpoch  int `json:"connection_epoch"`
+			AcceptedSequence int `json:"accepted_sequence"`
+		} `json:"cursor"`
+		Seal *struct {
+			MediaStatus string   `json:"media_status"`
+			Warnings    []string `json:"warnings"`
+		} `json:"seal"`
+		RedoOf *struct {
+			SessionID string `json:"session_id"`
+			Sequence  int    `json:"sequence"`
+		} `json:"redo_of"`
+	}
+	decodeInto(t, response, &body)
+	if body.Cursor == nil || body.Cursor.ConnectionEpoch != 2 || body.Cursor.AcceptedSequence != 9 {
+		t.Fatalf("cursor = %+v", body.Cursor)
+	}
+	if body.Seal == nil || body.Seal.MediaStatus != "finalized" || body.Seal.Warnings == nil {
+		t.Fatalf("seal = %+v", body.Seal)
+	}
+	if body.RedoOf == nil || body.RedoOf.Sequence != 3 {
+		t.Fatalf("redo_of = %+v", body.RedoOf)
+	}
+}
+
+func TestASessionThatHasNotStartedCarriesNoCursorOrSeal(t *testing.T) {
+	interviews := &fakeInterviews{created: api.InterviewSession{
+		ID: "00000000-0000-7000-8000-0000000000e1", Mode: "practice", State: "ready",
+		Config:              api.InterviewSelection{Discipline: "d", Role: "r", Shape: "s", Minutes: 40, Persona: "p"},
+		RecordingPreference: "transcript_only", ConsentVersion: "1.0.0",
+		CreatedAt: time.Date(2026, 8, 27, 14, 0, 0, 0, time.UTC),
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler, "/api/v1/interviews/00000000-0000-7000-8000-0000000000e1", sessionCookie())
+	var body map[string]any
+	decodeInto(t, response, &body)
+	for _, absent := range []string{"cursor", "seal", "redo_of", "failure_code"} {
+		if _, present := body[absent]; present {
+			t.Fatalf("a session that has not started carries %q", absent)
+		}
+	}
+}

@@ -1,6 +1,7 @@
 package temporal_test
 
 import (
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -189,5 +190,52 @@ func TestTheCapIsSmallEnoughToMeanIdentifiersOnly(t *testing.T) {
 	if temporal.MaxPayloadBytes > 8192 {
 		t.Errorf("MaxPayloadBytes is %d, which is large enough to hold prose, "+
 			"so the rule stops being about identifiers", temporal.MaxPayloadBytes)
+	}
+}
+
+func TestEveryLogLevelScrubsWhatTheSDKHandsIt(t *testing.T) {
+	var written strings.Builder
+	logger := slog.New(slog.NewJSONHandler(&written, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	temporal.LogEveryLevelForTest(logger,
+		"dialling for ama@example.com", "peer", "ama@example.com", "attempt", 2)
+
+	line := written.String()
+	if strings.Contains(line, "ama@example.com") {
+		t.Fatalf("an address reached the log: %s", line)
+	}
+	// All four levels wrote, and the non-string value is passed through
+	// untouched rather than stringified.
+	for _, level := range []string{"DEBUG", "INFO", "WARN", "ERROR"} {
+		if !strings.Contains(line, level) {
+			t.Fatalf("%s did not write: %s", level, line)
+		}
+	}
+	if !strings.Contains(line, `"attempt":2`) {
+		t.Fatalf("the attempt number was altered: %s", line)
+	}
+}
+
+func TestTheConverterRendersPayloadsForOperators(t *testing.T) {
+	// ToString and ToStrings are what the CLI and the UI call to show a
+	// payload; they delegate, and what matters is that they answer
+	// something rather than panicking on the wrapper.
+	converter := temporal.NewDataConverter()
+
+	payload, err := converter.ToPayload("hello")
+	if err != nil {
+		t.Fatalf("to payload: %v", err)
+	}
+	if rendered := converter.ToString(payload); !strings.Contains(rendered, "hello") {
+		t.Fatalf("rendered = %q", rendered)
+	}
+
+	payloads, err := converter.ToPayloads("first", "second")
+	if err != nil {
+		t.Fatalf("to payloads: %v", err)
+	}
+	rendered := converter.ToStrings(payloads)
+	if len(rendered) != 2 || !strings.Contains(rendered[1], "second") {
+		t.Fatalf("rendered = %v", rendered)
 	}
 }

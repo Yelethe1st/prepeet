@@ -14,11 +14,7 @@ import {
 } from "@/shared/states";
 
 import { listSessions, type InterviewSession } from "./api";
-import {
-  STATE_ROWS,
-  type FilterGroup,
-  type MachineState,
-} from "./states";
+import { STATE_ROWS, type FilterGroup, type MachineState } from "./states";
 
 /**
  * The session history - SES-07, from the prototype's candidate-sessions
@@ -39,15 +35,19 @@ const FILTERS: { key: FilterGroup | "all"; label: string }[] = [
 ];
 
 export function SessionsScreen() {
-  const sessions = useQuery({ queryKey: ["sessions"], queryFn: listSessions });
+  // No silent retries: a history read that fails is told at once, with a
+  // retry the person chooses, exactly as the other session screens do.
+  const sessions = useQuery({
+    queryKey: ["sessions"],
+    queryFn: listSessions,
+    retry: false,
+  });
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const raw = params.get("filter");
   const filter: FilterGroup | "all" =
-    raw === "active" || raw === "finished" || raw === "attention"
-      ? raw
-      : "all";
+    raw === "active" || raw === "finished" || raw === "attention" ? raw : "all";
 
   if (sessions.isPending) {
     return (
@@ -98,8 +98,7 @@ export function SessionsScreen() {
   }
 
   const shown = sessions.data.filter(
-    (session) =>
-      filter === "all" || rowFor(session.state).group === filter,
+    (session) => filter === "all" || rowFor(session.state).group === filter,
   );
 
   return (

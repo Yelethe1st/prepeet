@@ -57,7 +57,7 @@ func seedPractice(t *testing.T) {
 	// exactly the relationship the separation must not leak through.
 	if _, err := conn.Exec(ctx,
 		`INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
-		 VALUES ('00000000-0000-7000-8000-0000000000c3', $1, $2, 'active', 'member')
+		 VALUES ('00000000-0000-7000-8000-0000000000c3', $1, $2, 'active', 'recruiter')
 		 ON CONFLICT (id) DO NOTHING`, tenantA, priya); err != nil {
 		t.Fatalf("seeding membership: %v", err)
 	}

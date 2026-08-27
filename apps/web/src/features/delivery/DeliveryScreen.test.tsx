@@ -175,6 +175,16 @@ const absentBaseline = {
   note: "These ranges are guidance about you, not a target: there is no correct speaking rate.",
 };
 
+const plainSession = {
+  id: "00000000-0000-7000-8000-0000000000e1",
+  mode: "practice" as const,
+  state: "review_ready",
+  config: { discipline: "d", role: "r", shape: "s", minutes: 40, persona: "p" },
+  recording_preference: "transcript_only" as const,
+  consent_version: "1.0.0",
+  created_at: "2026-08-27T18:00:00Z",
+};
+
 function renderDelivery(
   value: DeliveryView = delivery,
   baseline = absentBaseline,
@@ -182,6 +192,7 @@ function renderDelivery(
   vi.mocked(api.getDelivery).mockResolvedValue(value);
   vi.mocked(api.getTranscript).mockResolvedValue(transcript);
   vi.mocked(api.getBaseline).mockResolvedValue(baseline);
+  vi.mocked(api.getInterview).mockResolvedValue(plainSession);
   return render(
     <DeliveryScreen sessionId="00000000-0000-7000-8000-0000000000e1" />,
     {
@@ -196,6 +207,68 @@ afterEach(() => {
   vi.mocked(api.getDelivery).mockReset();
   vi.mocked(api.getTranscript).mockReset();
   vi.mocked(api.getBaseline).mockReset();
+  vi.mocked(api.getInterview).mockReset();
+});
+
+describe("the original versus the redo", () => {
+  it("a retake shows the question it answered and the metric deltas, the original untouched", async () => {
+    const originalId = "00000000-0000-7000-8000-0000000000e0";
+    vi.mocked(api.getInterview).mockResolvedValue({
+      ...plainSession,
+      redo_of: {
+        session_id: originalId,
+        sequence: 3,
+        question: "Tell me about a migration you led.",
+      },
+    });
+    vi.mocked(api.getBaseline).mockResolvedValue(absentBaseline);
+    vi.mocked(api.getTranscript).mockResolvedValue(transcript);
+    vi.mocked(api.getDelivery).mockImplementation(async (id: string) =>
+      id === originalId
+        ? {
+            ...delivery,
+            session_id: originalId,
+            analysis: {
+              ...analysis,
+              metrics: {
+                words: 30,
+                words_per_minute: 150,
+                fillers_per_100_words: 10.3,
+                long_pause_count: 3,
+              },
+            },
+          }
+        : delivery,
+    );
+    render(
+      <DeliveryScreen sessionId="00000000-0000-7000-8000-0000000000e1" />,
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryProvider>{children}</QueryProvider>
+        ),
+      },
+    );
+
+    const comparison = await screen.findByTestId("comparison");
+    expect(comparison).toHaveTextContent(/tell me about a migration you led/i);
+    await waitFor(() =>
+      expect(
+        within(comparison).getByTestId("delta-words_per_minute"),
+      ).toHaveTextContent(/150.*120.*-30/),
+    );
+    expect(
+      within(comparison).getByTestId("delta-fillers_per_100_words"),
+    ).toHaveTextContent(/10.3.*8.3.*-2/);
+    expect(
+      within(comparison).getByRole("link", { name: /original session/i }),
+    ).toHaveAttribute("href", `/session/${originalId}/delivery`);
+  });
+
+  it("a session that is not a retake shows no comparison", async () => {
+    renderDelivery();
+    await screen.findByTestId("dimension-fluency");
+    expect(screen.queryByTestId("comparison")).not.toBeInTheDocument();
+  });
 });
 
 describe("the personal baseline", () => {

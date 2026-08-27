@@ -26,6 +26,7 @@ import {
 import {
   getBaseline,
   getDelivery,
+  getInterview,
   getTranscript,
   type DeliveryBaseline,
   type DeliveryView,
@@ -61,6 +62,19 @@ export function DeliveryScreen({ sessionId }: { sessionId: string }) {
   const baseline = useQuery({
     queryKey: ["delivery-baseline"],
     queryFn: getBaseline,
+    retry: false,
+  });
+  // A retake compares itself with the original: the session says whether
+  // it is one, and the original's own analysis supplies the other side.
+  const session = useQuery({
+    queryKey: ["interview", sessionId],
+    queryFn: () => getInterview(sessionId),
+  });
+  const originalId = session.data?.redo_of?.session_id;
+  const original = useQuery({
+    queryKey: ["delivery", originalId],
+    queryFn: () => getDelivery(originalId as string),
+    enabled: Boolean(originalId),
     retry: false,
   });
 
@@ -117,6 +131,8 @@ export function DeliveryScreen({ sessionId }: { sessionId: string }) {
       delivery={delivery.data}
       baseline={baseline.data}
       segments={transcript.data.segments.filter((s) => !s.superseded)}
+      redoOf={session.data?.redo_of}
+      original={original.data}
     />
   );
 }
@@ -126,6 +142,8 @@ function DeliveryBody({
   delivery,
   baseline,
   segments,
+  redoOf,
+  original,
 }: {
   sessionId: string;
   delivery: DeliveryView;
@@ -136,6 +154,8 @@ function DeliveryBody({
     text: string;
     start_ms: number;
   }[];
+  redoOf?: { session_id: string; sequence: number; question: string };
+  original?: DeliveryView;
 }) {
   const analysis = delivery.analysis as Analysis;
   const turns = analysis.turns ?? [];
@@ -166,6 +186,9 @@ function DeliveryBody({
 
   return (
     <div className="space-y-6">
+      {redoOf && (
+        <Comparison redoOf={redoOf} redo={analysis} original={original} />
+      )}
       {delivery.status === "not_assessable" && (
         <section
           role="status"
@@ -459,6 +482,99 @@ function DeliveryBody({
         </p>
       </section>
     </div>
+  );
+}
+
+/**
+ * Original versus redo: the question the retake answered, and the
+ * measured deltas. The original is another session's own analysis, so
+ * nothing here can overwrite it; a missing original is said, not hidden.
+ */
+function Comparison({
+  redoOf,
+  redo,
+  original,
+}: {
+  redoOf: { session_id: string; sequence: number; question: string };
+  redo: Analysis;
+  original: DeliveryView | undefined;
+}) {
+  const before = (original?.analysis as Analysis | undefined)?.metrics;
+  const after = redo.metrics;
+  const rows: {
+    label: string;
+    key: "words_per_minute" | "fillers_per_100_words" | "long_pause_count";
+  }[] = [
+    { label: "Words per minute", key: "words_per_minute" },
+    { label: "Fillers per 100 words", key: "fillers_per_100_words" },
+    { label: "Pauses over 700 ms", key: "long_pause_count" },
+  ];
+  return (
+    <section
+      data-testid="comparison"
+      aria-labelledby="comparison-heading"
+      className="rounded-lg border border-border bg-surface p-5"
+    >
+      <h2 id="comparison-heading" className="text-lg font-semibold">
+        Your redo, next to the original
+      </h2>
+      <p className="mt-2 text-sm text-fg-2">
+        This session retook one answer. The question it answered:{" "}
+        <q>{redoOf.question}</q>
+      </p>
+      {before ? (
+        <table className="mt-4 w-full text-left text-sm">
+          <caption className="sr-only">
+            Original and redo measurements with the change between them
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Measurement</th>
+              <th scope="col">Original</th>
+              <th scope="col">Redo</th>
+              <th scope="col">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ label, key }) => {
+              const a = before[key];
+              const b = after?.[key];
+              const delta =
+                a !== undefined && b !== undefined
+                  ? Math.round((b - a) * 10) / 10
+                  : undefined;
+              return (
+                <tr key={key} data-testid={`delta-${key}`}>
+                  <th scope="row">{label}</th>
+                  <td>{a ?? "not measured"}</td>
+                  <td>{b ?? "not measured"}</td>
+                  <td>
+                    {delta === undefined
+                      ? "n/a"
+                      : delta > 0
+                        ? `+${delta}`
+                        : `${delta}`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <p className="mt-3 text-sm text-fg-2">
+          The original session&apos;s delivery analysis is not available to
+          compare yet.
+        </p>
+      )}
+      <p className="mt-3 text-sm">
+        <Link
+          className="underline"
+          href={`/session/${redoOf.session_id}/delivery`}
+        >
+          The original session&apos;s delivery
+        </Link>
+      </p>
+    </section>
   );
 }
 

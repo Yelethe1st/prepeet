@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api/client";
 
 export type DeliveryView = components["schemas"]["DeliveryView"];
 export type DeliveryBaseline = components["schemas"]["DeliveryBaseline"];
+export type InterviewSession = components["schemas"]["InterviewSession"];
 export type TranscriptView = components["schemas"]["TranscriptView"];
 
 /** The stored analysis. DELIVERY_NOT_READY while the workflow runs. */
@@ -23,4 +24,11 @@ export async function getTranscript(
 /** The caller's own ranges, or the honest absence with its count. */
 export async function getBaseline(): Promise<DeliveryBaseline> {
   return apiFetch<DeliveryBaseline>("/me/delivery-baseline");
+}
+
+/** The session, for whether it is a retake and of what. */
+export async function getInterview(
+  sessionId: string,
+): Promise<InterviewSession> {
+  return apiFetch<InterviewSession>(`/interviews/${sessionId}`);
 }

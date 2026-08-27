@@ -184,9 +184,20 @@ A candidate redoes one answer and sees it beside the original with the metric de
 is never overwritten.
 
 **Done when**
-- [ ] The original answer and its evidence survive the redo intact.
-- [ ] The comparison shows metric deltas and states which question the redo actually answered.
-- [ ] Redos are practice-only and never enter a screening evaluation.
+- [x] The original answer and its evidence survive the redo intact.
+- [x] The comparison shows metric deltas and states which question the redo actually answered.
+- [x] Redos are practice-only and never enter a screening evaluation.
+
+**Done on PRC-03's linked-session model.** The review screen offers "Redo this answer" per
+answer, creates the retake through POST redos and goes to prepare it like any session; an
+answer already redone links to its comparison instead of offering a second, and a refusal is
+shown by name with nothing navigating. The comparison lives on the retake's delivery screen:
+the session says it is a retake and of what, the original's own delivery analysis supplies the
+other side, and the table shows original, redo and the change for pace, fillers and long pauses,
+with the question the redo actually answered quoted above it. The original is another session's
+row set, read and never written; the first box is PRC-03's DeepEqual proof. Practice-only is the
+redos table's mode CHECK and the command's refusal, so a screening evaluation cannot contain a
+redo by construction. A missing original analysis is said, not hidden.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md)
 

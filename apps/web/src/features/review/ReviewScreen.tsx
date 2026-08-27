@@ -1,7 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
 import {
@@ -12,7 +14,13 @@ import {
   SkeletonText,
 } from "@/shared/states";
 
-import { getReview, type AnswerCoaching, type CoachingPoint } from "./api";
+import {
+  createRedo,
+  getReview,
+  getTranscript,
+  type AnswerCoaching,
+  type CoachingPoint,
+} from "./api";
 
 /**
  * The coaching review - PRC-02, from the prototype's
@@ -28,6 +36,30 @@ import { getReview, type AnswerCoaching, type CoachingPoint } from "./api";
  * evaluation is complete and unaffected.
  */
 export function ReviewScreen({ sessionId }: { sessionId: string }) {
+  const router = useRouter();
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const transcript = useQuery({
+    queryKey: ["transcript", sessionId],
+    queryFn: () => getTranscript(sessionId),
+  });
+  // A redo is a new session: on success the person goes to prepare it,
+  // exactly as for any session. Refusals are named, never swallowed.
+  const redo = useMutation({
+    mutationFn: (sequence: number) => createRedo(sessionId, sequence),
+    onSuccess: (created) => router.push(`/session/${created.id}/prepare`),
+    onError: (error) =>
+      setRefusal(
+        error instanceof ApiError
+          ? error.message
+          : "The redo could not be started. Nothing about this session changed.",
+      ),
+  });
+  const redoBySequence = new Map<number, string>();
+  for (const segment of transcript.data?.segments ?? []) {
+    if (segment.redo_session_id) {
+      redoBySequence.set(segment.sequence, segment.redo_session_id);
+    }
+  }
   const review = useQuery({
     queryKey: ["review", sessionId],
     queryFn: () => getReview(sessionId),
@@ -63,8 +95,7 @@ export function ReviewScreen({ sessionId }: { sessionId: string }) {
   }
 
   if (review.error) {
-    const failure =
-      review.error instanceof ApiError ? review.error : undefined;
+    const failure = review.error instanceof ApiError ? review.error : undefined;
     return (
       <ErrorState
         what="The coaching review could not be loaded"
@@ -111,8 +142,22 @@ export function ReviewScreen({ sessionId }: { sessionId: string }) {
         suggested shape built only from your own words. Where information is
         missing you get the question to answer, never an invented fact.
       </p>
+      {refusal && (
+        <p
+          role="alert"
+          className="rounded-md border border-border bg-surface-2 px-4 py-3 text-sm"
+        >
+          {refusal}
+        </p>
+      )}
       {review.data.answers.map((answer) => (
-        <AnswerCard key={answer.sequence} answer={answer} />
+        <AnswerCard
+          key={answer.sequence}
+          answer={answer}
+          redoSessionId={redoBySequence.get(answer.sequence)}
+          onRedo={() => redo.mutate(answer.sequence)}
+          redoPending={redo.isPending}
+        />
       ))}
       <p className="text-xs text-fg-3">
         Derived by {review.data.coaching_version} from the session&apos;s own
@@ -127,14 +172,44 @@ export function ReviewScreen({ sessionId }: { sessionId: string }) {
 }
 
 /** One answer's coaching: strengths, gaps, and the rewrite when one helps. */
-function AnswerCard({ answer }: { answer: AnswerCoaching }) {
+function AnswerCard({
+  answer,
+  redoSessionId,
+  onRedo,
+  redoPending,
+}: {
+  answer: AnswerCoaching;
+  redoSessionId: string | undefined;
+  onRedo: () => void;
+  redoPending: boolean;
+}) {
   return (
     <section
       data-testid={`answer-${answer.sequence}`}
       aria-label={`Coaching for answer at turn ${answer.sequence}`}
       className="rounded-lg border border-border bg-surface p-5"
     >
-      <h2 className="text-sm font-semibold">Turn {answer.sequence}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">Turn {answer.sequence}</h2>
+        {redoSessionId ? (
+          <Link
+            className="text-sm underline"
+            href={`/session/${redoSessionId}/delivery`}
+          >
+            Redone: see the comparison
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onRedo}
+            disabled={redoPending}
+            aria-label={`Redo the answer at turn ${answer.sequence}`}
+          >
+            Redo this answer
+          </button>
+        )}
+      </div>
 
       {answer.strengths.length > 0 && (
         <PointList title="What worked" points={answer.strengths} />
@@ -166,8 +241,8 @@ function AnswerCard({ answer }: { answer: AnswerCoaching }) {
             )}
           </p>
           <p className="mt-1 text-xs text-fg-3">
-            Highlighted brackets are questions to answer, not facts: nothing
-            in a rewrite is ever invented for you.
+            Highlighted brackets are questions to answer, not facts: nothing in
+            a rewrite is ever invented for you.
           </p>
         </div>
       )}

@@ -336,6 +336,29 @@ func (q *Queries) InsertMediaTrack(ctx context.Context, arg InsertMediaTrackPara
 	return result.RowsAffected(), nil
 }
 
+const insertRedo = `-- name: InsertRedo :exec
+INSERT INTO interview.redos (parent_session_id, sequence, redo_session_id, mode, candidate_id)
+VALUES ($1::uuid, $2::integer,
+        $3::uuid, 'practice', $4::uuid)
+`
+
+type InsertRedoParams struct {
+	ParentSessionID string
+	Sequence        int32
+	RedoSessionID   string
+	CandidateID     string
+}
+
+func (q *Queries) InsertRedo(ctx context.Context, arg InsertRedoParams) error {
+	_, err := q.db.Exec(ctx, insertRedo,
+		arg.ParentSessionID,
+		arg.Sequence,
+		arg.RedoSessionID,
+		arg.CandidateID,
+	)
+	return err
+}
+
 const insertSeal = `-- name: InsertSeal :exec
 
 INSERT INTO interview.seals
@@ -479,6 +502,39 @@ func (q *Queries) ListMediaTracks(ctx context.Context, sessionID string) ([]List
 			&i.CreatedAt,
 			&i.ResolvedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRedos = `-- name: ListRedos :many
+SELECT sequence, redo_session_id::text AS redo_session_id, created_at
+FROM interview.redos
+WHERE parent_session_id = $1::uuid
+ORDER BY sequence
+`
+
+type ListRedosRow struct {
+	Sequence      int32
+	RedoSessionID string
+	CreatedAt     time.Time
+}
+
+func (q *Queries) ListRedos(ctx context.Context, parentSessionID string) ([]ListRedosRow, error) {
+	rows, err := q.db.Query(ctx, listRedos, parentSessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRedosRow{}
+	for rows.Next() {
+		var i ListRedosRow
+		if err := rows.Scan(&i.Sequence, &i.RedoSessionID, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

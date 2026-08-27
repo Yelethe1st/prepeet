@@ -815,6 +815,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/turns/{turnId}/redos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retake one answer as a new, linked practice session
+         * @description Creates a practice session composed from this session's own
+         *     configuration plus the one question the turn answered. The
+         *     original session, its transcript, its evidence and its timing are
+         *     never modified: the retake is a different session, linked here.
+         *     One retake per question; practice only; only once results exist.
+         *     Refusals: REDO_NOT_ALLOWED, REDO_EXISTS, REDO_TURN_UNKNOWN.
+         */
+        post: operations["createRedo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews/{sessionId}/review": {
         parameters: {
             query?: never;
@@ -1442,6 +1467,13 @@ export interface components {
             superseded: boolean;
             corrected_by_sequence?: number;
             supersedes?: number;
+            /**
+             * Format: uuid
+             * @description The retake session for this answer, when one exists. The retake
+             *     is scored in its own session; this segment stays exactly as it
+             *     was said and scored here.
+             */
+            redo_session_id?: string;
         };
         ControlEvent: {
             /** Format: uuid */
@@ -1471,6 +1503,13 @@ export interface components {
             /** @description The pinned plan body, exactly as composed against. */
             plan: {
                 [key: string]: unknown;
+            };
+            /** @description Present for a retake: ask exactly this question, once. */
+            redo_of?: {
+                /** Format: uuid */
+                session_id: string;
+                sequence: number;
+                question: string;
             };
         };
         ServiceEventBatch: {
@@ -1615,6 +1654,13 @@ export interface components {
             cursor?: {
                 connection_epoch: number;
                 accepted_sequence: number;
+            };
+            /** @description Present when this session is a retake of one answer. */
+            redo_of?: {
+                /** Format: uuid */
+                session_id: string;
+                sequence: number;
+                question: string;
             };
             /**
              * @description The completion receipt, durable: present once the session has
@@ -3107,6 +3153,43 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             /** @description DELIVERY_NOT_READY while the analysis has not landed. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createRedo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+                /** @description The sequence of the candidate's answer to retake. */
+                turnId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The retake session, in draft, ready to compose. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewSession"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description REDO_NOT_ALLOWED, REDO_EXISTS or REDO_TURN_UNKNOWN. */
             409: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];

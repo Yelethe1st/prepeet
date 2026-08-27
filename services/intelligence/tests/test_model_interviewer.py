@@ -201,3 +201,26 @@ class TestTheProviderIsADeploymentChoice:
         )
         turn = asyncio.run(interviewer.opening())
         assert turn.model_version == "openai-compatible:llama3.1:8b"
+
+
+class TestARetakeAsksExactlyTheOriginalQuestion:
+    """PRC-03: one question, the original, then the interview ends."""
+
+    def test_the_redo_question_is_asked_verbatim_and_nothing_follows(self) -> None:
+        """The model is not consulted for the question and gets no second turn."""
+        import dataclasses
+
+        brief = dataclasses.replace(BRIEF, redo_question="Tell me about a migration you led.")
+        model = FakeModel(["Some other question?"] * 3)
+        interviewer = ModelInterviewer(brief=brief, complete=model)
+
+        async def run() -> tuple[str, object]:
+            first = await interviewer.opening()
+            second = await interviewer.next_question("I led the payments migration.")
+            return first.text, second
+
+        first, second = asyncio.run(run())
+
+        assert "Tell me about a migration you led." in first
+        assert second is None
+        assert model.calls == []

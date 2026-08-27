@@ -93,6 +93,8 @@ class Brief:
     role_title: str
     competencies: tuple[str, ...]
     plan: dict[str, object]
+    # A retake: the one question to ask, and nothing after the answer.
+    redo_question: str = ""
 
 
 async def fetch_brief(target: TimelineTarget) -> Brief:
@@ -126,4 +128,5 @@ def _fetch_brief_blocking(target: TimelineTarget) -> Brief:
         role_title=str(document["role"]["title"]),
         competencies=tuple(str(c) for c in document["role"]["competencies"]),
         plan=dict(document.get("plan") or {}),
+        redo_question=str((document.get("redo_of") or {}).get("question") or ""),
     )

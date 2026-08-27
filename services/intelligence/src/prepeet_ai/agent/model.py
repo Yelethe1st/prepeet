@@ -129,8 +129,13 @@ class ModelInterviewer:
     _asked: int = 0
 
     def __post_init__(self) -> None:
-        """Bound questions by the plan when the caller did not: two per stage, floor of three."""
-        if self.max_questions <= 0:
+        """Bound questions by the plan when the caller did not: two per stage, floor of three.
+
+        A retake is exactly one question, whatever the plan says.
+        """
+        if self.brief.redo_question:
+            self.max_questions = 1
+        elif self.max_questions <= 0:
             stages = self.brief.plan.get("stages")
             count = len(stages) if isinstance(stages, list) else 3
             self.max_questions = max(3, 2 * count)
@@ -150,7 +155,14 @@ class ModelInterviewer:
         return Turn(text=text, latency_ms=latency_ms, model_version=self.version)
 
     async def opening(self) -> Turn:
-        """Greet and ask the first question."""
+        """Greet and ask the first question; for a retake, ask exactly the original question."""
+        if self.brief.redo_question:
+            self._asked += 1
+            return Turn(
+                text=f"Let us take that one again. {self.brief.redo_question}",
+                latency_ms=0,
+                model_version=self.version,
+            )
         turn = await self._ask(
             "The candidate has joined. Greet them briefly and ask your first question."
         )

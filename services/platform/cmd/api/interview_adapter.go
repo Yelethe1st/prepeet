@@ -329,6 +329,14 @@ func (a interviewAdapter) Transcript(ctx context.Context, userID, sessionID stri
 		return api.TranscriptView{}, err
 	}
 	view := api.TranscriptView{OrphanCorrections: transcript.OrphanCorrections}
+	redoBySequence := map[int]string{}
+	if parent, err := a.sessions.Get(ctx, sessionID, "practice", userID, ""); err == nil {
+		if redos, err := a.sessions.Redos(ctx, parent); err == nil {
+			for _, redo := range redos {
+				redoBySequence[redo.Sequence] = redo.RedoSessionID
+			}
+		}
+	}
 	for _, segment := range transcript.Segments {
 		encoded := api.TranscriptSegmentView{
 			Epoch: segment.Epoch, Sequence: segment.Sequence, Type: segment.Type,
@@ -336,6 +344,7 @@ func (a interviewAdapter) Transcript(ctx context.Context, userID, sessionID stri
 			StartMs: segment.StartMs, EndMs: segment.EndMs,
 			Confidence: segment.Confidence, Superseded: segment.Superseded,
 			CorrectedBySequence: segment.CorrectedBySequence, Supersedes: segment.Supersedes,
+			RedoSessionID: redoBySequence[segment.Sequence],
 		}
 		for _, word := range segment.Words {
 			encoded.Words = append(encoded.Words, api.TranscriptWordView{
@@ -624,6 +633,7 @@ func (a interviewAdapter) GetPractice(ctx context.Context, userID, sessionID str
 		FailureCode:         session.FailureCode,
 		ConnectionEpoch:     session.ConnectionEpoch,
 		AcceptedSequence:    session.AcceptedSequence,
+		RedoOf:              redoOfView(session.Config),
 		CreatedAt:           session.CreatedAt,
 	}
 	// The durable receipt rides the session once sealed, so the complete
@@ -641,6 +651,44 @@ func (a interviewAdapter) GetPractice(ctx context.Context, userID, sessionID str
 		}
 	}
 	return view, nil
+}
+
+// CreateRedo creates the retake session for one of the owner's answers,
+// translating each refusal onto the wire's stable codes.
+func (a interviewAdapter) CreateRedo(ctx context.Context, userID, sessionID string, sequence int) (api.InterviewSession, error) {
+	parent, err := a.sessions.Get(ctx, sessionID, "practice", userID, "")
+	if errors.Is(err, interview.ErrNotFound) {
+		return api.InterviewSession{}, api.ErrSessionMissing
+	}
+	if err != nil {
+		return api.InterviewSession{}, err
+	}
+	created, err := a.sessions.CreateRedo(ctx, a.events, parent, sequence, interview.Actor{ID: userID, Type: "user"})
+	switch {
+	case errors.Is(err, interview.ErrRedoNotAllowed):
+		return api.InterviewSession{}, &api.StartRefusedError{Code: "REDO_NOT_ALLOWED",
+			Message: "This session does not offer a redo: only a practice session with results does."}
+	case errors.Is(err, interview.ErrRedoExists):
+		return api.InterviewSession{}, &api.StartRefusedError{Code: "REDO_EXISTS",
+			Message: "This answer has already been redone; one retake per question."}
+	case errors.Is(err, interview.ErrRedoTurnUnknown):
+		return api.InterviewSession{}, &api.StartRefusedError{Code: "REDO_TURN_UNKNOWN",
+			Message: "That turn is not one of your answers in this session."}
+	case err != nil:
+		return api.InterviewSession{}, err
+	}
+	return a.GetPractice(ctx, userID, created.ID)
+}
+
+// redoOfView reads a session config's retake origin, nil when none.
+func redoOfView(config json.RawMessage) *api.RedoOfView {
+	var parsed struct {
+		RedoOf *interview.RedoOf `json:"redo_of"`
+	}
+	if err := json.Unmarshal(config, &parsed); err != nil || parsed.RedoOf == nil {
+		return nil
+	}
+	return &api.RedoOfView{SessionID: parsed.RedoOf.SessionID, Sequence: parsed.RedoOf.Sequence, Question: parsed.RedoOf.Question}
 }
 
 // Brief assembles the interviewer's brief from the session's own pins:
@@ -668,7 +716,7 @@ func (a interviewAdapter) Brief(ctx context.Context, sessionID, candidateID, mod
 	if err != nil {
 		return api.BriefView{}, err
 	}
-	brief := api.BriefView{SessionID: session.ID, Minutes: config.Minutes}
+	brief := api.BriefView{SessionID: session.ID, Minutes: config.Minutes, RedoOf: redoOfView(session.Config)}
 	for _, persona := range catalogue.Personas {
 		if persona.ID == config.Persona {
 			brief.PersonaName, brief.PersonaStyle, brief.PersonaAbout = persona.Name, persona.Style, persona.Description

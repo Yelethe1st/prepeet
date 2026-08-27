@@ -1132,6 +1132,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /interviews/{sessionId}/turns/{turnId}/redos:
+    post:
+      tags: [interview]
+      operationId: createRedo
+      summary: Retake one answer as a new, linked practice session
+      description: |
+        Creates a practice session composed from this session's own
+        configuration plus the one question the turn answered. The
+        original session, its transcript, its evidence and its timing are
+        never modified: the retake is a different session, linked here.
+        One retake per question; practice only; only once results exist.
+        Refusals: REDO_NOT_ALLOWED, REDO_EXISTS, REDO_TURN_UNKNOWN.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: turnId
+          in: path
+          required: true
+          description: The sequence of the candidate's answer to retake.
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "201":
+          description: The retake session, in draft, ready to compose.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewSession"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: REDO_NOT_ALLOWED, REDO_EXISTS or REDO_TURN_UNKNOWN.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /interviews/{sessionId}/review:
     get:
       tags: [interview]
@@ -2236,6 +2277,13 @@ components:
           description: True when a correction replaced this text. The row stands.
         corrected_by_sequence: { type: integer }
         supersedes: { type: integer }
+        redo_session_id:
+          type: string
+          format: uuid
+          description: |
+            The retake session for this answer, when one exists. The retake
+            is scored in its own session; this segment stays exactly as it
+            was said and scored here.
 
     ControlEvent:
       type: object
@@ -2276,6 +2324,14 @@ components:
           type: object
           additionalProperties: true
           description: The pinned plan body, exactly as composed against.
+        redo_of:
+          type: object
+          description: "Present for a retake: ask exactly this question, once."
+          required: [session_id, sequence, question]
+          properties:
+            session_id: { type: string, format: uuid }
+            sequence: { type: integer }
+            question: { type: string }
 
     ServiceEventBatch:
       type: object
@@ -2484,6 +2540,14 @@ components:
           properties:
             connection_epoch: { type: integer }
             accepted_sequence: { type: integer }
+        redo_of:
+          type: object
+          description: Present when this session is a retake of one answer.
+          required: [session_id, sequence, question]
+          properties:
+            session_id: { type: string, format: uuid }
+            sequence: { type: integer }
+            question: { type: string }
         seal:
           type: object
           description: |

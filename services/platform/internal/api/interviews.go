@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"net/http"
 	"time"
 
@@ -54,6 +55,9 @@ type Interviews interface {
 	// evaluation has not landed; ErrSessionMissing when the session is
 	// not the caller's to see.
 	Results(ctx context.Context, userID, sessionID string) (EvaluationResultView, error)
+	// CreateRedo creates the retake session for one of the caller's own
+	// answers. Refusals arrive as *StartRefusedError with their codes.
+	CreateRedo(ctx context.Context, userID, sessionID string, sequence int) (InterviewSession, error)
 	// Brief assembles what the interviewer needs, scoped as the candidate
 	// the agent heard. ErrSessionMissing for anything it may not see.
 	Brief(ctx context.Context, sessionID, candidateID, mode string) (BriefView, error)
@@ -265,6 +269,8 @@ type TranscriptSegmentView struct {
 	Superseded          bool
 	CorrectedBySequence int
 	Supersedes          int
+	// RedoSessionID is the retake session for this answer, empty if none.
+	RedoSessionID string
 }
 
 // TranscriptWordView is one word on the room clock.
@@ -390,8 +396,17 @@ type InterviewSession struct {
 	ConnectionEpoch  int
 	AcceptedSequence int
 	// Seal is the durable completion receipt, nil until sealed.
-	Seal      *SealView
+	Seal *SealView
+	// RedoOf names the answer this session retakes, nil otherwise.
+	RedoOf    *RedoOfView
 	CreatedAt time.Time
+}
+
+// RedoOfView is a retake's origin.
+type RedoOfView struct {
+	SessionID string
+	Sequence  int
+	Question  string
 }
 
 // SealView is the receipt's durable summary.
@@ -493,6 +508,17 @@ func interviewSessionBody(session InterviewSession) (prepeetapi.InterviewSession
 			ConnectionEpoch  int `json:"connection_epoch"`
 		}{AcceptedSequence: session.AcceptedSequence, ConnectionEpoch: session.ConnectionEpoch}
 	}
+	if session.RedoOf != nil {
+		origin, err := uuid.Parse(session.RedoOf.SessionID)
+		if err != nil {
+			return prepeetapi.InterviewSession{}, err
+		}
+		body.RedoOf = &struct {
+			Question  string             `json:"question"`
+			Sequence  int                `json:"sequence"`
+			SessionID openapi_types.UUID `json:"session_id"`
+		}{Question: session.RedoOf.Question, Sequence: session.RedoOf.Sequence, SessionID: origin}
+	}
 	if session.Seal != nil {
 		warnings := session.Seal.Warnings
 		if warnings == nil {
@@ -584,6 +610,31 @@ type BriefView struct {
 	RoleTitle    string
 	Competencies []string
 	Plan         json.RawMessage
+	RedoOf       *RedoOfView
+}
+
+// CreateRedo creates the retake session for one of the caller's answers.
+func (i *interviews) CreateRedo(ctx context.Context, request prepeetapi.CreateRedoRequestObject) (prepeetapi.CreateRedoResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	created, err := i.flows.CreateRedo(ctx, principal.UserID, request.SessionID.String(), request.TurnID)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	body, err := interviewSessionBody(created)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	return prepeetapi.CreateRedo201JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.CreateRedo201ResponseHeaders{CacheControl: NoStore},
+	}, nil
 }
 
 // GetInterviewBrief answers the agent's brief under the service token.
@@ -622,6 +673,17 @@ func (i *interviews) GetInterviewBrief(ctx context.Context, request prepeetapi.G
 	body.Persona.Description = brief.PersonaAbout
 	body.Role.Title = brief.RoleTitle
 	body.Role.Competencies = competencies
+	if brief.RedoOf != nil {
+		origin, err := uuid.Parse(brief.RedoOf.SessionID)
+		if err != nil {
+			return nil, fmt.Errorf("api: the redo origin is not a uuid: %w", err)
+		}
+		body.RedoOf = &struct {
+			Question  string             `json:"question"`
+			Sequence  int                `json:"sequence"`
+			SessionID openapi_types.UUID `json:"session_id"`
+		}{Question: brief.RedoOf.Question, Sequence: brief.RedoOf.Sequence, SessionID: origin}
+	}
 	return prepeetapi.GetInterviewBrief200JSONResponse{
 		Body:    body,
 		Headers: prepeetapi.GetInterviewBrief200ResponseHeaders{CacheControl: NoStore},
@@ -900,6 +962,13 @@ func (i *interviews) GetTranscript(ctx context.Context, request prepeetapi.GetTr
 		if segment.Supersedes != 0 {
 			linked := segment.Supersedes
 			encoded.Supersedes = &linked
+		}
+		if segment.RedoSessionID != "" {
+			redo, err := uuid.Parse(segment.RedoSessionID)
+			if err != nil {
+				return i.authentication.failed(ctx, err), nil
+			}
+			encoded.RedoSessionID = &redo
 		}
 		if len(segment.Words) > 0 {
 			transcriptWords := make([]struct {
@@ -1274,6 +1343,7 @@ var (
 	_ prepeetapi.GetReviewResponseObject           = failure{}
 	_ prepeetapi.GetDeliveryResponseObject         = failure{}
 	_ prepeetapi.GetDeliveryBaselineResponseObject = failure{}
+	_ prepeetapi.CreateRedoResponseObject          = failure{}
 	_ prepeetapi.ListMySessionsResponseObject      = failure{}
 	_ prepeetapi.IngestServiceEventsResponseObject = failure{}
 	_ prepeetapi.GetInterviewBriefResponseObject   = failure{}
@@ -1291,6 +1361,7 @@ func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          {
 func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
 func (f failure) VisitGetDeliveryResponse(w http.ResponseWriter) error         { return f.write(w) }
 func (f failure) VisitGetDeliveryBaselineResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitCreateRedoResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitListMySessionsResponse(w http.ResponseWriter) error      { return f.write(w) }
 func (f failure) VisitIngestServiceEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitGetInterviewBriefResponse(w http.ResponseWriter) error   { return f.write(w) }

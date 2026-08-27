@@ -85,9 +85,28 @@ One retake per question. The redone answer is scored; both versions stay in the 
 provenance.
 
 **Done when**
-- [ ] The original answer, its evidence and its timing all survive.
-- [ ] Redo is available only in practice and only where the session configuration allowed it.
-- [ ] The transcript makes clear which version was scored.
+- [x] The original answer, its evidence and its timing all survive.
+- [x] Redo is available only in practice and only where the session configuration allowed it.
+- [x] The transcript makes clear which version was scored.
+
+**Done, with the redo modelled as a linked session rather than an edit.** POST
+/interviews/{id}/turns/{turn}/redos creates a NEW practice session composed from the parent's
+own selection plus the one question that answer was given (config.redo_of: origin session,
+sequence, question; five minutes), entering the lifecycle at draft like any other session. The
+original is read and never written, so "the original survives" is structural: the integration
+proof creates a redo and reads the parent's transcript, seal, state and config back
+DeepEqual-identical. One retake per question is the redos table's primary key (a second is
+REDO_EXISTS by name); practice-only is its mode CHECK and the command's own refusal; a redo
+needs results (review_ready or archived), a config that did not set redo_allowed false, and one
+of the candidate's own turns, each refusal distinct. A redo of a redo is refused so history has
+one root.
+
+The agent's brief carries redo_of, and both interviewers ask exactly the original question once
+and then end, the model never consulted for the question. Which version was scored is
+unambiguous: each session is scored in its own right, and the parent's transcript marks the
+retaken answer with redo_session_id so the screen can say "redone in another session" beside
+words that stay exactly as said and scored here. The review screen's redo button and the
+original-versus-redo comparison are ART-06's.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md)
 

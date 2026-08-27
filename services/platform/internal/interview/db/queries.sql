@@ -200,3 +200,14 @@ SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        created_at, state_changed_at
 FROM interview.sessions
 ORDER BY created_at DESC;
+
+-- name: InsertRedo :exec
+INSERT INTO interview.redos (parent_session_id, sequence, redo_session_id, mode, candidate_id)
+VALUES (sqlc.arg(parent_session_id)::uuid, sqlc.arg(sequence)::integer,
+        sqlc.arg(redo_session_id)::uuid, 'practice', sqlc.arg(candidate_id)::uuid);
+
+-- name: ListRedos :many
+SELECT sequence, redo_session_id::text AS redo_session_id, created_at
+FROM interview.redos
+WHERE parent_session_id = sqlc.arg(parent_session_id)::uuid
+ORDER BY sequence;

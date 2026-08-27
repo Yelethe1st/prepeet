@@ -107,6 +107,16 @@ func (f *fakeInterviews) MySessions(_ context.Context, userID string) ([]api.Int
 	return []api.InterviewSession{f.created}, nil
 }
 
+func (f *fakeInterviews) CreateRedo(_ context.Context, userID, sessionID string, sequence int) (api.InterviewSession, error) {
+	f.users = append(f.users, fmt.Sprintf("redo:%s:%s:%d", userID, sessionID, sequence))
+	if f.err != nil {
+		return api.InterviewSession{}, f.err
+	}
+	created := f.created
+	created.RedoOf = &api.RedoOfView{SessionID: sessionID, Sequence: sequence, Question: "Tell me about it"}
+	return created, nil
+}
+
 func (f *fakeInterviews) DeliveryBaseline(_ context.Context, userID string) (api.BaselineView, error) {
 	f.users = append(f.users, "baseline:"+userID)
 	return api.BaselineView{
@@ -1202,5 +1212,41 @@ func TestTheBaselineIsTheCallersOwnWithItsGuidanceNote(t *testing.T) {
 	}
 	if interviews.users[0] != "baseline:00000000-0000-7000-8000-0000000000f9" {
 		t.Fatalf("the port saw %v", interviews.users)
+	}
+}
+
+func TestARedoIsANewSessionNamingItsOrigin(t *testing.T) {
+	interviews := &fakeInterviews{created: api.InterviewSession{
+		ID: "00000000-0000-7000-8000-0000000000e2", Mode: "practice", State: "draft",
+		Config:              api.InterviewSelection{Discipline: "d", Role: "r", Shape: "s", Minutes: 5, Persona: "p"},
+		RecordingPreference: "transcript_only", ConsentVersion: "1.0.0",
+		CreatedAt: time.Date(2026, 8, 27, 18, 0, 0, 0, time.UTC),
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := post(t, handler, "/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/turns/3/redos", "", sessionCookie())
+	if response.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		ID     string `json:"id"`
+		RedoOf struct {
+			SessionID string `json:"session_id"`
+			Sequence  int    `json:"sequence"`
+			Question  string `json:"question"`
+		} `json:"redo_of"`
+	}
+	decodeInto(t, response, &body)
+	if body.ID != "00000000-0000-7000-8000-0000000000e2" || body.RedoOf.SessionID != "00000000-0000-7000-8000-0000000000e1" || body.RedoOf.Sequence != 3 {
+		t.Fatalf("body = %+v", body)
+	}
+	if interviews.users[0] != "redo:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1:3" {
+		t.Fatalf("the port saw %v", interviews.users)
+	}
+
+	refused := serveInterviews(t, &fakeInterviews{err: &api.StartRefusedError{Code: "REDO_EXISTS", Message: "once"}})
+	response = post(t, refused, "/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/turns/3/redos", "", sessionCookie())
+	if response.Code != http.StatusConflict {
+		t.Fatalf("a second redo answered %d, want 409", response.Code)
 	}
 }

@@ -1108,3 +1108,24 @@ func TestANotAssessableDeliverySaysItIsNotALowResult(t *testing.T) {
 		t.Fatalf("delivery status altered the content bands: %d assessed", assessed)
 	}
 }
+
+func TestTheDeliveryBlockCarriesNoAggregateScore(t *testing.T) {
+	// ART-03's second box on the wire: the delivery block is status,
+	// warnings and the note - no field a total could live in.
+	interviews := &fakeInterviews{result: resultFixture()}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results", sessionCookie())
+	var body struct {
+		Delivery map[string]any `json:"delivery"`
+	}
+	decodeInto(t, response, &body)
+	for key := range body.Delivery {
+		switch key {
+		case "status", "warnings", "note":
+		default:
+			t.Fatalf("delivery carries %q; a delivery score is forbidden anywhere", key)
+		}
+	}
+}

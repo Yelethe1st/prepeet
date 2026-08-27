@@ -18,6 +18,7 @@ from prepeet_ai.articulation.features import (
     NOT_A_LOW_RESULT,
     session_features,
 )
+from prepeet_ai.articulation.profile import profile_document
 from prepeet_ai.extraction.service import fetch_verified
 from prepeet_ai.transport.envelope import Failure, FailureCode, FailureError
 
@@ -76,5 +77,8 @@ def analysis_from_ref(fetch_url: str, digest: str) -> bytes:
             "long_pause_count": features.long_pause_count,
         },
         "turns": [dataclasses.asdict(turn) for turn in features.turns],
+        # Ten dimensions, each a level with its evidence, and no total:
+        # the document has no field a total could live in.
+        "profile": profile_document(turns),
     }
     return json.dumps(analysis, sort_keys=True, separators=(",", ":")).encode()

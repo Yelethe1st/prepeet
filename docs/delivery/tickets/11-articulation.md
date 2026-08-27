@@ -86,9 +86,28 @@ Structure, conciseness, fluency, pace, pausing, precision, signposting, intellig
 and responsiveness — each a level with linked evidence, never collapsed into one percentage.
 
 **Done when**
-- [ ] Each dimension carries a level and the evidence segments behind it.
-- [ ] No aggregate delivery score exists anywhere in the API or the interface.
-- [ ] Intelligibility is defined and tested as followability, with no accent-conformity component.
+- [x] Each dimension carries a level and the evidence segments behind it.
+- [x] No aggregate delivery score exists anywhere in the API or the interface.
+- [x] Intelligibility is defined and tested as followability, with no accent-conformity component.
+
+**Done at the deterministic floor: articulation-profile-v1.** All ten dimensions are derived
+from the features and the candidate's own words with the rule stated beside each level as its
+reason - pace from words per minute (no direction called "correct"; the reason gives the number),
+pausing from long pauses per minute, fluency from fillers plus restarts, conciseness from
+repeated phrases, signposting and structure and precision from the answers' own phrases and
+figures, responsiveness from whether an answer echoes its question's terms. Each level names the
+turn sequences behind it; a level that cannot be measured says why (vocal delivery is
+not_assessable until the recording is decoded here). The profile rides the analysis document
+alongside the measurements.
+
+No aggregate exists: the profile document has no field a total could live in, a test forbids
+score, overall, total, percentage and grade at any depth of the served analysis, and the results
+API's delivery block is proven on the wire to carry only status, warnings and the note.
+Intelligibility is followability, defined as transcript confidence and sentence length and
+nothing else; tests show it moving with each of those, and a source-level test forbids any input
+that could encode an accent - no audio, no phonetics, no locale reaches the calculator. The
+delivery screen that renders the profile is ART-05's; a model-backed refinement of the
+language-dependent dimensions would sit behind the same document with the same gate.
 
 **Spec** [articulation-system.md](../../architecture/articulation-system.md)
 

@@ -222,7 +222,7 @@ check-generated: generate ## Fail if generated code differs from the contracts
 	@printf '\033[32mPASS\033[0m generated code matches the contracts\n'
 
 .PHONY: check-events
-check-events: ## Fail if the event contracts would break a consumer
+check-events: tools ## Fail if the event contracts would break a consumer
 	@# Against the previous release rather than the previous commit, per
 	@# ADR-0004, so a contract can be revised while in progress without the
 	@# gate firing on every intermediate state.
@@ -240,7 +240,7 @@ check-events: ## Fail if the event contracts would break a consumer
 	$(TOOLS_BIN)/eventgen -baseline "$$baseline/packages/contracts/events"
 
 .PHONY: check-rpc
-check-rpc: ## Fail if the RPC contracts would break a deployed reader
+check-rpc: tools ## Fail if the RPC contracts would break a deployed reader
 	@# Same shape as check-events: against the previous release, per ADR-0004.
 	@set -e; \
 	tag=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
@@ -253,7 +253,11 @@ check-rpc: ## Fail if the RPC contracts would break a deployed reader
 		--against "../../../.git#tag=$$tag,subdir=packages/contracts/rpc"
 
 .PHONY: lint-contracts
-lint-contracts: ## Lint the OpenAPI document and the Protobuf module
+# Depends on tools for the same reason generate does: buf is a pinned
+# binary in .tools, and without this the target passed anywhere somebody
+# had already generated and failed on a clean checkout - which is exactly
+# where CI runs it.
+lint-contracts: tools ## Lint the OpenAPI document and the Protobuf module
 	pnpm lint:contracts
 	cd packages/contracts/rpc && $(TOOLS_BIN)/buf lint
 

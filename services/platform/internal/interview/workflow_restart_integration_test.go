@@ -61,11 +61,15 @@ func TestWorkerRestartMidWorkflowDuplicatesNothing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
+	// Needs a running Temporal, which `make local-up` provides and the CI
+	// job does not; the skip is loud so a green CI never reads as this
+	// having been proven there. See the note in
+	// platform/temporal/client_integration_test.go.
 	client, err := temporal.Dial(ctx, temporal.Config{
 		Address: temporalAddress(), Namespace: "prepeet-local",
 	})
 	if err != nil {
-		t.Fatalf("Dial(%s): %v\n  Is the local stack running? make local-up", temporalAddress(), err)
+		t.Skipf("skipping: no Temporal at %s (%v)\n  Run it with: make local-up", temporalAddress(), err)
 	}
 	defer client.Close()
 

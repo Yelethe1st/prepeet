@@ -11,7 +11,14 @@ from __future__ import annotations
 
 import asyncio
 
-from prepeet_ai.agent.claude import END_MARKER, ClaudeInterviewer, system_prompt
+from prepeet_ai.agent.model import (
+    END_MARKER,
+    ModelConfig,
+    ModelConfigError,
+    ModelInterviewer,
+    system_prompt,
+    validate,
+)
 from prepeet_ai.agent.timeline import Brief
 
 BRIEF = Brief(
@@ -69,7 +76,7 @@ class TestTheLoop:
         model = FakeModel(
             ["Welcome. What did you build last year?", "What was hardest?", END_MARKER]
         )
-        interviewer = ClaudeInterviewer(brief=BRIEF, complete=model)
+        interviewer = ModelInterviewer(brief=BRIEF, complete=model)
 
         async def run() -> list[str | None]:
             first = await interviewer.opening()
@@ -88,7 +95,7 @@ class TestTheLoop:
     def test_a_runaway_reply_is_cut_to_its_first_paragraph(self) -> None:
         """One question per turn is enforced, not merely requested."""
         model = FakeModel(["What did you build?\n\nAlso, great answer, you seem very capable."])
-        interviewer = ClaudeInterviewer(brief=BRIEF, complete=model)
+        interviewer = ModelInterviewer(brief=BRIEF, complete=model)
 
         turn = asyncio.run(interviewer.opening())
 
@@ -97,7 +104,7 @@ class TestTheLoop:
     def test_the_question_cap_ends_the_interview_whatever_the_model_says(self) -> None:
         """A model that never sends the marker is stopped by the plan's budget."""
         model = FakeModel(["Q?"] * 50)
-        interviewer = ClaudeInterviewer(brief=BRIEF, complete=model, max_questions=3)
+        interviewer = ModelInterviewer(brief=BRIEF, complete=model, max_questions=3)
 
         async def run() -> int:
             await interviewer.opening()
@@ -115,15 +122,82 @@ class TestTheLoop:
             await asyncio.sleep(0.05)
             return "What did you build?"
 
-        interviewer = ClaudeInterviewer(brief=BRIEF, complete=slow)
+        interviewer = ModelInterviewer(brief=BRIEF, complete=slow)
         turn = asyncio.run(interviewer.opening())
 
         assert turn.latency_ms >= 40
 
     def test_an_immediate_end_still_opens_the_interview(self) -> None:
         """A model that ends before greeting is overridden: the room is not left silent."""
-        interviewer = ClaudeInterviewer(brief=BRIEF, complete=FakeModel([END_MARKER]))
+        interviewer = ModelInterviewer(brief=BRIEF, complete=FakeModel([END_MARKER]))
 
         turn = asyncio.run(interviewer.opening())
 
         assert turn.text
+
+
+class TestTheProviderIsADeploymentChoice:
+    """Any provider, named in the environment, refused loudly when incomplete."""
+
+    def test_no_provider_means_the_scripted_floor(self) -> None:
+        """An empty environment names nothing, so nothing model-backed runs."""
+        assert ModelConfig.from_env({}) is None
+
+    def test_each_provider_family_is_admitted_with_what_it_needs(self) -> None:
+        """Cloud needs a key; local and hosted-compatible need a base URL; all need a model."""
+        cases = {
+            "anthropic": {"PREPEET_LLM_MODEL": "claude-sonnet-5", "PREPEET_LLM_API_KEY": "k"},
+            "openai": {"PREPEET_LLM_MODEL": "gpt-5", "PREPEET_LLM_API_KEY": "k"},
+            "openai-compatible": {
+                "PREPEET_LLM_MODEL": "llama3.1:8b",
+                "PREPEET_LLM_BASE_URL": "http://localhost:11434/v1",
+            },
+            "huggingface": {
+                "PREPEET_LLM_MODEL": "meta-llama/Llama-3.1-8B-Instruct",
+                "PREPEET_LLM_BASE_URL": "https://router.huggingface.co/v1",
+                "PREPEET_LLM_API_KEY": "hf_k",
+            },
+        }
+        for provider, env in cases.items():
+            config = ModelConfig.from_env({"PREPEET_LLM_PROVIDER": provider, **env})
+            assert config is not None
+            assert validate(config).version.startswith(provider + ":")
+
+    def test_a_local_open_weights_server_needs_no_key(self) -> None:
+        """Nothing leaves the machine, so there is nothing to authorise."""
+        config = ModelConfig.from_env(
+            {
+                "PREPEET_LLM_PROVIDER": "openai-compatible",
+                "PREPEET_LLM_MODEL": "qwen2.5:7b",
+                "PREPEET_LLM_BASE_URL": "http://localhost:11434/v1",
+            }
+        )
+        assert config is not None
+        assert validate(config).api_key == ""
+
+    def test_incomplete_choices_are_refused_by_name(self) -> None:
+        """Failing at start beats failing mid-interview."""
+        refused = [
+            {"PREPEET_LLM_PROVIDER": "anthropic", "PREPEET_LLM_MODEL": "claude-sonnet-5"},
+            {"PREPEET_LLM_PROVIDER": "openai-compatible", "PREPEET_LLM_MODEL": "llama3"},
+            {"PREPEET_LLM_PROVIDER": "openai", "PREPEET_LLM_API_KEY": "k"},
+            {"PREPEET_LLM_PROVIDER": "bard", "PREPEET_LLM_MODEL": "x", "PREPEET_LLM_API_KEY": "k"},
+        ]
+        for env in refused:
+            config = ModelConfig.from_env(env)
+            assert config is not None
+            try:
+                validate(config)
+            except ModelConfigError:
+                continue
+            raise AssertionError(f"{env} was admitted")
+
+    def test_the_turn_names_the_provider_and_model_that_asked(self) -> None:
+        """Provenance: which model asked rides every turn boundary."""
+        interviewer = ModelInterviewer(
+            brief=BRIEF,
+            complete=FakeModel(["What did you build?"]),
+            version="openai-compatible:llama3.1:8b",
+        )
+        turn = asyncio.run(interviewer.opening())
+        assert turn.model_version == "openai-compatible:llama3.1:8b"

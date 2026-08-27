@@ -1744,6 +1744,7 @@ dependencies = [
     { name = "grpcio-status" },
     { name = "livekit" },
     { name = "livekit-agents" },
+    { name = "openai" },
     { name = "prepeet-contracts-generated" },
     { name = "protobuf" },
 ]
@@ -1778,6 +1779,7 @@ requires-dist = [
     { name = "livekit-plugins-cartesia", marker = "extra == 'voice'", specifier = ">=1.0" },
     { name = "livekit-plugins-deepgram", marker = "extra == 'voice'", specifier = ">=1.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
+    { name = "openai", specifier = ">=1.50" },
     { name = "prepeet-contracts-generated", editable = "../../packages/generated/python" },
     { name = "protobuf", specifier = ">=5.28" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },

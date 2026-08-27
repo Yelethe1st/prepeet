@@ -61,6 +61,8 @@ class Turn:
 
     text: str
     latency_ms: int
+    # Which provider and model decided this turn, or "scripted".
+    model_version: str = "scripted"
 
 
 class Interviewer(Protocol):

@@ -33,7 +33,7 @@ retention and training policy, and minimisation.
 | Capability | Primary | Validated fallback candidate | Why |
 |---|---|---|---|
 | Speech to text | Deepgram, streaming, EU endpoint | Speechmatics | Our transcript contract demands per-word timings and confidence on one clock; Deepgram's streaming output is that shape natively, so the adapter is a mapping, not a reconstruction. |
-| Language model | Anthropic Claude: Sonnet for the interviewer loop and evaluation stages, Haiku for fast classification (turn-taking, routing) | OpenAI, only after equivalence is measured per stage | Question quality drives evidence quality; streaming fits ADR-0012's p50 900ms budget; per-stage model choice keeps cost proportional to what each stage decides. |
+| Language model | **Any**, chosen per deployment and per stage: Anthropic, OpenAI, Hugging Face (router or inference endpoints), or open weights served locally (Ollama, vLLM, LM Studio, TGI). Two adapters cover all of them: Anthropic's API, and the OpenAI-compatible chat API everything else speaks. | Any other admissible provider, only after equivalence is measured per stage | Question quality drives evidence quality, but which model delivers it is an empirical, changing fact, not an architectural one. The platform must never be confined to one vendor: the port is the platform's, the provider is a configuration value plus terms on file, and a local model is a first-class choice that transfers nothing. |
 | Text to speech | Cartesia, streaming | ElevenLabs | Latency-optimised streaming synthesis is what a voice loop's budget is spent on; the persona's voice is a pinned artifact field, so switching providers is a re-pin, not a rewrite. |
 
 Every provider sits behind the adapter ADR-0012 named, in the Python
@@ -42,12 +42,24 @@ provider is a configuration value plus terms on file.
 
 ### The terms that filter every provider
 
-A provider is admissible only with, in writing: zero retention of our
-inputs and outputs beyond request processing; no training on our data;
-processing in the UK or EU; a data-processing agreement compatible with
-DEC-15's schedules. A provider that cannot meet all four is not a
+A cloud provider is admissible only with, in writing: zero retention of
+our inputs and outputs beyond request processing; no training on our
+data; processing in the UK or EU; a data-processing agreement compatible
+with DEC-15's schedules. A provider that cannot meet all four is not a
 fallback, whatever its quality. The record of each provider's terms lives
-beside this ADR as it is signed.
+beside this ADR as it is signed. **Open weights served on our own
+infrastructure meet all four trivially**, because nothing leaves it; that
+is a reason to keep the local path first-class, not an afterthought.
+
+### Configuration, not code
+
+The language model is named by the deployment: `PREPEET_LLM_PROVIDER`
+(anthropic, openai, openai-compatible, huggingface), `PREPEET_LLM_MODEL`,
+and `PREPEET_LLM_API_KEY` or `PREPEET_LLM_BASE_URL` as the provider
+needs. An incomplete choice is refused at start, by name, never
+mid-interview. The provider and model that asked each question are
+recorded on the turn boundary (`model_version`), so a session's
+provenance names them exactly as evaluation results name their rubric.
 
 ### Routing and fallback
 
@@ -96,9 +108,10 @@ infers them.
   fixtures.
 - QUA-05/QUA-06 gain a concrete job: measure equivalence per stage
   before any fallback switches on.
-- Anthropic is the author's own maker; the honesty owed here is that the
-  adapter boundary makes this decision cheap to revisit, and the review
-  date exists to force the revisit.
+- No vendor is structural. Switching or adding a language model provider
+  is a configuration change plus a terms review plus, for a stage already
+  live, an equivalence measurement; never a code change to the
+  interviewer or the evaluation stages.
 
 ## Revisit when
 

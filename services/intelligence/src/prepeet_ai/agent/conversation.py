@@ -117,7 +117,14 @@ class Conversation:
                 _event("transcript.segment.final", segment_payload(segment)),
                 # The measured decision latency rides the boundary: the
                 # budget in ADR-0012 is checked against stored numbers.
-                _event("turn.boundary", {"speaker": "interviewer", "latency_ms": turn.latency_ms}),
+                _event(
+                    "turn.boundary",
+                    {
+                        "speaker": "interviewer",
+                        "latency_ms": turn.latency_ms,
+                        "model_version": turn.model_version,
+                    },
+                ),
             ]
         )
 

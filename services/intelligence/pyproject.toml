@@ -11,6 +11,7 @@ dependencies = [
     "grpcio-status>=1.83.0",
     "livekit>=1.0",
     "livekit-agents>=1.0",
+    "openai>=1.50",
     "prepeet-contracts-generated",
     "protobuf>=5.28",
 ]

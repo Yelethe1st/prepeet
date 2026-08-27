@@ -140,6 +140,7 @@ class TestTheConversationIsTheTranscriptsSourceOfTruth:
         assert boundary["speaker"] == "interviewer"
         # Measured, stored: ADR-0012's budget is checked against numbers.
         assert "latency_ms" in boundary
+        assert boundary["model_version"] == "scripted"
 
     def test_every_segment_has_words_inside_its_span_on_a_monotonic_clock(self) -> None:
         """The contract's rule, held here before the server ever sees it."""

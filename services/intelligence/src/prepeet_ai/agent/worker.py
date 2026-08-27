@@ -21,9 +21,9 @@ def main() -> None:  # pragma: no cover - LiveKit process entrypoint
     """Start the agent worker against the configured SFU."""
     from livekit import agents, rtc
 
-    from prepeet_ai.agent.claude import ClaudeInterviewer, anthropic_completer
     from prepeet_ai.agent.clock import RoomClock
     from prepeet_ai.agent.conversation import Conversation
+    from prepeet_ai.agent.model import ModelConfig, ModelInterviewer, completer_from_config
     from prepeet_ai.agent.ports import Interviewer
     from prepeet_ai.agent.providers import NoSpeech, ProviderConfig
     from prepeet_ai.agent.scripted import ScriptedInterviewer
@@ -72,15 +72,19 @@ def main() -> None:  # pragma: no cover - LiveKit process entrypoint
                 "What would you do differently next time?",
             ],
         )
-        anthropic_key = os.environ.get("PREPEET_ANTHROPIC_API_KEY", "")
-        if anthropic_key:
+        model_config = ModelConfig.from_env(os.environ)
+        if model_config is not None:
             try:
                 brief = await fetch_brief(timeline_target)
-                interviewer = ClaudeInterviewer(
-                    brief=brief, complete=anthropic_completer(anthropic_key)
+                interviewer = ModelInterviewer(
+                    brief=brief,
+                    complete=completer_from_config(model_config),
+                    version=model_config.version,
                 )
             except Exception:  # the scripted floor is the fallback
-                logger.exception("brief unavailable; falling back to the scripted interviewer")
+                logger.exception(
+                    "model interviewer unavailable; falling back to the scripted interviewer"
+                )
 
         conversation = Conversation(
             interviewer=interviewer,

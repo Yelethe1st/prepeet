@@ -245,10 +245,12 @@ describe("coaching and drills", () => {
     ).not.toBeNull();
     const drills = screen.getAllByTestId(/^drill-/);
     expect(drills).toHaveLength(DRILLS.length);
-    expect(drills[0]).toHaveAttribute("data-testid", "drill-deliberate_pause");
-    expect(
-      within(drills[0]).getByText(/selected for you/i),
-    ).toBeInTheDocument();
+    const first = drills[0];
+    if (!first) {
+      throw new Error("no drills rendered");
+    }
+    expect(first).toHaveAttribute("data-testid", "drill-deliberate_pause");
+    expect(within(first).getByText(/selected for you/i)).toBeInTheDocument();
   });
 });
 

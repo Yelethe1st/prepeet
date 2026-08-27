@@ -161,6 +161,7 @@ func main() {
 			results:   evaluation.NewStore(pool),
 		},
 		Environment: cfg.Environment,
+		AgentToken:  cfg.AgentToken,
 		Health:      checks,
 	})
 	if err != nil {

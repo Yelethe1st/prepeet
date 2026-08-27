@@ -1132,6 +1132,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /internal/interviews/{sessionId}/events:
+    post:
+      tags: [internal]
+      operationId: ingestServiceEvents
+      summary: The agent writes conversation into the durable timeline
+      description: |
+        The voice agent is the transcript's source of truth (ADR-0019). It
+        names the session and the candidate it heard - the candidate is the
+        room participant's identity - and the server stamps the current
+        epoch and assigns the next sequences itself, so two writers never
+        share a numbering. Same validation and seal rules as the browser
+        path: a segment that cannot serve as evidence is refused by name,
+        and a sealed transcript takes no more conversation.
+      security:
+        - serviceToken: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceEventBatch"
+      responses:
+        "200":
+          description: Per-event outcomes and the cursor as it now stands.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControlAcknowledgment"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: NO_ATTEMPT while no connection epoch is open.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /interviews/{sessionId}/complete:
     post:
       tags: [interview]
@@ -1300,6 +1345,14 @@ paths:
 
 components:
   securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      description: |
+        The platform's own automation speaking to itself: the voice agent
+        writing the transcript it is the source of. A deployment secret
+        compared in constant time, never a person's credential, and only
+        the internal-tagged operations accept it.
     sessionCookie:
       type: apiKey
       in: cookie
@@ -2041,6 +2094,30 @@ components:
           type: object
           additionalProperties: true
         occurred_at: { type: string, format: date-time }
+
+    ServiceEventBatch:
+      type: object
+      required: [candidate_id, mode, events]
+      properties:
+        candidate_id:
+          type: string
+          format: uuid
+          description: The room participant the agent is speaking with.
+        mode:
+          type: string
+          enum: [practice, screening]
+        events:
+          type: array
+          items:
+            type: object
+            required: [event_id, type, occurred_at]
+            properties:
+              event_id: { type: string, format: uuid }
+              type: { type: string }
+              payload:
+                type: object
+                additionalProperties: true
+              occurred_at: { type: string, format: date-time }
 
     ControlEventBatch:
       type: object

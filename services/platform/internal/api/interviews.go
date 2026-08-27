@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,6 +54,9 @@ type Interviews interface {
 	// evaluation has not landed; ErrSessionMissing when the session is
 	// not the caller's to see.
 	Results(ctx context.Context, userID, sessionID string) (EvaluationResultView, error)
+	// IngestServiceEvents lands the agent's events for a session under the
+	// candidate the agent heard, epoch and sequences assigned server-side.
+	IngestServiceEvents(ctx context.Context, sessionID, candidateID, mode string, events []ControlEventIn) (ControlAck, error)
 	// MySessions answers every session the caller owns, newest first,
 	// every lifecycle state included.
 	MySessions(ctx context.Context, userID string) ([]InterviewSession, error)
@@ -353,6 +357,9 @@ type SealView struct {
 type interviews struct {
 	authentication *authentication
 	flows          Interviews
+	// agentToken is the service credential the internal operations check,
+	// in constant time. Empty means no internal surface exists.
+	agentToken string
 }
 
 // CreateInterview creates a practice session from a catalogue selection.
@@ -519,6 +526,84 @@ func (i *interviews) StartInterview(ctx context.Context, request prepeetapi.Star
 	}, nil
 }
 
+// ackBody encodes an acknowledgment for the wire, shared by both ingest
+// paths so the agent and the browser read the same shape.
+func ackBody(ack ControlAck) (prepeetapi.ControlAcknowledgment, error) {
+	body := prepeetapi.ControlAcknowledgment{
+		ConnectionEpoch:  ack.Epoch,
+		AcceptedSequence: ack.Accepted,
+		Missing: make([]struct {
+			From int `json:"from"`
+			To   int `json:"to"`
+		}, 0, len(ack.Missing)),
+	}
+	for _, gap := range ack.Missing {
+		body.Missing = append(body.Missing, struct {
+			From int `json:"from"`
+			To   int `json:"to"`
+		}{From: gap[0], To: gap[1]})
+	}
+	for _, outcome := range ack.Outcomes {
+		id, err := uuid.Parse(outcome.EventID)
+		if err != nil {
+			return prepeetapi.ControlAcknowledgment{}, err
+		}
+		encoded := struct {
+			EventID uuid.UUID                                      `json:"event_id"`
+			Reason  *string                                        `json:"reason,omitempty"`
+			Status  prepeetapi.ControlAcknowledgmentOutcomesStatus `json:"status"`
+		}{EventID: id, Status: prepeetapi.ControlAcknowledgmentOutcomesStatus(outcome.Status)}
+		if outcome.Reason != "" {
+			reason := outcome.Reason
+			encoded.Reason = &reason
+		}
+		body.Outcomes = append(body.Outcomes, encoded)
+	}
+	return body, nil
+}
+
+// IngestServiceEvents lands the voice agent's events (ADR-0019). The
+// credential is the deployment's service token, compared in constant
+// time; a missing or wrong token, or a deployment with none configured,
+// answers the same 401 so the surface reveals nothing about itself.
+func (i *interviews) IngestServiceEvents(ctx context.Context, request prepeetapi.IngestServiceEventsRequestObject) (prepeetapi.IngestServiceEventsResponseObject, error) {
+	presented := bearerFromContext(ctx)
+	if i.agentToken == "" || presented == "" ||
+		subtle.ConstantTimeCompare([]byte(presented), []byte(i.agentToken)) != 1 {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+
+	events := make([]ControlEventIn, 0, len(request.Body.Events))
+	for _, event := range request.Body.Events {
+		var payload json.RawMessage
+		if event.Payload != nil {
+			encoded, err := json.Marshal(event.Payload)
+			if err != nil {
+				return i.authentication.failed(ctx, err), nil
+			}
+			payload = encoded
+		}
+		events = append(events, ControlEventIn{
+			EventID: event.EventID.String(), Type: event.Type,
+			Payload: payload, OccurredAt: event.OccurredAt,
+		})
+	}
+
+	ack, err := i.flows.IngestServiceEvents(ctx, request.SessionID.String(),
+		request.Body.CandidateID.String(), string(request.Body.Mode), events)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	body, err := ackBody(ack)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	return prepeetapi.IngestServiceEvents200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.IngestServiceEvents200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // IngestControlEvents accepts a control event batch.
 func (i *interviews) IngestControlEvents(ctx context.Context, request prepeetapi.IngestControlEventsRequestObject) (prepeetapi.IngestControlEventsResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -552,35 +637,9 @@ func (i *interviews) IngestControlEvents(ctx context.Context, request prepeetapi
 		return i.authentication.failed(ctx, err), nil
 	}
 
-	body := prepeetapi.ControlAcknowledgment{
-		ConnectionEpoch:  ack.Epoch,
-		AcceptedSequence: ack.Accepted,
-		Missing: make([]struct {
-			From int `json:"from"`
-			To   int `json:"to"`
-		}, 0, len(ack.Missing)),
-	}
-	for _, gap := range ack.Missing {
-		body.Missing = append(body.Missing, struct {
-			From int `json:"from"`
-			To   int `json:"to"`
-		}{From: gap[0], To: gap[1]})
-	}
-	for _, outcome := range ack.Outcomes {
-		id, err := uuid.Parse(outcome.EventID)
-		if err != nil {
-			return i.authentication.failed(ctx, err), nil
-		}
-		encoded := struct {
-			EventID uuid.UUID                                      `json:"event_id"`
-			Reason  *string                                        `json:"reason,omitempty"`
-			Status  prepeetapi.ControlAcknowledgmentOutcomesStatus `json:"status"`
-		}{EventID: id, Status: prepeetapi.ControlAcknowledgmentOutcomesStatus(outcome.Status)}
-		if outcome.Reason != "" {
-			reason := outcome.Reason
-			encoded.Reason = &reason
-		}
-		body.Outcomes = append(body.Outcomes, encoded)
+	body, err := ackBody(ack)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
 	}
 	return prepeetapi.IngestControlEvents200JSONResponse{
 		Body:    body,
@@ -1020,6 +1079,7 @@ var (
 	_ prepeetapi.GetResultsResponseObject          = failure{}
 	_ prepeetapi.GetReviewResponseObject           = failure{}
 	_ prepeetapi.ListMySessionsResponseObject      = failure{}
+	_ prepeetapi.IngestServiceEventsResponseObject = failure{}
 	_ prepeetapi.CompleteInterviewResponseObject   = failure{}
 )
 
@@ -1033,4 +1093,5 @@ func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       {
 func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
 func (f failure) VisitListMySessionsResponse(w http.ResponseWriter) error      { return f.write(w) }
+func (f failure) VisitIngestServiceEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitCompleteInterviewResponse(w http.ResponseWriter) error   { return f.write(w) }

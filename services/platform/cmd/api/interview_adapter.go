@@ -592,6 +592,39 @@ func (a interviewAdapter) GetPractice(ctx context.Context, userID, sessionID str
 	return view, nil
 }
 
+// IngestServiceEvents lands the agent's events under the candidate it
+// heard, the server assigning epoch and sequences. NO_ATTEMPT when no
+// connection epoch is open yet: the agent spoke before anyone joined.
+func (a interviewAdapter) IngestServiceEvents(ctx context.Context, sessionID, candidateID, mode string, events []api.ControlEventIn) (api.ControlAck, error) {
+	batch := make([]interview.ControlEvent, 0, len(events))
+	for _, event := range events {
+		batch = append(batch, interview.ControlEvent{
+			EventID: event.EventID, Type: event.Type,
+			Payload: event.Payload, OccurredAt: event.OccurredAt,
+		})
+	}
+	ack, err := a.events.IngestAsService(ctx, sessionID, mode, candidateID, "", batch)
+	switch {
+	case errors.Is(err, interview.ErrNotFound):
+		return api.ControlAck{}, api.ErrSessionMissing
+	case errors.Is(err, interview.ErrNoAttempt):
+		return api.ControlAck{}, &api.StartRefusedError{Code: "NO_ATTEMPT",
+			Message: "No connection epoch is open for this session yet."}
+	case err != nil:
+		return api.ControlAck{}, err
+	}
+	out := api.ControlAck{Epoch: ack.Epoch, Accepted: ack.Accepted}
+	for _, gap := range ack.Missing {
+		out.Missing = append(out.Missing, [2]int{gap.From, gap.To})
+	}
+	for _, outcome := range ack.Outcomes {
+		out.Outcomes = append(out.Outcomes, api.ControlOutcome{
+			EventID: outcome.EventID, Status: outcome.Status, Reason: outcome.Reason,
+		})
+	}
+	return out, nil
+}
+
 // MySessions answers the owner's whole practice history, newest first.
 func (a interviewAdapter) MySessions(ctx context.Context, userID string) ([]api.InterviewSession, error) {
 	sessions, err := a.sessions.ListMine(ctx, "practice", userID, "")

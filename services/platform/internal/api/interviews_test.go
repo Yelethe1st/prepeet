@@ -79,6 +79,12 @@ func (f *fakeInterviews) Results(_ context.Context, userID, sessionID string) (a
 	return f.result, f.err
 }
 
+func (f *fakeInterviews) IngestServiceEvents(_ context.Context, sessionID, candidateID, mode string, events []api.ControlEventIn) (api.ControlAck, error) {
+	f.users = append(f.users, "service:"+candidateID+":"+sessionID+":"+mode)
+	f.ingested = events
+	return f.ack, f.err
+}
+
 func (f *fakeInterviews) MySessions(_ context.Context, userID string) ([]api.InterviewSession, error) {
 	f.users = append(f.users, "list:"+userID)
 	if f.err != nil {
@@ -100,6 +106,7 @@ func (f *fakeInterviews) CompleteInterview(_ context.Context, userID, sessionID 
 func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
 	t.Helper()
 	handler, err := api.NewServer(api.ServerConfig{
+		AgentToken:  "agent-secret-agent-secret",
 		Identity:    &fakeIdentity{principal: api.Principal{UserID: "00000000-0000-7000-8000-0000000000f9"}},
 		Candidates:  &fakeCandidates{},
 		Documents:   &fakeDocuments{},
@@ -926,5 +933,87 @@ func TestTheSessionListAnswersUnderTheCallersOwnUser(t *testing.T) {
 	}
 	if interviews.users[0] != "list:00000000-0000-7000-8000-0000000000f9" {
 		t.Fatalf("the port saw %v", interviews.users)
+	}
+}
+
+// The agent's internal ingest (ADR-0019): a service credential, never a
+// person's session; sequences are the server's to assign.
+
+const serviceBatch = `{"candidate_id":"00000000-0000-7000-8000-0000000000f9","mode":"practice",` +
+	`"events":[{"event_id":"00000000-0000-7000-8000-0000000000a1","type":"turn.boundary",` +
+	`"occurred_at":"2026-08-27T12:00:00Z"}]}`
+
+func serviceRequest(t *testing.T, handler http.Handler, token string) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodPost,
+		"/api/v1/internal/interviews/00000000-0000-7000-8000-0000000000e1/events",
+		strings.NewReader(serviceBatch))
+	request.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func TestTheInternalIngestRefusesWithoutTheServiceToken(t *testing.T) {
+	interviews := &fakeInterviews{ack: api.ControlAck{Epoch: 1, Accepted: 1}}
+	handler := serveInterviews(t, interviews)
+
+	if response := serviceRequest(t, handler, ""); response.Code != http.StatusUnauthorized {
+		t.Fatalf("no token got %d, want 401", response.Code)
+	}
+	if response := serviceRequest(t, handler, "wrong-secret-wrong-secret"); response.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong token got %d, want 401", response.Code)
+	}
+	if len(interviews.users) != 0 {
+		t.Fatalf("the port was reached without a credential: %v", interviews.users)
+	}
+}
+
+func TestASessionCookieIsNotAServiceCredential(t *testing.T) {
+	// A person's session must never open the internal surface, however
+	// valid: the two credentials are different kinds of authority.
+	interviews := &fakeInterviews{ack: api.ControlAck{Epoch: 1, Accepted: 1}}
+	handler := serveInterviews(t, interviews)
+
+	request := httptest.NewRequest(http.MethodPost,
+		"/api/v1/internal/interviews/00000000-0000-7000-8000-0000000000e1/events",
+		strings.NewReader(serviceBatch))
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(sessionCookie())
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("a session cookie opened the internal surface: %d", recorder.Code)
+	}
+}
+
+func TestTheInternalIngestLandsUnderTheCandidateTheAgentHeard(t *testing.T) {
+	interviews := &fakeInterviews{ack: api.ControlAck{
+		Epoch: 2, Accepted: 4,
+		Outcomes: []api.ControlOutcome{{EventID: "00000000-0000-7000-8000-0000000000a1", Status: "accepted"}},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := serviceRequest(t, handler, "agent-secret-agent-secret")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		ConnectionEpoch  int `json:"connection_epoch"`
+		AcceptedSequence int `json:"accepted_sequence"`
+	}
+	decodeInto(t, response, &body)
+	if body.ConnectionEpoch != 2 || body.AcceptedSequence != 4 {
+		t.Fatalf("ack = %+v", body)
+	}
+	if interviews.users[0] != "service:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1:practice" {
+		t.Fatalf("the port saw %v", interviews.users)
+	}
+	// No sequence travels from the agent: the server's to assign.
+	if len(interviews.ingested) != 1 || interviews.ingested[0].Sequence != 0 {
+		t.Fatalf("ingested = %+v", interviews.ingested)
 	}
 }

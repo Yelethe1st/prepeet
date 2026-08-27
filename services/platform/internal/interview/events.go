@@ -162,6 +162,19 @@ func (e *Events) BeginAttempt(ctx context.Context, session Session) (int, error)
 // transaction, so the persisted cursor never claims events that did not
 // commit.
 func (e *Events) Ingest(ctx context.Context, sessionID, mode, candidateID, tenantID string, epoch int, events []ControlEvent) (Acknowledgment, error) {
+	return e.ingest(ctx, sessionID, mode, candidateID, tenantID, epoch, events, false)
+}
+
+// IngestAsService lands the agent's events (RTC-05, ADR-0019): the server
+// stamps the current epoch and assigns the next sequences itself, so the
+// agent and the browser never share a numbering and the agent never has
+// to know which attempt it is speaking into. Ephemeral types take no
+// slot, exactly as on the browser path.
+func (e *Events) IngestAsService(ctx context.Context, sessionID, mode, candidateID, tenantID string, events []ControlEvent) (Acknowledgment, error) {
+	return e.ingest(ctx, sessionID, mode, candidateID, tenantID, 0, events, true)
+}
+
+func (e *Events) ingest(ctx context.Context, sessionID, mode, candidateID, tenantID string, epoch int, events []ControlEvent, assign bool) (Acknowledgment, error) {
 	tx, err := e.store.pool.Begin(ctx)
 	if err != nil {
 		return Acknowledgment{}, fmt.Errorf("interview: beginning ingest: %w", err)
@@ -182,7 +195,28 @@ func (e *Events) Ingest(ctx context.Context, sessionID, mode, candidateID, tenan
 	// The one epoch rule: only the current attempt speaks. A batch from a
 	// superseded connection is refused whole, because a stale tab must not
 	// write history into a session that has moved on.
-	if epoch != session.ConnectionEpoch {
+	if assign {
+		epoch = session.ConnectionEpoch
+		stored, err := q.StoredSequences(ctx, db.StoredSequencesParams{
+			SessionID: sessionID, Epoch: int32(epoch),
+		})
+		if err != nil {
+			return Acknowledgment{}, fmt.Errorf("interview: reading sequences: %w", err)
+		}
+		next := 1
+		if len(stored) > 0 {
+			next = int(stored[len(stored)-1]) + 1
+		}
+		for i := range events {
+			events[i].Epoch = epoch
+			if ephemeralEventTypes[events[i].Type] {
+				events[i].Sequence = 0
+				continue
+			}
+			events[i].Sequence = next
+			next++
+		}
+	} else if epoch != session.ConnectionEpoch {
 		return Acknowledgment{}, ErrEpochStale
 	}
 

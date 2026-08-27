@@ -47,7 +47,17 @@ Disciplines, roles, interview shapes, personas, create/get/cancel interview, bun
 
 Start/resume returns attempt, expiry, scoped provider authorization, and control connection. SSE exposes progress; WebSocket is used only if bidirectional control is required. Media supports upload initiation/parts/finalization and authorized track playback.
 
-### Invitations/recruiting
+### Internal (service credential, never a person's session)
+POST /api/v1/internal/interviews/{session_id}/events
+
+The voice agent is the transcript's source of truth (ADR-0019). This
+operation accepts the platform's own service token as a bearer credential,
+compared in constant time; a session cookie never opens it, and a
+deployment with no token configured answers 401 to everything. The server
+stamps the current connection epoch and assigns sequences itself, so the
+agent and the browser never share a numbering.
+
+# Invitations/recruiting
 
 Resolve/accept invitation; campaigns; invitation list/create/detail/resend/revoke; candidate roster/detail; review decisions/history; comparison request; appeals assign/resolve.
 

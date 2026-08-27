@@ -35,6 +35,9 @@ type ServerConfig struct {
 	// Billing serves the usage and quota reads.
 	Billing     TenantBilling
 	Environment config.Environment
+	// AgentToken authenticates the voice agent's internal writes. Empty
+	// disables the internal operations: they answer 401 to everything.
+	AgentToken string
 	// Health is consulted by the readiness probe. Optional: a nil registry
 	// reports ready, which is correct for a process with no dependencies.
 	Health *health.Registry
@@ -88,6 +91,7 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		source:         cfg.Catalog,
 	}
 	handlers.interviews = interviews{
+		agentToken:     cfg.AgentToken,
 		authentication: &handlers.authentication,
 		flows:          cfg.Interviews,
 	}

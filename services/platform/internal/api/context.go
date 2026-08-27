@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"strings"
 )
 
 // What travels from the transport into a handler.
@@ -28,14 +29,29 @@ const (
 type credentials struct {
 	session string
 	refresh string
+	// bearer is the Authorization header's token: the service credential
+	// the internal operations check, never a person's session.
+	bearer string
 }
 
-// withCredentials reads the session and refresh cookies into ctx.
+// withCredentials reads the session and refresh cookies, and the bearer
+// header, into ctx.
 func withCredentials(ctx context.Context, r *http.Request) context.Context {
+	bearer := ""
+	if header := r.Header.Get("Authorization"); strings.HasPrefix(header, "Bearer ") {
+		bearer = strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+	}
 	return context.WithValue(ctx, credentialsKey, credentials{
 		session: SessionTokenFrom(r),
 		refresh: RefreshTokenFrom(r),
+		bearer:  bearer,
 	})
+}
+
+// bearerFromContext returns the bearer token the request presented.
+func bearerFromContext(ctx context.Context) string {
+	presented, _ := ctx.Value(credentialsKey).(credentials)
+	return presented.bearer
 }
 
 // sessionTokenFromContext returns the session token the request presented.

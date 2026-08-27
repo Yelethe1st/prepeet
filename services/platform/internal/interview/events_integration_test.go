@@ -261,3 +261,58 @@ func TestTheEventLogIsAppendOnlyAndUnknownTypesAreRefused(t *testing.T) {
 		t.Fatal("the event log accepted an edit")
 	}
 }
+
+func TestTheAgentsEventsTakeTheNextSequencesAfterTheBrowsers(t *testing.T) {
+	// ADR-0019: the agent never numbers anything. The server stamps the
+	// current epoch and continues the sequence after whatever the browser
+	// already landed, ephemeral types taking no slot, so two writers never
+	// collide in one timeline.
+	ctx := context.Background()
+	store := interview.NewStore(pool)
+	events := interview.NewEvents(store)
+	session := startedPractice(t)
+
+	if _, err := events.Ingest(ctx, session.ID, "practice", candidateID, "", 1,
+		[]interview.ControlEvent{event(1, "connection.established")}); err != nil {
+		t.Fatalf("browser: %v", err)
+	}
+
+	agentBatch := []interview.ControlEvent{
+		{EventID: id.New().String(), Type: "transcript.segment.partial",
+			OccurredAt: time.Date(2026, 8, 27, 12, 0, 1, 0, time.UTC)},
+		finalSegment(0, "interviewer", "Tell me about it", 1000,
+			words(1000, "Tell", "me", "about", "it"), 0.99),
+		event(0, "turn.boundary"),
+	}
+	ack, err := events.IngestAsService(ctx, session.ID, "practice", candidateID, "", agentBatch)
+	if err != nil {
+		t.Fatalf("agent: %v", err)
+	}
+	for _, outcome := range ack.Outcomes {
+		if outcome.Status != "accepted" {
+			t.Fatalf("the agent's event was refused: %+v", outcome)
+		}
+	}
+	if ack.Epoch != 1 || ack.Accepted != 3 {
+		t.Fatalf("ack = %+v, want epoch 1 accepted 3: the browser's 1, then the agent's 2 and 3", ack)
+	}
+
+	replayed, err := events.Replay(ctx, session.ID, "practice", candidateID, "", 0, 0)
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	var sequences []int
+	for _, stored := range replayed {
+		sequences = append(sequences, stored.Sequence)
+	}
+	if !reflect.DeepEqual(sequences, []int{1, 2, 3}) {
+		t.Fatalf("stored sequences = %v, want a contiguous 1,2,3 with no slot for the partial", sequences)
+	}
+
+	// Before any attempt exists there is nothing to write into.
+	fresh := readySession(t)
+	if _, err := events.IngestAsService(ctx, fresh.ID, "practice", candidateID, "",
+		[]interview.ControlEvent{event(0, "turn.boundary")}); !errors.Is(err, interview.ErrNoAttempt) {
+		t.Fatalf("no attempt = %v, want ErrNoAttempt", err)
+	}
+}

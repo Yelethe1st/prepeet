@@ -26,9 +26,9 @@ type fakeRecorder struct {
 	stopped []string
 }
 
-func (f *fakeRecorder) StartTrack(_ context.Context, room, track, key string) (string, error) {
-	f.started = append(f.started, track)
-	return "eg-" + room[:8] + "-" + track, nil
+func (f *fakeRecorder) StartTrack(_ context.Context, room, identity, key string) (string, error) {
+	f.started = append(f.started, identity)
+	return "eg-" + room[:8] + "-" + identity, nil
 }
 
 func (f *fakeRecorder) StopTrack(_ context.Context, egressID string) error {

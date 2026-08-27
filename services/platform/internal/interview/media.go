@@ -20,11 +20,12 @@ import (
 
 // Recorder starts and stops one egress. Wired to LiveKit in cmd.
 type Recorder interface {
-	// StartTrack begins egress of one side's audio into the given storage
-	// key, answering the egress id. Must be safe to call for a room that
-	// is already being recorded elsewhere; idempotency across retries is
-	// the store's (unique per session and track), not the recorder's.
-	StartTrack(ctx context.Context, roomName, track, storageKey string) (string, error)
+	// StartTrack begins egress of one participant's audio into the given
+	// storage key, answering the egress id. The participant is named by
+	// room identity: the candidate joins as their user id, the agent as
+	// "interviewer". Idempotency across retries is the store's (unique
+	// per session and track), not the recorder's.
+	StartTrack(ctx context.Context, roomName, participantIdentity, storageKey string) (string, error)
 	// StopTrack ends one egress. Stopping an already-stopped egress is
 	// not an error worth failing completion over.
 	StopTrack(ctx context.Context, egressID string) error
@@ -105,7 +106,11 @@ func (s *Store) StartRecording(ctx context.Context, recorder Recorder, session S
 		// leaves an orphan egress writing to the derived key, and the
 		// retry claims the row for its own egress id; finalization reads
 		// the key either way, so the artifact is never lost to the race.
-		egressID, err := recorder.StartTrack(ctx, session.ID, track, key.String())
+		identity := track
+		if track == "candidate" {
+			identity = session.CandidateID
+		}
+		egressID, err := recorder.StartTrack(ctx, session.ID, identity, key.String())
 		if err != nil {
 			return fmt.Errorf("interview: starting %s egress: %w", track, err)
 		}

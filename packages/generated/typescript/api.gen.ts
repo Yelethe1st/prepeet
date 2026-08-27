@@ -815,6 +815,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/interviews/{sessionId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The agent writes conversation into the durable timeline
+         * @description The voice agent is the transcript's source of truth (ADR-0019). It
+         *     names the session and the candidate it heard - the candidate is the
+         *     room participant's identity - and the server stamps the current
+         *     epoch and assigns the next sequences itself, so two writers never
+         *     share a numbering. Same validation and seal rules as the browser
+         *     path: a segment that cannot serve as evidence is refused by name,
+         *     and a sealed transcript takes no more conversation.
+         */
+        post: operations["ingestServiceEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews/{sessionId}/complete": {
         parameters: {
             query?: never;
@@ -1308,6 +1334,25 @@ export interface components {
             };
             /** Format: date-time */
             occurred_at: string;
+        };
+        ServiceEventBatch: {
+            /**
+             * Format: uuid
+             * @description The room participant the agent is speaking with.
+             */
+            candidate_id: string;
+            /** @enum {string} */
+            mode: "practice" | "screening";
+            events: {
+                /** Format: uuid */
+                event_id: string;
+                type: string;
+                payload?: {
+                    [key: string]: unknown;
+                };
+                /** Format: date-time */
+                occurred_at: string;
+            }[];
         };
         ControlEventBatch: {
             connection_epoch: number;
@@ -2924,6 +2969,45 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             /** @description RESULT_NOT_READY while evaluation has not landed. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ingestServiceEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceEventBatch"];
+            };
+        };
+        responses: {
+            /** @description Per-event outcomes and the cursor as it now stands. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlAcknowledgment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description NO_ATTEMPT while no connection epoch is open. */
             409: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];

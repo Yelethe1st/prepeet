@@ -410,6 +410,7 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 		PREPEET_LIVEKIT_API_KEY="devkey" \
 		PREPEET_LIVEKIT_API_SECRET="devsecret-devsecret-devsecret" \
 		PREPEET_LIVEKIT_API_URL="http://localhost:7880" \
+		PREPEET_AGENT_TOKEN="dev-agent-token-dev-agent-token" \
 		PREPEET_S3_BUCKET="prepeet-documents" \
 		PREPEET_S3_ACCESS_KEY="test" PREPEET_S3_SECRET_KEY="test" \
 		PREPEET_S3_PATH_STYLE="true" \
@@ -435,6 +436,7 @@ dev-api: ## Run the Go API alone
 		PREPEET_LIVEKIT_API_KEY="devkey" \
 		PREPEET_LIVEKIT_API_SECRET="devsecret-devsecret-devsecret" \
 		PREPEET_LIVEKIT_API_URL="http://localhost:7880" \
+		PREPEET_AGENT_TOKEN="dev-agent-token-dev-agent-token" \
 		PREPEET_S3_BUCKET="prepeet-documents" \
 		PREPEET_S3_ACCESS_KEY="test" PREPEET_S3_SECRET_KEY="test" \
 		PREPEET_S3_PATH_STYLE="true" go run ./cmd/api

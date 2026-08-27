@@ -20,9 +20,27 @@ abandoned sentences, answer length, and recording quality — each with a calcul
 references.
 
 **Done when**
-- [ ] Every metric is reproducible from the same inputs and carries its calculator version.
-- [ ] Metrics are computed before any model call and are never model-generated.
-- [ ] Known audio fixtures produce known values within a documented tolerance.
+- [x] Every metric is reproducible from the same inputs and carries its calculator version.
+- [x] Metrics are computed before any model call and are never model-generated.
+- [x] Known audio fixtures produce known values within a documented tolerance.
+
+**Done at the transcript-timing floor: articulation-features-v1.** Words per minute, pause
+count, average, maximum and long-pause count (700 ms floor), fillers per hundred words (an
+unambiguous list; "like" and "so" are deliberately not counted because a count that guesses is
+worse than one that abstains), restarts (an immediately repeated word or two-word phrase),
+repeated three-word phrases, answer length and transcript confidence, each per candidate turn
+with its calculator version and the turn sequence it came from, aggregated over assessable turns
+only (totals, never averages of averages). Reproducibility is proven by equality over a
+round-tripped copy of the input; a test asserts the module imports nothing that could consult a
+model. Served over the contract's AnalyzeArticulation with provider_calls zero.
+
+The honest boundary, stated in the result rather than papered over: audio-derived quality
+(clipping, noise, volume) is not computed yet because the recording is not decoded here, so
+audio_quality is null and every result carries AUDIO_QUALITY_NOT_COMPUTED; the "audio fixture"
+of the third box is a known transcript-timing fixture with hand-computed expectations and a
+documented tolerance (0.5 wpm, 0.1 fillers per hundred). Thin speech (under 20 words), missing
+word timing and low transcript confidence are not_assessable by name, never a low value. The Go
+workflow that requests the analysis at completion and stores it belongs to ART-02.
 
 **Spec** [articulation-system.md](../../architecture/articulation-system.md)
 

@@ -27,6 +27,7 @@ from grpc_status import rpc_status
 from prepeet.intelligence.v1 import intelligence_pb2, intelligence_pb2_grpc
 from prepeet.rpc.v1 import failure_pb2
 
+from prepeet_ai.articulation import service as articulation
 from prepeet_ai.composition import composer
 from prepeet_ai.evaluation import service as evidence
 from prepeet_ai.extraction import service as extraction
@@ -167,6 +168,33 @@ class IntelligenceService(intelligence_pb2_grpc.IntelligenceServiceServicer):  #
                 usage=intelligence_pb2.Usage(cost_units=0, provider_calls=0),
             ),
             observations=observations,
+        )
+
+    def AnalyzeArticulation(  # noqa: N802 - the generated stub's casing
+        self,
+        request: intelligence_pb2.AnalyzeArticulationRequest,
+        context: grpc.ServicerContext,
+    ) -> intelligence_pb2.AnalyzeArticulationResponse:
+        """Measure delivery deterministically from the sealed transcript (ART-01)."""
+        try:
+            analysis = articulation.analysis_from_ref(
+                request.manifest.fetch_url, request.manifest.digest
+            )
+        except FailureError as error:
+            logger.info("articulation refused", extra={"code": error.failure.code.code})
+            _abort_with(context, error)
+            raise AssertionError("abort returns") from None
+
+        return intelligence_pb2.AnalyzeArticulationResponse(
+            meta=intelligence_pb2.ResponseMeta(
+                schema_version=articulation.SCHEMA_VERSION,
+                calculation_version=articulation.CALCULATION_VERSION,
+                policy_version=articulation.POLICY_VERSION,
+                input_digest=request.manifest.digest,
+                output_validated=True,
+                usage=intelligence_pb2.Usage(cost_units=0, provider_calls=0),
+            ),
+            analysis=analysis,
         )
 
     def ExtractCandidateProfile(  # noqa: N802 - the generated stub's casing

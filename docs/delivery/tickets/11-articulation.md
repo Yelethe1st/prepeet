@@ -121,9 +121,24 @@ One or two priorities per session, each stating listener impact and one action, 
 built from the candidate's own sentences.
 
 **Done when**
-- [ ] A suggested rewrite never introduces a fact, metric or outcome the candidate did not say.
-- [ ] Missing information appears as a placeholder or a question, never as an invented detail.
-- [ ] A fact-preservation test suite runs against the coaching stage in CI.
+- [x] A suggested rewrite never introduces a fact, metric or outcome the candidate did not say.
+- [x] Missing information appears as a placeholder or a question, never as an invented detail.
+- [x] A fact-preservation test suite runs against the coaching stage in CI.
+
+**Done at the articulation-coaching-v1 floor, fact-preserving by construction and by gate.** One
+or two priorities are the profile's weakest measurable dimensions, each with a listener impact,
+one action and a selected drill from the spec's list, written as neutral copy about what the
+listener experiences, never about the person. The suggested shape (headline, context, reasoning,
+result) is assembled only from the anchoring answer's own sentences; a slot with nothing to fill
+it is a bracketed question. The floor cannot invent a fact because it has no vocabulary to do so.
+
+preserve() is the gate that outlives the floor: every quote must be an exact substring of its
+own candidate turn, every placeholder a bracketed question with no digit (a number in brackets is
+a fact wearing them), every priority's evidence a real candidate turn, and one violation refuses
+the whole coaching. The served analysis is gated first; a refusal becomes a stated absence with
+the reason, never a served invention. tests/test_delivery_fact_preservation.py attacks the gate
+four ways plus a foreign-turn citation and runs in the same CI job as every Python test
+(uv run pytest with the coverage floor). The delivery screen that renders this is ART-05's.
 
 **Spec** [articulation-system.md](../../architecture/articulation-system.md)
 

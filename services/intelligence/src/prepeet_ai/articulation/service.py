@@ -13,6 +13,7 @@ from __future__ import annotations
 import dataclasses
 import json
 
+from prepeet_ai.articulation.coaching import UnpreservingError, coaching_document
 from prepeet_ai.articulation.features import (
     CALCULATION_VERSION,
     NOT_A_LOW_RESULT,
@@ -80,5 +81,15 @@ def analysis_from_ref(fetch_url: str, digest: str) -> bytes:
         # Ten dimensions, each a level with its evidence, and no total:
         # the document has no field a total could live in.
         "profile": profile_document(turns),
+        # Gated before it is served: coaching that fails fact preservation
+        # is an honest absence with the reason, never a served invention.
+        "coaching": _coaching_or_absence(turns),
     }
     return json.dumps(analysis, sort_keys=True, separators=(",", ":")).encode()
+
+
+def _coaching_or_absence(turns: list[dict[str, object]]) -> dict[str, object]:
+    try:
+        return coaching_document(turns)
+    except UnpreservingError as refused:
+        return {"available": False, "note": f"coaching withheld: {refused}"}

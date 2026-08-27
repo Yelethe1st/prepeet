@@ -203,12 +203,14 @@ generate: tools ## Regenerate every client and server type from the contracts
 	# The repositories' SQL, checked against the real migrations rather than
 	# against a description of them. See ADR-0008.
 	cd $(GO_DIR) && $(TOOLS_BIN)/sqlc generate
-	# The Go/Python RPC stubs, per ADR-0004 and CTR-02. buf runs the Go plugins
-	# and the built-in Python message generator; the Python gRPC service stub
-	# comes from grpc_tools.protoc, which ships as a module rather than a
-	# plugin buf could invoke.
+	# The Go RPC stubs, per ADR-0004 and CTR-02.
 	cd packages/contracts/rpc && PATH="$(TOOLS_BIN):$$PATH" $(TOOLS_BIN)/buf generate
+	# Everything Python - messages, type stubs and the gRPC service - from
+	# grpc_tools.protoc, which bundles its own protoc. buf's built-in Python
+	# plugins would need one on PATH, which a clean checkout does not have.
 	cd $(PY_DIR) && uv run python -m grpc_tools.protoc -I ../../packages/contracts/rpc \
+		--python_out=../../packages/generated/python \
+		--pyi_out=../../packages/generated/python \
 		--grpc_python_out=../../packages/generated/python prepeet/intelligence/v1/intelligence.proto
 	cd packages/generated/go && go mod tidy
 

@@ -107,6 +107,15 @@ func (f *fakeInterviews) MySessions(_ context.Context, userID string) ([]api.Int
 	return []api.InterviewSession{f.created}, nil
 }
 
+func (f *fakeInterviews) DeliveryBaseline(_ context.Context, userID string) (api.BaselineView, error) {
+	f.users = append(f.users, "baseline:"+userID)
+	return api.BaselineView{
+		BaselineVersion: "baseline-1", SessionsMeasured: 6, MinimumSessions: 5, Ready: true,
+		Ranges: map[string][2]float64{"words_per_minute": {130, 170}},
+		Note:   "These ranges are guidance about you, not a target: there is no correct speaking rate.",
+	}, nil
+}
+
 func (f *fakeInterviews) Delivery(_ context.Context, userID, sessionID string) (api.DeliveryAnalysisView, error) {
 	f.users = append(f.users, "delivery:"+userID+":"+sessionID)
 	if f.err != nil {
@@ -1168,5 +1177,30 @@ func TestTheDeliveryEndpointServesTheAnalysisAndTheStatement(t *testing.T) {
 	if response := get(t, notReady,
 		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery", sessionCookie()); response.Code != http.StatusConflict {
 		t.Fatalf("not ready = %d, want 409", response.Code)
+	}
+}
+
+func TestTheBaselineIsTheCallersOwnWithItsGuidanceNote(t *testing.T) {
+	interviews := &fakeInterviews{}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler, "/api/v1/me/delivery-baseline", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		Ready  bool `json:"ready"`
+		Ranges map[string]struct {
+			Low  float64 `json:"low"`
+			High float64 `json:"high"`
+		} `json:"ranges"`
+		Note string `json:"note"`
+	}
+	decodeInto(t, response, &body)
+	if !body.Ready || body.Ranges["words_per_minute"].Low != 130 || !strings.Contains(body.Note, "no correct speaking rate") {
+		t.Fatalf("body = %+v", body)
+	}
+	if interviews.users[0] != "baseline:00000000-0000-7000-8000-0000000000f9" {
+		t.Fatalf("the port saw %v", interviews.users)
 	}
 }

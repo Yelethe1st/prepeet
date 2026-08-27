@@ -166,9 +166,22 @@ const transcript: TranscriptView = {
   orphan_corrections: [],
 };
 
-function renderDelivery(value: DeliveryView = delivery) {
+const absentBaseline = {
+  baseline_version: "baseline-1",
+  sessions_measured: 2,
+  minimum_sessions: 5,
+  ready: false,
+  ranges: {},
+  note: "These ranges are guidance about you, not a target: there is no correct speaking rate.",
+};
+
+function renderDelivery(
+  value: DeliveryView = delivery,
+  baseline = absentBaseline,
+) {
   vi.mocked(api.getDelivery).mockResolvedValue(value);
   vi.mocked(api.getTranscript).mockResolvedValue(transcript);
+  vi.mocked(api.getBaseline).mockResolvedValue(baseline);
   return render(
     <DeliveryScreen sessionId="00000000-0000-7000-8000-0000000000e1" />,
     {
@@ -182,6 +195,35 @@ function renderDelivery(value: DeliveryView = delivery) {
 afterEach(() => {
   vi.mocked(api.getDelivery).mockReset();
   vi.mocked(api.getTranscript).mockReset();
+  vi.mocked(api.getBaseline).mockReset();
+});
+
+describe("the personal baseline", () => {
+  it("says how many sessions remain before a range is drawn", async () => {
+    renderDelivery();
+    const note = await screen.findByTestId("baseline-note");
+    expect(note).toHaveTextContent(/no correct speaking rate/i);
+    expect(note).toHaveTextContent(/3 more to go/i);
+    expect(screen.queryByText(/your usual range/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the ranges as guidance once ready, never as a target", async () => {
+    renderDelivery(delivery, {
+      ...absentBaseline,
+      sessions_measured: 6,
+      ready: true,
+      ranges: { words_per_minute: { low: 130, high: 170 } },
+    });
+    expect(
+      await screen.findByText(/your usual range 130 to 170/i),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("baseline-note")).toHaveTextContent(
+      /not a target/i,
+    );
+    expect(document.body.textContent).not.toMatch(
+      /target rate|ideal rate|correct rate is/i,
+    );
+  });
 });
 
 describe("charts", () => {

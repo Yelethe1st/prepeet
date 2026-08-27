@@ -33,6 +33,26 @@ type interviewAdapter struct {
 	documents *objectstore.S3Store
 }
 
+// DeliveryBaseline draws the caller's ranges from their own practice
+// history, read under their own scope: a screening analysis is a
+// tenant's row that scope cannot see, which is the whole guarantee.
+func (a interviewAdapter) DeliveryBaseline(ctx context.Context, userID string) (api.BaselineView, error) {
+	history, err := a.results.ArticulationHistory(ctx, evaluation.SessionRef{Mode: "practice", CandidateID: userID})
+	if err != nil {
+		return api.BaselineView{}, err
+	}
+	baseline := evaluation.DeriveBaseline(history)
+	view := api.BaselineView{
+		BaselineVersion: baseline.BaselineVersion, SessionsMeasured: baseline.SessionsMeasured,
+		MinimumSessions: baseline.MinimumSessions, Ready: baseline.Ready,
+		Ranges: map[string][2]float64{}, Note: baseline.Note,
+	}
+	for metric, span := range baseline.Ranges {
+		view.Ranges[metric] = [2]float64{span.Low, span.High}
+	}
+	return view, nil
+}
+
 // Delivery answers the owner's stored delivery analysis, ownership first.
 func (a interviewAdapter) Delivery(ctx context.Context, userID, sessionID string) (api.DeliveryAnalysisView, error) {
 	if _, err := a.sessions.Get(ctx, sessionID, "practice", userID, ""); err != nil {

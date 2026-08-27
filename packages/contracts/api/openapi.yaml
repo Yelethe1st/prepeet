@@ -1290,6 +1290,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /me/delivery-baseline:
+    get:
+      tags: [interview]
+      operationId: getDeliveryBaseline
+      summary: The caller's own delivery ranges, once there is enough history
+      description: |
+        A personal baseline: the middle half of the caller's own measured
+        practice sessions, drawn only after a documented minimum and
+        never against anyone else's. Practice only by construction: the
+        history is read under the candidate's own scope, which cannot see
+        a screening analysis. The note states the ranges are guidance,
+        not a correct rate.
+      responses:
+        "200":
+          description: The baseline, or the honest absence with its count.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryBaseline"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
   /me/sessions:
     get:
       tags: [interview]
@@ -2005,6 +2029,24 @@ components:
           type: array
           items: { type: string }
         created_at: { type: string, format: date-time }
+
+    DeliveryBaseline:
+      type: object
+      required: [baseline_version, sessions_measured, minimum_sessions, ready, ranges, note]
+      properties:
+        baseline_version: { type: string }
+        sessions_measured: { type: integer }
+        minimum_sessions: { type: integer }
+        ready: { type: boolean }
+        ranges:
+          type: object
+          additionalProperties:
+            type: object
+            required: [low, high]
+            properties:
+              low: { type: number }
+              high: { type: number }
+        note: { type: string }
 
     DeliveryView:
       type: object

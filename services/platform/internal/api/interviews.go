@@ -63,6 +63,9 @@ type Interviews interface {
 	// MySessions answers every session the caller owns, newest first,
 	// every lifecycle state included.
 	MySessions(ctx context.Context, userID string) ([]InterviewSession, error)
+	// DeliveryBaseline answers the caller's own ranges, or the honest
+	// absence with its count.
+	DeliveryBaseline(ctx context.Context, userID string) (BaselineView, error)
 	// Delivery answers the stored articulation analysis. ErrDeliveryNotReady
 	// while it has not landed; ErrSessionMissing otherwise as Results.
 	Delivery(ctx context.Context, userID, sessionID string) (DeliveryAnalysisView, error)
@@ -70,6 +73,16 @@ type Interviews interface {
 	// coaching failure is NOT an error here - it arrives as a view with
 	// CoachingAvailable false, because the evaluation stands either way.
 	Review(ctx context.Context, userID, sessionID string) (ReviewView, error)
+}
+
+// BaselineView mirrors the contract at the port.
+type BaselineView struct {
+	BaselineVersion  string
+	SessionsMeasured int
+	MinimumSessions  int
+	Ready            bool
+	Ranges           map[string][2]float64
+	Note             string
 }
 
 // ErrDeliveryNotReady says the delivery analysis has not landed yet.
@@ -1034,6 +1047,40 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 	}, nil
 }
 
+// GetDeliveryBaseline answers the caller's personal delivery ranges.
+func (i *interviews) GetDeliveryBaseline(ctx context.Context, _ prepeetapi.GetDeliveryBaselineRequestObject) (prepeetapi.GetDeliveryBaselineResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	baseline, err := i.flows.DeliveryBaseline(ctx, principal.UserID)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	ranges := map[string]struct {
+		High float32 `json:"high"`
+		Low  float32 `json:"low"`
+	}{}
+	for metric, span := range baseline.Ranges {
+		ranges[metric] = struct {
+			High float32 `json:"high"`
+			Low  float32 `json:"low"`
+		}{High: float32(span[1]), Low: float32(span[0])}
+	}
+	return prepeetapi.GetDeliveryBaseline200JSONResponse{
+		Body: prepeetapi.DeliveryBaseline{
+			BaselineVersion: baseline.BaselineVersion, SessionsMeasured: baseline.SessionsMeasured,
+			MinimumSessions: baseline.MinimumSessions, Ready: baseline.Ready,
+			Ranges: ranges, Note: baseline.Note,
+		},
+		Headers: prepeetapi.GetDeliveryBaseline200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetDelivery answers the stored delivery analysis.
 func (i *interviews) GetDelivery(ctx context.Context, request prepeetapi.GetDeliveryRequestObject) (prepeetapi.GetDeliveryResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -1226,6 +1273,7 @@ var (
 	_ prepeetapi.GetResultsResponseObject          = failure{}
 	_ prepeetapi.GetReviewResponseObject           = failure{}
 	_ prepeetapi.GetDeliveryResponseObject         = failure{}
+	_ prepeetapi.GetDeliveryBaselineResponseObject = failure{}
 	_ prepeetapi.ListMySessionsResponseObject      = failure{}
 	_ prepeetapi.IngestServiceEventsResponseObject = failure{}
 	_ prepeetapi.GetInterviewBriefResponseObject   = failure{}
@@ -1242,6 +1290,7 @@ func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       {
 func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
 func (f failure) VisitGetDeliveryResponse(w http.ResponseWriter) error         { return f.write(w) }
+func (f failure) VisitGetDeliveryBaselineResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitListMySessionsResponse(w http.ResponseWriter) error      { return f.write(w) }
 func (f failure) VisitIngestServiceEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitGetInterviewBriefResponse(w http.ResponseWriter) error   { return f.write(w) }

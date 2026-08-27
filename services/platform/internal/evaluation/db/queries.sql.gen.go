@@ -353,6 +353,60 @@ func (q *Queries) InsertResult(ctx context.Context, arg InsertResultParams) erro
 	return err
 }
 
+const listArticulation = `-- name: ListArticulation :many
+SELECT id::text AS id, session_id::text AS session_id, status, warnings, analysis,
+       calculation_version, policy_version, input_digest, created_at
+FROM evaluation.articulation
+WHERE mode = $1::text
+ORDER BY created_at
+`
+
+type ListArticulationRow struct {
+	ID                 string
+	SessionID          string
+	Status             string
+	Warnings           []byte
+	Analysis           []byte
+	CalculationVersion string
+	PolicyVersion      string
+	InputDigest        string
+	CreatedAt          time.Time
+}
+
+// The scope's whole delivery history, oldest first: what a personal
+// baseline is drawn from. RLS scopes the rows; practice rows are the
+// candidate's own and screening rows are the tenant's, so a candidate's
+// baseline can never see a screening analysis.
+func (q *Queries) ListArticulation(ctx context.Context, mode string) ([]ListArticulationRow, error) {
+	rows, err := q.db.Query(ctx, listArticulation, mode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListArticulationRow{}
+	for rows.Next() {
+		var i ListArticulationRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Status,
+			&i.Warnings,
+			&i.Analysis,
+			&i.CalculationVersion,
+			&i.PolicyVersion,
+			&i.InputDigest,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listContradictions = `-- name: ListContradictions :many
 SELECT id::text AS id, topic,
        a_segment_sequence, a_quote, a_char_start, a_char_end, a_start_ms, a_end_ms,

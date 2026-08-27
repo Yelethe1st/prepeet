@@ -914,6 +914,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/delivery-baseline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's own delivery ranges, once there is enough history
+         * @description A personal baseline: the middle half of the caller's own measured
+         *     practice sessions, drawn only after a documented minimum and
+         *     never against anyone else's. Practice only by construction: the
+         *     history is read under the candidate's own scope, which cannot see
+         *     a screening analysis. The note states the ranges are guidance,
+         *     not a correct rate.
+         */
+        get: operations["getDeliveryBaseline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/sessions": {
         parameters: {
             query?: never;
@@ -1280,6 +1305,19 @@ export interface components {
             warnings: string[];
             /** Format: date-time */
             created_at: string;
+        };
+        DeliveryBaseline: {
+            baseline_version: string;
+            sessions_measured: number;
+            minimum_sessions: number;
+            ready: boolean;
+            ranges: {
+                [key: string]: {
+                    low: number;
+                    high: number;
+                };
+            };
+            note: string;
         };
         DeliveryView: {
             /** Format: uuid */
@@ -3219,6 +3257,28 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    getDeliveryBaseline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The baseline, or the honest absence with its count. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryBaseline"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
         };
     };
     listMySessions: {

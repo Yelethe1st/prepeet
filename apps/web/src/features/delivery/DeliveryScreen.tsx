@@ -23,7 +23,13 @@ import {
   type ShapePart,
   type TurnFeatures,
 } from "./analysis";
-import { getDelivery, getTranscript, type DeliveryView } from "./api";
+import {
+  getBaseline,
+  getDelivery,
+  getTranscript,
+  type DeliveryBaseline,
+  type DeliveryView,
+} from "./api";
 
 /**
  * The delivery screen - ART-05, from the prototype's
@@ -49,6 +55,13 @@ export function DeliveryScreen({ sessionId }: { sessionId: string }) {
   const transcript = useQuery({
     queryKey: ["transcript", sessionId],
     queryFn: () => getTranscript(sessionId),
+  });
+  // The baseline is a convenience beside the numbers: its failure never
+  // hides the session's own measurements.
+  const baseline = useQuery({
+    queryKey: ["delivery-baseline"],
+    queryFn: getBaseline,
+    retry: false,
   });
 
   if (delivery.isPending || transcript.isPending) {
@@ -102,6 +115,7 @@ export function DeliveryScreen({ sessionId }: { sessionId: string }) {
     <DeliveryBody
       sessionId={sessionId}
       delivery={delivery.data}
+      baseline={baseline.data}
       segments={transcript.data.segments.filter((s) => !s.superseded)}
     />
   );
@@ -110,10 +124,12 @@ export function DeliveryScreen({ sessionId }: { sessionId: string }) {
 function DeliveryBody({
   sessionId,
   delivery,
+  baseline,
   segments,
 }: {
   sessionId: string;
   delivery: DeliveryView;
+  baseline: DeliveryBaseline | undefined;
   segments: {
     sequence: number;
     speaker: string;
@@ -186,21 +202,34 @@ function DeliveryBody({
           <Metric
             label="Words per minute"
             value={analysis.metrics?.words_per_minute}
+            range={
+              baseline?.ready ? baseline.ranges["words_per_minute"] : undefined
+            }
           />
           <Metric
             label="Fillers per 100 words"
             value={analysis.metrics?.fillers_per_100_words}
+            range={
+              baseline?.ready
+                ? baseline.ranges["fillers_per_100_words"]
+                : undefined
+            }
           />
           <Metric
             label="Pauses over 700 ms"
             value={analysis.metrics?.long_pause_count}
+            range={
+              baseline?.ready ? baseline.ranges["long_pause_count"] : undefined
+            }
           />
           <Metric label="Words measured" value={analysis.metrics?.words} />
         </dl>
-        <p className="mt-4 text-sm text-fg-2">
-          There is no correct speaking rate. Your own range appears here once
-          enough practice sessions have been measured; until then these are this
-          session&apos;s numbers alone.
+        <p className="mt-4 text-sm text-fg-2" data-testid="baseline-note">
+          {baseline?.ready
+            ? baseline.note
+            : baseline
+              ? `There is no correct speaking rate. Your own range appears here after ${baseline.minimum_sessions} measured practice sessions; ${Math.max(0, baseline.minimum_sessions - baseline.sessions_measured)} more to go.`
+              : "There is no correct speaking rate. Your own range appears here once enough practice sessions have been measured."}
         </p>
       </section>
 
@@ -436,9 +465,11 @@ function DeliveryBody({
 function Metric({
   label,
   value,
+  range,
 }: {
   label: string;
   value: number | undefined;
+  range?: { low: number; high: number };
 }) {
   return (
     <div>
@@ -446,6 +477,11 @@ function Metric({
       <dd className="text-xl font-semibold">
         {value === undefined ? "not measured" : value}
       </dd>
+      {range && (
+        <dd className="text-xs text-fg-3">
+          your usual range {range.low} to {range.high}
+        </dd>
+      )}
     </div>
   );
 }

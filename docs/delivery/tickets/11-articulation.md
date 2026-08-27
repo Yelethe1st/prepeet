@@ -200,8 +200,22 @@ Compare a candidate with their own history once there is enough of it, and never
 standard.
 
 **Done when**
-- [ ] A baseline requires a documented minimum number of measured sessions before it is drawn.
-- [ ] Copy states that suggested ranges are guidance, not a correct speaking rate.
-- [ ] Baselines are purpose-scoped and provably unreachable from screening.
+- [x] A baseline requires a documented minimum number of measured sessions before it is drawn.
+- [x] Copy states that suggested ranges are guidance, not a correct speaking rate.
+- [x] Baselines are purpose-scoped and provably unreachable from screening.
+
+**Done: baseline-1.** MinBaselineSessions is five, documented on the constant and answered in
+the honest absence (sessions measured, minimum required) so a screen can say how far away the
+baseline is; not-assessable sessions never count. A range is the middle half (nearest-rank
+quartiles, no interpolation, so a range is always made of values that occurred) of the
+candidate's own measured sessions per metric. The note ships with every baseline, ready or
+not: guidance about you, not a target, no correct speaking rate; the delivery screen renders the
+ranges beside this session's numbers only when ready and otherwise says how many sessions remain.
+
+Purpose scoping is structural, not remembered: GET /me/delivery-baseline reads the history under
+the caller's own practice scope, and a screening analysis is a tenant's row that scope cannot
+see under RLS. The integration proof seeds five assessable analyses in a scope the candidate
+does not own and shows their baseline still counts zero measured sessions. Trends over time are
+the same history plotted, which PRG-03's progression screen owns.
 
 **Spec** [articulation-system.md](../../architecture/articulation-system.md)

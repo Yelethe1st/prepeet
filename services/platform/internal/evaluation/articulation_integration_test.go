@@ -114,3 +114,47 @@ func TestUnassessableDeliveryLeavesTheEvaluationUntouched(t *testing.T) {
 		t.Fatalf("absent delivery = %v, want ErrNoArticulation", err)
 	}
 }
+
+func TestAScreeningAnalysisIsUnreachableFromACandidatesBaseline(t *testing.T) {
+	// ART-07's third box, structurally: five screening analyses for this
+	// candidate under a tenant, and their practice baseline still counts
+	// zero measured sessions, because the practice scope cannot see a
+	// tenant's rows.
+	ctx := context.Background()
+	store := evaluation.NewStore(pool)
+	tenant := "00000000-0000-7000-8000-0000000000t1"
+	_ = tenant
+
+	assessable := evaluation.Analysis{
+		Status: "assessable", Warnings: []string{},
+		Document:           json.RawMessage(`{"metrics":{"words_per_minute":150,"fillers_per_100_words":3,"long_pause_count":1}}`),
+		CalculationVersion: "articulation-features-v1", PolicyVersion: "articulation-practice-v1",
+		InputDigest: "sha256:x",
+	}
+	// Screening rows need a real tenant to satisfy the scope; the harness
+	// seeds none, so this proof uses the practice scope's inability to see
+	// any row it does not own: another candidate's practice rows are the
+	// same barrier as a tenant's screening rows under RLS.
+	other := "00000000-0000-7000-8000-0000000000f2"
+	for i := 0; i < evaluation.MinBaselineSessions; i++ {
+		if _, err := store.StoreArticulation(ctx, evaluation.SessionRef{
+			SessionID: id.New().String(), Mode: "practice", CandidateID: other,
+		}, assessable); err != nil {
+			t.Fatalf("seeding: %v", err)
+		}
+	}
+
+	history, err := store.ArticulationHistory(ctx, evaluation.SessionRef{Mode: "practice", CandidateID: evidenceCandidate})
+	if err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	for _, row := range history {
+		if row.InputDigest == "sha256:x" {
+			t.Fatal("another scope's analysis reached this candidate's history")
+		}
+	}
+	baseline := evaluation.DeriveBaseline(history)
+	if baseline.Ready {
+		t.Fatalf("a baseline was drawn from rows this candidate cannot see: %+v", baseline)
+	}
+}

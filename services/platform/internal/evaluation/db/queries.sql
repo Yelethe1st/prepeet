@@ -100,3 +100,14 @@ SELECT id::text AS id, session_id::text AS session_id, status, warnings, analysi
        calculation_version, policy_version, input_digest, created_at
 FROM evaluation.articulation
 WHERE session_id = sqlc.arg(session_id)::uuid;
+
+-- name: ListArticulation :many
+-- The scope's whole delivery history, oldest first: what a personal
+-- baseline is drawn from. RLS scopes the rows; practice rows are the
+-- candidate's own and screening rows are the tenant's, so a candidate's
+-- baseline can never see a screening analysis.
+SELECT id::text AS id, session_id::text AS session_id, status, warnings, analysis,
+       calculation_version, policy_version, input_digest, created_at
+FROM evaluation.articulation
+WHERE mode = sqlc.arg(mode)::text
+ORDER BY created_at;

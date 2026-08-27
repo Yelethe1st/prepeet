@@ -119,6 +119,14 @@ const result: EvaluationResult = {
     reached: ["debugging", "systems-design"],
     not_reached: ["prioritisation"],
   },
+  omissions: [
+    {
+      stage: "articulation",
+      reason: "BUDGET_EXHAUSTED",
+      retryable: false,
+      note: "Delivery measurement is not part of this session's evaluation. Your results above are complete and unaffected.",
+    },
+  ],
   delivery: { status: "pending", warnings: [], note: "" },
   covered_competencies: 2,
   total_competencies: 3,
@@ -169,11 +177,14 @@ const transcript: TranscriptView = {
 function renderResults() {
   vi.mocked(api.getResults).mockResolvedValue(result);
   vi.mocked(api.getTranscript).mockResolvedValue(transcript);
-  return render(<ResultsScreen sessionId="00000000-0000-7000-8000-0000000000e1" />, {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <QueryProvider>{children}</QueryProvider>
-    ),
-  });
+  return render(
+    <ResultsScreen sessionId="00000000-0000-7000-8000-0000000000e1" />,
+    {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryProvider>{children}</QueryProvider>
+      ),
+    },
+  );
 }
 
 afterEach(() => {
@@ -188,7 +199,9 @@ describe("the outcome", () => {
     expect(
       await screen.findByRole("heading", { name: /outcome/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/not a prediction of performance/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/not a prediction of performance/i),
+    ).toBeInTheDocument();
 
     const assessed = screen.getByTestId("competency-systems-design");
     expect(within(assessed).getByText(/strong/i)).toBeInTheDocument();
@@ -238,7 +251,9 @@ describe("the evidence", () => {
     const user = userEvent.setup();
 
     const accordion = (
-      await screen.findByRole("button", { name: /evidence for systems design/i })
+      await screen.findByRole("button", {
+        name: /evidence for systems design/i,
+      })
     ).closest("div");
     await user.click(
       screen.getByRole("button", { name: /evidence for systems design/i }),
@@ -309,5 +324,32 @@ describe("the waiting and failure states", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/req_777/);
+  });
+});
+
+describe("what is not here", () => {
+  it("shows the server's words for an omission, and the results still stand", async () => {
+    renderResults();
+
+    const omissions = await screen.findByTestId("omissions");
+    expect(omissions).toHaveTextContent(/delivery measurement is not part/i);
+    expect(omissions).toHaveTextContent(/complete and unaffected/i);
+    // The competency results above are unaffected by the absence.
+    expect(screen.getByTestId("competency-systems-design")).toHaveTextContent(
+      /strong/i,
+    );
+  });
+
+  it("says nothing when nothing is missing", async () => {
+    vi.mocked(api.getResults).mockResolvedValue({ ...result, omissions: [] });
+    vi.mocked(api.getTranscript).mockResolvedValue(transcript);
+    render(<ResultsScreen sessionId="00000000-0000-7000-8000-0000000000e1" />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryProvider>{children}</QueryProvider>
+      ),
+    });
+
+    await screen.findByRole("heading", { name: /outcome/i });
+    expect(screen.queryByTestId("omissions")).not.toBeInTheDocument();
   });
 });

@@ -212,6 +212,28 @@ function ResultsBody({
         </div>
       </section>
 
+      {result.omissions.length > 0 && (
+        <section
+          aria-labelledby="omissions-heading"
+          data-testid="omissions"
+          className="rounded-lg border border-border bg-surface p-5"
+        >
+          <h2 id="omissions-heading" className="text-lg font-semibold">
+            What is not here
+          </h2>
+          <ul className="mt-3 space-y-2 text-sm text-fg-2">
+            {result.omissions.map((omission) => (
+              <li
+                key={omission.stage}
+                data-testid={`omission-${omission.stage}`}
+              >
+                {omission.note}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {result.contradictions.length > 0 && (
         <section
           aria-labelledby="contradictions-heading"
@@ -243,8 +265,8 @@ function ResultsBody({
         <p className="mt-2 text-sm text-fg-2">
           Audio replay is not available yet: the recording pipeline has not
           shipped. Every evidence timestamp on this page jumps to the same
-          moment in the transcript below, and will drive the recording when
-          it arrives.
+          moment in the transcript below, and will drive the recording when it
+          arrives.
         </p>
       </section>
 
@@ -305,8 +327,8 @@ function ResultsBody({
           </h2>
           <p className="mt-1 text-sm text-fg-2">
             These competencies never came up, so they are absent from the
-            outcome rather than scored low. A missing measurement is not a
-            low one.
+            outcome rather than scored low. A missing measurement is not a low
+            one.
           </p>
           <ul className="mt-3 list-inside list-disc text-sm">
             {result.coverage.not_reached.map((id) => (
@@ -439,9 +461,7 @@ function ContradictionPair({
           <q>{side.quote}</q>
         </p>
       ))}
-      <p className="mt-2 text-xs text-fg-3">
-        About: {pair.topic.join(", ")}
-      </p>
+      <p className="mt-2 text-xs text-fg-3">About: {pair.topic.join(", ")}</p>
     </div>
   );
 }

@@ -224,7 +224,10 @@ func main() {
 				evaluationWorker.RegisterWorkflow(evaluation.ArticulationWorkflow)
 				articulationActivities := evaluation.NewArticulationActivities(
 					evaluation.NewStore(pool),
-					newArticulation(conn, documents, interview.NewCompleter(interview.NewStore(pool))))
+					newArticulation(conn, documents, interview.NewCompleter(interview.NewStore(pool)))).
+					WithPolicy(bundleRubricSource{
+						sessions: interview.NewStore(pool), registry: content.NewStore(pool),
+					})
 				evaluationWorker.RegisterActivity(articulationActivities.AnalyzeAndStore)
 				if err := evaluationWorker.Start(); err != nil {
 					log.Error("the evaluation worker did not start", slog.String("error", err.Error()))

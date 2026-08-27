@@ -210,8 +210,31 @@ An optional coaching stage failing must not erase a valid evaluation, and budget
 quietly produce a worse result for the candidate.
 
 **Done when**
-- [ ] A failed optional stage leaves the core evaluation intact and published.
-- [ ] Budget exhaustion omits optional narrative but retains the deterministic result and its status.
-- [ ] Terminal and retryable failures are distinguishable to both the operator and the candidate.
+- [x] A failed optional stage leaves the core evaluation intact and published.
+- [x] Budget exhaustion omits optional narrative but retains the deterministic result and its status.
+- [x] Terminal and retryable failures are distinguishable to both the operator and the candidate.
+
+**Done, building what ADR-0019 fixed.** A model policy artifact (policy/practice-default) names
+every stage, says which the result cannot do without, and budgets each in the cost units the RPC
+contract already reports; it is pinned at composition beside the plan and the rubric, so what a
+session was allowed to spend is answerable from the session itself and not from whatever is
+configured today. An incoherent policy refuses at parse - no stages, a nameless stage, a
+negative budget, the same stage twice, and in particular a required stage budgeted nothing,
+which could never run.
+
+evaluation.stage_outcomes records every stage attempt append-only: status, reason, retryable,
+required and cost. A retried stage keeps both rows, because "failed once then worked" and
+"worked" are different facts an operator needs to tell apart; the latest row is the standing and
+the sum is the spend. Delivery consults its budget before running: priced out, it records an
+omission and returns, never a failure, and the integration proof reads the core result back
+DeepEqual-identical with no analysis stored. A failed optional stage does the same, proven for
+both a terminal and a retryable failure, with the record keeping both attempts.
+
+The candidate side is the results API's omissions[]: what is missing, why, whether it is
+retryable, and server-supplied words that differ by cause, because a retryable failure is worth
+waiting for and an exhausted budget never will be - telling someone to wait for something that
+is not coming is worse than telling them it is not coming. Both notes end by saying the results
+above are complete and unaffected, asserted by test, and the results screen renders them. A
+required stage is never an omission: a result without one does not exist.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md)

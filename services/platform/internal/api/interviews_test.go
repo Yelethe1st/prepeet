@@ -659,7 +659,11 @@ func resultFixture() api.EvaluationResultView {
 				StartMs: 15000, EndMs: 19000,
 			},
 		}},
-		Delivery:            api.DeliveryView{Status: "not_assessable", Warnings: []string{"AUDIO_CLIPPED"}},
+		Delivery: api.DeliveryView{Status: "not_assessable", Warnings: []string{"AUDIO_CLIPPED"}},
+		Omissions: []api.OmissionView{
+			{Stage: "articulation", Reason: "BUDGET_EXHAUSTED", Retryable: false},
+			{Stage: "coaching", Reason: "FAILURE_CODE_PROVIDER_TIMEOUT", Retryable: true},
+		},
 		CoverageReached:     []string{"clinical-reasoning", "systems-design"},
 		CoverageNotReached:  []string{"never-raised"},
 		CoveredCompetencies: 2, TotalCompetencies: 3,
@@ -1370,5 +1374,68 @@ func TestASessionThatHasNotStartedCarriesNoCursorOrSeal(t *testing.T) {
 		if _, present := body[absent]; present {
 			t.Fatalf("a session that has not started carries %q", absent)
 		}
+	}
+}
+
+func TestAnOmissionIsNamedWithWordsThatFitItsCause(t *testing.T) {
+	// EVL-07 on the wire: a candidate is told what is missing, and the
+	// two causes are told apart, because one is worth waiting for and the
+	// other never will be.
+	interviews := &fakeInterviews{result: resultFixture()}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		Omissions []struct {
+			Stage     string `json:"stage"`
+			Reason    string `json:"reason"`
+			Retryable bool   `json:"retryable"`
+			Note      string `json:"note"`
+		} `json:"omissions"`
+		Competencies []struct {
+			Band *string `json:"band"`
+		} `json:"competencies"`
+	}
+	decodeInto(t, response, &body)
+
+	if len(body.Omissions) != 2 {
+		t.Fatalf("omissions = %+v", body.Omissions)
+	}
+	byStage := map[string]string{}
+	retryable := map[string]bool{}
+	for _, omission := range body.Omissions {
+		byStage[omission.Stage] = omission.Note
+		retryable[omission.Stage] = omission.Retryable
+	}
+	// The exhausted budget is final, and says so without promising a retry.
+	if retryable["articulation"] || strings.Contains(byStage["articulation"], "retried") {
+		t.Fatalf("an exhausted budget promised a retry: %q", byStage["articulation"])
+	}
+	if !strings.Contains(byStage["articulation"], "Delivery measurement") {
+		t.Fatalf("the omission does not name what is missing: %q", byStage["articulation"])
+	}
+	// The retryable failure says to expect it, and neither blames the person.
+	if !retryable["coaching"] || !strings.Contains(byStage["coaching"], "being retried") {
+		t.Fatalf("a retryable omission did not say so: %q", byStage["coaching"])
+	}
+	for stage, note := range byStage {
+		if !strings.Contains(note, "complete and unaffected") {
+			t.Fatalf("%s does not say the results stand: %q", stage, note)
+		}
+	}
+
+	// And the result above it is untouched by either.
+	assessed := 0
+	for _, competency := range body.Competencies {
+		if competency.Band != nil {
+			assessed++
+		}
+	}
+	if assessed != 1 {
+		t.Fatalf("an omission changed the competency results: %d assessed", assessed)
 	}
 }

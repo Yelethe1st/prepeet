@@ -36,6 +36,9 @@ type Analysis struct {
 	CalculationVersion string
 	PolicyVersion      string
 	InputDigest        string
+	// CostUnits is what the capability reported spending, recorded
+	// against the stage's budget.
+	CostUnits int
 }
 
 // Articulation is one stored analysis.
@@ -129,11 +132,21 @@ func (s *Store) ArticulationOf(ctx context.Context, ref SessionRef) (Articulatio
 type ArticulationActivities struct {
 	store    *Store
 	analyzer Analyzer
+	// policies answers the budget this session pinned. Optional: without
+	// it delivery runs unbudgeted, which is the harness's case, never
+	// cmd's.
+	policies RubricSource
 }
 
 // NewArticulationActivities wires the store and the analyzer.
 func NewArticulationActivities(store *Store, analyzer Analyzer) *ArticulationActivities {
 	return &ArticulationActivities{store: store, analyzer: analyzer}
+}
+
+// WithPolicy adds the pinned budget delivery must run inside (EVL-07).
+func (a *ArticulationActivities) WithPolicy(policies RubricSource) *ArticulationActivities {
+	a.policies = policies
+	return a
 }
 
 // AnalyzeAndStore asks the calculator and stores the answer, converging
@@ -144,11 +157,38 @@ func (a *ArticulationActivities) AnalyzeAndStore(ctx context.Context, input Evid
 		SessionID: input.SessionID, Mode: input.Mode,
 		CandidateID: input.CandidateID, TenantID: input.TenantID,
 	}
+	// Can this session still afford delivery? An optional stage that
+	// cannot is omitted, recorded and shown in words - never a failure,
+	// and never a quietly thinner evaluation (ADR-0019, EVL-07).
+	if a.policies != nil {
+		affords, err := a.affords(ctx, ref)
+		if err != nil {
+			return "", err
+		}
+		if !affords {
+			if err := a.store.RecordStage(ctx, ref, StageOutcome{
+				Stage: StageArticulation, Status: "omitted",
+				Reason: ReasonBudgetExhausted, Required: false,
+			}); err != nil {
+				return "", err
+			}
+			return "omitted", nil
+		}
+	}
+
 	analysis, err := a.analyzer.Analyze(ctx, ref)
 	if err != nil {
 		var failure *ExtractFailure
-		if errors.As(err, &failure) && !failure.Retryable {
-			return "", temporal.NewNonRetryableApplicationError(failure.Message, failure.Code, failure)
+		if errors.As(err, &failure) {
+			// Delivery failing is delivery's own business: the record
+			// says so and the content evaluation is untouched.
+			_ = a.store.RecordStage(ctx, ref, StageOutcome{
+				Stage: StageArticulation, Status: "failed", Reason: failure.Code,
+				Retryable: failure.Retryable, Required: false,
+			})
+			if !failure.Retryable {
+				return "", temporal.NewNonRetryableApplicationError(failure.Message, failure.Code, failure)
+			}
 		}
 		return "", err
 	}
@@ -156,7 +196,31 @@ func (a *ArticulationActivities) AnalyzeAndStore(ctx context.Context, input Evid
 	if err != nil {
 		return "", err
 	}
+	if err := a.store.RecordStage(ctx, ref, StageOutcome{
+		Stage: StageArticulation, Status: "completed", Required: false,
+		CostUnits: analysis.CostUnits,
+	}); err != nil {
+		return "", err
+	}
 	return stored.Status, nil
+}
+
+// affords reads the pinned policy and what delivery has already spent.
+func (a *ArticulationActivities) affords(ctx context.Context, ref SessionRef) (bool, error) {
+	pin, err := a.policies.PinnedPolicy(ctx, ref)
+	if err != nil {
+		return false, err
+	}
+	policy, err := ParsePolicy(pin.Body)
+	if err != nil {
+		return false, temporal.NewNonRetryableApplicationError(
+			err.Error(), "FAILURE_CODE_SCHEMA_VALIDATION_FAILED", err)
+	}
+	outcomes, err := a.store.StageOutcomes(ctx, ref)
+	if err != nil {
+		return false, err
+	}
+	return Affords(policy, outcomes, StageArticulation)
 }
 
 // ArticulationWorkflow measures delivery for one session. Its own

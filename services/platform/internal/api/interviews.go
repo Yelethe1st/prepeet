@@ -148,6 +148,7 @@ type EvaluationResultView struct {
 	Evidence            []EvidenceSpanView
 	Contradictions      []ContradictionView
 	Delivery            DeliveryView
+	Omissions           []OmissionView
 	CoverageReached     []string
 	CoverageNotReached  []string
 	CoveredCompetencies int
@@ -184,6 +185,35 @@ type DeliveryView struct {
 	Status   string
 	Warnings []string
 	Note     string
+}
+
+// OmissionView is one optional part of the evaluation that is not here.
+type OmissionView struct {
+	Stage     string
+	Reason    string
+	Retryable bool
+}
+
+// omissionNote is what a candidate is told about a missing optional part.
+//
+// The two cases need different words because they call for different
+// things: a retryable failure is worth waiting for, and an exhausted
+// budget is not - telling someone to wait for something that will never
+// arrive is worse than telling them it is not coming.
+func omissionNote(omission OmissionView) string {
+	part := "This part of the evaluation"
+	switch omission.Stage {
+	case "articulation":
+		part = "Delivery measurement"
+	case "coaching":
+		part = "Coaching"
+	}
+	if omission.Retryable {
+		return part + " is not here yet: it did not finish, and it is being retried. " +
+			"Your results above are complete and unaffected."
+	}
+	return part + " is not part of this session's evaluation. " +
+		"Your results above are complete and unaffected."
 }
 
 // FramingDeliveryNotAssessable ships with every not-assessable delivery:
@@ -1073,6 +1103,23 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 	body.Framing.Unverified = FramingUnverified
 	body.Framing.Contradictions = FramingContradictions
 	body.Framing.Confidence = FramingConfidence
+	body.Omissions = make([]struct {
+		Note      string `json:"note"`
+		Reason    string `json:"reason"`
+		Retryable bool   `json:"retryable"`
+		Stage     string `json:"stage"`
+	}, 0, len(result.Omissions))
+	for _, omission := range result.Omissions {
+		body.Omissions = append(body.Omissions, struct {
+			Note      string `json:"note"`
+			Reason    string `json:"reason"`
+			Retryable bool   `json:"retryable"`
+			Stage     string `json:"stage"`
+		}{
+			Note: omissionNote(omission), Reason: omission.Reason,
+			Retryable: omission.Retryable, Stage: omission.Stage,
+		})
+	}
 	body.Delivery.Status = prepeetapi.EvaluationResultViewDeliveryStatus(result.Delivery.Status)
 	if body.Delivery.Status == "" {
 		body.Delivery.Status = "pending"

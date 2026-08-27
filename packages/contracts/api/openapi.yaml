@@ -1998,8 +1998,9 @@ components:
       type: object
       required: [session_id, rubric, aggregation_version, extraction_version,
                  model_version, policy_version, competencies, evidence,
-                 coverage, contradictions, framing, delivery, covered_competencies,
-                 total_competencies, result_digest, warnings, created_at]
+                 coverage, contradictions, framing, delivery, omissions,
+                 covered_competencies, total_competencies, result_digest,
+                 warnings, created_at]
       properties:
         session_id: { type: string, format: uuid }
         rubric:
@@ -2073,6 +2074,24 @@ components:
               type: array
               items: { type: string }
             note: { type: string }
+        omissions:
+          type: array
+          description: |
+            Optional parts of the evaluation that are not here, and why.
+            A required stage is never an omission: a result without one
+            does not exist. Budget exhaustion and a failed optional stage
+            both appear here, told apart by retryable, so a candidate is
+            told either to wait or that this is as complete as it gets.
+          items:
+            type: object
+            required: [stage, reason, retryable, note]
+            properties:
+              stage: { type: string }
+              reason: { type: string }
+              retryable: { type: boolean }
+              note:
+                type: string
+                description: Server-supplied words for this omission.
         covered_competencies: { type: integer }
         total_competencies: { type: integer }
         result_digest: { type: string }

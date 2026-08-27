@@ -74,6 +74,10 @@ func run(ctx context.Context) error {
 			_, err := evaluation.ParseRubric(body)
 			return err
 		},
+		"model_policy": func(body json.RawMessage) error {
+			_, err := evaluation.ParsePolicy(body)
+			return err
+		},
 	}
 
 	loader := content.NewLoader(content.NewStore(pool), validators, author, publisher)

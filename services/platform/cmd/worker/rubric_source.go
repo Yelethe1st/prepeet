@@ -21,7 +21,32 @@ type bundleRubricSource struct {
 	registry *content.Store
 }
 
+// PinnedPolicy answers the model policy the same bundle pinned (EVL-07).
+func (r bundleRubricSource) PinnedPolicy(ctx context.Context, ref evaluation.SessionRef) (evaluation.PolicyPin, error) {
+	pin, err := r.pinned(ctx, ref, "model_policy")
+	if err != nil {
+		return evaluation.PolicyPin{}, err
+	}
+	return evaluation.PolicyPin{
+		Reference: pin.Reference, Version: pin.Version,
+		Digest: pin.Digest, Body: pin.Body,
+	}, nil
+}
+
 func (r bundleRubricSource) PinnedRubric(ctx context.Context, ref evaluation.SessionRef) (evaluation.RubricPin, error) {
+	pin, err := r.pinned(ctx, ref, "rubric")
+	if err != nil {
+		return evaluation.RubricPin{}, err
+	}
+	return evaluation.RubricPin{
+		Reference: pin.Reference, Version: pin.Version,
+		Digest: pin.Digest, Body: pin.Body,
+	}, nil
+}
+
+// pinned reads one artifact type's pin from the session's own bundle and
+// resolves its body by digest, so the published head is never consulted.
+func (r bundleRubricSource) pinned(ctx context.Context, ref evaluation.SessionRef, artifactType string) (evaluation.RubricPin, error) {
 	body, err := r.sessions.Bundle(ctx, ref.SessionID, ref.Mode, ref.CandidateID, ref.TenantID)
 	if err != nil {
 		return evaluation.RubricPin{}, fmt.Errorf("reading the session bundle: %w", err)
@@ -40,7 +65,7 @@ func (r bundleRubricSource) PinnedRubric(ctx context.Context, ref evaluation.Ses
 	}
 
 	for _, pin := range bundle.PinnedInputs {
-		if pin.ArtifactType != "rubric" {
+		if pin.ArtifactType != artifactType {
 			continue
 		}
 		artifact, err := r.registry.GetByDigest(ctx, pin.Digest, ref.TenantID)
@@ -54,6 +79,6 @@ func (r bundleRubricSource) PinnedRubric(ctx context.Context, ref evaluation.Ses
 	}
 	return evaluation.RubricPin{}, &evaluation.ExtractFailure{
 		Code: "FAILURE_CODE_ARTIFACT_NOT_FOUND", Retryable: false,
-		Message: "the session's bundle pins no rubric",
+		Message: "the session's bundle pins no " + artifactType,
 	}
 }

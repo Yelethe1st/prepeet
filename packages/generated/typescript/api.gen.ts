@@ -1334,6 +1334,20 @@ export interface components {
                 warnings: string[];
                 note: string;
             };
+            /**
+             * @description Optional parts of the evaluation that are not here, and why.
+             *     A required stage is never an omission: a result without one
+             *     does not exist. Budget exhaustion and a failed optional stage
+             *     both appear here, told apart by retryable, so a candidate is
+             *     told either to wait or that this is as complete as it gets.
+             */
+            omissions: {
+                stage: string;
+                reason: string;
+                retryable: boolean;
+                /** @description Server-supplied words for this omission. */
+                note: string;
+            }[];
             covered_competencies: number;
             total_competencies: number;
             result_digest: string;

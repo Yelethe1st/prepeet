@@ -353,6 +353,48 @@ func (q *Queries) InsertResult(ctx context.Context, arg InsertResultParams) erro
 	return err
 }
 
+const insertStageOutcome = `-- name: InsertStageOutcome :exec
+INSERT INTO evaluation.stage_outcomes
+    (id, session_id, mode, candidate_id, tenant_id, stage, status, reason,
+     retryable, required, cost_units)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::uuid, nullif($5::text, '')::uuid,
+        $6::text, $7::text, $8::text,
+        $9::boolean, $10::boolean,
+        $11::integer)
+`
+
+type InsertStageOutcomeParams struct {
+	ID          string
+	SessionID   string
+	Mode        string
+	CandidateID string
+	TenantID    string
+	Stage       string
+	Status      string
+	Reason      string
+	Retryable   bool
+	Required    bool
+	CostUnits   int32
+}
+
+func (q *Queries) InsertStageOutcome(ctx context.Context, arg InsertStageOutcomeParams) error {
+	_, err := q.db.Exec(ctx, insertStageOutcome,
+		arg.ID,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.Stage,
+		arg.Status,
+		arg.Reason,
+		arg.Retryable,
+		arg.Required,
+		arg.CostUnits,
+	)
+	return err
+}
+
 const listArticulation = `-- name: ListArticulation :many
 SELECT id::text AS id, session_id::text AS session_id, status, warnings, analysis,
        calculation_version, policy_version, input_digest, created_at
@@ -515,6 +557,55 @@ func (q *Queries) ListEvidence(ctx context.Context, sessionID string) ([]ListEvi
 			&i.StartMs,
 			&i.EndMs,
 			&i.ExtractionVersion,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStageOutcomes = `-- name: ListStageOutcomes :many
+SELECT id::text AS id, stage, status, reason, retryable, required, cost_units, created_at
+FROM evaluation.stage_outcomes
+WHERE session_id = $1::uuid
+ORDER BY created_at, id
+`
+
+type ListStageOutcomesRow struct {
+	ID        string
+	Stage     string
+	Status    string
+	Reason    string
+	Retryable bool
+	Required  bool
+	CostUnits int32
+	CreatedAt time.Time
+}
+
+// Every attempt, oldest first: the caller takes the last per stage for the
+// standing and sums cost_units for the spend.
+func (q *Queries) ListStageOutcomes(ctx context.Context, sessionID string) ([]ListStageOutcomesRow, error) {
+	rows, err := q.db.Query(ctx, listStageOutcomes, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStageOutcomesRow{}
+	for rows.Next() {
+		var i ListStageOutcomesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Stage,
+			&i.Status,
+			&i.Reason,
+			&i.Retryable,
+			&i.Required,
+			&i.CostUnits,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

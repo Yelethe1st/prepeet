@@ -86,6 +86,7 @@ func (a *grpcArticulation) Analyze(ctx context.Context, ref evaluation.SessionRe
 		CalculationVersion: response.GetMeta().GetCalculationVersion(),
 		PolicyVersion:      response.GetMeta().GetPolicyVersion(),
 		InputDigest:        seal.EvaluationInputDigest,
+		CostUnits:          int(response.GetMeta().GetUsage().GetCostUnits()),
 	}, nil
 }
 

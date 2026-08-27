@@ -1,0 +1,14 @@
+{
+  "type": "model_policy",
+  "reference": "policy/practice-default",
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "body": {
+    "stages": [
+      { "id": "evidence", "required": true, "budget_units": 100 },
+      { "id": "aggregation", "required": true, "budget_units": 20 },
+      { "id": "articulation", "required": false, "budget_units": 60 },
+      { "id": "coaching", "required": false, "budget_units": 40 }
+    ]
+  }
+}

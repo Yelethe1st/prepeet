@@ -39,6 +39,14 @@ const (
 // planBody is the plan the registry publishes and Python composes against.
 var planBody = json.RawMessage(`{"stages":["intro","core","close"]}`)
 
+// policyBody mirrors the shipped policy artifact: what each stage may
+// spend, pinned with the rest.
+var policyBody = json.RawMessage(`{"stages":[` +
+	`{"id":"evidence","required":true,"budget_units":100},` +
+	`{"id":"aggregation","required":true,"budget_units":20},` +
+	`{"id":"articulation","required":false,"budget_units":60},` +
+	`{"id":"coaching","required":false,"budget_units":40}]}`)
+
 // rubricBody mirrors the shipped practice-default artifact: composition
 // pins it, aggregation later judges by it.
 var rubricBody = json.RawMessage(`{"sufficiency":{"min_supporting":2},"bands":[` +
@@ -142,6 +150,28 @@ func TestMain(m *testing.M) {
 	}
 	if _, err := registry.Publish(ctx, step, e2eReviewer); err != nil {
 		fmt.Fprintf(os.Stderr, "publishing the rubric: %v\n", err)
+		os.Exit(1)
+	}
+
+	// And the model policy, pinned beside them (EVL-07): what each stage
+	// of this session was allowed to spend.
+	policyDraft, err := registry.CreateDraft(ctx, content.Draft{
+		Type: "model_policy", Reference: "policy/practice-default", Version: "1.0.0",
+		SchemaVersion: "1.0", Body: policyBody, CreatedBy: e2eAuthor,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "drafting the policy: %v\n", err)
+		os.Exit(1)
+	}
+	step = policyDraft
+	for _, to := range []content.Status{content.StatusValidating, content.StatusApproved} {
+		if step, err = registry.Transition(ctx, step, to); err != nil {
+			fmt.Fprintf(os.Stderr, "walking the policy to %s: %v\n", to, err)
+			os.Exit(1)
+		}
+	}
+	if _, err := registry.Publish(ctx, step, e2eReviewer); err != nil {
+		fmt.Fprintf(os.Stderr, "publishing the policy: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -275,12 +305,30 @@ func TestGoComposesThroughPython(t *testing.T) {
 	if err := json.Unmarshal(result.BundleBody, &bundle); err != nil {
 		t.Fatalf("the bundle body is not the document the contract promises: %v", err)
 	}
-	if len(bundle.PinnedInputs) != 2 {
-		t.Fatalf("the bundle records %d pins, want the plan and the rubric", len(bundle.PinnedInputs))
+	if len(bundle.PinnedInputs) != 3 {
+		t.Fatalf("the bundle records %d pins, want the plan, the rubric and the policy", len(bundle.PinnedInputs))
 	}
-	pin := bundle.PinnedInputs[0]
-	if pin.Reference != "bp_backend_v1" || pin.Version != "1.0.0" || pin.ArtifactType != "plan" {
-		t.Errorf("the bundle's pin is %+v", pin)
+	// Found by type, not by position: the bundle sorts its pins so the
+	// same inputs in any order are the same bundle, and an assertion on
+	// index would break the moment another artifact is pinned.
+	byType := map[string]struct {
+		ArtifactType  string `json:"artifact_type"`
+		Reference     string `json:"reference"`
+		Version       string `json:"version"`
+		SchemaVersion string `json:"schema_version"`
+		Digest        string `json:"digest"`
+	}{}
+	for _, pinned := range bundle.PinnedInputs {
+		byType[pinned.ArtifactType] = pinned
+	}
+	for _, expected := range []string{"plan", "rubric", "model_policy"} {
+		if _, present := byType[expected]; !present {
+			t.Fatalf("the bundle pins no %s: %+v", expected, bundle.PinnedInputs)
+		}
+	}
+	pin := byType["plan"]
+	if pin.Reference != "bp_backend_v1" || pin.Version != "1.0.0" {
+		t.Errorf("the bundle's plan pin is %+v", pin)
 	}
 	if pin.Digest != published.Digest {
 		t.Errorf("the bundle pins digest %q, the registry published %q", pin.Digest, published.Digest)

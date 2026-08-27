@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -24,22 +25,31 @@ type fakeExtractor struct {
 	sealed evaluation.SealedInput
 	spans  []evaluation.Span
 	pairs  []evaluation.Contradiction
+	cost   int
 	err    error
 	calls  int
 }
 
-func (f *fakeExtractor) Extract(context.Context, evaluation.SessionRef) (evaluation.SealedInput, []evaluation.Span, []evaluation.Contradiction, error) {
+func (f *fakeExtractor) Extract(context.Context, evaluation.SessionRef) (evaluation.Extraction, error) {
 	f.calls++
-	return f.sealed, f.spans, f.pairs, f.err
+	return evaluation.Extraction{
+		Sealed: f.sealed, Spans: f.spans, Contradictions: f.pairs, CostUnits: f.cost,
+	}, f.err
 }
 
 type fakeRubrics struct {
-	pin evaluation.RubricPin
-	err error
+	pin       evaluation.RubricPin
+	policy    evaluation.PolicyPin
+	err       error
+	policyErr error
 }
 
 func (f fakeRubrics) PinnedRubric(context.Context, evaluation.SessionRef) (evaluation.RubricPin, error) {
 	return f.pin, f.err
+}
+
+func (f fakeRubrics) PinnedPolicy(context.Context, evaluation.SessionRef) (evaluation.PolicyPin, error) {
+	return f.policy, f.policyErr
 }
 
 type fakeAnalyzer struct {
@@ -275,5 +285,226 @@ func TestAnalyzeAndStoreKeepsDeliveryInItsOwnRow(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no speech") {
 		t.Fatalf("the refusal lost its words: %v", err)
+	}
+}
+
+// EVL-07 against real PostgreSQL: an optional stage failing or being
+// priced out leaves the core evaluation exactly as it was, and the reason
+// is recorded in a form an operator and a candidate can each act on.
+
+func practicePolicy() evaluation.PolicyPin {
+	return evaluation.PolicyPin{
+		Reference: evaluation.PolicyReference, Version: "1.0.0", Digest: "sha256:policy",
+		Body: json.RawMessage(`{"stages":[
+			{"id":"evidence","required":true,"budget_units":100},
+			{"id":"aggregation","required":true,"budget_units":20},
+			{"id":"articulation","required":false,"budget_units":60}]}`),
+	}
+}
+
+// exhaustedPolicy budgets delivery nothing, which is how a session that
+// has spent its allowance looks to the stage that runs next.
+func exhaustedPolicy() evaluation.PolicyPin {
+	pin := practicePolicy()
+	pin.Body = json.RawMessage(`{"stages":[
+		{"id":"evidence","required":true,"budget_units":100},
+		{"id":"aggregation","required":true,"budget_units":20},
+		{"id":"articulation","required":false,"budget_units":0}]}`)
+	return pin
+}
+
+// completeEvaluation runs the required stages and returns the stored result.
+func completeEvaluation(t *testing.T, sessionID string) evaluation.Result {
+	t.Helper()
+	ctx := context.Background()
+	store := evaluation.NewStore(pool)
+	sealed, spans := honestSession(sessionID)
+	activities := evaluation.NewActivities(store, outbox.New(pool),
+		&fakeExtractor{sealed: sealed, spans: spans, cost: 7},
+		fakeRubrics{pin: practicePin(), policy: practicePolicy()})
+	input := activityInput(sessionID)
+
+	outcome, err := activities.ExtractAndStore(ctx, input)
+	if err != nil {
+		t.Fatalf("extract: %v", err)
+	}
+	if err := activities.Aggregate(ctx, input, outcome.ExtractionVersion, outcome.Sealed); err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	result, err := store.ResultOf(ctx, evaluation.SessionRef{
+		SessionID: sessionID, Mode: "practice", CandidateID: evidenceCandidate,
+	})
+	if err != nil {
+		t.Fatalf("result: %v", err)
+	}
+	return result
+}
+
+func TestTheRequiredStagesRecordWhatTheyDidAndSpent(t *testing.T) {
+	ctx := context.Background()
+	store := evaluation.NewStore(pool)
+	sessionID := id.New().String()
+	completeEvaluation(t, sessionID)
+
+	ref := evaluation.SessionRef{SessionID: sessionID, Mode: "practice", CandidateID: evidenceCandidate}
+	outcomes, err := store.StageOutcomes(ctx, ref)
+	if err != nil {
+		t.Fatalf("outcomes: %v", err)
+	}
+	evidence, found := evaluation.Standing(outcomes, evaluation.StageEvidence)
+	if !found || evidence.Status != "completed" || !evidence.Required || evidence.CostUnits != 7 {
+		t.Fatalf("evidence = %+v", evidence)
+	}
+	aggregation, found := evaluation.Standing(outcomes, evaluation.StageAggregation)
+	if !found || aggregation.Status != "completed" || !aggregation.Required {
+		t.Fatalf("aggregation = %+v", aggregation)
+	}
+	// Nothing is missing from a complete evaluation.
+	if omissions := evaluation.Omissions(outcomes); len(omissions) != 0 {
+		t.Fatalf("omissions = %+v", omissions)
+	}
+}
+
+func TestAnExhaustedBudgetOmitsDeliveryAndKeepsTheResult(t *testing.T) {
+	// The second box: the deterministic result and its status survive, and
+	// the omission is recorded rather than the evaluation quietly thinning.
+	ctx := context.Background()
+	store := evaluation.NewStore(pool)
+	sessionID := id.New().String()
+	before := completeEvaluation(t, sessionID)
+	ref := evaluation.SessionRef{SessionID: sessionID, Mode: "practice", CandidateID: evidenceCandidate}
+
+	delivery := evaluation.NewArticulationActivities(store, fakeAnalyzer{analysis: evaluation.Analysis{
+		Status: "assessable", Document: json.RawMessage(`{}`),
+	}}).WithPolicy(fakeRubrics{pin: practicePin(), policy: exhaustedPolicy()})
+
+	status, err := delivery.AnalyzeAndStore(ctx, activityInput(sessionID))
+	if err != nil {
+		t.Fatalf("a priced-out optional stage failed instead of being omitted: %v", err)
+	}
+	if status != "omitted" {
+		t.Fatalf("status = %q, want omitted", status)
+	}
+
+	// The core result is untouched, and no delivery row was written.
+	after, err := store.ResultOf(ctx, ref)
+	if err != nil {
+		t.Fatalf("reread: %v", err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("the result changed:\nbefore %+v\nafter  %+v", before, after)
+	}
+	if _, err := store.ArticulationOf(ctx, ref); !errors.Is(err, evaluation.ErrNoArticulation) {
+		t.Fatalf("an omitted delivery stored an analysis: %v", err)
+	}
+
+	// And the omission says which part is missing and why.
+	outcomes, _ := store.StageOutcomes(ctx, ref)
+	omissions := evaluation.Omissions(outcomes)
+	if len(omissions) != 1 || omissions[0].Stage != evaluation.StageArticulation ||
+		omissions[0].Reason != evaluation.ReasonBudgetExhausted {
+		t.Fatalf("omissions = %+v", omissions)
+	}
+	// Budget exhaustion will not resolve on its own; the candidate is not
+	// told to wait for it.
+	if omissions[0].Retryable {
+		t.Fatal("budget exhaustion was reported as retryable")
+	}
+}
+
+func TestAFailedOptionalStageLeavesTheEvaluationIntactAndSaysWhy(t *testing.T) {
+	// The first and third boxes: the core result stands, and terminal and
+	// retryable failures are told apart on the record.
+	ctx := context.Background()
+	store := evaluation.NewStore(pool)
+	sessionID := id.New().String()
+	before := completeEvaluation(t, sessionID)
+	ref := evaluation.SessionRef{SessionID: sessionID, Mode: "practice", CandidateID: evidenceCandidate}
+
+	terminal := evaluation.NewArticulationActivities(store, fakeAnalyzer{
+		err: &evaluation.ExtractFailure{
+			Code: "FAILURE_CODE_UNASSESSABLE_INPUT", Retryable: false, Message: "no speech",
+		},
+	}).WithPolicy(fakeRubrics{pin: practicePin(), policy: practicePolicy()})
+
+	if _, err := terminal.AnalyzeAndStore(ctx, activityInput(sessionID)); err == nil {
+		t.Fatal("a terminal delivery failure reported success")
+	}
+
+	after, err := store.ResultOf(ctx, ref)
+	if err != nil {
+		t.Fatalf("reread: %v", err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("a failed optional stage changed the core evaluation")
+	}
+
+	outcomes, _ := store.StageOutcomes(ctx, ref)
+	standing, found := evaluation.Standing(outcomes, evaluation.StageArticulation)
+	if !found || standing.Status != "failed" || standing.Required {
+		t.Fatalf("standing = %+v", standing)
+	}
+	if standing.Retryable {
+		t.Fatalf("a terminal failure was recorded as retryable: %+v", standing)
+	}
+	if standing.Reason != "FAILURE_CODE_UNASSESSABLE_INPUT" {
+		t.Fatalf("the operator cannot see which failure it was: %+v", standing)
+	}
+
+	// A retryable failure on a later attempt is a new row, and the
+	// standing moves: the two are told apart rather than merged.
+	retryable := evaluation.NewArticulationActivities(store, fakeAnalyzer{
+		err: &evaluation.ExtractFailure{
+			Code: "FAILURE_CODE_PROVIDER_TIMEOUT", Retryable: true, Message: "later",
+		},
+	}).WithPolicy(fakeRubrics{pin: practicePin(), policy: practicePolicy()})
+	if _, err := retryable.AnalyzeAndStore(ctx, activityInput(sessionID)); err == nil {
+		t.Fatal("a retryable failure reported success")
+	}
+	outcomes, _ = store.StageOutcomes(ctx, ref)
+	standing, _ = evaluation.Standing(outcomes, evaluation.StageArticulation)
+	if !standing.Retryable || standing.Reason != "FAILURE_CODE_PROVIDER_TIMEOUT" {
+		t.Fatalf("the retryable attempt did not become the standing: %+v", standing)
+	}
+	// Both attempts are kept: an operator can see it failed twice.
+	attempts := 0
+	for _, o := range outcomes {
+		if o.Stage == evaluation.StageArticulation {
+			attempts++
+		}
+	}
+	if attempts != 2 {
+		t.Fatalf("%d recorded attempts, want both", attempts)
+	}
+}
+
+func TestTheStageRecordIsAppendOnly(t *testing.T) {
+	ctx := context.Background()
+	store := evaluation.NewStore(pool)
+	sessionID := id.New().String()
+	ref := evaluation.SessionRef{SessionID: sessionID, Mode: "practice", CandidateID: evidenceCandidate}
+	if err := store.RecordStage(ctx, ref, evaluation.StageOutcome{
+		Stage: evaluation.StageEvidence, Status: "completed", Required: true,
+	}); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx,
+		`SELECT set_config('app.user_id', $1, true), set_config('app.tenant_id', '', true)`,
+		evidenceCandidate); err != nil {
+		t.Fatalf("scoping: %v", err)
+	}
+	tag, err := tx.Exec(ctx,
+		`UPDATE evaluation.stage_outcomes SET status = 'failed' WHERE session_id = $1`, sessionID)
+	if err == nil && tag.RowsAffected() == 0 {
+		t.Fatal("the attack matched zero rows; the trigger was never exercised")
+	}
+	if err == nil {
+		t.Fatal("a recorded stage outcome was edited")
 	}
 }

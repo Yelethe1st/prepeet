@@ -111,3 +111,21 @@ SELECT id::text AS id, session_id::text AS session_id, status, warnings, analysi
 FROM evaluation.articulation
 WHERE mode = sqlc.arg(mode)::text
 ORDER BY created_at;
+
+-- name: InsertStageOutcome :exec
+INSERT INTO evaluation.stage_outcomes
+    (id, session_id, mode, candidate_id, tenant_id, stage, status, reason,
+     retryable, required, cost_units)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text,
+        sqlc.arg(candidate_id)::uuid, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        sqlc.arg(stage)::text, sqlc.arg(status)::text, sqlc.arg(reason)::text,
+        sqlc.arg(retryable)::boolean, sqlc.arg(required)::boolean,
+        sqlc.arg(cost_units)::integer);
+
+-- name: ListStageOutcomes :many
+-- Every attempt, oldest first: the caller takes the last per stage for the
+-- standing and sums cost_units for the spend.
+SELECT id::text AS id, stage, status, reason, retryable, required, cost_units, created_at
+FROM evaluation.stage_outcomes
+WHERE session_id = sqlc.arg(session_id)::uuid
+ORDER BY created_at, id;

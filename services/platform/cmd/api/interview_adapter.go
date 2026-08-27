@@ -186,6 +186,20 @@ func (a interviewAdapter) Results(ctx context.Context, userID, sessionID string)
 	if err != nil {
 		return api.EvaluationResultView{}, err
 	}
+	// What is missing from this evaluation and why (EVL-07), from the
+	// stages' own record rather than inferred from what happens to be
+	// absent.
+	outcomes, err := a.results.StageOutcomes(ctx, ref)
+	if err != nil {
+		return api.EvaluationResultView{}, err
+	}
+	omissions := make([]api.OmissionView, 0)
+	for _, omission := range evaluation.Omissions(outcomes) {
+		omissions = append(omissions, api.OmissionView{
+			Stage: omission.Stage, Reason: omission.Reason, Retryable: omission.Retryable,
+		})
+	}
+
 	delivery := api.DeliveryView{Status: "pending", Warnings: []string{}}
 	if articulation, err := a.results.ArticulationOf(ctx, ref); err == nil {
 		delivery = api.DeliveryView{Status: articulation.Status, Warnings: articulation.Warnings}

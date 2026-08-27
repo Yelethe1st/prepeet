@@ -13,6 +13,7 @@ import (
 	"github.com/Yelethe1st/prepeet/packages/generated/go/prepeetrpc/intelligencev1"
 	"github.com/Yelethe1st/prepeet/packages/generated/go/prepeetrpc/rpcv1"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 )
 
@@ -101,6 +102,29 @@ func (c *grpcComposer) resolvePins(ctx context.Context, request interview.Compos
 		SchemaVersion: rubric.SchemaVersion,
 		Digest:        rubric.Digest,
 		Body:          rubric.Body,
+	})
+
+	// EVL-07: the model policy is pinned too, so what a session was
+	// allowed to spend per stage is answerable from the session itself
+	// rather than from whatever is configured when it is asked.
+	policy, err := c.registry.Resolve(ctx, evaluation.PolicyReference, request.TenantID)
+	if err != nil {
+		if errors.Is(err, content.ErrNotFound) {
+			return nil, &interview.ComposeFailure{
+				Code:      "FAILURE_CODE_ARTIFACT_NOT_FOUND",
+				Retryable: retryableCodes[rpcv1.FailureCode_FAILURE_CODE_ARTIFACT_NOT_FOUND],
+				Message:   "the registry resolves no model policy; publish content first",
+			}
+		}
+		return nil, fmt.Errorf("resolving the model policy: %w", err)
+	}
+	pins = append(pins, &intelligencev1.PinnedArtifact{
+		ArtifactType:  policy.Type,
+		Reference:     policy.Reference,
+		Version:       policy.Version,
+		SchemaVersion: policy.SchemaVersion,
+		Digest:        policy.Digest,
+		Body:          policy.Body,
 	})
 	return pins, nil
 }

@@ -29,7 +29,15 @@ const TaskQueue = "prepeet-evaluation"
 // here per ADR-0005 and wired in cmd: the sealed input document and the
 // spans the capability read from it.
 type Extractor interface {
-	Extract(ctx context.Context, ref SessionRef) (SealedInput, []Span, []Contradiction, error)
+	Extract(ctx context.Context, ref SessionRef) (Extraction, error)
+}
+
+// Extraction is what the intelligence plane answered, with what it cost.
+type Extraction struct {
+	Sealed         SealedInput
+	Spans          []Span
+	Contradictions []Contradiction
+	CostUnits      int
 }
 
 // RubricSource answers the rubric exactly as the session's bundle pinned
@@ -38,6 +46,10 @@ type Extractor interface {
 // version: the pin is the whole point.
 type RubricSource interface {
 	PinnedRubric(ctx context.Context, ref SessionRef) (RubricPin, error)
+	// PinnedPolicy answers the model policy the same bundle pinned, so
+	// what a stage may spend is the session's own answer and not the
+	// registry's current one (ADR-0019, EVL-07).
+	PinnedPolicy(ctx context.Context, ref SessionRef) (PolicyPin, error)
 }
 
 // ExtractFailure is a typed refusal with the contract's own retry decision.
@@ -84,6 +96,9 @@ func NewActivities(store *Store, events *outbox.Store, extractor Extractor, rubr
 type ExtractOutcome struct {
 	ExtractionVersion string
 	Sealed            SealedInput
+	// CostUnits is what the capability reported spending, recorded
+	// against the stage's budget.
+	CostUnits int
 }
 
 func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (ExtractOutcome, error) {
@@ -92,14 +107,23 @@ func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (
 		CandidateID: input.CandidateID, TenantID: input.TenantID,
 	}
 
-	sealed, spans, pairs, err := a.extractor.Extract(ctx, ref)
+	extracted, err := a.extractor.Extract(ctx, ref)
 	if err != nil {
+		// The stage's own record, so an operator can see which stage
+		// failed and whether it is worth retrying (EVL-07).
 		var failure *ExtractFailure
-		if errors.As(err, &failure) && !failure.Retryable {
-			return ExtractOutcome{}, temporal.NewNonRetryableApplicationError(failure.Message, failure.Code, failure)
+		if errors.As(err, &failure) {
+			_ = a.store.RecordStage(ctx, ref, StageOutcome{
+				Stage: StageEvidence, Status: "failed", Reason: failure.Code,
+				Retryable: failure.Retryable, Required: true,
+			})
+			if !failure.Retryable {
+				return ExtractOutcome{}, temporal.NewNonRetryableApplicationError(failure.Message, failure.Code, failure)
+			}
 		}
 		return ExtractOutcome{}, err
 	}
+	sealed, spans, pairs := extracted.Sealed, extracted.Spans, extracted.Contradictions
 
 	// The honesty gate: whoever extracted, a span that does not resolve to
 	// the sealed input never lands, and the whole batch is refused with it.
@@ -124,12 +148,20 @@ func (a *Activities) ExtractAndStore(ctx context.Context, input EvidenceInput) (
 	if err := a.store.Replace(ctx, ref, version, spans, pairs); err != nil {
 		return ExtractOutcome{}, err
 	}
+	if err := a.store.RecordStage(ctx, ref, StageOutcome{
+		Stage: StageEvidence, Status: "completed", Required: true,
+		CostUnits: extracted.CostUnits,
+	}); err != nil {
+		return ExtractOutcome{}, err
+	}
+
 	// Turn text stays out of the workflow history: only the competency
 	// list travels, which aggregation needs and ADR-0007's payload rule
 	// permits.
 	return ExtractOutcome{
 		ExtractionVersion: version,
 		Sealed:            SealedInput{SessionID: sealed.SessionID, Competencies: sealed.Competencies},
+		CostUnits:         extracted.CostUnits,
 	}, nil
 }
 
@@ -185,8 +217,15 @@ func (a *Activities) Aggregate(ctx context.Context, input EvidenceInput, extract
 	if aggregation.CoveredCompetencies == 0 && aggregation.TotalCompetencies > 0 {
 		warnings = append(warnings, "NO_COMPETENCY_EVIDENCED")
 	}
-	_, err = a.store.StoreResult(ctx, a.events, ref, pin, extractionVersion, aggregation, warnings)
-	return err
+	if _, err := a.store.StoreResult(ctx, a.events, ref, pin, extractionVersion, aggregation, warnings); err != nil {
+		return err
+	}
+	// Aggregation is pure Go and spends nothing; the record still stands
+	// so the stage's standing is answerable rather than inferred from the
+	// result's existence.
+	return a.store.RecordStage(ctx, ref, StageOutcome{
+		Stage: StageAggregation, Status: "completed", Required: true,
+	})
 }
 
 // PublishFailed records the stage's failure as the catalogue's event, so

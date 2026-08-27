@@ -23,6 +23,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0015](0015-confidence-is-qualitative-evidence-sufficiency.md) | Confidence is a qualitative per-competency evidence-sufficiency label derived from stored counts and pinned in the rubric; no numeric display until QUA-03 calibrates; five prohibited interpretations become content rules | 2026-08-26 |
 | [0016](0016-reconnect-pause-and-reinvitation-policy.md) | Timing policy v1: 120s reconnect grace, 300s overrun; practice may pause, screening may not; grace expiry finalizes as interrupted with evidence standing; re-invitation is recruiter-authorized and always a new session (screening clauses provisional pending DEC-11) | 2026-08-26 |
 | [0017](0017-candidate-comparison-is-deferred.md) | Candidate comparison is explicitly deferred with three reopen triggers: published calibration, closed DEC-11 in every jurisdiction, and a concrete tenant ask | 2026-08-26 |
+| [0019](0019-model-providers-routing-and-budgets.md) | Deepgram, Claude and Cartesia behind the agent's adapters, admissible only with zero-retention, no-training, UK/EU terms; fallback per stage only after measured equivalence; deterministic floors are the terminal fallback; exhaustion never degrades a required result silently | 2026-08-27 |
 | [0018](0018-one-brand-with-stated-isolation.md) | One brand across practice and screening; the structural isolation guarantee becomes required candidate-facing copy wherever the modes meet, validated with candidates in PRC-06 | 2026-08-26 |
 
 ## Required initial ADRs
@@ -36,7 +37,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 7. ~~Recording source, format, alignment, and retention.~~ Accepted as [ADR-0013](0013-recording-capture-format-alignment-retention.md).
 8. ~~REST, gRPC, event, and generated-contract conventions.~~ Accepted as [ADR-0004](0004-contract-conventions-and-code-generation.md).
 9. ~~Artifact registry, review, publication, and rollback.~~ Accepted as [ADR-0011](0011-artifact-registry-review-publication-and-rollback.md).
-10. Model providers, routing, regional policy, fallback, and budgets.
+10. ~~Model providers, routing, regional policy, fallback, and budgets.~~ Accepted as [ADR-0019](0019-model-providers-routing-and-budgets.md).
 11. Screening disclosure, appeals, and human-decision semantics.
 12. Next.js deployment and strict Go backend boundary.
 

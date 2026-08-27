@@ -209,15 +209,23 @@ the second box is a test in CAT-01's registry rather than a confirmation in pros
 
 ### DEC-10 · Decide model providers, routing, fallback and budgets
 
-**Depends on** DEC-01 · **Blocks** EVL-01, QUA-06
+**Depends on** DEC-01 · **Blocks** EVL-01, QUA-06 · **Done** 2026-08-27
 
 Which providers, in which regions, with what routing and fallback when one degrades, and what budget
 exhaustion does to a session that is already running.
 
 **Done when**
-- [ ] ADR accepted covering providers, regional policy, routing, fallback, and per-stage budgets.
-- [ ] Behaviour on budget exhaustion is defined and never silently degrades a candidate result.
+- [x] ADR accepted covering providers, regional policy, routing, fallback, and per-stage budgets.
+- [x] Behaviour on budget exhaustion is defined and never silently degrades a candidate result.
 - [ ] Provider data-processing terms reviewed and recorded.
+
+Accepted as [ADR-0019](../../architecture/decisions/0019-model-providers-routing-and-budgets.md):
+Deepgram, Claude and Cartesia behind the agent's adapters, per-stage routing pinned on every
+activity, fallback only after measured equivalence with the deterministic floors as the terminal
+fallback, and exhaustion that always produces the required result while marking optional
+omissions. The third box stays open honestly: the ADR fixes the four admissibility terms (zero
+retention, no training, UK/EU processing, a DPA compatible with DEC-15) and each provider's
+signed terms are recorded beside the ADR as they arrive.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md) · [cost-and-capacity-model.md](../../operations/cost-and-capacity-model.md)
 

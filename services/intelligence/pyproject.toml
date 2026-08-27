@@ -8,6 +8,8 @@ dependencies = [
     # contract in packages/contracts/rpc depend on these at runtime.
     "grpcio>=1.68",
     "grpcio-status>=1.83.0",
+    "livekit>=1.0",
+    "livekit-agents>=1.0",
     "prepeet-contracts-generated",
     "protobuf>=5.28",
 ]
@@ -21,6 +23,10 @@ dev = [
     # Generates the Python gRPC service stub in make generate. A build-time
     # dependency only: the service imports the generated code, not the tool.
     "grpcio-tools>=1.68",
+]
+voice = [
+    "livekit-plugins-cartesia>=1.0",
+    "livekit-plugins-deepgram>=1.0",
 ]
 
 [build-system]

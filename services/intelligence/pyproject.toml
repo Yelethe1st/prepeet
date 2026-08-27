@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Typed intelligence for Prepeet: composition, evaluation, articulation and coaching."
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=0.40",
     # The RPC surface. grpcio serves it, protobuf decodes it; both sides of the
     # contract in packages/contracts/rpc depend on these at runtime.
     "grpcio>=1.68",

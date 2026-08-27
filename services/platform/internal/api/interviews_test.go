@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -77,6 +78,19 @@ func (f *fakeInterviews) Transcript(_ context.Context, userID, sessionID string)
 func (f *fakeInterviews) Results(_ context.Context, userID, sessionID string) (api.EvaluationResultView, error) {
 	f.users = append(f.users, "results:"+userID+":"+sessionID)
 	return f.result, f.err
+}
+
+func (f *fakeInterviews) Brief(_ context.Context, sessionID, candidateID, mode string) (api.BriefView, error) {
+	f.users = append(f.users, "brief:"+candidateID+":"+sessionID+":"+mode)
+	if f.err != nil {
+		return api.BriefView{}, f.err
+	}
+	return api.BriefView{
+		SessionID: sessionID, Minutes: 25,
+		PersonaName: "Ama", PersonaStyle: "Warm and structured", PersonaAbout: "Gentle.",
+		RoleTitle: "Senior Backend Engineer", Competencies: []string{"Systems design"},
+		Plan: json.RawMessage(`{"stages":["intro","core","close"]}`),
+	}, nil
 }
 
 func (f *fakeInterviews) IngestServiceEvents(_ context.Context, sessionID, candidateID, mode string, events []api.ControlEventIn) (api.ControlAck, error) {
@@ -1015,5 +1029,42 @@ func TestTheInternalIngestLandsUnderTheCandidateTheAgentHeard(t *testing.T) {
 	// No sequence travels from the agent: the server's to assign.
 	if len(interviews.ingested) != 1 || interviews.ingested[0].Sequence != 0 {
 		t.Fatalf("ingested = %+v", interviews.ingested)
+	}
+}
+
+func TestTheBriefIsServedOnlyToTheServiceToken(t *testing.T) {
+	interviews := &fakeInterviews{}
+	handler := serveInterviews(t, interviews)
+	path := "/api/v1/internal/interviews/00000000-0000-7000-8000-0000000000e1/brief" +
+		"?candidate_id=00000000-0000-7000-8000-0000000000f9&mode=practice"
+
+	unauthenticated := get(t, handler, path)
+	if unauthenticated.Code != http.StatusUnauthorized {
+		t.Fatalf("no token got %d", unauthenticated.Code)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, path, nil)
+	request.Header.Set("Authorization", "Bearer agent-secret-agent-secret")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body)
+	}
+	var body struct {
+		Minutes int `json:"minutes"`
+		Persona struct {
+			Name string `json:"name"`
+		} `json:"persona"`
+		Role struct {
+			Competencies []string `json:"competencies"`
+		} `json:"role"`
+		Plan map[string]any `json:"plan"`
+	}
+	decodeInto(t, recorder, &body)
+	if body.Minutes != 25 || body.Persona.Name != "Ama" || len(body.Role.Competencies) != 1 || body.Plan["stages"] == nil {
+		t.Fatalf("brief = %+v", body)
+	}
+	if interviews.users[len(interviews.users)-1] != "brief:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1:practice" {
+		t.Fatalf("the port saw %v", interviews.users)
 	}
 }

@@ -592,6 +592,69 @@ func (a interviewAdapter) GetPractice(ctx context.Context, userID, sessionID str
 	return view, nil
 }
 
+// Brief assembles the interviewer's brief from the session's own pins:
+// persona and role from the catalogue by the ids the config recorded, and
+// the plan body by the digest the bundle pinned, so the agent runs exactly
+// what was composed even after the registry moves on.
+func (a interviewAdapter) Brief(ctx context.Context, sessionID, candidateID, mode string) (api.BriefView, error) {
+	session, err := a.sessions.Get(ctx, sessionID, mode, candidateID, "")
+	if errors.Is(err, interview.ErrNotFound) {
+		return api.BriefView{}, api.ErrSessionMissing
+	}
+	if err != nil {
+		return api.BriefView{}, err
+	}
+	var config struct {
+		Role    string `json:"role"`
+		Persona string `json:"persona"`
+		Minutes int    `json:"minutes"`
+	}
+	if err := json.Unmarshal(session.Config, &config); err != nil {
+		return api.BriefView{}, fmt.Errorf("decoding the session config: %w", err)
+	}
+
+	catalogue, err := a.catalogue.Catalogue(ctx, session.TenantID)
+	if err != nil {
+		return api.BriefView{}, err
+	}
+	brief := api.BriefView{SessionID: session.ID, Minutes: config.Minutes}
+	for _, persona := range catalogue.Personas {
+		if persona.ID == config.Persona {
+			brief.PersonaName, brief.PersonaStyle, brief.PersonaAbout = persona.Name, persona.Style, persona.Description
+		}
+	}
+	for _, role := range catalogue.Roles {
+		if role.ID == config.Role {
+			brief.RoleTitle, brief.Competencies = role.Title, role.Competencies
+		}
+	}
+
+	bundle, err := a.sessions.Bundle(ctx, session.ID, mode, candidateID, "")
+	if err != nil {
+		return api.BriefView{}, err
+	}
+	var pinned struct {
+		PinnedInputs []struct {
+			ArtifactType string `json:"artifact_type"`
+			Digest       string `json:"digest"`
+		} `json:"pinned_inputs"`
+	}
+	if err := json.Unmarshal(bundle, &pinned); err != nil {
+		return api.BriefView{}, fmt.Errorf("decoding the bundle: %w", err)
+	}
+	for _, pin := range pinned.PinnedInputs {
+		if pin.ArtifactType != "plan" {
+			continue
+		}
+		plan, err := a.registry.GetByDigest(ctx, pin.Digest, session.TenantID)
+		if err != nil {
+			return api.BriefView{}, fmt.Errorf("resolving the pinned plan: %w", err)
+		}
+		brief.Plan = plan.Body
+	}
+	return brief, nil
+}
+
 // IngestServiceEvents lands the agent's events under the candidate it
 // heard, the server assigning epoch and sequences. NO_ATTEMPT when no
 // connection epoch is open yet: the agent spoke before anyone joined.

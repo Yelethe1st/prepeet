@@ -25,6 +25,7 @@ from prepeet_ai.agent.ports import (
     Timeline,
     TranscriptSegment,
     TranscriptWord,
+    Turn,
 )
 
 
@@ -107,29 +108,31 @@ class Conversation:
         self._timeline = timeline
         self._clock = clock
 
-    async def _say(self, text: str) -> None:
+    async def _say(self, turn: Turn) -> None:
         start_ms = self._clock.now_ms()
-        duration_ms = await self._tts.speak(text)
-        segment = spoken_segment(text, start_ms, duration_ms)
+        duration_ms = await self._tts.speak(turn.text)
+        segment = spoken_segment(turn.text, start_ms, duration_ms)
         await self._timeline.post(
             [
                 _event("transcript.segment.final", segment_payload(segment)),
-                _event("turn.boundary"),
+                # The measured decision latency rides the boundary: the
+                # budget in ADR-0012 is checked against stored numbers.
+                _event("turn.boundary", {"speaker": "interviewer", "latency_ms": turn.latency_ms}),
             ]
         )
 
     async def run(self) -> None:
         """Speak the opening, then alternate: hear an answer, ask the next question."""
-        await self._say(self._interviewer.opening())
+        await self._say(await self._interviewer.opening())
 
         async for heard in self._stt.segments():
             await self._timeline.post(
                 [
                     _event("transcript.segment.final", segment_payload(heard)),
-                    _event("turn.boundary"),
+                    _event("turn.boundary", {"speaker": "candidate"}),
                 ]
             )
-            question = self._interviewer.next_question(heard.text)
-            if question is None:
+            turn = await self._interviewer.next_question(heard.text)
+            if turn is None:
                 return
-            await self._say(question)
+            await self._say(turn)

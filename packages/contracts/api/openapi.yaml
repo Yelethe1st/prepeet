@@ -1177,6 +1177,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /internal/interviews/{sessionId}/brief:
+    get:
+      tags: [internal]
+      operationId: getInterviewBrief
+      summary: What the interviewer needs to run this session
+      description: |
+        The agent's brief, assembled from the session's own pins: the
+        persona and role by name, the configured length, and the plan body
+        resolved by the digest the bundle pinned - never the catalogue's
+        current head. The candidate and mode come from the room, and scope
+        the read exactly as the owner's own would.
+      security:
+        - serviceToken: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: candidate_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: mode
+          in: query
+          required: true
+          schema: { type: string, enum: [practice, screening] }
+      responses:
+        "200":
+          description: The brief.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewBrief"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /interviews/{sessionId}/complete:
     post:
       tags: [interview]
@@ -2094,6 +2130,32 @@ components:
           type: object
           additionalProperties: true
         occurred_at: { type: string, format: date-time }
+
+    InterviewBrief:
+      type: object
+      required: [session_id, minutes, persona, role, plan]
+      properties:
+        session_id: { type: string, format: uuid }
+        minutes: { type: integer }
+        persona:
+          type: object
+          required: [name, style, description]
+          properties:
+            name: { type: string }
+            style: { type: string }
+            description: { type: string }
+        role:
+          type: object
+          required: [title, competencies]
+          properties:
+            title: { type: string }
+            competencies:
+              type: array
+              items: { type: string }
+        plan:
+          type: object
+          additionalProperties: true
+          description: The pinned plan body, exactly as composed against.
 
     ServiceEventBatch:
       type: object

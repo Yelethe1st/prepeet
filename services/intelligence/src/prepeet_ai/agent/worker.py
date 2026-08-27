@@ -21,11 +21,13 @@ def main() -> None:  # pragma: no cover - LiveKit process entrypoint
     """Start the agent worker against the configured SFU."""
     from livekit import agents, rtc
 
+    from prepeet_ai.agent.claude import ClaudeInterviewer, anthropic_completer
     from prepeet_ai.agent.clock import RoomClock
     from prepeet_ai.agent.conversation import Conversation
+    from prepeet_ai.agent.ports import Interviewer
     from prepeet_ai.agent.providers import NoSpeech, ProviderConfig
     from prepeet_ai.agent.scripted import ScriptedInterviewer
-    from prepeet_ai.agent.timeline import PlatformTimeline, TimelineTarget
+    from prepeet_ai.agent.timeline import PlatformTimeline, TimelineTarget, fetch_brief
 
     async def entrypoint(ctx: agents.JobContext) -> None:
         await ctx.connect(auto_subscribe=agents.AutoSubscribe.AUDIO_ONLY)
@@ -43,14 +45,13 @@ def main() -> None:  # pragma: no cover - LiveKit process entrypoint
             participant = await ctx.wait_for_participant()
             candidate_id = participant.identity
 
-        timeline = PlatformTimeline(
-            TimelineTarget(
-                api_url=os.environ.get("PREPEET_API_URL", "http://localhost:8080"),
-                service_token=os.environ.get("PREPEET_AGENT_TOKEN", ""),
-                session_id=room.name,
-                candidate_id=candidate_id,
-            )
+        timeline_target = TimelineTarget(
+            api_url=os.environ.get("PREPEET_API_URL", "http://localhost:8080"),
+            service_token=os.environ.get("PREPEET_AGENT_TOKEN", ""),
+            session_id=room.name,
+            candidate_id=candidate_id,
         )
+        timeline = PlatformTimeline(timeline_target)
 
         providers = ProviderConfig.from_env()
         if not providers.complete:
@@ -63,15 +64,26 @@ def main() -> None:  # pragma: no cover - LiveKit process entrypoint
         else:
             stt, tts = _live_providers(ctx, room, clock, providers)
 
+        interviewer: Interviewer = ScriptedInterviewer(
+            "Welcome to your practice interview. When you are ready, tell me about a piece "
+            "of work you led recently.",
+            [
+                "What was the hardest decision in that work, and what did you weigh?",
+                "What would you do differently next time?",
+            ],
+        )
+        anthropic_key = os.environ.get("PREPEET_ANTHROPIC_API_KEY", "")
+        if anthropic_key:
+            try:
+                brief = await fetch_brief(timeline_target)
+                interviewer = ClaudeInterviewer(
+                    brief=brief, complete=anthropic_completer(anthropic_key)
+                )
+            except Exception:  # the scripted floor is the fallback
+                logger.exception("brief unavailable; falling back to the scripted interviewer")
+
         conversation = Conversation(
-            interviewer=ScriptedInterviewer(
-                "Welcome to your practice interview. When you are ready, tell me about a piece "
-                "of work you led recently.",
-                [
-                    "What was the hardest decision in that work, and what did you weigh?",
-                    "What would you do differently next time?",
-                ],
-            ),
+            interviewer=interviewer,
             stt=stt,
             tts=tts,
             timeline=timeline,

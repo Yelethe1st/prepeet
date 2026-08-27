@@ -54,6 +54,9 @@ type Interviews interface {
 	// evaluation has not landed; ErrSessionMissing when the session is
 	// not the caller's to see.
 	Results(ctx context.Context, userID, sessionID string) (EvaluationResultView, error)
+	// Brief assembles what the interviewer needs, scoped as the candidate
+	// the agent heard. ErrSessionMissing for anything it may not see.
+	Brief(ctx context.Context, sessionID, candidateID, mode string) (BriefView, error)
 	// IngestServiceEvents lands the agent's events for a session under the
 	// candidate the agent heard, epoch and sequences assigned server-side.
 	IngestServiceEvents(ctx context.Context, sessionID, candidateID, mode string, events []ControlEventIn) (ControlAck, error)
@@ -523,6 +526,60 @@ func (i *interviews) StartInterview(ctx context.Context, request prepeetapi.Star
 			},
 		},
 		Headers: prepeetapi.StartInterview200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// BriefView mirrors the contract at the port.
+type BriefView struct {
+	SessionID    string
+	Minutes      int
+	PersonaName  string
+	PersonaStyle string
+	PersonaAbout string
+	RoleTitle    string
+	Competencies []string
+	Plan         json.RawMessage
+}
+
+// GetInterviewBrief answers the agent's brief under the service token.
+func (i *interviews) GetInterviewBrief(ctx context.Context, request prepeetapi.GetInterviewBriefRequestObject) (prepeetapi.GetInterviewBriefResponseObject, error) {
+	presented := bearerFromContext(ctx)
+	if i.agentToken == "" || presented == "" ||
+		subtle.ConstantTimeCompare([]byte(presented), []byte(i.agentToken)) != 1 {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+
+	brief, err := i.flows.Brief(ctx, request.SessionID.String(),
+		request.Params.CandidateID.String(), string(request.Params.Mode))
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	sessionID, err := uuid.Parse(brief.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("api: the brief's session id is not a uuid: %w", err)
+	}
+	var plan map[string]any
+	if len(brief.Plan) > 0 {
+		if err := json.Unmarshal(brief.Plan, &plan); err != nil {
+			return nil, fmt.Errorf("api: the pinned plan is not an object: %w", err)
+		}
+	}
+	if plan == nil {
+		plan = map[string]any{}
+	}
+	competencies := brief.Competencies
+	if competencies == nil {
+		competencies = []string{}
+	}
+	body := prepeetapi.InterviewBrief{SessionID: sessionID, Minutes: brief.Minutes, Plan: plan}
+	body.Persona.Name = brief.PersonaName
+	body.Persona.Style = brief.PersonaStyle
+	body.Persona.Description = brief.PersonaAbout
+	body.Role.Title = brief.RoleTitle
+	body.Role.Competencies = competencies
+	return prepeetapi.GetInterviewBrief200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.GetInterviewBrief200ResponseHeaders{CacheControl: NoStore},
 	}, nil
 }
 
@@ -1080,6 +1137,7 @@ var (
 	_ prepeetapi.GetReviewResponseObject           = failure{}
 	_ prepeetapi.ListMySessionsResponseObject      = failure{}
 	_ prepeetapi.IngestServiceEventsResponseObject = failure{}
+	_ prepeetapi.GetInterviewBriefResponseObject   = failure{}
 	_ prepeetapi.CompleteInterviewResponseObject   = failure{}
 )
 
@@ -1094,4 +1152,5 @@ func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          {
 func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
 func (f failure) VisitListMySessionsResponse(w http.ResponseWriter) error      { return f.write(w) }
 func (f failure) VisitIngestServiceEventsResponse(w http.ResponseWriter) error { return f.write(w) }
+func (f failure) VisitGetInterviewBriefResponse(w http.ResponseWriter) error   { return f.write(w) }
 func (f failure) VisitCompleteInterviewResponse(w http.ResponseWriter) error   { return f.write(w) }

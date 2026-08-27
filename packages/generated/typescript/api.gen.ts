@@ -841,6 +841,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/interviews/{sessionId}/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the interviewer needs to run this session
+         * @description The agent's brief, assembled from the session's own pins: the
+         *     persona and role by name, the configured length, and the plan body
+         *     resolved by the digest the bundle pinned - never the catalogue's
+         *     current head. The candidate and mode come from the room, and scope
+         *     the read exactly as the owner's own would.
+         */
+        get: operations["getInterviewBrief"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews/{sessionId}/complete": {
         parameters: {
             query?: never;
@@ -1334,6 +1358,24 @@ export interface components {
             };
             /** Format: date-time */
             occurred_at: string;
+        };
+        InterviewBrief: {
+            /** Format: uuid */
+            session_id: string;
+            minutes: number;
+            persona: {
+                name: string;
+                style: string;
+                description: string;
+            };
+            role: {
+                title: string;
+                competencies: string[];
+            };
+            /** @description The pinned plan body, exactly as composed against. */
+            plan: {
+                [key: string]: unknown;
+            };
         };
         ServiceEventBatch: {
             /**
@@ -3017,6 +3059,34 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    getInterviewBrief: {
+        parameters: {
+            query: {
+                candidate_id: string;
+                mode: "practice" | "screening";
+            };
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The brief. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewBrief"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
         };
     };
     completeInterview: {

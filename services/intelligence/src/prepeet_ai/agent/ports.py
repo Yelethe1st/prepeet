@@ -51,14 +51,26 @@ class TextToSpeech(Protocol):
         ...
 
 
-class Interviewer(Protocol):
-    """Decides what to say next. Scripted today; a model behind DEC-10 later."""
+@dataclass(frozen=True)
+class Turn:
+    """What the interviewer decided to say, and how long deciding took.
 
-    def opening(self) -> str:
+    latency_ms is measured, never asserted (ADR-0012's budget is checked
+    against these), and rides the turn boundary into the durable timeline.
+    """
+
+    text: str
+    latency_ms: int
+
+
+class Interviewer(Protocol):
+    """Decides what to say next. Scripted, or a model behind ADR-0019."""
+
+    async def opening(self) -> Turn:
         """The first thing said in the room."""
         ...
 
-    def next_question(self, candidate_said: str) -> str | None:
+    async def next_question(self, candidate_said: str) -> Turn | None:
         """The next question, or None when the interview is over."""
         ...
 

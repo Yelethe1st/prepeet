@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from prepeet_ai.agent.ports import Turn
+
 
 class ScriptedInterviewer:
     """Asks the given questions in order, then ends the interview."""
@@ -20,14 +22,14 @@ class ScriptedInterviewer:
         self._questions = list(questions)
         self._asked = 0
 
-    def opening(self) -> str:
+    async def opening(self) -> Turn:
         """The first thing said in the room."""
-        return self._opening
+        return Turn(text=self._opening, latency_ms=0)
 
-    def next_question(self, candidate_said: str) -> str | None:
+    async def next_question(self, candidate_said: str) -> Turn | None:
         """The next scripted question, ignoring the answer; None at the end."""
         if self._asked >= len(self._questions):
             return None
         question = self._questions[self._asked]
         self._asked += 1
-        return question
+        return Turn(text=question, latency_ms=0)

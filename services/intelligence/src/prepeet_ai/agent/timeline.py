@@ -80,3 +80,50 @@ class PlatformTimeline:
             except OSError:
                 detail = ""
             raise TimelineRefusedError(error.code, detail) from error
+
+
+@dataclass(frozen=True)
+class Brief:
+    """What the interviewer needs to run one session."""
+
+    minutes: int
+    persona_name: str
+    persona_style: str
+    persona_description: str
+    role_title: str
+    competencies: tuple[str, ...]
+    plan: dict[str, object]
+
+
+async def fetch_brief(target: TimelineTarget) -> Brief:
+    """Read the session's brief from the internal surface."""
+    return await asyncio.to_thread(_fetch_brief_blocking, target)
+
+
+def _fetch_brief_blocking(target: TimelineTarget) -> Brief:
+    base = target.api_url.rstrip("/")
+    url = (
+        f"{base}/api/v1/internal/interviews/{target.session_id}/brief"
+        f"?candidate_id={target.candidate_id}&mode={target.mode}"
+    )
+    request = urllib.request.Request(
+        url, headers={"Authorization": f"Bearer {target.service_token}"}
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            document = json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        try:
+            detail = error.read().decode(errors="replace")
+        except OSError:
+            detail = ""
+        raise TimelineRefusedError(error.code, detail) from error
+    return Brief(
+        minutes=int(document["minutes"]),
+        persona_name=str(document["persona"]["name"]),
+        persona_style=str(document["persona"]["style"]),
+        persona_description=str(document["persona"]["description"]),
+        role_title=str(document["role"]["title"]),
+        competencies=tuple(str(c) for c in document["role"]["competencies"]),
+        plan=dict(document.get("plan") or {}),
+    )

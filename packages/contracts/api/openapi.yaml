@@ -1887,7 +1887,7 @@ components:
       type: object
       required: [session_id, rubric, aggregation_version, extraction_version,
                  model_version, policy_version, competencies, evidence,
-                 coverage, contradictions, framing, covered_competencies,
+                 coverage, contradictions, framing, delivery, covered_competencies,
                  total_competencies, result_digest, warnings, created_at]
       properties:
         session_id: { type: string, format: uuid }
@@ -1946,6 +1946,22 @@ components:
             unverified: { type: string }
             contradictions: { type: string }
             confidence: { type: string }
+        delivery:
+          type: object
+          required: [status, warnings, note]
+          description: |
+            Delivery assessability, from its own workflow: assessable,
+            partially_assessable, not_assessable, or pending while it has
+            not landed. A not-assessable delivery says plainly, in note,
+            that it is not a low result and has touched no score above.
+          properties:
+            status:
+              type: string
+              enum: [assessable, partially_assessable, not_assessable, pending]
+            warnings:
+              type: array
+              items: { type: string }
+            note: { type: string }
         covered_competencies: { type: integer }
         total_competencies: { type: integer }
         result_digest: { type: string }

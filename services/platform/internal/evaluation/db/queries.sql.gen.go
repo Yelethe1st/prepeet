@@ -48,6 +48,42 @@ func (q *Queries) DeleteEvidence(ctx context.Context, arg DeleteEvidenceParams) 
 	return err
 }
 
+const getArticulation = `-- name: GetArticulation :one
+SELECT id::text AS id, session_id::text AS session_id, status, warnings, analysis,
+       calculation_version, policy_version, input_digest, created_at
+FROM evaluation.articulation
+WHERE session_id = $1::uuid
+`
+
+type GetArticulationRow struct {
+	ID                 string
+	SessionID          string
+	Status             string
+	Warnings           []byte
+	Analysis           []byte
+	CalculationVersion string
+	PolicyVersion      string
+	InputDigest        string
+	CreatedAt          time.Time
+}
+
+func (q *Queries) GetArticulation(ctx context.Context, sessionID string) (GetArticulationRow, error) {
+	row := q.db.QueryRow(ctx, getArticulation, sessionID)
+	var i GetArticulationRow
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Status,
+		&i.Warnings,
+		&i.Analysis,
+		&i.CalculationVersion,
+		&i.PolicyVersion,
+		&i.InputDigest,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getResult = `-- name: GetResult :one
 SELECT id::text AS id, session_id::text AS session_id,
        rubric_reference, rubric_version, rubric_digest,
@@ -97,6 +133,48 @@ func (q *Queries) GetResult(ctx context.Context, sessionID string) (GetResultRow
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const insertArticulation = `-- name: InsertArticulation :exec
+INSERT INTO evaluation.articulation
+    (id, session_id, mode, candidate_id, tenant_id, status, warnings, analysis,
+     calculation_version, policy_version, input_digest)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::uuid, nullif($5::text, '')::uuid,
+        $6::text, $7::jsonb, $8::jsonb,
+        $9::text, $10::text,
+        $11::text)
+`
+
+type InsertArticulationParams struct {
+	ID                 string
+	SessionID          string
+	Mode               string
+	CandidateID        string
+	TenantID           string
+	Status             string
+	Warnings           []byte
+	Analysis           []byte
+	CalculationVersion string
+	PolicyVersion      string
+	InputDigest        string
+}
+
+func (q *Queries) InsertArticulation(ctx context.Context, arg InsertArticulationParams) error {
+	_, err := q.db.Exec(ctx, insertArticulation,
+		arg.ID,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.Status,
+		arg.Warnings,
+		arg.Analysis,
+		arg.CalculationVersion,
+		arg.PolicyVersion,
+		arg.InputDigest,
+	)
+	return err
 }
 
 const insertContradiction = `-- name: InsertContradiction :exec

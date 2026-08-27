@@ -113,6 +113,7 @@ type EvaluationResultView struct {
 	Competencies        []CompetencyResultView
 	Evidence            []EvidenceSpanView
 	Contradictions      []ContradictionView
+	Delivery            DeliveryView
 	CoverageReached     []string
 	CoverageNotReached  []string
 	CoveredCompetencies int
@@ -142,6 +143,20 @@ const FramingContradictions = "These statements appear to conflict. " +
 // FramingConfidence ships beside every confidence label (ADR-0015).
 const FramingConfidence = "Confidence describes how much verifiable evidence this session produced " +
 	"for each competency. It is not a prediction of performance in any role."
+
+// DeliveryView is the delivery analysis's assessability, from its own
+// workflow. Status pending while it has not landed.
+type DeliveryView struct {
+	Status   string
+	Warnings []string
+	Note     string
+}
+
+// FramingDeliveryNotAssessable ships with every not-assessable delivery:
+// a statement about the recording or transcript, never about the person.
+const FramingDeliveryNotAssessable = "Delivery was not assessable for this session. That is a statement " +
+	"about the recording or the transcript, not about you: it is not a low result, and it has not " +
+	"affected any score."
 
 // EvidenceSpanView is one stored span: the exact sentence behind a score.
 type EvidenceSpanView struct {
@@ -959,6 +974,18 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 	body.Framing.Unverified = FramingUnverified
 	body.Framing.Contradictions = FramingContradictions
 	body.Framing.Confidence = FramingConfidence
+	body.Delivery.Status = prepeetapi.EvaluationResultViewDeliveryStatus(result.Delivery.Status)
+	if body.Delivery.Status == "" {
+		body.Delivery.Status = "pending"
+	}
+	body.Delivery.Warnings = result.Delivery.Warnings
+	if body.Delivery.Warnings == nil {
+		body.Delivery.Warnings = []string{}
+	}
+	body.Delivery.Note = result.Delivery.Note
+	if body.Delivery.Status == "not_assessable" {
+		body.Delivery.Note = FramingDeliveryNotAssessable
+	}
 	for _, competency := range result.Competencies {
 		encoded := prepeetapi.CompetencyResultView{
 			CompetencyID:  competency.CompetencyID,

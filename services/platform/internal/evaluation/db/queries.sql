@@ -84,3 +84,19 @@ SELECT id::text AS id, topic,
 FROM evaluation.contradictions
 WHERE session_id = sqlc.arg(session_id)::uuid
 ORDER BY a_segment_sequence, a_char_start, b_segment_sequence, b_char_start;
+
+-- name: InsertArticulation :exec
+INSERT INTO evaluation.articulation
+    (id, session_id, mode, candidate_id, tenant_id, status, warnings, analysis,
+     calculation_version, policy_version, input_digest)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text,
+        sqlc.arg(candidate_id)::uuid, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        sqlc.arg(status)::text, sqlc.arg(warnings)::jsonb, sqlc.arg(analysis)::jsonb,
+        sqlc.arg(calculation_version)::text, sqlc.arg(policy_version)::text,
+        sqlc.arg(input_digest)::text);
+
+-- name: GetArticulation :one
+SELECT id::text AS id, session_id::text AS session_id, status, warnings, analysis,
+       calculation_version, policy_version, input_digest, created_at
+FROM evaluation.articulation
+WHERE session_id = sqlc.arg(session_id)::uuid;

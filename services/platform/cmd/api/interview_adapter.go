@@ -142,8 +142,15 @@ func (a interviewAdapter) Results(ctx context.Context, userID, sessionID string)
 	if err != nil {
 		return api.EvaluationResultView{}, err
 	}
+	delivery := api.DeliveryView{Status: "pending", Warnings: []string{}}
+	if articulation, err := a.results.ArticulationOf(ctx, ref); err == nil {
+		delivery = api.DeliveryView{Status: articulation.Status, Warnings: articulation.Warnings}
+	} else if !errors.Is(err, evaluation.ErrNoArticulation) {
+		return api.EvaluationResultView{}, err
+	}
 
 	view := api.EvaluationResultView{
+		Delivery:  delivery,
 		SessionID: result.SessionID,
 		Rubric: api.RubricPinView{
 			Reference: result.RubricReference,

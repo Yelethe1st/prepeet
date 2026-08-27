@@ -16,6 +16,7 @@ status and warning, never by a made-up value.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from itertools import pairwise
 from typing import Any
@@ -37,6 +38,57 @@ they are fillers sometimes and content the rest of the time, and a count
 that guesses is worse than one that abstains."""
 
 _TOKEN = re.compile(r"[a-z0-9']+")
+
+CLIPPING_FLOOR = 0.02
+"""Share of samples at full scale above which the recording is clipped:
+one in fifty samples pinned to the rail is distortion a listener hears,
+and pace or pauses measured through it are not the candidate's."""
+
+SILENCE_FLOOR = 0.9
+"""Share of near-silent samples above which there is no speech to measure."""
+
+NOT_A_LOW_RESULT = (
+    "Delivery was not assessable for this session. That is a statement about the "
+    "recording or the transcript, not about you: it is not a low result, and it has "
+    "not affected any score."
+)
+"""Ships with every not-assessable result, so no surface can drop it."""
+
+
+@dataclass(frozen=True)
+class AudioQuality:
+    """What the recording's samples say about themselves."""
+
+    calculation_version: str
+    clipping_ratio: float
+    silence_ratio: float
+    status: str
+    warnings: tuple[str, ...]
+
+
+def audio_quality(samples: Sequence[float], full_scale: float = 0.99) -> AudioQuality:
+    """Measure clipping and silence over normalised samples in [-1, 1].
+
+    Deterministic and model-free like everything here. Samples arrive
+    decoded by whoever holds the recording; this function never decodes,
+    so it can be proven on synthetic fixtures before any decoder exists.
+    """
+    total = len(samples)
+    if total == 0:
+        return AudioQuality(CALCULATION_VERSION, 0.0, 1.0, "not_assessable", ("NO_AUDIO",))
+    clipped = sum(1 for sample in samples if abs(sample) >= full_scale)
+    silent = sum(1 for sample in samples if abs(sample) < 0.01)
+    clipping_ratio = round(clipped / total, 4)
+    silence_ratio = round(silent / total, 4)
+    warnings: list[str] = []
+    status = "assessable"
+    if clipping_ratio > CLIPPING_FLOOR:
+        status = "not_assessable"
+        warnings.append("AUDIO_CLIPPED")
+    if silence_ratio > SILENCE_FLOOR:
+        status = "not_assessable"
+        warnings.append("AUDIO_SILENT")
+    return AudioQuality(CALCULATION_VERSION, clipping_ratio, silence_ratio, status, tuple(warnings))
 
 
 @dataclass(frozen=True)

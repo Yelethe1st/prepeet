@@ -13,7 +13,11 @@ from __future__ import annotations
 import dataclasses
 import json
 
-from prepeet_ai.articulation.features import CALCULATION_VERSION, session_features
+from prepeet_ai.articulation.features import (
+    CALCULATION_VERSION,
+    NOT_A_LOW_RESULT,
+    session_features,
+)
 from prepeet_ai.extraction.service import fetch_verified
 from prepeet_ai.transport.envelope import Failure, FailureCode, FailureError
 
@@ -60,6 +64,10 @@ def analysis_from_ref(fetch_url: str, digest: str) -> bytes:
             "audio_quality": None,
             "transcript_confidence": features.transcript_confidence,
             "warnings": list(features.warnings),
+            # The plain statement rides every result whose status is not
+            # assessable, and the empty string otherwise: a consumer that
+            # renders the field renders the truth either way.
+            "note": NOT_A_LOW_RESULT if features.status != "assessable" else "",
         },
         "metrics": {
             "words": features.words,

@@ -119,6 +119,7 @@ const result: EvaluationResult = {
     reached: ["debugging", "systems-design"],
     not_reached: ["prioritisation"],
   },
+  delivery: { status: "pending", warnings: [], note: "" },
   covered_competencies: 2,
   total_competencies: 3,
   result_digest: "sha256:def",

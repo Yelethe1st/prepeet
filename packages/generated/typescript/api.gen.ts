@@ -1237,6 +1237,18 @@ export interface components {
                 contradictions: string;
                 confidence: string;
             };
+            /**
+             * @description Delivery assessability, from its own workflow: assessable,
+             *     partially_assessable, not_assessable, or pending while it has
+             *     not landed. A not-assessable delivery says plainly, in note,
+             *     that it is not a low result and has touched no score above.
+             */
+            delivery: {
+                /** @enum {string} */
+                status: "assessable" | "partially_assessable" | "not_assessable" | "pending";
+                warnings: string[];
+                note: string;
+            };
             covered_competencies: number;
             total_competencies: number;
             result_digest: string;

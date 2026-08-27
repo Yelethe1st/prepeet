@@ -54,9 +54,25 @@ Assessable, partially assessable, or not assessable. Poor audio produces a statu
 a low delivery result.
 
 **Done when**
-- [ ] Clipping, insufficient speech and low transcript confidence each produce an explicit status.
-- [ ] A not-assessable result states plainly that it is not a low result and has not affected any score.
-- [ ] Valid content evaluation continues unaffected when delivery is unassessable.
+- [x] Clipping, insufficient speech and low transcript confidence each produce an explicit status.
+- [x] A not-assessable result states plainly that it is not a low result and has not affected any score.
+- [x] Valid content evaluation continues unaffected when delivery is unassessable.
+
+**Done.** Each cause names itself: AUDIO_CLIPPED and AUDIO_SILENT from a sample-level quality
+calculator (clipping above one sample in fifty at full scale, proven on synthetic samples so the
+rule exists before any decoder does), INSUFFICIENT_SPEECH and TRANSCRIPT_CONFIDENCE_LOW from the
+transcript side, each an explicit not_assessable status. The plain statement is server-supplied
+copy on the analysis document and again on the results API's delivery block, so no surface can
+drop or soften it: "not a low result, and it has not affected any score", asserted by test on
+the wire.
+
+The third box is structural rather than remembered: delivery runs as its own Temporal workflow
+under its own id (articulation-{session}) with its own immutable row (evaluation.articulation),
+started from the same session_completed event as evidence but never awaited by it. The
+integration proof stores a content result, lands a not-assessable delivery beside it, and reads
+the result back DeepEqual-identical with zero evaluation.failed events. The results endpoint
+reports delivery as pending until the row lands. Decoding the recording to feed the clipping
+calculator real samples is the remaining audio work, tracked with ART-03's profile.
 
 **Spec** [articulation-system.md](../../architecture/articulation-system.md)
 

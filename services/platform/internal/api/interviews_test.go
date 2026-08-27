@@ -627,6 +627,7 @@ func resultFixture() api.EvaluationResultView {
 				StartMs: 15000, EndMs: 19000,
 			},
 		}},
+		Delivery:            api.DeliveryView{Status: "not_assessable", Warnings: []string{"AUDIO_CLIPPED"}},
 		CoverageReached:     []string{"clinical-reasoning", "systems-design"},
 		CoverageNotReached:  []string{"never-raised"},
 		CoveredCompetencies: 2, TotalCompetencies: 3,
@@ -1066,5 +1067,44 @@ func TestTheBriefIsServedOnlyToTheServiceToken(t *testing.T) {
 	}
 	if interviews.users[len(interviews.users)-1] != "brief:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1:practice" {
 		t.Fatalf("the port saw %v", interviews.users)
+	}
+}
+
+func TestANotAssessableDeliverySaysItIsNotALowResult(t *testing.T) {
+	interviews := &fakeInterviews{result: resultFixture()}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/results", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		Delivery struct {
+			Status   string   `json:"status"`
+			Warnings []string `json:"warnings"`
+			Note     string   `json:"note"`
+		} `json:"delivery"`
+		Competencies []struct {
+			Band *string `json:"band"`
+		} `json:"competencies"`
+	}
+	decodeInto(t, response, &body)
+	if body.Delivery.Status != "not_assessable" || body.Delivery.Warnings[0] != "AUDIO_CLIPPED" {
+		t.Fatalf("delivery = %+v", body.Delivery)
+	}
+	if !strings.Contains(body.Delivery.Note, "not a low result") ||
+		!strings.Contains(body.Delivery.Note, "not affected any score") {
+		t.Fatalf("the note does not say the one thing it must: %q", body.Delivery.Note)
+	}
+	// And the content evaluation on the same response is untouched by it.
+	assessed := 0
+	for _, competency := range body.Competencies {
+		if competency.Band != nil {
+			assessed++
+		}
+	}
+	if assessed != 1 {
+		t.Fatalf("delivery status altered the content bands: %d assessed", assessed)
 	}
 }

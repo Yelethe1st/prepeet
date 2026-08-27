@@ -221,12 +221,26 @@ func main() {
 				evaluationWorker.RegisterActivity(evidenceActivities.ExtractAndStore)
 				evaluationWorker.RegisterActivity(evidenceActivities.Aggregate)
 				evaluationWorker.RegisterActivity(evidenceActivities.PublishFailed)
+				evaluationWorker.RegisterWorkflow(evaluation.ArticulationWorkflow)
+				articulationActivities := evaluation.NewArticulationActivities(
+					evaluation.NewStore(pool),
+					newArticulation(conn, documents, interview.NewCompleter(interview.NewStore(pool))))
+				evaluationWorker.RegisterActivity(articulationActivities.AnalyzeAndStore)
 				if err := evaluationWorker.Start(); err != nil {
 					log.Error("the evaluation worker did not start", slog.String("error", err.Error()))
 					os.Exit(1)
 				}
 				defer evaluationWorker.Stop()
-				evidence = startEvidence(workflows)
+				beginEvidence := startEvidence(workflows)
+				beginArticulation := startArticulation(workflows)
+				evidence = func(ctx context.Context, event outbox.Pending) error {
+					// Two workflows, two ids, no coupling: delivery analysis can
+					// fail without the content evaluation ever hearing of it.
+					if err := beginEvidence(ctx, event); err != nil {
+						return err
+					}
+					return beginArticulation(ctx, event)
+				}
 				log.Info("evaluation worker started",
 					slog.String("task_queue", evaluation.TaskQueue))
 

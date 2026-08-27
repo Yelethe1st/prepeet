@@ -33,12 +33,21 @@ const recruiter = {
       status: "active",
     },
   ],
+  // The recruiter bundle as the capability catalogue defines it, rather
+  // than a hand-picked list: the Members destination asks for member_read,
+  // and a fixture holding member_manage instead passed for as long as the
+  // navigation happened to ask for that one.
   capabilities: [
     "candidate.practice.read_own",
     "campaign.read",
+    "campaign.manage",
     "invitation.read",
-    "tenant.member_manage",
-    "tenant.settings_manage",
+    "invitation.manage",
+    "evaluation.read_screen",
+    "evaluation.review",
+    "appeal.raise",
+    "tenant.member_read",
+    "rubric.read",
   ],
 };
 
@@ -50,12 +59,26 @@ const candidate = {
   capabilities: ["candidate.practice.read_own"],
 };
 
-async function signedInAs(page: import("@playwright/test").Page, user: unknown) {
+async function signedInAs(
+  page: import("@playwright/test").Page,
+  user: unknown,
+) {
   await page.route("**/api/v1/me", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(user),
+    });
+  });
+  // The practice destination reads the session history (SES-07). These
+  // tests are about the shell around it, so the list is stubbed empty:
+  // without this the request reaches a control plane that is not running
+  // here, and a shell assertion fails for a reason that is not the shell.
+  await page.route("**/api/v1/me/sessions", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ sessions: [] }),
     });
   });
 }
@@ -76,7 +99,9 @@ test.describe("the shell", () => {
     await expect(page.getByRole("link", { name: "Members" })).toBeVisible();
   });
 
-  test("does not render a recruiter's destinations for a candidate", async ({ page }) => {
+  test("does not render a recruiter's destinations for a candidate", async ({
+    page,
+  }) => {
     await signedInAs(page, candidate);
     await page.goto("/practice");
 
@@ -95,12 +120,15 @@ test.describe("the shell", () => {
 
     const { scrollWidth, clientWidth } = await horizontalOverflow(page);
 
-    expect(scrollWidth, `document is ${scrollWidth}px in a ${clientWidth}px viewport`).toBeLessThanOrEqual(
-      clientWidth,
-    );
+    expect(
+      scrollWidth,
+      `document is ${scrollWidth}px in a ${clientWidth}px viewport`,
+    ).toBeLessThanOrEqual(clientWidth);
   });
 
-  test("hides the sidebar behind a menu on a narrow viewport", async ({ page }, testInfo) => {
+  test("hides the sidebar behind a menu on a narrow viewport", async ({
+    page,
+  }, testInfo) => {
     test.skip(testInfo.project.name !== "narrow", "only meaningful at 320px");
 
     await signedInAs(page, recruiter);
@@ -111,16 +139,25 @@ test.describe("the shell", () => {
     await expect(menu).toHaveAttribute("aria-expanded", "false");
 
     await menu.click();
-    await expect(page.getByRole("navigation", { name: "Main" })).toBeInViewport();
+    await expect(
+      page.getByRole("navigation", { name: "Main" }),
+    ).toBeInViewport();
   });
 
-  test("shows the sidebar without a menu when there is room", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "only meaningful at desktop width");
+  test("shows the sidebar without a menu when there is room", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "desktop",
+      "only meaningful at desktop width",
+    );
 
     await signedInAs(page, recruiter);
     await page.goto("/practice");
 
-    await expect(page.getByRole("navigation", { name: "Main" })).toBeInViewport();
+    await expect(
+      page.getByRole("navigation", { name: "Main" }),
+    ).toBeInViewport();
   });
 
   /**
@@ -166,7 +203,10 @@ test.describe("the shell", () => {
 
       expect(
         results.violations.flatMap((v) =>
-          v.nodes.map((n) => ({ element: n.target.join(" "), problem: n.failureSummary })),
+          v.nodes.map((n) => ({
+            element: n.target.join(" "),
+            problem: n.failureSummary,
+          })),
         ),
       ).toEqual([]);
     });

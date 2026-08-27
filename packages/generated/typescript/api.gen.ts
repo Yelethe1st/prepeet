@@ -790,6 +790,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The delivery analysis, measured and gated
+         * @description Deterministic measurements, the ten-dimension profile with its
+         *     evidence, and fact-preserving coaching, exactly as the articulation
+         *     workflow stored them. No aggregate delivery score exists here. A
+         *     not-assessable delivery says plainly that it is not a low result
+         *     and has affected no score. DELIVERY_NOT_READY while the analysis
+         *     has not landed.
+         */
+        get: operations["getDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews/{sessionId}/review": {
         parameters: {
             query?: never;
@@ -1253,6 +1278,27 @@ export interface components {
             total_competencies: number;
             result_digest: string;
             warnings: string[];
+            /** Format: date-time */
+            created_at: string;
+        };
+        DeliveryView: {
+            /** Format: uuid */
+            session_id: string;
+            /** @enum {string} */
+            status: "assessable" | "partially_assessable" | "not_assessable";
+            warnings: string[];
+            /** @description Present and plain when not assessable; empty otherwise. */
+            note: string;
+            calculation_version: string;
+            policy_version: string;
+            /**
+             * @description The stored analysis document: assessability, metrics, per-turn
+             *     features, the ten-dimension profile and the gated coaching.
+             *     Shaped by the calculator named in calculation_version.
+             */
+            analysis: {
+                [key: string]: unknown;
+            };
             /** Format: date-time */
             created_at: string;
         };
@@ -2988,6 +3034,41 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             /** @description RESULT_NOT_READY while evaluation has not landed. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The analysis. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description DELIVERY_NOT_READY while the analysis has not landed. */
             409: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];

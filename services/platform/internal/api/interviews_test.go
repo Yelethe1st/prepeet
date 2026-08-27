@@ -107,6 +107,19 @@ func (f *fakeInterviews) MySessions(_ context.Context, userID string) ([]api.Int
 	return []api.InterviewSession{f.created}, nil
 }
 
+func (f *fakeInterviews) Delivery(_ context.Context, userID, sessionID string) (api.DeliveryAnalysisView, error) {
+	f.users = append(f.users, "delivery:"+userID+":"+sessionID)
+	if f.err != nil {
+		return api.DeliveryAnalysisView{}, f.err
+	}
+	return api.DeliveryAnalysisView{
+		SessionID: sessionID, Status: "not_assessable", Warnings: []string{"AUDIO_CLIPPED"},
+		CalculationVersion: "articulation-features-v1", PolicyVersion: "articulation-practice-v1",
+		Analysis:  json.RawMessage(`{"profile":{"dimensions":{"pace":{"level":"solid"}}}}`),
+		CreatedAt: time.Date(2026, 8, 27, 16, 0, 0, 0, time.UTC),
+	}, nil
+}
+
 func (f *fakeInterviews) Review(_ context.Context, userID, sessionID string) (api.ReviewView, error) {
 	f.users = append(f.users, "review:"+userID+":"+sessionID)
 	return f.review, f.err
@@ -1127,5 +1140,33 @@ func TestTheDeliveryBlockCarriesNoAggregateScore(t *testing.T) {
 		default:
 			t.Fatalf("delivery carries %q; a delivery score is forbidden anywhere", key)
 		}
+	}
+}
+
+func TestTheDeliveryEndpointServesTheAnalysisAndTheStatement(t *testing.T) {
+	handler := serveInterviews(t, &fakeInterviews{})
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		Status   string         `json:"status"`
+		Note     string         `json:"note"`
+		Analysis map[string]any `json:"analysis"`
+	}
+	decodeInto(t, response, &body)
+	if body.Status != "not_assessable" || !strings.Contains(body.Note, "not a low result") {
+		t.Fatalf("body = %+v", body)
+	}
+	if body.Analysis["profile"] == nil {
+		t.Fatal("the analysis document did not arrive")
+	}
+
+	notReady := serveInterviews(t, &fakeInterviews{err: api.ErrDeliveryNotReady})
+	if response := get(t, notReady,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery", sessionCookie()); response.Code != http.StatusConflict {
+		t.Fatalf("not ready = %d, want 409", response.Code)
 	}
 }

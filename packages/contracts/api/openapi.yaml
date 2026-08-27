@@ -1096,6 +1096,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /interviews/{sessionId}/delivery:
+    get:
+      tags: [interview]
+      operationId: getDelivery
+      summary: The delivery analysis, measured and gated
+      description: |
+        Deterministic measurements, the ten-dimension profile with its
+        evidence, and fact-preserving coaching, exactly as the articulation
+        workflow stored them. No aggregate delivery score exists here. A
+        not-assessable delivery says plainly that it is not a low result
+        and has affected no score. DELIVERY_NOT_READY while the analysis
+        has not landed.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: The analysis.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryView"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: DELIVERY_NOT_READY while the analysis has not landed.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /interviews/{sessionId}/review:
     get:
       tags: [interview]
@@ -1968,6 +2004,32 @@ components:
         warnings:
           type: array
           items: { type: string }
+        created_at: { type: string, format: date-time }
+
+    DeliveryView:
+      type: object
+      required: [session_id, status, warnings, note, calculation_version,
+                 policy_version, analysis, created_at]
+      properties:
+        session_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [assessable, partially_assessable, not_assessable]
+        warnings:
+          type: array
+          items: { type: string }
+        note:
+          type: string
+          description: Present and plain when not assessable; empty otherwise.
+        calculation_version: { type: string }
+        policy_version: { type: string }
+        analysis:
+          type: object
+          additionalProperties: true
+          description: |
+            The stored analysis document: assessability, metrics, per-turn
+            features, the ten-dimension profile and the gated coaching.
+            Shaped by the calculator named in calculation_version.
         created_at: { type: string, format: date-time }
 
     ReviewView:

@@ -63,10 +63,27 @@ type Interviews interface {
 	// MySessions answers every session the caller owns, newest first,
 	// every lifecycle state included.
 	MySessions(ctx context.Context, userID string) ([]InterviewSession, error)
+	// Delivery answers the stored articulation analysis. ErrDeliveryNotReady
+	// while it has not landed; ErrSessionMissing otherwise as Results.
+	Delivery(ctx context.Context, userID, sessionID string) (DeliveryAnalysisView, error)
 	// Review answers the derived coaching. Same refusals as Results; a
 	// coaching failure is NOT an error here - it arrives as a view with
 	// CoachingAvailable false, because the evaluation stands either way.
 	Review(ctx context.Context, userID, sessionID string) (ReviewView, error)
+}
+
+// ErrDeliveryNotReady says the delivery analysis has not landed yet.
+var ErrDeliveryNotReady = errors.New("api: the delivery analysis is not ready")
+
+// DeliveryAnalysisView mirrors the contract at the port.
+type DeliveryAnalysisView struct {
+	SessionID          string
+	Status             string
+	Warnings           []string
+	CalculationVersion string
+	PolicyVersion      string
+	Analysis           json.RawMessage
+	CreatedAt          time.Time
 }
 
 // ReviewView mirrors the contract at the port.
@@ -1017,6 +1034,52 @@ func (i *interviews) GetResults(ctx context.Context, request prepeetapi.GetResul
 	}, nil
 }
 
+// GetDelivery answers the stored delivery analysis.
+func (i *interviews) GetDelivery(ctx context.Context, request prepeetapi.GetDeliveryRequestObject) (prepeetapi.GetDeliveryResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	delivery, err := i.flows.Delivery(ctx, principal.UserID, request.SessionID.String())
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	sessionID, err := uuid.Parse(delivery.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("api: the delivery's session id is not a uuid: %w", err)
+	}
+	var analysis map[string]any
+	if len(delivery.Analysis) > 0 {
+		if err := json.Unmarshal(delivery.Analysis, &analysis); err != nil {
+			return nil, fmt.Errorf("api: the stored analysis is not an object: %w", err)
+		}
+	}
+	if analysis == nil {
+		analysis = map[string]any{}
+	}
+	warnings := delivery.Warnings
+	if warnings == nil {
+		warnings = []string{}
+	}
+	note := ""
+	if delivery.Status == "not_assessable" {
+		note = FramingDeliveryNotAssessable
+	}
+	return prepeetapi.GetDelivery200JSONResponse{
+		Body: prepeetapi.DeliveryView{
+			SessionID: sessionID, Status: prepeetapi.DeliveryViewStatus(delivery.Status),
+			Warnings: warnings, Note: note,
+			CalculationVersion: delivery.CalculationVersion, PolicyVersion: delivery.PolicyVersion,
+			Analysis: analysis, CreatedAt: delivery.CreatedAt,
+		},
+		Headers: prepeetapi.GetDelivery200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
 // GetReview answers the derived coaching review.
 func (i *interviews) GetReview(ctx context.Context, request prepeetapi.GetReviewRequestObject) (prepeetapi.GetReviewResponseObject, error) {
 	presented := sessionTokenFromContext(ctx)
@@ -1162,6 +1225,7 @@ var (
 	_ prepeetapi.GetTranscriptResponseObject       = failure{}
 	_ prepeetapi.GetResultsResponseObject          = failure{}
 	_ prepeetapi.GetReviewResponseObject           = failure{}
+	_ prepeetapi.GetDeliveryResponseObject         = failure{}
 	_ prepeetapi.ListMySessionsResponseObject      = failure{}
 	_ prepeetapi.IngestServiceEventsResponseObject = failure{}
 	_ prepeetapi.GetInterviewBriefResponseObject   = failure{}
@@ -1177,6 +1241,7 @@ func (f failure) VisitReplayControlEventsResponse(w http.ResponseWriter) error {
 func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       { return f.write(w) }
 func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
+func (f failure) VisitGetDeliveryResponse(w http.ResponseWriter) error         { return f.write(w) }
 func (f failure) VisitListMySessionsResponse(w http.ResponseWriter) error      { return f.write(w) }
 func (f failure) VisitIngestServiceEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitGetInterviewBriefResponse(w http.ResponseWriter) error   { return f.write(w) }

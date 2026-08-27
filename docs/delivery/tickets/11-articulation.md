@@ -153,9 +153,24 @@ pace and pause visualisation with a table alternative, the ten dimensions, times
 observations, and the eight delivery drills.
 
 **Done when**
-- [ ] Every chart has a text summary and a table alternative.
+- [x] Every chart has a text summary and a table alternative.
 - [ ] Every observation plays the moment in the candidate's own recording.
-- [ ] A screening session shows the boundary explanation, not a locked page.
+- [x] A screening session shows the boundary explanation, not a locked page.
+
+**Built at /session/[id]/delivery from candidate-session-articulation, served by GET
+/interviews/{id}/delivery (the stored analysis document, DELIVERY_NOT_READY until the workflow
+lands).** Measurements with the calculator named on screen; the pace chart is a role=img
+labelled by its text summary with a full table alternative beside it (the first box, asserted
+by test); the ten dimensions each with level, reason and evidence, never summed (a test forbids
+a delivery score in the rendered page); at most two priorities with listener impact and one
+action; the suggested shape with placeholders marked in the DOM; the eight drills with the
+selected ones first. Two recorded deviations: the prototype's personal ranges are replaced by
+copy saying there is no correct rate and a personal range appears once ART-07 has enough
+sessions; and the recording is not yet served, so every observation jumps to its transcript
+moment by keyboard (proven) and the second box stays open until playback exists. The third box
+is structural today: no screening session can reach any candidate session surface (the
+API's practice-only enum), and the explanatory boundary copy lands with the SCR epic's screens
+behind DEC-11.
 
 **Spec** [articulation-system.md](../../architecture/articulation-system.md) · [information-architecture.md](../../product/information-architecture.md)
 

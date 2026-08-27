@@ -33,6 +33,30 @@ type interviewAdapter struct {
 	documents *objectstore.S3Store
 }
 
+// Delivery answers the owner's stored delivery analysis, ownership first.
+func (a interviewAdapter) Delivery(ctx context.Context, userID, sessionID string) (api.DeliveryAnalysisView, error) {
+	if _, err := a.sessions.Get(ctx, sessionID, "practice", userID, ""); err != nil {
+		if errors.Is(err, interview.ErrNotFound) {
+			return api.DeliveryAnalysisView{}, api.ErrSessionMissing
+		}
+		return api.DeliveryAnalysisView{}, err
+	}
+	articulation, err := a.results.ArticulationOf(ctx, evaluation.SessionRef{
+		SessionID: sessionID, Mode: "practice", CandidateID: userID,
+	})
+	if errors.Is(err, evaluation.ErrNoArticulation) {
+		return api.DeliveryAnalysisView{}, api.ErrDeliveryNotReady
+	}
+	if err != nil {
+		return api.DeliveryAnalysisView{}, err
+	}
+	return api.DeliveryAnalysisView{
+		SessionID: articulation.SessionID, Status: articulation.Status, Warnings: articulation.Warnings,
+		CalculationVersion: articulation.CalculationVersion, PolicyVersion: articulation.PolicyVersion,
+		Analysis: articulation.Document, CreatedAt: articulation.CreatedAt,
+	}, nil
+}
+
 // Review derives the coaching for the owner's evaluated session. The
 // derivation is pure and gated: coaching-1 over the stored evidence and
 // the sealed input, held to the fact-preservation gate before serving. A

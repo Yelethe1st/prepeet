@@ -38,6 +38,15 @@ type ServerConfig struct {
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
 	AgentToken string
+	// AttemptsPerAddress and AttemptsPerNetwork count authentication
+	// attempts (SEC-10). Nil allows everything, which is a local run and
+	// never a deployment.
+	AttemptsPerAddress Limiter
+	AttemptsPerNetwork Limiter
+	// TrustProxyHeaders says the deployment sits behind a proxy whose
+	// X-Forwarded-For may be believed. False means the transport's own
+	// remote address is used, which nobody can forge.
+	TrustProxyHeaders bool
 	// Health is consulted by the readiness probe. Optional: a nil registry
 	// reports ready, which is correct for a process with no dependencies.
 	Health *health.Registry
@@ -75,6 +84,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		authentication: authentication{
 			identity:    cfg.Identity,
 			environment: cfg.Environment,
+			limits: limits{
+				perAddress: cfg.AttemptsPerAddress,
+				perNetwork: cfg.AttemptsPerNetwork,
+			},
 		},
 		health: cfg.Health,
 	}
@@ -105,7 +118,7 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	}
 
 	strict := prepeetapi.NewStrictHandlerWithOptions(handlers,
-		[]prepeetapi.StrictMiddlewareFunc{carryCredentials},
+		[]prepeetapi.StrictMiddlewareFunc{carryCredentials(cfg.TrustProxyHeaders)},
 		prepeetapi.StrictHTTPServerOptions{
 			// The generated defaults answer with http.Error, which is plain
 			// text. That would make a malformed body the one failure in this
@@ -149,9 +162,11 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 // middleware could read the cookies but would have to smuggle them through the
 // request context anyway, and would run before the generated router had decided
 // which operation this is.
-func carryCredentials(f prepeetapi.StrictHandlerFunc, _ string) prepeetapi.StrictHandlerFunc {
-	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
-		return f(withCredentials(ctx, r), w, r, request)
+func carryCredentials(trustProxy bool) prepeetapi.StrictMiddlewareFunc {
+	return func(f prepeetapi.StrictHandlerFunc, _ string) prepeetapi.StrictHandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
+			return f(withCredentials(ctx, r, trustProxy), w, r, request)
+		}
 	}
 }
 

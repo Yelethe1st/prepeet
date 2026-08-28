@@ -32,11 +32,15 @@ type credentials struct {
 	// bearer is the Authorization header's token: the service credential
 	// the internal operations check, never a person's session.
 	bearer string
+	// network is the caller's network prefix, for counting attempts. Set
+	// by the middleware because a strict handler cannot reach the
+	// request, and never read from anything the caller can choose.
+	network string
 }
 
 // withCredentials reads the session and refresh cookies, and the bearer
 // header, into ctx.
-func withCredentials(ctx context.Context, r *http.Request) context.Context {
+func withCredentials(ctx context.Context, r *http.Request, trustProxy bool) context.Context {
 	bearer := ""
 	if header := r.Header.Get("Authorization"); strings.HasPrefix(header, "Bearer ") {
 		bearer = strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
@@ -45,7 +49,14 @@ func withCredentials(ctx context.Context, r *http.Request) context.Context {
 		session: SessionTokenFrom(r),
 		refresh: RefreshTokenFrom(r),
 		bearer:  bearer,
+		network: clientNetwork(r, trustProxy),
 	})
+}
+
+// networkFromContext returns the caller's network prefix, or empty.
+func networkFromContext(ctx context.Context) string {
+	presented, _ := ctx.Value(credentialsKey).(credentials)
+	return presented.network
 }
 
 // bearerFromContext returns the bearer token the request presented.

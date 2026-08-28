@@ -42,6 +42,12 @@ func (a *authentication) RequestTokenEmail(ctx context.Context, request prepeeta
 	if !tokenEmailKinds[request.Body.Kind] {
 		return a.failed(ctx, Invalid("kind", "KIND_INVALID", "that is not a token email kind")), nil
 	}
+	// One allowance per kind: exhausting password resets must not also
+	// stop somebody asking for a magic link.
+	if err := a.limits.check(ctx, "token-email:"+string(request.Body.Kind),
+		string(request.Body.Email), networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
 
 	if err := a.identity.RequestTokenEmail(ctx, string(request.Body.Kind), string(request.Body.Email)); err != nil {
 		return a.failed(ctx, err), nil
@@ -55,6 +61,11 @@ func (a *authentication) RequestTokenEmail(ctx context.Context, request prepeeta
 
 // ConfirmEmailVerification consumes a verification link.
 func (a *authentication) ConfirmEmailVerification(ctx context.Context, request prepeetapi.ConfirmEmailVerificationRequestObject) (prepeetapi.ConfirmEmailVerificationResponseObject, error) {
+	// A token guess has no address to count against, so the network
+	// carries it: unlimited guesses at a token are unlimited guesses.
+	if err := a.limits.check(ctx, "confirm-verification", "", networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
 	if err := a.identity.ConfirmEmailVerification(ctx, request.Body.Token); err != nil {
 		return a.failed(ctx, err), nil
 	}
@@ -65,6 +76,11 @@ func (a *authentication) ConfirmEmailVerification(ctx context.Context, request p
 
 // ConfirmPasswordReset consumes a recovery link and sets the new password.
 func (a *authentication) ConfirmPasswordReset(ctx context.Context, request prepeetapi.ConfirmPasswordResetRequestObject) (prepeetapi.ConfirmPasswordResetResponseObject, error) {
+	// A token guess has no address to count against, so the network
+	// carries it: unlimited guesses at a token are unlimited guesses.
+	if err := a.limits.check(ctx, "confirm-password-reset", "", networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
 	if err := a.identity.ConfirmPasswordReset(ctx, request.Body.Token, request.Body.Password); err != nil {
 		return a.failed(ctx, err), nil
 	}
@@ -75,6 +91,11 @@ func (a *authentication) ConfirmPasswordReset(ctx context.Context, request prepe
 
 // ConsumeMagicLink signs the holder of a sign-in link in.
 func (a *authentication) ConsumeMagicLink(ctx context.Context, request prepeetapi.ConsumeMagicLinkRequestObject) (prepeetapi.ConsumeMagicLinkResponseObject, error) {
+	// A token guess has no address to count against, so the network
+	// carries it: unlimited guesses at a token are unlimited guesses.
+	if err := a.limits.check(ctx, "consume-magic-link", "", networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
 	session, err := a.identity.ConsumeMagicLink(ctx, request.Body.Token)
 	if err != nil {
 		return a.failed(ctx, err), nil
@@ -88,6 +109,14 @@ func (a *authentication) ConsumeMagicLink(ctx context.Context, request prepeetap
 
 // ConsumeOTP exchanges an emailed code for a session.
 func (a *authentication) ConsumeOTP(ctx context.Context, request prepeetapi.ConsumeOTPRequestObject) (prepeetapi.ConsumeOTPResponseObject, error) {
+	// A six-digit code is a million guesses, which is minutes of traffic:
+	// this is the sharpest of these endpoints, and it has both an address
+	// and a network to count against.
+	if err := a.limits.check(ctx, "consume-otp",
+		string(request.Body.Email), networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
+
 	session, err := a.identity.ConsumeOTP(ctx, string(request.Body.Email), request.Body.Code)
 	if err != nil {
 		return a.failed(ctx, err), nil

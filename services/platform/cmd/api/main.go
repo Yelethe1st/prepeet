@@ -162,7 +162,13 @@ func main() {
 		},
 		Environment: cfg.Environment,
 		AgentToken:  cfg.AgentToken,
-		Health:      checks,
+		// SEC-10: the endpoints an attacker gets unlimited attempts at,
+		// counted in PostgreSQL so the limit does not multiply by the
+		// task count.
+		AttemptsPerAddress: authLimiter(pool, cfg.AuthAttemptsPerAddress, cfg.AuthAttemptWindow),
+		AttemptsPerNetwork: authLimiter(pool, cfg.AuthAttemptsPerNetwork, cfg.AuthAttemptWindow),
+		TrustProxyHeaders:  cfg.TrustProxyHeaders,
+		Health:             checks,
 	})
 	if err != nil {
 		// A wiring mistake is a startup failure rather than a nil dereference on

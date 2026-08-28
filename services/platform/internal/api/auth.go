@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -25,11 +26,17 @@ import (
 type authentication struct {
 	identity    Identity
 	environment config.Environment
+	// limits counts attempts at the endpoints an attacker gets unlimited
+	// tries at (SEC-10).
+	limits limits
 }
 
 // Register creates an account, and says the same thing either way.
 func (a *authentication) Register(ctx context.Context, request prepeetapi.RegisterRequestObject) (prepeetapi.RegisterResponseObject, error) {
 	body := request.Body
+	if err := a.limits.check(ctx, "register", string(body.Email), networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
 
 	organisation := ""
 	if body.OrganisationName != nil {
@@ -58,6 +65,12 @@ func (a *authentication) Register(ctx context.Context, request prepeetapi.Regist
 
 // Login exchanges credentials for a session.
 func (a *authentication) Login(ctx context.Context, request prepeetapi.LoginRequestObject) (prepeetapi.LoginResponseObject, error) {
+	// Counted before the work: a refused attempt must not cost the
+	// argon2id hash that makes this endpoint worth attacking.
+	if err := a.limits.check(ctx, "login", string(request.Body.Email), networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
+
 	session, err := a.identity.Authenticate(ctx, string(request.Body.Email), request.Body.Password)
 	if err != nil {
 		return a.failed(ctx, err), nil
@@ -380,6 +393,16 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.status = http.StatusConflict
 		base.code = string(prepeetapi.FORBIDDEN)
 		base.message = "That document is not in a state this operation applies to."
+		return base
+	}
+
+	var limited *RateLimitedError
+	if errors.As(err, &limited) {
+		base.status = http.StatusTooManyRequests
+		base.code = string(prepeetapi.RATELIMITED)
+		base.message = fmt.Sprintf(
+			"Too many attempts. Try again in %d seconds.", int(math.Ceil(limited.RetryAfter.Seconds())))
+		base.retryAfter = limited.RetryAfter
 		return base
 	}
 

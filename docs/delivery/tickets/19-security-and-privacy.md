@@ -147,9 +147,9 @@ to the authentication routes, which needs the handlers in IAM-01.
 - [x] The limiter cannot distinguish a registered address from an unknown one, because it never looks either up.
 - [x] An empty key is refused rather than collapsing every anonymous caller into one bucket.
 - [x] An unusable rule fails at construction rather than locking out every user at runtime.
-- [ ] Authentication endpoints are limited per address and per network, not per address alone, since one attacker with many addresses is the ordinary case.
-- [ ] A limited response is `429` with `Retry-After`, per ADR-0004.
-- [ ] Limits are configuration rather than constants, so they can be tightened during an incident.
+- [x] Authentication endpoints are limited per address and per network, not per address alone, since one attacker with many addresses is the ordinary case.
+- [x] A limited response is `429` with `Retry-After`, per ADR-0004.
+- [x] Limits are configuration rather than constants, so they can be tightened during an incident.
 - [x] Two instances share one count, so the limit does not multiply by the task count.
 - [x] Concurrent attempts are counted exactly, using one atomic statement rather than a read followed by a write.
 - [x] The limiter fails open when the database is unreachable, and says so, because authentication cannot happen without that database anyway.

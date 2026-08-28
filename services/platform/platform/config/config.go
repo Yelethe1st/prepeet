@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Lookup reads one configuration value. os.LookupEnv satisfies it.
@@ -88,6 +89,17 @@ type Config struct {
 	// AgentToken authenticates the voice agent's writes into the timeline.
 	// Empty disables the internal surface entirely.
 	AgentToken string
+
+	// Authentication rate limits (SEC-10). Configuration rather than
+	// constants, so they can be tightened during an incident without a
+	// deployment. Zero disables a counter, which is a local run.
+	AuthAttemptsPerAddress int
+	AuthAttemptsPerNetwork int
+	AuthAttemptWindow      time.Duration
+	// TrustProxyHeaders says a proxy in front of this process sets
+	// X-Forwarded-For and may be believed. False means the transport's
+	// own remote address is used, which nobody can forge.
+	TrustProxyHeaders bool
 
 	S3Endpoint     string
 	S3Region       string
@@ -167,26 +179,30 @@ func Load(lookup Lookup) (Config, error) {
 
 		OTLPEndpoint: value(lookup, "PREPEET_OTLP_ENDPOINT", ""),
 
-		TemporalAddress:     value(lookup, "PREPEET_TEMPORAL_ADDRESS", ""),
-		SMTPAddress:         value(lookup, "PREPEET_SMTP_ADDRESS", ""),
-		SMTPUsername:        value(lookup, "PREPEET_SMTP_USERNAME", ""),
-		SMTPPassword:        value(lookup, "PREPEET_SMTP_PASSWORD", ""),
-		EmailFrom:           value(lookup, "PREPEET_EMAIL_FROM", ""),
-		WebBaseURL:          value(lookup, "PREPEET_WEB_BASE_URL", ""),
-		LiveKitURL:          value(lookup, "PREPEET_LIVEKIT_URL", ""),
-		LiveKitAPIKey:       value(lookup, "PREPEET_LIVEKIT_API_KEY", ""),
-		LiveKitAPISecret:    value(lookup, "PREPEET_LIVEKIT_API_SECRET", ""),
-		LiveKitAPIURL:       value(lookup, "PREPEET_LIVEKIT_API_URL", ""),
-		AgentToken:          value(lookup, "PREPEET_AGENT_TOKEN", ""),
-		S3Endpoint:          value(lookup, "PREPEET_S3_ENDPOINT", ""),
-		S3Region:            value(lookup, "PREPEET_S3_REGION", "eu-west-2"),
-		S3Bucket:            value(lookup, "PREPEET_S3_BUCKET", ""),
-		S3AccessKey:         value(lookup, "PREPEET_S3_ACCESS_KEY", ""),
-		S3SecretKey:         value(lookup, "PREPEET_S3_SECRET_KEY", ""),
-		S3UsePathStyle:      value(lookup, "PREPEET_S3_PATH_STYLE", "") == "true",
-		IntelligenceAddress: value(lookup, "PREPEET_INTELLIGENCE_ADDRESS", ""),
-		TemporalTLSCertFile: value(lookup, "PREPEET_TEMPORAL_TLS_CERT_FILE", ""),
-		TemporalTLSKeyFile:  value(lookup, "PREPEET_TEMPORAL_TLS_KEY_FILE", ""),
+		TemporalAddress:        value(lookup, "PREPEET_TEMPORAL_ADDRESS", ""),
+		SMTPAddress:            value(lookup, "PREPEET_SMTP_ADDRESS", ""),
+		SMTPUsername:           value(lookup, "PREPEET_SMTP_USERNAME", ""),
+		SMTPPassword:           value(lookup, "PREPEET_SMTP_PASSWORD", ""),
+		EmailFrom:              value(lookup, "PREPEET_EMAIL_FROM", ""),
+		WebBaseURL:             value(lookup, "PREPEET_WEB_BASE_URL", ""),
+		LiveKitURL:             value(lookup, "PREPEET_LIVEKIT_URL", ""),
+		LiveKitAPIKey:          value(lookup, "PREPEET_LIVEKIT_API_KEY", ""),
+		LiveKitAPISecret:       value(lookup, "PREPEET_LIVEKIT_API_SECRET", ""),
+		LiveKitAPIURL:          value(lookup, "PREPEET_LIVEKIT_API_URL", ""),
+		AgentToken:             value(lookup, "PREPEET_AGENT_TOKEN", ""),
+		AuthAttemptsPerAddress: number(lookup, "PREPEET_AUTH_ATTEMPTS_PER_ADDRESS", 10),
+		AuthAttemptsPerNetwork: number(lookup, "PREPEET_AUTH_ATTEMPTS_PER_NETWORK", 60),
+		AuthAttemptWindow:      window(lookup, "PREPEET_AUTH_ATTEMPT_WINDOW", 15*time.Minute),
+		TrustProxyHeaders:      value(lookup, "PREPEET_TRUST_PROXY_HEADERS", "") == "true",
+		S3Endpoint:             value(lookup, "PREPEET_S3_ENDPOINT", ""),
+		S3Region:               value(lookup, "PREPEET_S3_REGION", "eu-west-2"),
+		S3Bucket:               value(lookup, "PREPEET_S3_BUCKET", ""),
+		S3AccessKey:            value(lookup, "PREPEET_S3_ACCESS_KEY", ""),
+		S3SecretKey:            value(lookup, "PREPEET_S3_SECRET_KEY", ""),
+		S3UsePathStyle:         value(lookup, "PREPEET_S3_PATH_STYLE", "") == "true",
+		IntelligenceAddress:    value(lookup, "PREPEET_INTELLIGENCE_ADDRESS", ""),
+		TemporalTLSCertFile:    value(lookup, "PREPEET_TEMPORAL_TLS_CERT_FILE", ""),
+		TemporalTLSKeyFile:     value(lookup, "PREPEET_TEMPORAL_TLS_KEY_FILE", ""),
 
 		// No defaults. See the field comments.
 		DatabaseURL:         value(lookup, "PREPEET_DATABASE_URL", ""),
@@ -244,4 +260,34 @@ func value(lookup Lookup, key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// number returns a positive integer setting, or the fallback.
+//
+// A value that does not parse, or is negative, falls back rather than
+// failing: a typo in a limit during an incident must not stop the process
+// from starting, and the fallback is a working limit rather than none.
+func number(lookup Lookup, key string, fallback int) int {
+	raw := value(lookup, key, "")
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed < 0 {
+		return fallback
+	}
+	return parsed
+}
+
+// window returns a duration setting, or the fallback, on the same terms.
+func window(lookup Lookup, key string, fallback time.Duration) time.Duration {
+	raw := value(lookup, key, "")
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := time.ParseDuration(raw)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }

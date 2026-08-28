@@ -24,7 +24,9 @@ import { confirmPasswordReset } from "@/lib/auth/api";
 function ResetPassword() {
   const token = useSearchParams().get("token") ?? "";
   const [phase, setPhase] = useState<
-    { state: "form" } | { state: "done" } | { state: "trouble"; code: TokenTroubleCode }
+    | { state: "form" }
+    | { state: "done" }
+    | { state: "trouble"; code: TokenTroubleCode }
   >(token ? { state: "form" } : { state: "trouble", code: "TOKEN_INVALID" });
 
   if (phase.state === "trouble") {

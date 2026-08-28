@@ -24,7 +24,9 @@ export function AuthCard({
   return (
     <div className="mx-auto w-full max-w-[420px] py-8">
       <h1 className="font-display text-2xl tracking-[-0.02em]">{title}</h1>
-      {lead ? <p className="mt-1.5 mb-6 text-sm leading-[1.55] text-fg-2">{lead}</p> : null}
+      {lead ? (
+        <p className="mt-1.5 mb-6 text-sm leading-[1.55] text-fg-2">{lead}</p>
+      ) : null}
       {children}
     </div>
   );

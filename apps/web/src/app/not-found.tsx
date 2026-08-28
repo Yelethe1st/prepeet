@@ -36,8 +36,9 @@ export default function NotFound() {
       factsTitle="What was requested"
     >
       <p>
-        There is nothing at this address. It may have been renamed, the thing it pointed at may
-        have been deleted, or the link may simply have a typo in it.
+        There is nothing at this address. It may have been renamed, the thing it
+        pointed at may have been deleted, or the link may simply have a typo in
+        it.
       </p>
     </ErrorScreen>
   );

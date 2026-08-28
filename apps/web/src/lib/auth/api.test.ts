@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { currentUser, listMemberships, register, setActiveTenant, signIn, signOut } from "./api";
+import {
+  currentUser,
+  listMemberships,
+  register,
+  setActiveTenant,
+  signIn,
+  signOut,
+} from "./api";
 
 /**
  * The authentication calls.
@@ -16,7 +23,10 @@ const fetchMock = vi.fn();
 beforeEach(() => {
   fetchMock.mockReset();
   fetchMock.mockResolvedValue(
-    new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } }),
+    new Response(JSON.stringify({}), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
   );
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -32,11 +42,18 @@ describe("auth api", () => {
     const [url, init] = lastCall();
     expect(url).toContain("/api/v1/auth/login");
     expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({ email: "a@b.co", password: "x" });
+    expect(JSON.parse(init.body as string)).toEqual({
+      email: "a@b.co",
+      password: "x",
+    });
   });
 
   it("registers by posting to the register route", async () => {
-    await register({ email: "a@b.co", password: "x", account_type: "candidate" });
+    await register({
+      email: "a@b.co",
+      password: "x",
+      account_type: "candidate",
+    });
 
     const [url, init] = lastCall();
     expect(url).toContain("/api/v1/auth/register");
@@ -84,7 +101,11 @@ describe("auth api", () => {
   it("returns only what the server describes, with no token to store", async () => {
     fetchMock.mockResolvedValue(
       new Response(
-        JSON.stringify({ user_id: "usr_1", expires_at: "2026-01-01T00:00:00Z", authenticated_at: "2026-01-01T00:00:00Z" }),
+        JSON.stringify({
+          user_id: "usr_1",
+          expires_at: "2026-01-01T00:00:00Z",
+          authenticated_at: "2026-01-01T00:00:00Z",
+        }),
         { status: 200, headers: { "content-type": "application/json" } },
       ),
     );
@@ -111,7 +132,9 @@ describe("workspace selection", () => {
     const [url, init] = lastCall();
     expect(url).toContain("/api/v1/me/active-tenant");
     expect(init.method).toBe("PUT");
-    expect(JSON.parse(init.body as string)).toEqual({ tenant_id: "t-northwind" });
+    expect(JSON.parse(init.body as string)).toEqual({
+      tenant_id: "t-northwind",
+    });
   });
 
   /**
@@ -142,7 +165,10 @@ describe("token flow api", () => {
 
     const [url, init] = lastCall();
     expect(url).toContain("/api/v1/auth/email/request");
-    expect(JSON.parse(init.body as string)).toEqual({ kind: "password_reset", email: "a@b.co" });
+    expect(JSON.parse(init.body as string)).toEqual({
+      kind: "password_reset",
+      email: "a@b.co",
+    });
   });
 
   it("confirms a verification token", async () => {
@@ -180,6 +206,9 @@ describe("token flow api", () => {
 
     const [url, init] = lastCall();
     expect(url).toContain("/api/v1/auth/otp/consume");
-    expect(JSON.parse(init.body as string)).toEqual({ email: "a@b.co", code: "123456" });
+    expect(JSON.parse(init.body as string)).toEqual({
+      email: "a@b.co",
+      code: "123456",
+    });
   });
 });

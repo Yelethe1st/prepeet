@@ -40,7 +40,9 @@ function AccessDenied() {
 
   const facts = [
     from ? { label: "Route requested", value: from, mono: true } : null,
-    required ? { label: "Required capability", value: required, mono: true } : null,
+    required
+      ? { label: "Required capability", value: required, mono: true }
+      : null,
     required
       ? {
           label: "Held in this area",
@@ -48,7 +50,10 @@ function AccessDenied() {
           mono: true,
         }
       : null,
-    { label: "Decision", value: "Refused at the authorization boundary. No data was read." },
+    {
+      label: "Decision",
+      value: "Refused at the authorization boundary. No data was read.",
+    },
     reference ? { label: "Reference", value: reference, mono: true } : null,
   ].filter((fact) => fact !== null);
 
@@ -70,8 +75,9 @@ function AccessDenied() {
       factsTitle="What was requested, and why it was refused"
     >
       <p>
-        Nothing has gone wrong with your account — this one route is closed to your session. If you
-        need it, your workspace admin can grant the capability named below.
+        Nothing has gone wrong with your account — this one route is closed to
+        your session. If you need it, your workspace admin can grant the
+        capability named below.
       </p>
     </ErrorScreen>
   );

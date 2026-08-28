@@ -29,7 +29,10 @@ const troubleCodes: ReadonlySet<string> = new Set([
   "TOKEN_SUPERSEDED",
 ]);
 
-type Phase = { state: "checking" } | { state: "done" } | { state: "trouble"; code: TokenTroubleCode };
+type Phase =
+  | { state: "checking" }
+  | { state: "done" }
+  | { state: "trouble"; code: TokenTroubleCode };
 
 interface TokenConsumerProps {
   /** The token from the link, or empty when the URL carried none. */
@@ -86,7 +89,13 @@ export function TokenConsumer({
   }
 
   if (phase.state === "trouble") {
-    return <TokenTrouble code={phase.code} requestHref={requestHref} requestLabel={requestLabel} />;
+    return (
+      <TokenTrouble
+        code={phase.code}
+        requestHref={requestHref}
+        requestLabel={requestLabel}
+      />
+    );
   }
 
   return <div aria-live="polite">{done}</div>;

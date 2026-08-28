@@ -28,7 +28,11 @@ export function QueryProvider({ children }: { children: ReactNode }) {
              * reason. It also delays the screen that explains what happened.
              */
             retry: (attempt, error) => {
-              if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+              if (
+                error instanceof ApiError &&
+                error.status >= 400 &&
+                error.status < 500
+              ) {
                 return false;
               }
               return attempt < 2;

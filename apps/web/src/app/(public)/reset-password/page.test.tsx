@@ -25,9 +25,17 @@ beforeEach(() => {
 });
 
 async function saveNewPassword() {
-  await userEvent.type(screen.getByLabelText(/^new password$/i), "a completely new passphrase");
-  await userEvent.type(screen.getByLabelText(/confirm/i), "a completely new passphrase");
-  await userEvent.click(screen.getByRole("button", { name: /save new password/i }));
+  await userEvent.type(
+    screen.getByLabelText(/^new password$/i),
+    "a completely new passphrase",
+  );
+  await userEvent.type(
+    screen.getByLabelText(/confirm/i),
+    "a completely new passphrase",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: /save new password/i }),
+  );
 }
 
 describe("ResetPasswordPage", () => {
@@ -38,12 +46,20 @@ describe("ResetPasswordPage", () => {
     await saveNewPassword();
 
     await waitFor(() =>
-      expect(screen.getByText(/every other device is signed out/i)).toBeInTheDocument(),
+      expect(
+        screen.getByText(/every other device is signed out/i),
+      ).toBeInTheDocument(),
     );
-    expect(confirmPasswordReset).toHaveBeenCalledWith("rst_x", "a completely new passphrase");
+    expect(confirmPasswordReset).toHaveBeenCalledWith(
+      "rst_x",
+      "a completely new passphrase",
+    );
     // Success routes to sign-in rather than issuing a session: the reset just
     // revoked every session, including any this browser held.
-    expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute(
+      "href",
+      "/login",
+    );
   });
 
   it("shows the trouble screen when the link is dead", async () => {
@@ -54,14 +70,18 @@ describe("ResetPasswordPage", () => {
 
     await saveNewPassword();
 
-    expect(await screen.findByRole("heading", { name: /newer email/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /newer email/i }),
+    ).toBeInTheDocument();
   });
 
   it("treats a missing token as an invalid link, with no form to fill", () => {
     search = new URLSearchParams();
     render(<ResetPasswordPage />);
 
-    expect(screen.getByRole("heading", { name: /not valid/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /not valid/i }),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText(/^new password$/i)).not.toBeInTheDocument();
   });
 });

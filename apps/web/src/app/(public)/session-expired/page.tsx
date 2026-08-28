@@ -35,12 +35,12 @@ export default function SessionExpiredPage() {
       }
     >
       <p>
-        Sessions end after a fixed time, or when your password changes, or when you sign out on
-        another device. It is not something you did.
+        Sessions end after a fixed time, or when your password changes, or when
+        you sign out on another device. It is not something you did.
       </p>
       <p>
-        Nothing on the server was lost: anything you completed was saved when you completed it.
-        Signing in again picks up where the record left off.
+        Nothing on the server was lost: anything you completed was saved when
+        you completed it. Signing in again picks up where the record left off.
       </p>
     </ErrorScreen>
   );

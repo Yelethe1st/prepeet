@@ -28,15 +28,23 @@ describe("AuthShell", () => {
   });
 
   it("puts the form in the main landmark", () => {
-    render(<AuthShell><button type="button">Sign in</button></AuthShell>);
+    render(
+      <AuthShell>
+        <button type="button">Sign in</button>
+      </AuthShell>,
+    );
 
-    expect(screen.getByRole("main")).toContainElement(screen.getByRole("button"));
+    expect(screen.getByRole("main")).toContainElement(
+      screen.getByRole("button"),
+    );
   });
 
   it("names the side panel, so it is skippable rather than anonymous", () => {
     render(<AuthShell>form</AuthShell>);
 
-    expect(screen.getByRole("complementary")).toHaveAccessibleName(/why people practise/i);
+    expect(screen.getByRole("complementary")).toHaveAccessibleName(
+      /why people practise/i,
+    );
   });
 
   it("has no accessibility violations", async () => {

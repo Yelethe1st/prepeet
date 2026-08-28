@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "ES2022"
-    ],
+    "lib": ["dom", "dom.iterable", "ES2022"],
     "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
@@ -25,12 +21,8 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@contracts": [
-        "../../packages/generated/typescript/api.gen.ts"
-      ],
+      "@/*": ["./src/*"],
+      "@contracts": ["../../packages/generated/typescript/api.gen.ts"],
       "@contracts/capabilities": [
         "../../packages/generated/typescript/capabilities.gen.ts"
       ]
@@ -45,9 +37,5 @@
     "../../packages/generated/typescript/api.gen.ts",
     "../../packages/generated/typescript/capabilities.gen.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "e2e",
-    "playwright.config.ts"
-  ]
+  "exclude": ["node_modules", "e2e", "playwright.config.ts"]
 }

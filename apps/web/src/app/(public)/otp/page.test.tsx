@@ -39,8 +39,13 @@ describe("OtpPage", () => {
     requestTokenEmail.mockResolvedValue(undefined);
     render(<OtpPage />);
 
-    await userEvent.type(screen.getByLabelText(/email address/i), "amara.eze@example.com");
-    await userEvent.click(screen.getByRole("button", { name: /email me a code/i }));
+    await userEvent.type(
+      screen.getByLabelText(/email address/i),
+      "amara.eze@example.com",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /email me a code/i }),
+    );
 
     expect(await screen.findByLabelText(/six-digit code/i)).toBeInTheDocument();
   });
@@ -66,7 +71,11 @@ describe("OtpPage", () => {
   it("shows the exhausted screen once the code is guessed dead", async () => {
     rememberSentEmail({ kind: "otp", email: "amara.eze@example.com" });
     consumeOtp.mockRejectedValue(
-      new ApiError({ status: 422, code: "CODE_ATTEMPTS_EXHAUSTED", message: "x" }),
+      new ApiError({
+        status: 422,
+        code: "CODE_ATTEMPTS_EXHAUSTED",
+        message: "x",
+      }),
     );
     render(<OtpPage />);
 
@@ -76,6 +85,8 @@ describe("OtpPage", () => {
     expect(
       await screen.findByRole("heading", { name: /too many incorrect codes/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /send a new code/i })).toHaveAttribute("href", "/otp");
+    expect(
+      screen.getByRole("link", { name: /send a new code/i }),
+    ).toHaveAttribute("href", "/otp");
   });
 });

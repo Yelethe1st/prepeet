@@ -6,8 +6,14 @@ describe("sentEmail storage", () => {
   beforeEach(() => sessionStorage.clear());
 
   it("round-trips what was sent", () => {
-    rememberSentEmail({ kind: "password_reset", email: "amara.eze@example.com" });
-    expect(readSentEmail()).toEqual({ kind: "password_reset", email: "amara.eze@example.com" });
+    rememberSentEmail({
+      kind: "password_reset",
+      email: "amara.eze@example.com",
+    });
+    expect(readSentEmail()).toEqual({
+      kind: "password_reset",
+      email: "amara.eze@example.com",
+    });
   });
 
   it("returns null for an empty tab", () => {
@@ -26,7 +32,9 @@ describe("sentEmail storage", () => {
 describe("maskEmail", () => {
   it("keeps the first and last letter and the domain", () => {
     // The prototype's shape: recognisable to its owner, useless to a shoulder.
-    expect(maskEmail("daniel.okonkwo@example.com")).toBe("d•••••••••o@example.com");
+    expect(maskEmail("daniel.okonkwo@example.com")).toBe(
+      "d•••••••••o@example.com",
+    );
   });
 
   it("does not reveal a short local part by masking nothing", () => {

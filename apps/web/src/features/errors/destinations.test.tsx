@@ -43,9 +43,13 @@ describe("the five destinations", () => {
   it("404 says nothing exists there and shows what was requested", () => {
     render(<NotFound />);
 
-    expect(screen.getByRole("heading", { name: /could not find/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /could not find/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("/candidate/sessions/archive")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /dashboard/i }),
+    ).toBeInTheDocument();
   });
 
   it("500 leads with whose fault it was and carries the reference support acts on", () => {
@@ -73,7 +77,9 @@ describe("the five destinations", () => {
     );
     render(<AccessDeniedPage />);
 
-    expect(screen.getByRole("heading", { name: /cannot open/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /cannot open/i }),
+    ).toBeInTheDocument();
     // The criterion, both halves: required, and currently held.
     expect(screen.getByText("tenant.member_manage")).toBeInTheDocument();
     expect(screen.getByText("tenant.member_view")).toBeInTheDocument();
@@ -82,7 +88,9 @@ describe("the five destinations", () => {
     expect(screen.queryByText(/practice.read_own/)).not.toBeInTheDocument();
     expect(screen.getByText("req_01K3")).toBeInTheDocument();
     // The reassurance that stops the log-out-and-back-in ritual.
-    expect(screen.getByText(/nothing has gone wrong with your account/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/nothing has gone wrong with your account/i),
+    ).toBeInTheDocument();
   });
 
   it("403 says none rather than hiding the row when nothing nearby is held", () => {
@@ -96,23 +104,27 @@ describe("the five destinations", () => {
   it("session-expired is an interruption explained, not a login bounce", () => {
     render(<SessionExpiredPage />);
 
-    expect(screen.getByRole("heading", { name: /session has ended/i })).toBeInTheDocument();
-    expect(screen.getByText(/nothing on the server was lost/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /sign in again/i })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(
+      screen.getByRole("heading", { name: /session has ended/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/nothing on the server was lost/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /sign in again/i }),
+    ).toHaveAttribute("href", "/login");
   });
 
   it("no-workspace is not a refusal, and practice is the real way forward", () => {
     render(<NoWorkspacePage />);
 
-    expect(screen.getByRole("heading", { name: /no workspace/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /no workspace/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/your account is fine/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /practise for yourself/i })).toHaveAttribute(
-      "href",
-      "/practice",
-    );
+    expect(
+      screen.getByRole("link", { name: /practise for yourself/i }),
+    ).toHaveAttribute("href", "/practice");
     // The separation, stated where somebody just lost a workspace and may
     // wonder what else went with it.
     expect(screen.getByText(/no employer can see it/i)).toBeInTheDocument();
@@ -128,14 +140,19 @@ describe("the five destinations", () => {
       () => render(<NotFound />),
       () =>
         render(
-          <ErrorBoundary error={Object.assign(new Error("x"), { digest: "d" })} reset={vi.fn()} />,
+          <ErrorBoundary
+            error={Object.assign(new Error("x"), { digest: "d" })}
+            reset={vi.fn()}
+          />,
         ),
       () => render(<AccessDeniedPage />),
       () => render(<SessionExpiredPage />),
       () => render(<NoWorkspacePage />),
     ]) {
       const { unmount } = destination();
-      headlines.add(screen.getByRole("heading", { level: 1 }).textContent ?? "");
+      headlines.add(
+        screen.getByRole("heading", { level: 1 }).textContent ?? "",
+      );
       unmount();
     }
 

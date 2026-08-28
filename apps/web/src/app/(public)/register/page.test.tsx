@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
 const register = vi.fn();
-vi.mock("@/lib/auth/api", () => ({ register: (...args: unknown[]) => register(...args) }));
+vi.mock("@/lib/auth/api", () => ({
+  register: (...args: unknown[]) => register(...args),
+}));
 
 import RegisterPage from "./page";
 
@@ -24,15 +26,23 @@ describe("RegisterPage", () => {
   it("renders the form", () => {
     render(<RegisterPage />);
 
-    expect(screen.getByRole("heading", { name: /create/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /create/i }),
+    ).toBeInTheDocument();
   });
 
   it("calls the real registration", async () => {
     register.mockResolvedValue(undefined);
     render(<RegisterPage />);
 
-    await userEvent.type(screen.getByLabelText(/email/i), "daniel.okonkwo@example.com");
-    await userEvent.type(screen.getByLabelText(/^password$/i), "a-long-enough-password");
+    await userEvent.type(
+      screen.getByLabelText(/email/i),
+      "daniel.okonkwo@example.com",
+    );
+    await userEvent.type(
+      screen.getByLabelText(/^password$/i),
+      "a-long-enough-password",
+    );
     await userEvent.click(screen.getByRole("button", { name: /create/i }));
 
     expect(register).toHaveBeenCalledWith({
@@ -46,17 +56,28 @@ describe("RegisterPage", () => {
     register.mockResolvedValue(undefined);
     render(<RegisterPage />);
 
-    await userEvent.type(screen.getByLabelText(/email/i), "daniel.okonkwo@example.com");
-    await userEvent.type(screen.getByLabelText(/^password$/i), "a-long-enough-password");
+    await userEvent.type(
+      screen.getByLabelText(/email/i),
+      "daniel.okonkwo@example.com",
+    );
+    await userEvent.type(
+      screen.getByLabelText(/^password$/i),
+      "a-long-enough-password",
+    );
     await userEvent.click(screen.getByRole("button", { name: /create/i }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(/check your email/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /check your email/i,
+    );
   });
 
   it("offers a way back to signing in", () => {
     render(<RegisterPage />);
 
-    expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute(
+      "href",
+      "/login",
+    );
   });
 
   it("has no accessibility violations", async () => {

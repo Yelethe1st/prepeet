@@ -25,10 +25,15 @@ beforeEach(() => {
 });
 
 function renderForm() {
-  return render(<RegisterForm register={register} onRegistered={onRegistered} />);
+  return render(
+    <RegisterForm register={register} onRegistered={onRegistered} />,
+  );
 }
 
-async function fill(email = "daniel.okonkwo@example.com", password = "a-long-enough-password") {
+async function fill(
+  email = "daniel.okonkwo@example.com",
+  password = "a-long-enough-password",
+) {
   await userEvent.type(screen.getByLabelText(/email/i), email);
   await userEvent.type(screen.getByLabelText(/^password$/i), password);
 }
@@ -51,24 +56,35 @@ describe("RegisterForm", () => {
   it("does not ask a candidate for an organisation name", () => {
     renderForm();
 
-    expect(screen.queryByLabelText(/organisation name/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/organisation name/i),
+    ).not.toBeInTheDocument();
   });
 
   it("asks for the organisation name once that account type is chosen", async () => {
     renderForm();
 
-    await userEvent.click(screen.getByRole("radio", { name: /screen candidates/i }));
+    await userEvent.click(
+      screen.getByRole("radio", { name: /screen candidates/i }),
+    );
 
-    expect(await screen.findByLabelText(/organisation name/i)).toBeInTheDocument();
+    expect(
+      await screen.findByLabelText(/organisation name/i),
+    ).toBeInTheDocument();
   });
 
   it("sends the organisation name with an organisation registration", async () => {
     register.mockResolvedValue(undefined);
     renderForm();
 
-    await userEvent.click(screen.getByRole("radio", { name: /screen candidates/i }));
+    await userEvent.click(
+      screen.getByRole("radio", { name: /screen candidates/i }),
+    );
     await fill();
-    await userEvent.type(await screen.findByLabelText(/organisation name/i), "Northwind Recruiting");
+    await userEvent.type(
+      await screen.findByLabelText(/organisation name/i),
+      "Northwind Recruiting",
+    );
     await userEvent.click(screen.getByRole("button", { name: /create/i }));
 
     expect(register).toHaveBeenCalledWith({
@@ -94,7 +110,12 @@ describe("RegisterForm", () => {
 
     const confirmation = await screen.findByRole("status");
     expect(confirmation).toHaveTextContent(/check/i);
-    for (const leak of [/already/i, /existing account/i, /new account/i, /created/i]) {
+    for (const leak of [
+      /already/i,
+      /existing account/i,
+      /new account/i,
+      /created/i,
+    ]) {
       expect(confirmation).not.toHaveTextContent(leak);
     }
   });
@@ -130,7 +151,9 @@ describe("RegisterForm", () => {
     await userEvent.click(screen.getByRole("button", { name: /create/i }));
 
     const password = screen.getByLabelText(/^password$/i);
-    await waitFor(() => expect(password).toHaveAttribute("aria-invalid", "true"));
+    await waitFor(() =>
+      expect(password).toHaveAttribute("aria-invalid", "true"),
+    );
     expect(password).toHaveAccessibleDescription(/at least 12 characters/i);
   });
 
@@ -140,24 +163,38 @@ describe("RegisterForm", () => {
         status: 400,
         code: "VALIDATION_FAILED",
         message: "Some of the details were not accepted.",
-        fieldErrors: { organisation_name: "An organisation registration needs a name." },
+        fieldErrors: {
+          organisation_name: "An organisation registration needs a name.",
+        },
       }),
     );
     renderForm();
 
-    await userEvent.click(screen.getByRole("radio", { name: /screen candidates/i }));
+    await userEvent.click(
+      screen.getByRole("radio", { name: /screen candidates/i }),
+    );
     await fill();
-    await userEvent.type(await screen.findByLabelText(/organisation name/i), "x");
+    await userEvent.type(
+      await screen.findByLabelText(/organisation name/i),
+      "x",
+    );
     await userEvent.click(screen.getByRole("button", { name: /create/i }));
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/organisation name/i)).toHaveAttribute("aria-invalid", "true"),
+      expect(screen.getByLabelText(/organisation name/i)).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      ),
     );
   });
 
   it("cannot be submitted twice while the first attempt is in flight", async () => {
     let release: () => void = () => {};
-    register.mockReturnValue(new Promise<void>((resolve) => { release = resolve; }));
+    register.mockReturnValue(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    );
     renderForm();
 
     await fill();
@@ -174,7 +211,10 @@ describe("RegisterForm", () => {
   it("asks the browser for a new password rather than an existing one", () => {
     renderForm();
 
-    expect(screen.getByLabelText(/^password$/i)).toHaveAttribute("autocomplete", "new-password");
+    expect(screen.getByLabelText(/^password$/i)).toHaveAttribute(
+      "autocomplete",
+      "new-password",
+    );
   });
 
   it("does not render the password as text", async () => {
@@ -195,7 +235,9 @@ describe("RegisterForm", () => {
   it("has no accessibility violations in the organisation branch", async () => {
     const { container } = renderForm();
 
-    await userEvent.click(screen.getByRole("radio", { name: /screen candidates/i }));
+    await userEvent.click(
+      screen.getByRole("radio", { name: /screen candidates/i }),
+    );
     await screen.findByLabelText(/organisation name/i);
 
     expect(await axe(container)).toHaveNoViolations();
@@ -204,7 +246,9 @@ describe("RegisterForm", () => {
 
 describe("RegisterForm with an unexpected failure", () => {
   it("shows a message of its own rather than the exception's", async () => {
-    register.mockRejectedValue(new TypeError("Cannot read properties of undefined"));
+    register.mockRejectedValue(
+      new TypeError("Cannot read properties of undefined"),
+    );
     renderForm();
 
     await fill();
@@ -229,7 +273,11 @@ describe("RegisterForm with an unexpected failure", () => {
 
   it("offers the correlation identifier when the server sent one", async () => {
     register.mockRejectedValue(
-      new ApiError({ status: 500, message: "Something went wrong.", requestId: "req_01a03" }),
+      new ApiError({
+        status: 500,
+        message: "Something went wrong.",
+        requestId: "req_01a03",
+      }),
     );
     renderForm();
 
@@ -244,12 +292,18 @@ describe("RegisterForm from the keyboard", () => {
   it("changes account type with the arrow keys, as a radio group should", async () => {
     renderForm();
 
-    const candidate = screen.getByRole("radio", { name: /practise interviews/i });
+    const candidate = screen.getByRole("radio", {
+      name: /practise interviews/i,
+    });
     candidate.focus();
     await userEvent.keyboard("{ArrowDown}");
 
-    expect(screen.getByRole("radio", { name: /screen candidates/i })).toBeChecked();
-    expect(await screen.findByLabelText(/organisation name/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /screen candidates/i }),
+    ).toBeChecked();
+    expect(
+      await screen.findByLabelText(/organisation name/i),
+    ).toBeInTheDocument();
   });
 
   it("submits on Enter", async () => {

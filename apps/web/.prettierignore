@@ -1,0 +1,22 @@
+# Build output and dependencies.
+.next
+node_modules
+coverage
+playwright-report
+test-results
+
+# Visual baselines. Binary, and rewritten only by the browser suite.
+e2e/**/*-snapshots
+
+# The ported design tokens.
+#
+# This file is a port of screens/assets/css/tokens.css and is byte-identical to
+# it wherever it can be, which is what lets somebody diff the two and see that
+# the port has not drifted from the design source. Formatting it lowercases
+# every hex, drops the column alignment the prototype uses to make a palette
+# scannable, and splits its selectors, so the diff against the source stops
+# saying anything.
+#
+# It is the only file with this exemption, and it has it because it is the only
+# file whose job is to be identical to something outside the repository.
+src/shared/styles/tokens.css

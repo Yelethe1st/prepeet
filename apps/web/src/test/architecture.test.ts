@@ -38,7 +38,9 @@ function sourceFiles(directory: string): string[] {
 /** The module specifiers a file imports. */
 function imports(file: string): string[] {
   const source = readFileSync(file, "utf8");
-  return [...source.matchAll(/from\s+["']([^"']+)["']/g)].map((match) => match[1] as string);
+  return [...source.matchAll(/from\s+["']([^"']+)["']/g)].map(
+    (match) => match[1] as string,
+  );
 }
 
 function named(file: string): string {
@@ -91,7 +93,10 @@ describe("boundaries", () => {
 
     for (const file of sourceFiles(join(root, "shared"))) {
       for (const specifier of imports(file)) {
-        if (specifier.startsWith("@/features/") || specifier.startsWith("@/app/")) {
+        if (
+          specifier.startsWith("@/features/") ||
+          specifier.startsWith("@/app/")
+        ) {
           crossings.push(`${named(file)} imports ${specifier}`);
         }
       }
@@ -109,7 +114,10 @@ describe("boundaries", () => {
 
     for (const file of sourceFiles(join(root, "lib"))) {
       for (const specifier of imports(file)) {
-        if (specifier.startsWith("@/features/") || specifier.startsWith("@/app/")) {
+        if (
+          specifier.startsWith("@/features/") ||
+          specifier.startsWith("@/app/")
+        ) {
           crossings.push(`${named(file)} imports ${specifier}`);
         }
       }
@@ -157,7 +165,12 @@ describe("boundaries", () => {
 
       const lines = readFileSync(file, "utf8")
         .split("\n")
-        .filter((line) => line.trim() !== "" && !line.trim().startsWith("*") && !line.trim().startsWith("//"))
+        .filter(
+          (line) =>
+            line.trim() !== "" &&
+            !line.trim().startsWith("*") &&
+            !line.trim().startsWith("//"),
+        )
         .filter((line) => !line.trim().startsWith("/*"));
 
       // Generous, and a ceiling rather than a target. A route longer than this
@@ -175,13 +188,17 @@ describe("boundaries", () => {
    * A directory nobody described is a directory anybody can put anything in.
    */
   it("describes every area of the tree", () => {
-    const undescribed = ["app", "features", "lib", "shared", "test"].filter((area) => {
-      try {
-        return readFileSync(join(root, area, "README.md"), "utf8").trim() === "";
-      } catch {
-        return true;
-      }
-    });
+    const undescribed = ["app", "features", "lib", "shared", "test"].filter(
+      (area) => {
+        try {
+          return (
+            readFileSync(join(root, area, "README.md"), "utf8").trim() === ""
+          );
+        } catch {
+          return true;
+        }
+      },
+    );
 
     expect(undescribed).toEqual([]);
   });

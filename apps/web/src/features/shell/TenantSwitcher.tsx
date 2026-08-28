@@ -33,13 +33,19 @@ export interface TenantSwitcherProps {
  * assistive technology, and it can be styled without any of that being
  * reimplemented.
  */
-export function TenantSwitcher({ memberships, activeTenantId, onSwitch }: TenantSwitcherProps) {
+export function TenantSwitcher({
+  memberships,
+  activeTenantId,
+  onSwitch,
+}: TenantSwitcherProps) {
   const [switching, setSwitching] = useState(false);
   const [failed, setFailed] = useState(false);
 
   // Revoked memberships are listed by the server so an interface can explain
   // where a workspace went. They are not somewhere to act.
-  const available = memberships.filter((membership) => membership.status !== "revoked");
+  const available = memberships.filter(
+    (membership) => membership.status !== "revoked",
+  );
 
   // One workspace is not a choice, and a control offering a single option only
   // invites a misclick. None is not a choice either.
@@ -66,7 +72,9 @@ export function TenantSwitcher({ memberships, activeTenantId, onSwitch }: Tenant
     }
   }
 
-  const active = available.find((membership) => membership.tenantId === activeTenantId);
+  const active = available.find(
+    (membership) => membership.tenantId === activeTenantId,
+  );
 
   return (
     <div>
@@ -90,7 +98,9 @@ export function TenantSwitcher({ memberships, activeTenantId, onSwitch }: Tenant
           aria-label="Active workspace"
         >
           <span className="truncate">
-            <Select.Value placeholder="Choose a workspace">{active?.tenantName}</Select.Value>
+            <Select.Value placeholder="Choose a workspace">
+              {active?.tenantName}
+            </Select.Value>
           </span>
           <Select.Icon className="flex-none" aria-hidden="true">
             ▾
@@ -123,7 +133,8 @@ export function TenantSwitcher({ memberships, activeTenantId, onSwitch }: Tenant
 
       {failed ? (
         <Banner tone="danger">
-          <strong>That workspace could not be opened.</strong> You are still in the one you were in.
+          <strong>That workspace could not be opened.</strong> You are still in
+          the one you were in.
         </Banner>
       ) : null}
     </div>

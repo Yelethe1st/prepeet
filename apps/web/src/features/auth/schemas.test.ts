@@ -36,7 +36,10 @@ describe("signing in", () => {
    * accounts.
    */
   it("does not impose a length rule on an existing password", () => {
-    const result = signInSchema.safeParse({ email: "a@b.co", password: "short" });
+    const result = signInSchema.safeParse({
+      email: "a@b.co",
+      password: "short",
+    });
 
     expect(result.success).toBe(true);
   });
@@ -48,7 +51,10 @@ describe("signing in", () => {
   });
 
   it("catches something that is not an address", () => {
-    const result = signInSchema.safeParse({ email: "not-an-address", password: "x" });
+    const result = signInSchema.safeParse({
+      email: "not-an-address",
+      password: "x",
+    });
 
     expect(result.success).toBe(false);
   });
@@ -151,37 +157,54 @@ describe("the password minimum", () => {
     const { resolve } = await import("node:path");
 
     const identity = readFileSync(
-      resolve(process.cwd(), "../../services/platform/internal/identity/identity.go"),
+      resolve(
+        process.cwd(),
+        "../../services/platform/internal/identity/identity.go",
+      ),
       "utf8",
     );
 
     const declared = /minPasswordLength\s*=\s*(\d+)/.exec(identity);
 
-    expect(declared, "minPasswordLength was not found in the identity package").not.toBeNull();
-    expect(Number(declared?.[1]), `the browser requires ${MINIMUM_PASSWORD_LENGTH}`).toBe(
-      MINIMUM_PASSWORD_LENGTH,
-    );
+    expect(
+      declared,
+      "minPasswordLength was not found in the identity package",
+    ).not.toBeNull();
+    expect(
+      Number(declared?.[1]),
+      `the browser requires ${MINIMUM_PASSWORD_LENGTH}`,
+    ).toBe(MINIMUM_PASSWORD_LENGTH);
   });
 });
 
 describe("forgotPasswordSchema", () => {
   it("normalises the address the way the server will", () => {
-    const parsed = forgotPasswordSchema.parse({ email: "  Amara.Eze@Example.COM " });
+    const parsed = forgotPasswordSchema.parse({
+      email: "  Amara.Eze@Example.COM ",
+    });
     expect(parsed.email).toBe("amara.eze@example.com");
   });
 
   it("refuses a non-address", () => {
-    expect(forgotPasswordSchema.safeParse({ email: "not-an-address" }).success).toBe(false);
+    expect(
+      forgotPasswordSchema.safeParse({ email: "not-an-address" }).success,
+    ).toBe(false);
   });
 });
 
 describe("resetPasswordSchema", () => {
   it("holds the new password to the same floor as registration", () => {
-    const short = resetPasswordSchema.safeParse({ password: "eleven chars", confirm: "eleven chars" });
+    const short = resetPasswordSchema.safeParse({
+      password: "eleven chars",
+      confirm: "eleven chars",
+    });
     // "eleven chars" is 12 characters, which is exactly the floor.
     expect(short.success).toBe(true);
 
-    const tooShort = resetPasswordSchema.safeParse({ password: "elevenchars", confirm: "elevenchars" });
+    const tooShort = resetPasswordSchema.safeParse({
+      password: "elevenchars",
+      confirm: "elevenchars",
+    });
     expect(tooShort.success).toBe(false);
   });
 

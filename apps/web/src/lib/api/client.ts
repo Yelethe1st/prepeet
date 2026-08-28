@@ -36,7 +36,8 @@ const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 /** A message for a person, used when the server did not provide one. */
 const fallbackMessage = "Something went wrong. Please try again.";
-const offlineMessage = "We could not reach Prepeet. Check your connection and try again.";
+const offlineMessage =
+  "We could not reach Prepeet. Check your connection and try again.";
 
 /**
  * ApiError is every way a call can fail, in one shape.
@@ -98,7 +99,10 @@ export interface ApiRequest extends Omit<RequestInit, "body"> {
  * It throws ApiError for anything that is not a success, so a caller writes the
  * happy path and handles failure in one place rather than branching on status.
  */
-export async function apiFetch<T = unknown>(path: string, request: ApiRequest = {}): Promise<T> {
+export async function apiFetch<T = unknown>(
+  path: string,
+  request: ApiRequest = {},
+): Promise<T> {
   const { body, headers, ...rest } = request;
 
   const init: RequestInit = {
@@ -124,7 +128,12 @@ export async function apiFetch<T = unknown>(path: string, request: ApiRequest = 
     // blocked request. A person seeing "check your connection" because they
     // mistyped a password is worse than unhelpful, so this is kept distinct
     // from anything the server said.
-    throw new ApiError({ status: 0, message: offlineMessage, offline: true, retryable: true });
+    throw new ApiError({
+      status: 0,
+      message: offlineMessage,
+      offline: true,
+      retryable: true,
+    });
   }
 
   // No special case for 204. readJson already returns undefined for an empty

@@ -19,7 +19,11 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 
-function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}) {
+function jsonResponse(
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json", ...headers },
@@ -52,12 +56,20 @@ describe("apiFetch", () => {
   it("sends a JSON body and says so", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, {}));
 
-    await apiFetch("/auth/login", { method: "POST", body: { email: "a@b.co", password: "x" } });
+    await apiFetch("/auth/login", {
+      method: "POST",
+      body: { email: "a@b.co", password: "x" },
+    });
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.method).toBe("POST");
-    expect(new Headers(init.headers).get("content-type")).toContain("application/json");
-    expect(JSON.parse(init.body as string)).toEqual({ email: "a@b.co", password: "x" });
+    expect(new Headers(init.headers).get("content-type")).toContain(
+      "application/json",
+    );
+    expect(JSON.parse(init.body as string)).toEqual({
+      email: "a@b.co",
+      password: "x",
+    });
   });
 
   it("returns the decoded body on success", async () => {
@@ -69,7 +81,9 @@ describe("apiFetch", () => {
   it("returns nothing for a 204, rather than failing to parse an empty body", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 
-    await expect(apiFetch("/auth/logout", { method: "POST" })).resolves.toBeUndefined();
+    await expect(
+      apiFetch("/auth/logout", { method: "POST" }),
+    ).resolves.toBeUndefined();
   });
 
   // ─────────────────────────────────────────────────── the error envelope
@@ -87,7 +101,9 @@ describe("apiFetch", () => {
       }),
     );
 
-    const failure = await apiFetch("/auth/login", { method: "POST" }).catch((e: unknown) => e);
+    const failure = await apiFetch("/auth/login", { method: "POST" }).catch(
+      (e: unknown) => e,
+    );
 
     expect(failure).toBeInstanceOf(ApiError);
     const error = failure as ApiError;
@@ -107,8 +123,16 @@ describe("apiFetch", () => {
           message: "Some of the details were not accepted.",
           retryable: false,
           field_errors: [
-            { field: "password", code: "PASSWORD_INVALID", message: "Too short." },
-            { field: "email", code: "EMAIL_INVALID", message: "Not deliverable." },
+            {
+              field: "password",
+              code: "PASSWORD_INVALID",
+              message: "Too short.",
+            },
+            {
+              field: "email",
+              code: "EMAIL_INVALID",
+              message: "Not deliverable.",
+            },
           ],
           request_id: "req_01a03",
         },
@@ -148,7 +172,10 @@ describe("apiFetch", () => {
 
   it("survives a body that claims to be JSON and is not", async () => {
     fetchMock.mockResolvedValue(
-      new Response("{not json", { status: 500, headers: { "content-type": "application/json" } }),
+      new Response("{not json", {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      }),
     );
 
     const error = (await apiFetch("/me").catch((e: unknown) => e)) as ApiError;

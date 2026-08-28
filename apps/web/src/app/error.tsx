@@ -37,18 +37,21 @@ export default function ErrorBoundary({
         </>
       }
       facts={
-        error.digest ? [{ label: "Reference", value: error.digest, mono: true }] : undefined
+        error.digest
+          ? [{ label: "Reference", value: error.digest, mono: true }]
+          : undefined
       }
       factsTitle="For support"
     >
       <p>
-        This is not something you did, and retrying the same thing may well work. We would rather
-        say that plainly than pretend it was a glitch.
+        This is not something you did, and retrying the same thing may well
+        work. We would rather say that plainly than pretend it was a glitch.
       </p>
       {error.digest ? (
         <p>
-          The failure was recorded under the reference below. Quote it to support and they can see
-          exactly what happened, without you having to describe anything.
+          The failure was recorded under the reference below. Quote it to
+          support and they can see exactly what happened, without you having to
+          describe anything.
         </p>
       ) : null}
     </ErrorScreen>

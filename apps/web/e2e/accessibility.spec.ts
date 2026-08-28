@@ -54,7 +54,9 @@ test.describe("accessibility", () => {
     test(`${route} has no violations`, async ({ page }) => {
       await page.goto(route);
 
-      const results = await new AxeBuilder({ page }).withTags(standard).analyze();
+      const results = await new AxeBuilder({ page })
+        .withTags(standard)
+        .analyze();
 
       // The message names the rule and the element, because "3 violations" sends
       // whoever reads it back to the browser to find out what.
@@ -77,7 +79,9 @@ test.describe("accessibility", () => {
      * node actually sits on rather than the pair somebody chose to check.
      */
     for (const theme of ["dark", "light"] as const) {
-      test(`${route} has sufficient contrast in the ${theme} theme`, async ({ page }) => {
+      test(`${route} has sufficient contrast in the ${theme} theme`, async ({
+        page,
+      }) => {
         await page.goto(route);
         await setTheme(page, theme);
 
@@ -89,7 +93,10 @@ test.describe("accessibility", () => {
 
         expect(
           results.violations.flatMap((v) =>
-            v.nodes.map((n) => ({ element: n.target.join(" "), problem: n.failureSummary })),
+            v.nodes.map((n) => ({
+              element: n.target.join(" "),
+              problem: n.failureSummary,
+            })),
           ),
         ).toEqual([]);
       });

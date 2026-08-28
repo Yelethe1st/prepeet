@@ -307,7 +307,12 @@
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--skeleton-shine),
+      transparent
+    );
     animation: skeleton-shimmer 1.6s infinite;
   }
 

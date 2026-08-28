@@ -37,17 +37,18 @@ export default function NoWorkspacePage() {
       }
     >
       <p>
-        Your account is fine. It just is not a member of any organisation&apos;s workspace right
-        now — memberships end when an organisation removes someone, and begin with an invitation
-        from one.
+        Your account is fine. It just is not a member of any organisation&apos;s
+        workspace right now — memberships end when an organisation removes
+        someone, and begin with an invitation from one.
       </p>
       <p>
-        If you are expecting a workspace, ask the person who runs it to invite this email address.
-        Invitations arrive by email and take effect the moment you accept.
+        If you are expecting a workspace, ask the person who runs it to invite
+        this email address. Invitations arrive by email and take effect the
+        moment you accept.
       </p>
       <p>
-        Your practice history is untouched by any of this. Practice belongs to you, not to a
-        workspace, and no employer can see it either way.
+        Your practice history is untouched by any of this. Practice belongs to
+        you, not to a workspace, and no employer can see it either way.
       </p>
     </ErrorScreen>
   );

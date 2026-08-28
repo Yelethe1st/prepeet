@@ -26,7 +26,10 @@ describe("OtpForm", () => {
     await userEvent.type(screen.getByLabelText(/six-digit code/i), "123456");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
-    expect(props.consume).toHaveBeenCalledWith("amara.eze@example.com", "123456");
+    expect(props.consume).toHaveBeenCalledWith(
+      "amara.eze@example.com",
+      "123456",
+    );
     expect(props.onSignedIn).toHaveBeenCalled();
   });
 
@@ -57,7 +60,11 @@ describe("OtpForm", () => {
 
   it("keeps a wrong code inline with the supersession rule spelled out", async () => {
     renderForm({
-      consume: vi.fn().mockRejectedValue(new ApiError({ status: 422, code: "CODE_INCORRECT", message: "x" })),
+      consume: vi
+        .fn()
+        .mockRejectedValue(
+          new ApiError({ status: 422, code: "CODE_INCORRECT", message: "x" }),
+        ),
     });
 
     await userEvent.type(screen.getByLabelText(/six-digit code/i), "123456");
@@ -71,7 +78,9 @@ describe("OtpForm", () => {
     ["TOKEN_EXPIRED", "TOKEN_EXPIRED"],
   ])("hands %s to the trouble screen", async (code, expected) => {
     const props = renderForm({
-      consume: vi.fn().mockRejectedValue(new ApiError({ status: 422, code, message: "x" })),
+      consume: vi
+        .fn()
+        .mockRejectedValue(new ApiError({ status: 422, code, message: "x" })),
     });
 
     await userEvent.type(screen.getByLabelText(/six-digit code/i), "123456");

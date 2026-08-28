@@ -43,7 +43,12 @@ const troubleCodes: ReadonlySet<string> = new Set([
   "TOKEN_SUPERSEDED",
 ]);
 
-export function ResetPasswordForm({ token, reset, onReset, onTokenTrouble }: ResetPasswordFormProps) {
+export function ResetPasswordForm({
+  token,
+  reset,
+  onReset,
+  onTokenTrouble,
+}: ResetPasswordFormProps) {
   const [failure, setFailure] = useState<ApiError | null>(null);
 
   const {
@@ -84,35 +89,57 @@ export function ResetPasswordForm({ token, reset, onReset, onTokenTrouble }: Res
   return (
     <form onSubmit={(event) => void handleSubmit(submit)(event)} noValidate>
       <p className="text-sm text-fg-2">
-        Saving a new password signs out every other device, including any interview left open
-        elsewhere.
+        Saving a new password signs out every other device, including any
+        interview left open elsewhere.
       </p>
 
       {failure ? <Banner tone="danger">{failure.message}</Banner> : null}
 
       <div className="mt-5">
-        <Field label="New password" name="password" error={errors.password?.message}>
+        <Field
+          label="New password"
+          name="password"
+          error={errors.password?.message}
+        >
           {(props) => (
-            <Input {...props} {...register("password")} type="password" autoComplete="new-password" />
+            <Input
+              {...props}
+              {...register("password")}
+              type="password"
+              autoComplete="new-password"
+            />
           )}
         </Field>
       </div>
 
-      <ul className="mt-3 space-y-1 text-2xs text-fg-2" aria-label="Password requirements">
+      <ul
+        className="mt-3 space-y-1 text-2xs text-fg-2"
+        aria-label="Password requirements"
+      >
         <li>
           <span aria-hidden="true">{longEnough ? "✓" : "•"}</span> At least{" "}
-          {MINIMUM_PASSWORD_LENGTH} characters — {longEnough ? "met" : "not met"}
+          {MINIMUM_PASSWORD_LENGTH} characters —{" "}
+          {longEnough ? "met" : "not met"}
         </li>
         <li>
-          <span aria-hidden="true">{matches ? "✓" : "•"}</span> Both entries match —{" "}
-          {matches ? "met" : "not met"}
+          <span aria-hidden="true">{matches ? "✓" : "•"}</span> Both entries
+          match — {matches ? "met" : "not met"}
         </li>
       </ul>
 
       <div className="mt-4">
-        <Field label="Confirm new password" name="confirm" error={errors.confirm?.message}>
+        <Field
+          label="Confirm new password"
+          name="confirm"
+          error={errors.confirm?.message}
+        >
           {(props) => (
-            <Input {...props} {...register("confirm")} type="password" autoComplete="new-password" />
+            <Input
+              {...props}
+              {...register("confirm")}
+              type="password"
+              autoComplete="new-password"
+            />
           )}
         </Field>
       </div>

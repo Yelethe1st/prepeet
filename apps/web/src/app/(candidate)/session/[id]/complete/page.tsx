@@ -17,8 +17,7 @@ export default async function CompletePage({
         <div>
           <h1>Session finished</h1>
           <p className="page-desc">
-            What happens now, and where the results appear when they are
-            ready.
+            What happens now, and where the results appear when they are ready.
           </p>
         </div>
       </div>

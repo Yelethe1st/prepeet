@@ -37,7 +37,10 @@ export type CurrentUser = components["schemas"]["CurrentUser"];
  * here to store and nothing for a script to steal.
  */
 export async function signIn(credentials: SignInCredentials): Promise<Session> {
-  return apiFetch<Session>("/auth/login", { method: "POST", body: credentials });
+  return apiFetch<Session>("/auth/login", {
+    method: "POST",
+    body: credentials,
+  });
 }
 
 /**
@@ -66,7 +69,9 @@ export type MembershipList = components["schemas"]["MembershipList"];
  * well exist, and saying otherwise would be a way to test which identifiers are
  * real.
  */
-export async function setActiveTenant(tenantId: string | null): Promise<Session> {
+export async function setActiveTenant(
+  tenantId: string | null,
+): Promise<Session> {
   return apiFetch<Session>("/me/active-tenant", {
     method: "PUT",
     body: { tenant_id: tenantId },
@@ -93,8 +98,14 @@ export async function signOut(): Promise<void> {
 export type TokenEmailKind = components["schemas"]["TokenEmailKind"];
 
 /** requestTokenEmail asks for a verification, recovery, sign-in or code email. */
-export async function requestTokenEmail(kind: TokenEmailKind, email: string): Promise<void> {
-  await apiFetch("/auth/email/request", { method: "POST", body: { kind, email } });
+export async function requestTokenEmail(
+  kind: TokenEmailKind,
+  email: string,
+): Promise<void> {
+  await apiFetch("/auth/email/request", {
+    method: "POST",
+    body: { kind, email },
+  });
 }
 
 /**
@@ -108,8 +119,14 @@ export async function confirmEmailVerification(token: string): Promise<void> {
 }
 
 /** confirmPasswordReset sets the new password and revokes every session. */
-export async function confirmPasswordReset(token: string, password: string): Promise<void> {
-  await apiFetch("/auth/password/reset", { method: "POST", body: { token, password } });
+export async function confirmPasswordReset(
+  token: string,
+  password: string,
+): Promise<void> {
+  await apiFetch("/auth/password/reset", {
+    method: "POST",
+    body: { token, password },
+  });
 }
 
 /**
@@ -118,10 +135,19 @@ export async function confirmPasswordReset(token: string, password: string): Pro
  * The cookies arrive exactly as login's do; the body describes the session.
  */
 export async function consumeMagicLink(token: string): Promise<Session> {
-  return apiFetch<Session>("/auth/magic/consume", { method: "POST", body: { token } });
+  return apiFetch<Session>("/auth/magic/consume", {
+    method: "POST",
+    body: { token },
+  });
 }
 
 /** consumeOtp exchanges an emailed six-digit code for a session. */
-export async function consumeOtp(email: string, code: string): Promise<Session> {
-  return apiFetch<Session>("/auth/otp/consume", { method: "POST", body: { email, code } });
+export async function consumeOtp(
+  email: string,
+  code: string,
+): Promise<Session> {
+  return apiFetch<Session>("/auth/otp/consume", {
+    method: "POST",
+    body: { email, code },
+  });
 }

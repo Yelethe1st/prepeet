@@ -65,7 +65,10 @@ export function SignInForm({ signIn, onSignedIn }: SignInFormProps) {
       const failed =
         error instanceof ApiError
           ? error
-          : new ApiError({ status: 0, message: "Something went wrong. Please try again." });
+          : new ApiError({
+              status: 0,
+              message: "Something went wrong. Please try again.",
+            });
 
       // Field errors from the server become field errors here, so the person
       // sees them next to the input that caused them rather than in a banner
@@ -92,13 +95,18 @@ export function SignInForm({ signIn, onSignedIn }: SignInFormProps) {
           <strong>{failure.message}</strong>
           {failure.requestId ? (
             <p className="mt-1 text-xs text-fg-3">
-              If you contact us, quote <span className="font-mono">{failure.requestId}</span>.
+              If you contact us, quote{" "}
+              <span className="font-mono">{failure.requestId}</span>.
             </p>
           ) : null}
         </Banner>
       ) : null}
 
-      <Field label="Work or personal email" name="email" error={errors.email?.message}>
+      <Field
+        label="Work or personal email"
+        name="email"
+        error={errors.email?.message}
+      >
         {(props) => (
           <Input
             {...props}
@@ -112,7 +120,12 @@ export function SignInForm({ signIn, onSignedIn }: SignInFormProps) {
 
       <Field label="Password" name="password" error={errors.password?.message}>
         {(props) => (
-          <Input {...props} {...register("password")} type="password" autoComplete="current-password" />
+          <Input
+            {...props}
+            {...register("password")}
+            type="password"
+            autoComplete="current-password"
+          />
         )}
       </Field>
 

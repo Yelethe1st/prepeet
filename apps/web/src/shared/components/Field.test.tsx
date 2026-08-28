@@ -31,7 +31,9 @@ describe("Field", () => {
       </Field>,
     );
 
-    expect(screen.getByLabelText("Password")).toHaveAccessibleDescription("At least 12 characters.");
+    expect(screen.getByLabelText("Password")).toHaveAccessibleDescription(
+      "At least 12 characters.",
+    );
   });
 
   /**
@@ -42,14 +44,20 @@ describe("Field", () => {
    */
   it("marks an invalid field invalid, not merely red", () => {
     render(
-      <Field label="Email" name="email" error="Enter the email address you registered with.">
+      <Field
+        label="Email"
+        name="email"
+        error="Enter the email address you registered with."
+      >
         {(props) => <input {...props} type="email" />}
       </Field>,
     );
 
     const input = screen.getByLabelText("Email");
     expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(input).toHaveAccessibleDescription(/Enter the email address you registered with/);
+    expect(input).toHaveAccessibleDescription(
+      /Enter the email address you registered with/,
+    );
   });
 
   it("does not claim a field is invalid when it is not", () => {
@@ -59,7 +67,10 @@ describe("Field", () => {
       </Field>,
     );
 
-    expect(screen.getByLabelText("Email")).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Email")).not.toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
   });
 
   /**
@@ -69,12 +80,18 @@ describe("Field", () => {
    */
   it("keeps the hint when an error appears", () => {
     render(
-      <Field label="Password" name="password" hint="At least 12 characters." error="Too short.">
+      <Field
+        label="Password"
+        name="password"
+        hint="At least 12 characters."
+        error="Too short."
+      >
         {(props) => <input {...props} type="password" />}
       </Field>,
     );
 
-    const description = screen.getByLabelText("Password").getAttribute("aria-describedby") ?? "";
+    const description =
+      screen.getByLabelText("Password").getAttribute("aria-describedby") ?? "";
     expect(description.split(" ")).toHaveLength(2);
     expect(screen.getByText("At least 12 characters.")).toBeInTheDocument();
     expect(screen.getByText("Too short.")).toBeInTheDocument();
@@ -91,7 +108,10 @@ describe("Field", () => {
       </Field>,
     );
 
-    expect(screen.getByText("Not deliverable.")).toHaveAttribute("role", "alert");
+    expect(screen.getByText("Not deliverable.")).toHaveAttribute(
+      "role",
+      "alert",
+    );
   });
 
   /**
@@ -114,7 +134,9 @@ describe("Field", () => {
 
     expect(hint).not.toBe(error);
     expect(hint.id).not.toBe(error.id);
-    expect(screen.getByLabelText("Email")).toHaveAccessibleDescription(/A hint\..*An error\./);
+    expect(screen.getByLabelText("Email")).toHaveAccessibleDescription(
+      /A hint\..*An error\./,
+    );
   });
 
   it("has no accessibility violations", async () => {
@@ -155,7 +177,11 @@ describe("Field with a label action", () => {
 
   it("has no accessibility violations with an action", async () => {
     const { container } = render(
-      <Field label="Password" name="password" labelAction={<a href="/forgot">Forgot?</a>}>
+      <Field
+        label="Password"
+        name="password"
+        labelAction={<a href="/forgot">Forgot?</a>}
+      >
         {(props) => <input {...props} className="input" type="password" />}
       </Field>,
     );

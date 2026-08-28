@@ -39,7 +39,10 @@ const serverFields: Record<string, keyof RegisterValues> = {
  * that nobody can use this to discover who practises for interviews, and a form
  * that said "welcome" only for new accounts would give that away regardless.
  */
-export function RegisterForm({ register: submitRegistration, onRegistered }: RegisterFormProps) {
+export function RegisterForm({
+  register: submitRegistration,
+  onRegistered,
+}: RegisterFormProps) {
   const [failure, setFailure] = useState<ApiError | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
@@ -85,7 +88,10 @@ export function RegisterForm({ register: submitRegistration, onRegistered }: Reg
       const failed =
         error instanceof ApiError
           ? error
-          : new ApiError({ status: 0, message: "Something went wrong. Please try again." });
+          : new ApiError({
+              status: 0,
+              message: "Something went wrong. Please try again.",
+            });
 
       // The server names its fields as the contract does; the form names them
       // as the form does. Mapped here so a field error lands on the control it
@@ -104,14 +110,17 @@ export function RegisterForm({ register: submitRegistration, onRegistered }: Reg
       <Banner tone="success">
         <strong>Check your email.</strong>
         <p className="mt-1 leading-relaxed">
-          If we can reach <span className="font-mono">{registeredEmail}</span>, a link to confirm the
-          address is on its way. The link expires in an hour.
+          If we can reach <span className="font-mono">{registeredEmail}</span>,
+          a link to confirm the address is on its way. The link expires in an
+          hour.
         </p>
       </Banner>
     );
   }
 
-  const hasFieldErrors = Boolean(errors.email ?? errors.password ?? errors.organisationName);
+  const hasFieldErrors = Boolean(
+    errors.email ?? errors.password ?? errors.organisationName,
+  );
 
   return (
     <form onSubmit={(event) => void handleSubmit(submit)(event)} noValidate>
@@ -120,14 +129,17 @@ export function RegisterForm({ register: submitRegistration, onRegistered }: Reg
           <strong>{failure.message}</strong>
           {failure.requestId ? (
             <p className="mt-1 text-xs text-fg-3">
-              If you contact us, quote <span className="font-mono">{failure.requestId}</span>.
+              If you contact us, quote{" "}
+              <span className="font-mono">{failure.requestId}</span>.
             </p>
           ) : null}
         </Banner>
       ) : null}
 
       <fieldset className="mb-[18px] border-0 p-0">
-        <legend className="mb-2 text-sm font-semibold text-fg">What brings you here?</legend>
+        <legend className="mb-2 text-sm font-semibold text-fg">
+          What brings you here?
+        </legend>
 
         {/*
           Spaced rather than stacked tight. WCAG 2.2 requires a target of at
@@ -144,7 +156,10 @@ export function RegisterForm({ register: submitRegistration, onRegistered }: Reg
               ["organisation", "Screen candidates for my organisation"],
             ] as const
           ).map(([value, label]) => (
-            <label className="flex cursor-pointer items-start gap-2.5 text-sm text-fg" key={value}>
+            <label
+              className="flex cursor-pointer items-start gap-2.5 text-sm text-fg"
+              key={value}
+            >
               <input
                 type="radio"
                 value={value}
@@ -157,7 +172,11 @@ export function RegisterForm({ register: submitRegistration, onRegistered }: Reg
         </div>
       </fieldset>
 
-      <Field label="Work or personal email" name="email" error={errors.email?.message}>
+      <Field
+        label="Work or personal email"
+        name="email"
+        error={errors.email?.message}
+      >
         {(props) => (
           <Input
             {...props}
@@ -176,7 +195,12 @@ export function RegisterForm({ register: submitRegistration, onRegistered }: Reg
         error={errors.password?.message}
       >
         {(props) => (
-          <Input {...props} {...register("password")} type="password" autoComplete="new-password" />
+          <Input
+            {...props}
+            {...register("password")}
+            type="password"
+            autoComplete="new-password"
+          />
         )}
       </Field>
 
@@ -188,7 +212,12 @@ export function RegisterForm({ register: submitRegistration, onRegistered }: Reg
           error={errors.organisationName?.message}
         >
           {(props) => (
-            <Input {...props} {...register("organisationName")} type="text" autoComplete="organization" />
+            <Input
+              {...props}
+              {...register("organisationName")}
+              type="text"
+              autoComplete="organization"
+            />
           )}
         </Field>
       ) : null}
@@ -201,7 +230,9 @@ export function RegisterForm({ register: submitRegistration, onRegistered }: Reg
         busy={isSubmitting}
         busyLabel="Creating…"
       >
-        {accountType === "organisation" ? "Create organisation workspace" : "Create account"}
+        {accountType === "organisation"
+          ? "Create organisation workspace"
+          : "Create account"}
       </Button>
     </form>
   );

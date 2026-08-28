@@ -40,10 +40,9 @@ describe("MagicLinkPage", () => {
 
     expect(await screen.findByText(/you are signed in/i)).toBeInTheDocument();
     expect(consumeMagicLink).toHaveBeenCalledWith("mgc_x");
-    expect(screen.getByRole("link", { name: /go to your dashboard/i })).toHaveAttribute(
-      "href",
-      "/practice",
-    );
+    expect(
+      screen.getByRole("link", { name: /go to your dashboard/i }),
+    ).toHaveAttribute("href", "/practice");
   });
 
   it("says the link is spent, which is why forwarding the email is useless", async () => {
@@ -51,18 +50,28 @@ describe("MagicLinkPage", () => {
     consumeMagicLink.mockResolvedValue({});
     render(<MagicLinkPage />);
 
-    expect(await screen.findByText(/used up and will not work again/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/used up and will not work again/i),
+    ).toBeInTheDocument();
   });
 
   it("shows the request form when no token arrived", async () => {
     requestTokenEmail.mockResolvedValue(undefined);
     render(<MagicLinkPage />);
 
-    await userEvent.type(screen.getByLabelText(/email address/i), "amara.eze@example.com");
-    await userEvent.click(screen.getByRole("button", { name: /sign-in link/i }));
+    await userEvent.type(
+      screen.getByLabelText(/email address/i),
+      "amara.eze@example.com",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /sign-in link/i }),
+    );
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/check-email"));
-    expect(requestTokenEmail).toHaveBeenCalledWith("magic_link", "amara.eze@example.com");
+    expect(requestTokenEmail).toHaveBeenCalledWith(
+      "magic_link",
+      "amara.eze@example.com",
+    );
   });
 
   it("gives an expired link its own screen with the way back", async () => {
@@ -72,10 +81,11 @@ describe("MagicLinkPage", () => {
     );
     render(<MagicLinkPage />);
 
-    expect(await screen.findByRole("heading", { name: /expired/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /send a new sign-in link/i })).toHaveAttribute(
-      "href",
-      "/magic-link",
-    );
+    expect(
+      await screen.findByRole("heading", { name: /expired/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /send a new sign-in link/i }),
+    ).toHaveAttribute("href", "/magic-link");
   });
 });

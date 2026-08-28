@@ -33,7 +33,10 @@ export default function OtpPage() {
   // half shows: the person who just asked for a code sees the entry, anyone
   // else sees the request form.
   const resolved =
-    phase ?? (sent?.kind === "otp" ? { state: "enter" as const, email: sent.email } : { state: "request" as const });
+    phase ??
+    (sent?.kind === "otp"
+      ? { state: "enter" as const, email: sent.email }
+      : { state: "request" as const });
 
   return (
     <AuthShell>
@@ -61,7 +64,11 @@ export default function OtpPage() {
         ) : null}
 
         {resolved.state === "trouble" ? (
-          <TokenTrouble code={resolved.code} requestHref="/otp" requestLabel="Send a new code" />
+          <TokenTrouble
+            code={resolved.code}
+            requestHref="/otp"
+            requestLabel="Send a new code"
+          />
         ) : null}
       </AuthCard>
     </AuthShell>

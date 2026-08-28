@@ -9,7 +9,9 @@ import { ResetPasswordForm } from "./ResetPasswordForm";
 
 const strongPassword = "a completely new passphrase";
 
-function renderForm(overrides: Partial<Parameters<typeof ResetPasswordForm>[0]> = {}) {
+function renderForm(
+  overrides: Partial<Parameters<typeof ResetPasswordForm>[0]> = {},
+) {
   const props = {
     token: "rst_x",
     reset: vi.fn().mockResolvedValue(undefined),
@@ -24,7 +26,9 @@ function renderForm(overrides: Partial<Parameters<typeof ResetPasswordForm>[0]> 
 async function fillAndSubmit(password = strongPassword, confirm = password) {
   await userEvent.type(screen.getByLabelText(/^new password$/i), password);
   await userEvent.type(screen.getByLabelText(/confirm/i), confirm);
-  await userEvent.click(screen.getByRole("button", { name: /save new password/i }));
+  await userEvent.click(
+    screen.getByRole("button", { name: /save new password/i }),
+  );
 }
 
 describe("ResetPasswordForm", () => {
@@ -40,17 +44,28 @@ describe("ResetPasswordForm", () => {
     renderForm();
     // The reset revokes every session; somebody mid-interview elsewhere
     // deserves to know before they press save.
-    expect(screen.getByText(/signs out every other device/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/signs out every other device/i),
+    ).toBeInTheDocument();
   });
 
   it("shows the requirements meeting themselves as the person types", async () => {
     renderForm();
 
-    expect(screen.getByText(/at least 12 characters — not met/i)).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText(/^new password$/i), strongPassword);
-    expect(screen.getByText(/at least 12 characters — met/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/at least 12 characters — not met/i),
+    ).toBeInTheDocument();
+    await userEvent.type(
+      screen.getByLabelText(/^new password$/i),
+      strongPassword,
+    );
+    expect(
+      screen.getByText(/at least 12 characters — met/i),
+    ).toBeInTheDocument();
 
-    expect(screen.getByText(/both entries match — not met/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/both entries match — not met/i),
+    ).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/confirm/i), strongPassword);
     expect(screen.getByText(/both entries match — met/i)).toBeInTheDocument();
   });
@@ -60,7 +75,9 @@ describe("ResetPasswordForm", () => {
     // The prototype also promised mixed case, digits and breach checks, which
     // nothing enforces. A promise without its check teaches people the wrong
     // thing about what made their password acceptable.
-    const requirements = screen.getByRole("list", { name: /password requirements/i });
+    const requirements = screen.getByRole("list", {
+      name: /password requirements/i,
+    });
     expect(requirements.children).toHaveLength(2);
   });
 
@@ -74,7 +91,11 @@ describe("ResetPasswordForm", () => {
 
   it("hands a dead token to the trouble screen rather than the form's banner", async () => {
     const props = renderForm({
-      reset: vi.fn().mockRejectedValue(new ApiError({ status: 422, code: "TOKEN_EXPIRED", message: "x" })),
+      reset: vi
+        .fn()
+        .mockRejectedValue(
+          new ApiError({ status: 422, code: "TOKEN_EXPIRED", message: "x" }),
+        ),
     });
     await fillAndSubmit();
 
@@ -83,7 +104,13 @@ describe("ResetPasswordForm", () => {
 
   it("keeps a non-token failure on the form", async () => {
     renderForm({
-      reset: vi.fn().mockRejectedValue(new ApiError({ status: 500, code: "INTERNAL", message: "Something broke." })),
+      reset: vi.fn().mockRejectedValue(
+        new ApiError({
+          status: 500,
+          code: "INTERNAL",
+          message: "Something broke.",
+        }),
+      ),
     });
     await fillAndSubmit();
 

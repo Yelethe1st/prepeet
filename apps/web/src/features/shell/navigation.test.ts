@@ -25,14 +25,18 @@ describe("visibleNavigation", () => {
   it("shows an item once its capability is held", () => {
     const groups = visibleNavigation(["candidate.practice.read_own"]);
 
-    const labels = groups.flatMap((group) => group.items.map((item) => item.label));
+    const labels = groups.flatMap((group) =>
+      group.items.map((item) => item.label),
+    );
     expect(labels).toContain("Practice");
   });
 
   it("does not show an item whose capability is not held", () => {
     const groups = visibleNavigation(["candidate.practice.read_own"]);
 
-    const labels = groups.flatMap((group) => group.items.map((item) => item.label));
+    const labels = groups.flatMap((group) =>
+      group.items.map((item) => item.label),
+    );
     expect(labels).not.toContain("Campaigns");
   });
 
@@ -49,8 +53,14 @@ describe("visibleNavigation", () => {
   });
 
   it("keeps the declared order rather than the order capabilities arrived in", () => {
-    const forwards = visibleNavigation(["campaign.read", "candidate.practice.read_own"]);
-    const backwards = visibleNavigation(["candidate.practice.read_own", "campaign.read"]);
+    const forwards = visibleNavigation([
+      "campaign.read",
+      "candidate.practice.read_own",
+    ]);
+    const backwards = visibleNavigation([
+      "candidate.practice.read_own",
+      "campaign.read",
+    ]);
 
     expect(forwards).toEqual(backwards);
   });
@@ -61,7 +71,10 @@ describe("visibleNavigation", () => {
    * practice history without either knowing about the other.
    */
   it("shows a recruiter more than a candidate", () => {
-    const candidate = visibleNavigation(["candidate.practice.read_own", "session.create_practice"]);
+    const candidate = visibleNavigation([
+      "candidate.practice.read_own",
+      "session.create_practice",
+    ]);
     const recruiter = visibleNavigation([
       "candidate.practice.read_own",
       "session.create_practice",
@@ -107,7 +120,9 @@ describe("the navigation configuration", () => {
   });
 
   it("gives every item a distinct destination", () => {
-    const destinations = NAVIGATION.flatMap((group) => group.items.map((item) => item.href));
+    const destinations = NAVIGATION.flatMap((group) =>
+      group.items.map((item) => item.href),
+    );
 
     expect(new Set(destinations).size).toBe(destinations.length);
   });

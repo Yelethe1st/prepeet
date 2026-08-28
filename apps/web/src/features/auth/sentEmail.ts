@@ -38,7 +38,8 @@ export function readSentEmail(): SentEmail | null {
     const raw = sessionStorage.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<SentEmail>;
-    if (typeof parsed.email !== "string" || typeof parsed.kind !== "string") return null;
+    if (typeof parsed.email !== "string" || typeof parsed.kind !== "string")
+      return null;
     return { email: parsed.email, kind: parsed.kind };
   } catch {
     return null;
@@ -65,7 +66,10 @@ export function maskEmail(email: string): string {
  * useSyncExternalStore compares snapshots by identity and a fresh object per
  * read would render forever.
  */
-let cached: { raw: string | null; value: SentEmail | null } = { raw: null, value: null };
+let cached: { raw: string | null; value: SentEmail | null } = {
+  raw: null,
+  value: null,
+};
 
 function snapshot(): SentEmail | null {
   let raw: string | null = null;

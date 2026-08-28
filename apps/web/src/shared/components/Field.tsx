@@ -40,7 +40,14 @@ export interface FieldProps {
  * `aria-describedby` and an `aria-invalid`, and the one that gets it wrong
  * looks identical to the ones that do not.
  */
-export function Field({ label, name, hint, error, labelAction, children }: FieldProps) {
+export function Field({
+  label,
+  name,
+  hint,
+  error,
+  labelAction,
+  children,
+}: FieldProps) {
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -48,7 +55,9 @@ export function Field({ label, name, hint, error, labelAction, children }: Field
   // Both, in reading order, rather than the error replacing the hint. An error
   // usually means somebody did not follow the hint, so removing it is removing
   // the instruction at the moment it is needed.
-  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ");
+  const describedBy = [hint ? hintId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="mb-4 flex flex-col gap-1.5">

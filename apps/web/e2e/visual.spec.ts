@@ -107,7 +107,11 @@ test.describe("appearance", () => {
             message: "Some of the details were not accepted.",
             retryable: false,
             field_errors: [
-              { field: "password", code: "PASSWORD_INVALID", message: "A password needs at least 12 characters." },
+              {
+                field: "password",
+                code: "PASSWORD_INVALID",
+                message: "A password needs at least 12 characters.",
+              },
             ],
             request_id: "req_visualbaseline",
           },
@@ -121,7 +125,10 @@ test.describe("appearance", () => {
     await page.getByLabel(/^password$/i).fill("short");
     await page.getByRole("button", { name: /create/i }).click();
 
-    await expect(page.getByLabel(/^password$/i)).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByLabel(/^password$/i)).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
     await page.evaluate(() => document.fonts.ready);
 
     await expect(page).toHaveScreenshot("register-field-error.png", {

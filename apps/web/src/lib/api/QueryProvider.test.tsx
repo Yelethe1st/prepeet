@@ -16,7 +16,11 @@ import { QueryProvider } from "./QueryProvider";
 /** Renders one query under the provider and reports what it settled on. */
 function renderQuery(fetcher: () => Promise<string>) {
   function Subject() {
-    const query = useQuery({ queryKey: ["subject"], queryFn: fetcher, gcTime: 0 });
+    const query = useQuery({
+      queryKey: ["subject"],
+      queryFn: fetcher,
+      gcTime: 0,
+    });
     return <p>{query.isError ? "failed" : (query.data ?? "pending")}</p>;
   }
 
@@ -29,7 +33,9 @@ function renderQuery(fetcher: () => Promise<string>) {
 
 describe("QueryProvider", () => {
   it("does not retry a refusal, because the answer will not change", async () => {
-    const fetcher = vi.fn().mockRejectedValue(new ApiError({ status: 403, message: "forbidden" }));
+    const fetcher = vi
+      .fn()
+      .mockRejectedValue(new ApiError({ status: 403, message: "forbidden" }));
     renderQuery(fetcher);
 
     await screen.findByText("failed");
@@ -39,7 +45,9 @@ describe("QueryProvider", () => {
   it("retries a server failure, because that one might", async () => {
     const fetcher = vi
       .fn()
-      .mockRejectedValueOnce(new ApiError({ status: 503, message: "unavailable" }))
+      .mockRejectedValueOnce(
+        new ApiError({ status: 503, message: "unavailable" }),
+      )
       .mockResolvedValue("recovered");
     renderQuery(fetcher);
 
@@ -50,7 +58,9 @@ describe("QueryProvider", () => {
   });
 
   it("gives up on a server failure rather than retrying forever", async () => {
-    const fetcher = vi.fn().mockRejectedValue(new ApiError({ status: 500, message: "broken" }));
+    const fetcher = vi
+      .fn()
+      .mockRejectedValue(new ApiError({ status: 500, message: "broken" }));
     renderQuery(fetcher);
 
     await screen.findByText("failed", undefined, { timeout: 5_000 });
@@ -58,7 +68,10 @@ describe("QueryProvider", () => {
   });
 
   it("retries a transport failure, which arrives as no status at all", async () => {
-    const fetcher = vi.fn().mockRejectedValueOnce(new TypeError("network")).mockResolvedValue("ok");
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("network"))
+      .mockResolvedValue("ok");
     renderQuery(fetcher);
 
     await screen.findByText("ok", undefined, { timeout: 3_000 });

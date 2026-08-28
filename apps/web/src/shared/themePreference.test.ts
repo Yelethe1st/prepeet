@@ -36,11 +36,14 @@ describe("resolveTheme", () => {
     expect(resolveTheme()).toBe(DEFAULT_THEME);
   });
 
-  it.each(["light", "dark"] as const)("honours an explicit %s choice", (theme) => {
-    window.localStorage.setItem(STORAGE_KEY, theme);
+  it.each(["light", "dark"] as const)(
+    "honours an explicit %s choice",
+    (theme) => {
+      window.localStorage.setItem(STORAGE_KEY, theme);
 
-    expect(resolveTheme()).toBe(theme);
-  });
+      expect(resolveTheme()).toBe(theme);
+    },
+  );
 
   /**
    * A stored value that is neither theme is not a reason to render unstyled. It
@@ -78,7 +81,10 @@ describe("resolveTheme", () => {
    * reversing it is a deliberate change with a failing test to notice.
    */
   it("does not follow the operating system's preference", () => {
-    vi.stubGlobal("matchMedia", () => ({ matches: true, media: "(prefers-color-scheme: light)" }));
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      media: "(prefers-color-scheme: light)",
+    }));
 
     expect(resolveTheme()).toBe("dark");
   });
@@ -159,10 +165,14 @@ describe("themeScript", () => {
    */
   it("agrees with resolveTheme in both cases", () => {
     new Function(themeScript)();
-    expect(document.documentElement.getAttribute("data-theme")).toBe(resolveTheme());
+    expect(document.documentElement.getAttribute("data-theme")).toBe(
+      resolveTheme(),
+    );
 
     window.localStorage.setItem(STORAGE_KEY, "light");
     new Function(themeScript)();
-    expect(document.documentElement.getAttribute("data-theme")).toBe(resolveTheme());
+    expect(document.documentElement.getAttribute("data-theme")).toBe(
+      resolveTheme(),
+    );
   });
 });

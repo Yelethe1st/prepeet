@@ -38,9 +38,10 @@ export function AuthShell({ children }: { children: ReactNode }) {
         </p>
 
         <blockquote className="mt-[18px] max-w-[440px] font-display text-xl leading-[1.35]">
-          “Eleven rejections and nobody would tell me why. The first thing Prepeet played back to me
-          was my own answer about a deteriorating patient — I described the fix in nine seconds and
-          never once said how I knew. I have not answered a question that way since.”
+          “Eleven rejections and nobody would tell me why. The first thing
+          Prepeet played back to me was my own answer about a deteriorating
+          patient — I described the fix in nine seconds and never once said how
+          I knew. I have not answered a question that way since.”
         </blockquote>
 
         <p className="mt-4 text-sm text-stone-300">
@@ -54,7 +55,10 @@ export function AuthShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex flex-col justify-center px-6 py-12 sm:px-12" id="main-content">
+      <main
+        className="flex flex-col justify-center px-6 py-12 sm:px-12"
+        id="main-content"
+      >
         {children}
       </main>
     </div>

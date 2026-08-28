@@ -17,9 +17,8 @@ export default async function ReviewPage({
         <div>
           <h1>Coaching review</h1>
           <p className="page-desc">
-            What to change and how, built only from what you actually said.
-            The outcome itself never changes; this is the work that follows
-            from it.
+            What to change and how, built only from what you actually said. The
+            outcome itself never changes; this is the work that follows from it.
           </p>
         </div>
       </div>

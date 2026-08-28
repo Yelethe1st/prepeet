@@ -17,9 +17,9 @@ export default async function ResultsPage({
         <div>
           <h1>Outcome and evidence</h1>
           <p className="page-desc">
-            The record of this session: each competency&apos;s result, the
-            exact sentences behind it, and the transcript. This page is
-            read-only and never changes.
+            The record of this session: each competency&apos;s result, the exact
+            sentences behind it, and the transcript. This page is read-only and
+            never changes.
           </p>
         </div>
       </div>

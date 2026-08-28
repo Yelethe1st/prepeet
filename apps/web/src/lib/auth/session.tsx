@@ -37,7 +37,8 @@ export const sessionQueryKey = ["session"] as const;
  * one would send somebody to a sign-in screen because the network blinked, and
  * the sign-in would fail too.
  */
-export type SessionStatus = "loading" | "signed-in" | "signed-out" | "unavailable";
+export type SessionStatus =
+  "loading" | "signed-in" | "signed-out" | "unavailable";
 
 export interface Session {
   status: SessionStatus;
@@ -104,7 +105,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       status = "signed-in";
     } else {
       status =
-        query.error instanceof ApiError && query.error.status === 401 ? "signed-out" : "unavailable";
+        query.error instanceof ApiError && query.error.status === 401
+          ? "signed-out"
+          : "unavailable";
     }
 
     return {
@@ -113,14 +116,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // Deny by default reaches the browser too. While the answer is unknown
       // nothing is offered, so the shell cannot flash a control the person
       // turns out not to hold.
-      can: (capability: string) => user?.capabilities.includes(capability) ?? false,
+      can: (capability: string) =>
+        user?.capabilities.includes(capability) ?? false,
       refresh: async () => {
         await client.invalidateQueries({ queryKey: sessionQueryKey });
       },
     };
   }, [query.data, query.error, query.isPending, client]);
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return (
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  );
 }
 
 /**

@@ -43,7 +43,11 @@ const recruiter: ShellUser = {
   ...candidate,
   activeTenantId: "t-northwind",
   memberships: [
-    { tenantId: "t-northwind", tenantName: "Northwind Recruiting", status: "active" },
+    {
+      tenantId: "t-northwind",
+      tenantName: "Northwind Recruiting",
+      status: "active",
+    },
     { tenantId: "t-orbital", tenantName: "Orbital Labs", status: "active" },
   ],
   capabilities: [
@@ -68,7 +72,9 @@ describe("AppShell", () => {
   it("renders the page inside the main landmark", () => {
     renderShell();
 
-    expect(screen.getByRole("main")).toContainElement(screen.getByRole("heading", { level: 1 }));
+    expect(screen.getByRole("main")).toContainElement(
+      screen.getByRole("heading", { level: 1 }),
+    );
   });
 
   /**
@@ -78,16 +84,17 @@ describe("AppShell", () => {
   it("offers a skip link to the content", () => {
     renderShell();
 
-    expect(screen.getByRole("link", { name: /skip to main content/i })).toHaveAttribute(
-      "href",
-      "#main-content",
-    );
+    expect(
+      screen.getByRole("link", { name: /skip to main content/i }),
+    ).toHaveAttribute("href", "#main-content");
   });
 
   it("names its navigation, so it can be skipped rather than walked", () => {
     renderShell();
 
-    expect(screen.getByRole("navigation", { name: /main/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: /main/i }),
+    ).toBeInTheDocument();
   });
 
   // ───────────────────────────────────────────── what is offered
@@ -101,15 +108,21 @@ describe("AppShell", () => {
   it("does not offer a candidate a recruiter's destinations", () => {
     renderShell();
 
-    expect(screen.queryByRole("link", { name: "Campaigns" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Members" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Campaigns" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Members" }),
+    ).not.toBeInTheDocument();
   });
 
   it("offers a recruiter what their capabilities allow", () => {
     renderShell(recruiter);
 
     expect(screen.getByRole("link", { name: "Campaigns" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Invitations" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Invitations" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Members" })).toBeInTheDocument();
   });
 
@@ -122,13 +135,18 @@ describe("AppShell", () => {
     renderShell({ ...recruiter, capabilities: ["campaign.read"] });
 
     expect(screen.getByRole("link", { name: "Campaigns" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Members" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Members" }),
+    ).not.toBeInTheDocument();
   });
 
   it("marks the destination currently open", () => {
     renderShell();
 
-    expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   // ───────────────────────────────────────────── the workspace
@@ -136,13 +154,17 @@ describe("AppShell", () => {
   it("offers the switcher to somebody in more than one workspace", () => {
     renderShell(recruiter);
 
-    expect(screen.getByRole("combobox", { name: /workspace/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /workspace/i }),
+    ).toBeInTheDocument();
   });
 
   it("does not offer the switcher to somebody in none", () => {
     renderShell();
 
-    expect(screen.queryByRole("combobox", { name: /workspace/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /workspace/i }),
+    ).not.toBeInTheDocument();
   });
 
   // ───────────────────────────────────────────── signing out
@@ -150,7 +172,9 @@ describe("AppShell", () => {
   it("offers a way to sign out", () => {
     renderShell();
 
-    expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /sign out/i }),
+    ).toBeInTheDocument();
   });
 
   it("signs out and sends the person to the sign-in screen", async () => {
@@ -197,10 +221,9 @@ describe("AppShell", () => {
       expect(toggle).toHaveAttribute("aria-expanded", "false");
       await userEvent.click(toggle);
 
-      expect(screen.getByRole("button", { name: "Close menu" })).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      );
+      expect(
+        screen.getByRole("button", { name: "Close menu" }),
+      ).toHaveAttribute("aria-expanded", "true");
     });
 
     it("closes when the scrim outside it is tapped", async () => {

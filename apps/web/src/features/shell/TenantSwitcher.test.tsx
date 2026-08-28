@@ -21,7 +21,11 @@ beforeEach(() => {
 });
 
 const memberships = [
-  { tenantId: "t-northwind", tenantName: "Northwind Recruiting", status: "active" },
+  {
+    tenantId: "t-northwind",
+    tenantName: "Northwind Recruiting",
+    status: "active",
+  },
   { tenantId: "t-orbital", tenantName: "Orbital Labs", status: "active" },
 ];
 
@@ -36,7 +40,9 @@ async function choose(name: string) {
   await userEvent.click(await screen.findByRole("option", { name }));
 }
 
-function renderSwitcher(overrides: Partial<Parameters<typeof TenantSwitcher>[0]> = {}) {
+function renderSwitcher(
+  overrides: Partial<Parameters<typeof TenantSwitcher>[0]> = {},
+) {
   return render(
     <TenantSwitcher
       memberships={memberships}
@@ -59,7 +65,10 @@ describe("TenantSwitcher", () => {
   });
 
   it("is not rendered for a person with no workspace at all", () => {
-    const { container } = renderSwitcher({ memberships: [], activeTenantId: null });
+    const { container } = renderSwitcher({
+      memberships: [],
+      activeTenantId: null,
+    });
 
     expect(container).toBeEmptyDOMElement();
   });
@@ -67,7 +76,9 @@ describe("TenantSwitcher", () => {
   it("names the workspace currently being acted under", () => {
     renderSwitcher();
 
-    expect(screen.getByRole("combobox")).toHaveTextContent("Northwind Recruiting");
+    expect(screen.getByRole("combobox")).toHaveTextContent(
+      "Northwind Recruiting",
+    );
   });
 
   it("lists every workspace the person belongs to once opened", async () => {
@@ -75,8 +86,12 @@ describe("TenantSwitcher", () => {
 
     await open();
 
-    expect(await screen.findByRole("option", { name: "Northwind Recruiting" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Orbital Labs" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("option", { name: "Northwind Recruiting" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Orbital Labs" }),
+    ).toBeInTheDocument();
   });
 
   it("asks the server to switch when another is chosen", async () => {
@@ -95,7 +110,11 @@ describe("TenantSwitcher", () => {
    */
   it("cannot be changed again while a switch is in flight", async () => {
     let release: () => void = () => {};
-    onSwitch.mockReturnValue(new Promise<void>((resolve) => { release = resolve; }));
+    onSwitch.mockReturnValue(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    );
     renderSwitcher();
 
     await choose("Orbital Labs");
@@ -117,7 +136,9 @@ describe("TenantSwitcher", () => {
 
     // The trigger still names the workspace the session is actually in, because
     // the value is the session's rather than whatever was clicked.
-    await waitFor(() => expect(screen.getByRole("combobox")).toHaveTextContent("Northwind"));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox")).toHaveTextContent("Northwind"),
+    );
   });
 
   it("says so when a switch is refused, rather than failing silently", async () => {
@@ -135,13 +156,18 @@ describe("TenantSwitcher", () => {
    */
   it("does not offer a workspace whose membership was revoked", async () => {
     renderSwitcher({
-      memberships: [...memberships, { tenantId: "t-gone", tenantName: "Former Ltd", status: "revoked" }],
+      memberships: [
+        ...memberships,
+        { tenantId: "t-gone", tenantName: "Former Ltd", status: "revoked" },
+      ],
     });
 
     await open();
 
     await screen.findByRole("option", { name: "Northwind Recruiting" });
-    expect(screen.queryByRole("option", { name: "Former Ltd" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Former Ltd" }),
+    ).not.toBeInTheDocument();
   });
 
   it("has an accessible name, since a bare select says nothing about what it changes", () => {

@@ -61,7 +61,9 @@ export const registerSchema = z
     organisationName: z.string().optional(),
   })
   .refine(
-    (values) => values.accountType !== "organisation" || (values.organisationName ?? "").trim() !== "",
+    (values) =>
+      values.accountType !== "organisation" ||
+      (values.organisationName ?? "").trim() !== "",
     {
       // Reported against the field it belongs to, so it appears next to the
       // input rather than at the top of the form where somebody has to work out
@@ -113,7 +115,9 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
  * server would refuse is refused before the request.
  */
 export const otpSchema = z.object({
-  code: z.string().regex(/^[0-9]{6}$/, "The code is the six digits from the email."),
+  code: z
+    .string()
+    .regex(/^[0-9]{6}$/, "The code is the six digits from the email."),
 });
 
 export type OtpInput = z.infer<typeof otpSchema>;

@@ -27,8 +27,12 @@ function Probe() {
     <div>
       <span data-testid="status">{session.status}</span>
       <span data-testid="email">{session.user?.email ?? ""}</span>
-      <span data-testid="capabilities">{(session.user?.capabilities ?? []).join(",")}</span>
-      <span data-testid="can-read-campaigns">{String(session.can("campaign.read"))}</span>
+      <span data-testid="capabilities">
+        {(session.user?.capabilities ?? []).join(",")}
+      </span>
+      <span data-testid="can-read-campaigns">
+        {String(session.can("campaign.read"))}
+      </span>
     </div>
   );
 }
@@ -78,15 +82,23 @@ describe("SessionProvider", () => {
     });
     renderProbe();
 
-    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed-in"));
-    expect(screen.getByTestId("email")).toHaveTextContent("daniel.okonkwo@example.com");
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("signed-in"),
+    );
+    expect(screen.getByTestId("email")).toHaveTextContent(
+      "daniel.okonkwo@example.com",
+    );
   });
 
   it("reports signed out when the session is refused", async () => {
-    currentUser.mockRejectedValue(new ApiError({ status: 401, message: "Please sign in again." }));
+    currentUser.mockRejectedValue(
+      new ApiError({ status: 401, message: "Please sign in again." }),
+    );
     renderProbe();
 
-    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed-out"));
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("signed-out"),
+    );
   });
 
   /**
@@ -96,18 +108,28 @@ describe("SessionProvider", () => {
    */
   it("does not report signed out when the request could not be made", async () => {
     currentUser.mockRejectedValue(
-      new ApiError({ status: 0, message: "We could not reach Prepeet.", offline: true }),
+      new ApiError({
+        status: 0,
+        message: "We could not reach Prepeet.",
+        offline: true,
+      }),
     );
     renderProbe();
 
-    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unavailable"));
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("unavailable"),
+    );
   });
 
   it("treats a server failure as unavailable rather than as signed out", async () => {
-    currentUser.mockRejectedValue(new ApiError({ status: 500, message: "Something went wrong." }));
+    currentUser.mockRejectedValue(
+      new ApiError({ status: 500, message: "Something went wrong." }),
+    );
     renderProbe();
 
-    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unavailable"));
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("unavailable"),
+    );
   });
 });
 
@@ -121,7 +143,11 @@ describe("can", () => {
     });
     renderProbe();
 
-    await waitFor(() => expect(screen.getByTestId("can-read-campaigns")).toHaveTextContent("true"));
+    await waitFor(() =>
+      expect(screen.getByTestId("can-read-campaigns")).toHaveTextContent(
+        "true",
+      ),
+    );
   });
 
   it("is false for one it does not", async () => {
@@ -133,7 +159,9 @@ describe("can", () => {
     });
     renderProbe();
 
-    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed-in"));
+    await waitFor(() =>
+      expect(screen.getByTestId("status")).toHaveTextContent("signed-in"),
+    );
     expect(screen.getByTestId("can-read-campaigns")).toHaveTextContent("false");
   });
 
@@ -158,7 +186,9 @@ describe("useSession outside a provider", () => {
    */
   it("fails loudly rather than reporting signed out", () => {
     const complain = vi.spyOn(console, "error").mockImplementation(() => {});
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
 
     expect(() =>
       render(

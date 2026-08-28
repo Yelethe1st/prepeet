@@ -3,7 +3,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => "/practice" }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+  usePathname: () => "/practice",
+}));
 
 const currentUser = vi.fn();
 const signOut = vi.fn();
@@ -56,7 +59,9 @@ const user = {
  * client would mean a second cache.
  */
 function renderLayout() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
 
   return render(
     <QueryClientProvider client={client}>
@@ -73,8 +78,12 @@ describe("AuthenticatedLayout", () => {
     renderLayout();
 
     await waitFor(() => expect(screen.getByRole("main")).toBeInTheDocument());
-    expect(screen.getByRole("heading", { level: 1, name: "Practice" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Practice" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Main" }),
+    ).toBeInTheDocument();
   });
 
   /**
@@ -90,14 +99,18 @@ describe("AuthenticatedLayout", () => {
   });
 
   it("sends somebody without a session to sign in", async () => {
-    currentUser.mockRejectedValue(new ApiError({ status: 401, message: "Please sign in again." }));
+    currentUser.mockRejectedValue(
+      new ApiError({ status: 401, message: "Please sign in again." }),
+    );
     renderLayout();
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/login"));
   });
 
   it("does not render the page to somebody without a session", async () => {
-    currentUser.mockRejectedValue(new ApiError({ status: 401, message: "Please sign in again." }));
+    currentUser.mockRejectedValue(
+      new ApiError({ status: 401, message: "Please sign in again." }),
+    );
     const { container } = renderLayout();
 
     await waitFor(() => expect(push).toHaveBeenCalled());
@@ -110,10 +123,14 @@ describe("AuthenticatedLayout", () => {
    * idea why.
    */
   it("says the product is unreachable rather than sending somebody to sign in", async () => {
-    currentUser.mockRejectedValue(new ApiError({ status: 0, message: "no network", offline: true }));
+    currentUser.mockRejectedValue(
+      new ApiError({ status: 0, message: "no network", offline: true }),
+    );
     renderLayout();
 
-    expect(await screen.findByRole("heading", { name: /not reachable/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /not reachable/i }),
+    ).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 
@@ -129,7 +146,9 @@ describe("AuthenticatedLayout", () => {
     setActiveTenant.mockResolvedValue({});
     renderLayout();
 
-    const switcher = await screen.findByRole("combobox", { name: /workspace/i });
+    const switcher = await screen.findByRole("combobox", {
+      name: /workspace/i,
+    });
     currentUser.mockClear();
 
     // Radix renders its options only once opened, so the choice is two steps
@@ -137,7 +156,9 @@ describe("AuthenticatedLayout", () => {
     // cost of the focus management and typeahead that come with it.
     const { default: userEvent } = await import("@testing-library/user-event");
     await userEvent.click(switcher);
-    await userEvent.click(await screen.findByRole("option", { name: "Orbital" }));
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Orbital" }),
+    );
 
     await waitFor(() => expect(setActiveTenant).toHaveBeenCalledWith("t-b"));
     // Re-read rather than assumed: switching changes what the session may do,

@@ -69,7 +69,9 @@ describe("processing", () => {
     expect(screen.getByText(/transcript sealed/i)).toBeInTheDocument();
     // Leaving is safe and said so; no minutes or seconds are promised.
     expect(screen.getByText(/safe to leave this page/i)).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/\b(usually|within) .*(minute|second)/i);
+    expect(document.body.textContent).not.toMatch(
+      /\b(usually|within) .*(minute|second)/i,
+    );
   });
 });
 
@@ -147,9 +149,7 @@ describe("failure", () => {
   it("a session still live reads as live, not as a failure", async () => {
     renderComplete(session({ state: "in_progress" }));
 
-    expect(
-      await screen.findByText(/still in progress/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/still in progress/i)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

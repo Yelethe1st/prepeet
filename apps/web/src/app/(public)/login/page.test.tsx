@@ -7,7 +7,9 @@ const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 const signIn = vi.fn();
-vi.mock("@/lib/auth/api", () => ({ signIn: (...args: unknown[]) => signIn(...args) }));
+vi.mock("@/lib/auth/api", () => ({
+  signIn: (...args: unknown[]) => signIn(...args),
+}));
 
 import LoginPage from "./page";
 
@@ -26,7 +28,10 @@ beforeEach(() => {
   signIn.mockReset();
 });
 
-async function signInWith(email = "daniel.okonkwo@example.com", password = "a-long-password") {
+async function signInWith(
+  email = "daniel.okonkwo@example.com",
+  password = "a-long-password",
+) {
   await userEvent.type(screen.getByLabelText(/email/i), email);
   await userEvent.type(screen.getByLabelText(/^password$/i), password);
   await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
@@ -36,7 +41,9 @@ describe("LoginPage", () => {
   it("renders the form", () => {
     render(<LoginPage />);
 
-    expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /sign in/i }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
   });
 
@@ -79,10 +86,9 @@ describe("LoginPage", () => {
   it("offers a way to register, so a new person is not stuck here", () => {
     render(<LoginPage />);
 
-    expect(screen.getByRole("link", { name: /create an account/i })).toHaveAttribute(
-      "href",
-      "/register",
-    );
+    expect(
+      screen.getByRole("link", { name: /create an account/i }),
+    ).toHaveAttribute("href", "/register");
   });
 
   it("has no accessibility violations", async () => {

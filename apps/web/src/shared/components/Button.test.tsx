@@ -9,7 +9,10 @@ describe("Button", () => {
   it("defaults to type button, so it cannot submit a form by accident", () => {
     render(<Button>Continue</Button>);
 
-    expect(screen.getByRole("button", { name: "Continue" })).toHaveAttribute("type", "button");
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveAttribute(
+      "type",
+      "button",
+    );
   });
 
   /**
@@ -25,7 +28,12 @@ describe("Button", () => {
   it("renders each variant differently", () => {
     const seen = new Set<string>();
 
-    for (const variant of ["primary", "secondary", "ghost", "danger"] as const) {
+    for (const variant of [
+      "primary",
+      "secondary",
+      "ghost",
+      "danger",
+    ] as const) {
       const { unmount } = render(<Button variant={variant}>Continue</Button>);
       seen.add(screen.getByRole("button").className);
       unmount();
@@ -87,7 +95,9 @@ describe("Button", () => {
       </Button>,
     );
 
-    expect(screen.getByRole("button", { name: "Signing in…" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Signing in…" }),
+    ).toBeInTheDocument();
   });
 
   it("is not busy when it is merely disabled", () => {

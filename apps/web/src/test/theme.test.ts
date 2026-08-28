@@ -16,22 +16,42 @@ import { describe, expect, it } from "vitest";
  * editing a colour, which is most of them.
  */
 
-const css = readFileSync(resolve(process.cwd(), "src/shared/styles/tokens.css"), "utf8");
+const css = readFileSync(
+  resolve(process.cwd(), "src/shared/styles/tokens.css"),
+  "utf8",
+);
 
-/** The declarations inside the first block matching a selector. */
-function block(selector: string): Map<string, string> {
-  const start = css.indexOf(selector);
-  if (start === -1) return new Map();
-  const open = css.indexOf("{", start);
-  const close = css.indexOf("}", open);
+/**
+ * The declarations inside the first block whose selector contains every part
+ * given.
+ *
+ * Parts rather than the selector text, because how a selector is written is not
+ * something this test has any business depending on. It used to look for the
+ * literal string `:root, [data-theme="light"]`, which stopped matching the
+ * moment a formatter put the two selectors on separate lines, as every CSS
+ * formatter does. The block then came back empty, and what failed was
+ * "expected 0 to be greater than 20" from the vacuity guard: a true report of a
+ * broken parser, and one that reads like a missing theme.
+ */
+function block(...parts: string[]): Map<string, string> {
   const declarations = new Map<string, string>();
-  for (const match of css.slice(open, close).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
-    declarations.set(match[1] as string, (match[2] as string).trim());
+
+  for (const rule of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    const selector = (rule[1] as string).replace(/\s+/g, " ").trim();
+    if (!parts.every((part) => selector.includes(part))) continue;
+
+    for (const match of (rule[2] as string).matchAll(
+      /(--[a-z0-9-]+)\s*:\s*([^;]+);/g,
+    )) {
+      declarations.set(match[1] as string, (match[2] as string).trim());
+    }
+    return declarations;
   }
+
   return declarations;
 }
 
-const light = block(':root, [data-theme="light"]');
+const light = block(":root", '[data-theme="light"]');
 const dark = block('[data-theme="dark"]');
 
 /**
@@ -46,7 +66,9 @@ const dark = block('[data-theme="dark"]');
 const semanticColours = [...light.keys()].filter(
   (name) =>
     !/^--(stone|reef|ember|moss|coral|sky|plum)-/.test(name) &&
-    !/^--(sp|r|text|dur|ease|font|shadow|sidebar-w|topbar-h|content-max|focus-ring|z)-/.test(name),
+    !/^--(sp|r|text|dur|ease|font|shadow|sidebar-w|topbar-h|content-max|focus-ring|z)-/.test(
+      name,
+    ),
 );
 
 /**
@@ -74,7 +96,11 @@ for (const match of css.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
  * test rather than fail it, and a hang in a suite is far harder to diagnose
  * than an assertion.
  */
-function resolveToken(value: string, theme: Map<string, string>, depth = 0): string {
+function resolveToken(
+  value: string,
+  theme: Map<string, string>,
+  depth = 0,
+): string {
   if (depth > 8) return "";
 
   const reference = /^var\(\s*(--[a-z0-9-]+)\s*\)$/.exec(value.trim());
@@ -164,7 +190,9 @@ describe("themes", () => {
       const ratio = contrast(colour(theme, name), colour(theme, "--bg"));
 
       expect(ratio, `${name} against --bg`).not.toBeNull();
-      expect(ratio as number, `${name} against --bg`).toBeGreaterThanOrEqual(4.5);
+      expect(ratio as number, `${name} against --bg`).toBeGreaterThanOrEqual(
+        4.5,
+      );
     }
   });
 

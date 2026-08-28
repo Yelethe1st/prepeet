@@ -278,7 +278,7 @@ lint-py:
 
 .PHONY: lint-web
 lint-web:
-	cd $(WEB_DIR) && pnpm lint && pnpm typecheck
+	cd $(WEB_DIR) && pnpm lint && pnpm format:check && pnpm typecheck
 
 .PHONY: fmt
 fmt: ## Format everything in place

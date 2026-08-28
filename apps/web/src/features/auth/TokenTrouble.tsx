@@ -68,7 +68,11 @@ interface TokenTroubleProps {
   requestLabel: string;
 }
 
-export function TokenTrouble({ code, requestHref, requestLabel }: TokenTroubleProps) {
+export function TokenTrouble({
+  code,
+  requestHref,
+  requestLabel,
+}: TokenTroubleProps) {
   const trouble = troubles[code];
 
   return (
@@ -90,9 +94,10 @@ export function TokenTrouble({ code, requestHref, requestLabel }: TokenTroublePr
       <section className="mt-10 border-t border-border pt-5">
         <h2 className="text-sm font-semibold">Why Prepeet links expire</h2>
         <p className="mt-2 text-sm text-fg-2">
-          A short window limits the damage of a leaked email. Forwarded messages, shared mailboxes
-          and printed handovers are all common in the workplaces we serve. An hour-old link is a much
-          smaller problem than a permanent one.
+          A short window limits the damage of a leaked email. Forwarded
+          messages, shared mailboxes and printed handovers are all common in the
+          workplaces we serve. An hour-old link is a much smaller problem than a
+          permanent one.
         </p>
       </section>
     </div>

@@ -29,13 +29,26 @@ import { QueryProvider } from "@/lib/api/QueryProvider";
  * The alternative is invisible text on a slow connection, which is worse than
  * text in the wrong font.
  */
-const sans = Figtree({ subsets: ["latin"], variable: "--font-figtree", display: "swap" });
-const display = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
+const sans = Figtree({
+  subsets: ["latin"],
+  variable: "--font-figtree",
+  display: "swap",
+});
+const display = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Prepeet",
-  description: "Voice-first interview practice and structured employer screening.",
+  description:
+    "Voice-first interview practice and structured employer screening.",
 };
 
 /**

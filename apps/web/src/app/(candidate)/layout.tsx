@@ -22,7 +22,11 @@ import { AppShell } from "@/features/shell/AppShell";
  * page that loaded without a session would show nothing anyway; this just means
  * somebody sees the sign-in screen rather than an empty one.
  */
-export default function AuthenticatedLayout({ children }: { children: ReactNode }) {
+export default function AuthenticatedLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <SessionProvider>
       <Authenticated>{children}</Authenticated>
@@ -52,7 +56,8 @@ function Authenticated({ children }: { children: ReactNode }) {
       <main id="main-content" className="app-content">
         <h1>Prepeet is not reachable</h1>
         <p className="lead">
-          We could not load your account. This is usually brief. Try again in a moment.
+          We could not load your account. This is usually brief. Try again in a
+          moment.
         </p>
       </main>
     );

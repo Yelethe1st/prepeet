@@ -28,7 +28,10 @@ function renderForm() {
   return render(<SignInForm signIn={signIn} onSignedIn={onSignedIn} />);
 }
 
-async function fillAndSubmit(email = "daniel.okonkwo@example.com", password = "a-long-password") {
+async function fillAndSubmit(
+  email = "daniel.okonkwo@example.com",
+  password = "a-long-password",
+) {
   await userEvent.type(screen.getByLabelText(/email/i), email);
   await userEvent.type(screen.getByLabelText(/^password$/i), password);
   await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
@@ -63,7 +66,11 @@ describe("SignInForm", () => {
    */
   it("shows the server's refusal without elaborating on it", async () => {
     signIn.mockRejectedValue(
-      new ApiError({ status: 401, code: "UNAUTHENTICATED", message: "Those details did not sign you in." }),
+      new ApiError({
+        status: 401,
+        code: "UNAUTHENTICATED",
+        message: "Those details did not sign you in.",
+      }),
     );
     renderForm();
 
@@ -71,7 +78,12 @@ describe("SignInForm", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Those details did not sign you in.");
-    for (const leak of [/no account/i, /not registered/i, /wrong password/i, /unknown/i]) {
+    for (const leak of [
+      /no account/i,
+      /not registered/i,
+      /wrong password/i,
+      /unknown/i,
+    ]) {
       expect(alert).not.toHaveTextContent(leak);
     }
   });
@@ -91,7 +103,9 @@ describe("SignInForm", () => {
 
     const email = screen.getByLabelText(/email/i);
     await waitFor(() => expect(email).toHaveAttribute("aria-invalid", "true"));
-    expect(email).toHaveAccessibleDescription(/Enter the email address you registered with/);
+    expect(email).toHaveAccessibleDescription(
+      /Enter the email address you registered with/,
+    );
   });
 
   /**
@@ -101,18 +115,28 @@ describe("SignInForm", () => {
    */
   it("says the connection failed when it did, rather than blaming the details", async () => {
     signIn.mockRejectedValue(
-      new ApiError({ status: 0, message: "We could not reach Prepeet.", offline: true }),
+      new ApiError({
+        status: 0,
+        message: "We could not reach Prepeet.",
+        offline: true,
+      }),
     );
     renderForm();
 
     await fillAndSubmit();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/could not reach/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /could not reach/i,
+    );
   });
 
   it("offers the correlation identifier when there is one to quote", async () => {
     signIn.mockRejectedValue(
-      new ApiError({ status: 500, message: "Something went wrong.", requestId: "req_01a03" }),
+      new ApiError({
+        status: 500,
+        message: "Something went wrong.",
+        requestId: "req_01a03",
+      }),
     );
     renderForm();
 
@@ -122,7 +146,9 @@ describe("SignInForm", () => {
   });
 
   it("does not invent an identifier when the server sent none", async () => {
-    signIn.mockRejectedValue(new ApiError({ status: 500, message: "Something went wrong." }));
+    signIn.mockRejectedValue(
+      new ApiError({ status: 500, message: "Something went wrong." }),
+    );
     renderForm();
 
     await fillAndSubmit();
@@ -137,7 +163,11 @@ describe("SignInForm", () => {
    */
   it("cannot be submitted twice while the first attempt is in flight", async () => {
     let release: () => void = () => {};
-    signIn.mockReturnValue(new Promise<void>((resolve) => { release = resolve; }));
+    signIn.mockReturnValue(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    );
     renderForm();
 
     await fillAndSubmit();
@@ -151,7 +181,12 @@ describe("SignInForm", () => {
   });
 
   it("clears a previous failure when the person tries again", async () => {
-    signIn.mockRejectedValueOnce(new ApiError({ status: 401, message: "Those details did not sign you in." }));
+    signIn.mockRejectedValueOnce(
+      new ApiError({
+        status: 401,
+        message: "Those details did not sign you in.",
+      }),
+    );
     renderForm();
 
     await fillAndSubmit();
@@ -160,7 +195,9 @@ describe("SignInForm", () => {
     signIn.mockResolvedValueOnce(undefined);
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
-    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+    );
   });
 
   /**
@@ -180,8 +217,14 @@ describe("SignInForm", () => {
   it("asks the browser for the right autofill", () => {
     renderForm();
 
-    expect(screen.getByLabelText(/email/i)).toHaveAttribute("autocomplete", "username");
-    expect(screen.getByLabelText(/^password$/i)).toHaveAttribute("autocomplete", "current-password");
+    expect(screen.getByLabelText(/email/i)).toHaveAttribute(
+      "autocomplete",
+      "username",
+    );
+    expect(screen.getByLabelText(/^password$/i)).toHaveAttribute(
+      "autocomplete",
+      "current-password",
+    );
   });
 
   it("has no accessibility violations", async () => {
@@ -202,7 +245,9 @@ describe("SignInForm", () => {
  */
 describe("SignInForm with an unexpected failure", () => {
   it("shows a message of its own rather than the exception's", async () => {
-    signIn.mockRejectedValue(new TypeError("Cannot read properties of undefined (reading 'x')"));
+    signIn.mockRejectedValue(
+      new TypeError("Cannot read properties of undefined (reading 'x')"),
+    );
     renderForm();
 
     await fillAndSubmit();
@@ -243,8 +288,14 @@ describe("SignInForm from the keyboard", () => {
     signIn.mockResolvedValue(undefined);
     renderForm();
 
-    await userEvent.type(screen.getByLabelText(/email/i), "daniel.okonkwo@example.com");
-    await userEvent.type(screen.getByLabelText(/^password$/i), "a-long-password{Enter}");
+    await userEvent.type(
+      screen.getByLabelText(/email/i),
+      "daniel.okonkwo@example.com",
+    );
+    await userEvent.type(
+      screen.getByLabelText(/^password$/i),
+      "a-long-password{Enter}",
+    );
 
     await waitFor(() => expect(signIn).toHaveBeenCalledOnce());
   });
@@ -264,7 +315,11 @@ describe("SignInForm from the keyboard", () => {
 
   it("does not trap focus behind a disabled button while busy", async () => {
     let release: () => void = () => {};
-    signIn.mockReturnValue(new Promise<void>((resolve) => { release = resolve; }));
+    signIn.mockReturnValue(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    );
     renderForm();
 
     await fillAndSubmit();

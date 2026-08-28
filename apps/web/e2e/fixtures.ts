@@ -71,7 +71,10 @@ export async function setTheme(
     // Both themes define a background; what matters is that the recalculation
     // has happened, which it has once the attribute and the computed value
     // agree about which theme is in force.
-    return document.documentElement.getAttribute("data-theme") === chosen && background !== "";
+    return (
+      document.documentElement.getAttribute("data-theme") === chosen &&
+      background !== ""
+    );
   }, theme);
 }
 
@@ -92,7 +95,9 @@ export async function setTheme(
  * the DOM; typing into a hydrated controlled one round-trips through state, and
  * clearing it is what tells the two apart.
  */
-export async function hydrated(page: import("@playwright/test").Page): Promise<void> {
+export async function hydrated(
+  page: import("@playwright/test").Page,
+): Promise<void> {
   const probe = page.getByLabel(/email/i);
   await probe.waitFor({ state: "visible" });
 

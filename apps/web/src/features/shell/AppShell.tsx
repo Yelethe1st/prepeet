@@ -54,7 +54,12 @@ export interface AppShellProps {
  * protection is how a product ends up with an unguarded endpoint behind a
  * hidden button.
  */
-export function AppShell({ user, onSignOut, onSwitchTenant, children }: AppShellProps) {
+export function AppShell({
+  user,
+  onSignOut,
+  onSwitchTenant,
+  children,
+}: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -116,7 +121,10 @@ export function AppShell({ user, onSignOut, onSwitchTenant, children }: AppShell
           className="flex h-topbar items-center gap-2.5 border-b border-sidebar-border px-4 text-fg no-underline"
           href="/"
         >
-          <span className="h-[30px] w-[30px] flex-none rounded-[9px] bg-primary" aria-hidden="true" />
+          <span
+            className="h-[30px] w-[30px] flex-none rounded-[9px] bg-primary"
+            aria-hidden="true"
+          />
           <span className="text-[17px] font-bold tracking-tight">Prepeet</span>
         </Link>
 
@@ -153,7 +161,9 @@ export function AppShell({ user, onSignOut, onSwitchTenant, children }: AppShell
         </nav>
 
         <div className="flex flex-col gap-1 border-t border-sidebar-border p-2.5">
-          <span className="truncate px-2.5 text-sm font-semibold text-fg">{user.email}</span>
+          <span className="truncate px-2.5 text-sm font-semibold text-fg">
+            {user.email}
+          </span>
           <Button variant="ghost" size="sm" onClick={() => void signOut()}>
             Sign out
           </Button>

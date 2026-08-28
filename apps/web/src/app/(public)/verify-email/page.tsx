@@ -35,8 +35,13 @@ function VerifyEmail() {
           <section className="mt-5">
             <h2 className="text-sm font-semibold">What this unlocks</h2>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-fg-2">
-              <li>Voice practice sessions with per-answer coaching and a private score.</li>
-              <li>Screening invitations from employers can now reach this address.</li>
+              <li>
+                Voice practice sessions with per-answer coaching and a private
+                score.
+              </li>
+              <li>
+                Screening invitations from employers can now reach this address.
+              </li>
               <li>Password resets and one-time sign-in codes.</li>
             </ul>
           </section>

@@ -38,7 +38,12 @@ interface OtpFormProps {
   onTokenTrouble: (code: TokenTroubleCode) => void;
 }
 
-export function OtpForm({ email, consume, onSignedIn, onTokenTrouble }: OtpFormProps) {
+export function OtpForm({
+  email,
+  consume,
+  onSignedIn,
+  onTokenTrouble,
+}: OtpFormProps) {
   const [failure, setFailure] = useState<string | null>(null);
 
   const {
@@ -79,8 +84,8 @@ export function OtpForm({ email, consume, onSignedIn, onTokenTrouble }: OtpFormP
   return (
     <form onSubmit={(event) => void handleSubmit(submit)(event)} noValidate>
       <p className="text-sm text-fg-2">
-        We emailed a six-digit code to <strong>{maskEmail(email)}</strong>. It is valid for 10
-        minutes.
+        We emailed a six-digit code to <strong>{maskEmail(email)}</strong>. It
+        is valid for 10 minutes.
       </p>
 
       {failure ? <Banner tone="danger">{failure}</Banner> : null}

@@ -49,7 +49,9 @@ describe("CheckEmailPanel", () => {
       vi.advanceTimersByTime(60_000);
     });
 
-    expect(screen.getByRole("button", { name: /^resend email$/i })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: /^resend email$/i }),
+    ).toBeEnabled();
   });
 
   it("resends and restarts the cooldown", async () => {
@@ -64,19 +66,27 @@ describe("CheckEmailPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: /^resend email$/i }));
     });
 
-    expect(request).toHaveBeenCalledWith("password_reset", "amara.eze@example.com");
+    expect(request).toHaveBeenCalledWith(
+      "password_reset",
+      "amara.eze@example.com",
+    );
     expect(screen.getByText(/only the newest one works/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /resend in 60s/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /resend in 60s/i }),
+    ).toBeDisabled();
   });
 
   it("takes the server's cooldown over its own guess", async () => {
     // The countdown a person watches must be the cooldown that actually
     // holds, and only the 429 knows that number.
-    const request = vi
-      .fn()
-      .mockRejectedValue(
-        new ApiError({ status: 429, code: "RESEND_COOLING_DOWN", message: "wait", retryAfterSeconds: 17 }),
-      );
+    const request = vi.fn().mockRejectedValue(
+      new ApiError({
+        status: 429,
+        code: "RESEND_COOLING_DOWN",
+        message: "wait",
+        retryAfterSeconds: 17,
+      }),
+    );
     renderPanel(request);
 
     await act(async () => {
@@ -86,13 +96,17 @@ describe("CheckEmailPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: /^resend email$/i }));
     });
 
-    expect(screen.getByRole("button", { name: /resend in 17s/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /resend in 17s/i }),
+    ).toBeDisabled();
   });
 
   it("says which email it was: subject and validity", () => {
     renderPanel();
     expect(screen.getByText("Set a new Prepeet password")).toBeInTheDocument();
-    expect(screen.getByText(/30 minutes, and one use only/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/30 minutes, and one use only/),
+    ).toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {

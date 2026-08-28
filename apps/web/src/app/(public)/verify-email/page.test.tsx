@@ -6,7 +6,8 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => search }));
 
 const confirmEmailVerification = vi.fn();
 vi.mock("@/lib/auth/api", () => ({
-  confirmEmailVerification: (...args: unknown[]) => confirmEmailVerification(...args),
+  confirmEmailVerification: (...args: unknown[]) =>
+    confirmEmailVerification(...args),
 }));
 
 import { ApiError } from "@/lib/api/client";
@@ -28,20 +29,23 @@ describe("VerifyEmailPage", () => {
     confirmEmailVerification.mockResolvedValue(undefined);
     render(<VerifyEmailPage />);
 
-    expect(await screen.findByText(/your email address is confirmed/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/your email address is confirmed/i),
+    ).toBeInTheDocument();
     expect(confirmEmailVerification).toHaveBeenCalledWith("vrf_x");
     // To sign-in, not a dashboard: the email could have been opened anywhere.
-    expect(screen.getByRole("link", { name: /continue to sign in/i })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(
+      screen.getByRole("link", { name: /continue to sign in/i }),
+    ).toHaveAttribute("href", "/login");
   });
 
   it("says what verification unlocked, as the prototype does", async () => {
     confirmEmailVerification.mockResolvedValue(undefined);
     render(<VerifyEmailPage />);
 
-    expect(await screen.findByText(/screening invitations/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/screening invitations/i),
+    ).toBeInTheDocument();
   });
 
   it("gives an already-used link its own calm outcome", async () => {
@@ -50,7 +54,9 @@ describe("VerifyEmailPage", () => {
     );
     render(<VerifyEmailPage />);
 
-    expect(await screen.findByRole("heading", { name: /already been used/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /already been used/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/nothing further is needed/i)).toBeInTheDocument();
   });
 });

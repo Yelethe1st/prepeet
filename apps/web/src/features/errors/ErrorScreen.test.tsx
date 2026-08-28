@@ -26,7 +26,9 @@ describe("ErrorScreen", () => {
     renderScreen();
 
     expect(screen.getByText("403 · permission denied")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /cannot open/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /cannot open/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/nothing has gone wrong/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back" })).toBeInTheDocument();
     expect(screen.getByText("req_9")).toBeInTheDocument();

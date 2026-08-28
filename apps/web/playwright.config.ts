@@ -88,7 +88,11 @@ export default defineConfig({
       // is the smallest width in common use, and the width a phone reports when
       // somebody has enlarged their system text.
       name: "narrow",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 320, height: 640 }, launchOptions },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 320, height: 640 },
+        launchOptions,
+      },
     },
   ],
 

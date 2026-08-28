@@ -44,7 +44,8 @@ const copy: Record<TokenEmailKind, { intro: string; action: string }> = {
   // Requested from a signed-in place rather than this form, but the type is
   // the contract's and the entry keeps the record total.
   verify_email: {
-    intro: "We will email a fresh verification link. It works for 30 minutes and only once.",
+    intro:
+      "We will email a fresh verification link. It works for 30 minutes and only once.",
     action: "Email me a new link",
   },
 };
@@ -57,7 +58,11 @@ interface RequestEmailFormProps {
   onSent: (email: string) => void;
 }
 
-export function RequestEmailForm({ kind, request, onSent }: RequestEmailFormProps) {
+export function RequestEmailForm({
+  kind,
+  request,
+  onSent,
+}: RequestEmailFormProps) {
   const [failure, setFailure] = useState<ApiError | null>(null);
 
   const {
@@ -98,7 +103,9 @@ export function RequestEmailForm({ kind, request, onSent }: RequestEmailFormProp
         <Banner tone="danger">
           {failure.message}
           {failure.requestId ? (
-            <span className="mt-1 block text-2xs text-fg-2">Reference: {failure.requestId}</span>
+            <span className="mt-1 block text-2xs text-fg-2">
+              Reference: {failure.requestId}
+            </span>
           ) : null}
         </Banner>
       ) : null}
@@ -111,7 +118,13 @@ export function RequestEmailForm({ kind, request, onSent }: RequestEmailFormProp
           error={errors.email?.message}
         >
           {(props) => (
-            <Input {...props} {...register("email")} type="email" autoComplete="email" inputMode="email" />
+            <Input
+              {...props}
+              {...register("email")}
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+            />
           )}
         </Field>
       </div>

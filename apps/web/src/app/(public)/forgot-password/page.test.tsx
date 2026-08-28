@@ -31,12 +31,21 @@ describe("ForgotPasswordPage", () => {
     requestTokenEmail.mockResolvedValue(undefined);
     render(<ForgotPasswordPage />);
 
-    await userEvent.type(screen.getByLabelText(/email address/i), "amara.eze@example.com");
+    await userEvent.type(
+      screen.getByLabelText(/email address/i),
+      "amara.eze@example.com",
+    );
     await userEvent.click(screen.getByRole("button", { name: /reset link/i }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/check-email"));
-    expect(requestTokenEmail).toHaveBeenCalledWith("password_reset", "amara.eze@example.com");
+    expect(requestTokenEmail).toHaveBeenCalledWith(
+      "password_reset",
+      "amara.eze@example.com",
+    );
     // The next screen reads this; the URL deliberately carries nothing.
-    expect(readSentEmail()).toEqual({ kind: "password_reset", email: "amara.eze@example.com" });
+    expect(readSentEmail()).toEqual({
+      kind: "password_reset",
+      email: "amara.eze@example.com",
+    });
   });
 });

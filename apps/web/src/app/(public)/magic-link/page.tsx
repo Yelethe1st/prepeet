@@ -53,7 +53,8 @@ function MagicLink() {
       done={
         <div>
           <Banner tone="success">
-            You are signed in. This link has now been used up and will not work again.
+            You are signed in. This link has now been used up and will not work
+            again.
           </Banner>
           <div className="mt-5">
             <ButtonLink href="/practice" variant="primary">

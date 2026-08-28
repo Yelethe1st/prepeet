@@ -14,7 +14,9 @@ describe("Banner", () => {
     const seen = new Set<string>();
 
     for (const tone of ["success", "danger", "warning", "info"] as const) {
-      const { container, unmount } = render(<Banner tone={tone}>Something happened.</Banner>);
+      const { container, unmount } = render(
+        <Banner tone={tone}>Something happened.</Banner>,
+      );
       seen.add((container.firstChild as HTMLElement).className);
       unmount();
     }
@@ -30,18 +32,25 @@ describe("Banner", () => {
   it("announces a failure as an alert", () => {
     render(<Banner tone="danger">Sign-in was cancelled.</Banner>);
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Sign-in was cancelled.");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Sign-in was cancelled.",
+    );
   });
 
-  it.each(["success", "warning", "info"] as const)("announces %s as a status, not an alert", (tone) => {
-    render(<Banner tone={tone}>Something happened.</Banner>);
+  it.each(["success", "warning", "info"] as const)(
+    "announces %s as a status, not an alert",
+    (tone) => {
+      render(<Banner tone={tone}>Something happened.</Banner>);
 
-    expect(screen.getByRole("status")).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
+      expect(screen.getByRole("status")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
 
   it("has no accessibility violations", async () => {
-    const { container } = render(<Banner tone="danger">Sign-in was cancelled.</Banner>);
+    const { container } = render(
+      <Banner tone="danger">Sign-in was cancelled.</Banner>,
+    );
 
     expect(await axe(container)).toHaveNoViolations();
   });

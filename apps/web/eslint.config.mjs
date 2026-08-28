@@ -9,21 +9,16 @@
 // Both halves are fixed together: this makes the command work, and CI now
 // invokes the same make targets an engineer runs, so the two cannot diverge
 // again by one of them quietly omitting a step.
-import next from 'eslint-config-next'
-import coreWebVitals from 'eslint-config-next/core-web-vitals'
-import typescript from 'eslint-config-next/typescript'
+import next from "eslint-config-next";
+import coreWebVitals from "eslint-config-next/core-web-vitals";
+import typescript from "eslint-config-next/typescript";
 
 const config = [
   {
     // Generated and build output. Linting generated code reports problems
     // nobody can fix in the file where they appear, which teaches people to
     // ignore the linter.
-    ignores: [
-      '.next/**',
-      'coverage/**',
-      'node_modules/**',
-      'next-env.d.ts',
-    ],
+    ignores: [".next/**", "coverage/**", "node_modules/**", "next-env.d.ts"],
   },
   ...next,
   ...coreWebVitals,
@@ -41,6 +36,6 @@ const config = [
       "react-hooks/rules-of-hooks": "off",
     },
   },
-]
+];
 
-export default config
+export default config;

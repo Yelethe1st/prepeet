@@ -46,20 +46,30 @@ export function ErrorScreen({
       id="main-content"
       className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col justify-center px-6 py-12"
     >
-      <p className="font-mono text-2xs tracking-[0.08em] text-fg-3 uppercase">{badge}</p>
+      <p className="font-mono text-2xs tracking-[0.08em] text-fg-3 uppercase">
+        {badge}
+      </p>
       <h1 className="mt-3 font-display text-2xl tracking-[-0.02em]">{title}</h1>
-      <div className="mt-3 space-y-3 text-sm leading-[1.55] text-fg-2">{children}</div>
+      <div className="mt-3 space-y-3 text-sm leading-[1.55] text-fg-2">
+        {children}
+      </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">{actions}</div>
 
       {facts && facts.length > 0 ? (
         <section className="mt-10 border-t border-border pt-5">
-          {factsTitle ? <h2 className="text-sm font-semibold">{factsTitle}</h2> : null}
+          {factsTitle ? (
+            <h2 className="text-sm font-semibold">{factsTitle}</h2>
+          ) : null}
           <dl className="mt-3 space-y-2 text-sm">
             {facts.map((fact) => (
               <div key={fact.label} className="flex justify-between gap-4">
                 <dt className="shrink-0 text-fg-2">{fact.label}</dt>
-                <dd className={fact.mono ? "font-mono text-xs break-all" : "text-right"}>
+                <dd
+                  className={
+                    fact.mono ? "font-mono text-xs break-all" : "text-right"
+                  }
+                >
                   {fact.value}
                 </dd>
               </div>

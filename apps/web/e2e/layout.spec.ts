@@ -41,7 +41,13 @@ const routes = [
  * verify-email land token-first, check-email echoes rather than asks, and otp
  * asks only in the tab that has not already requested a code.
  */
-const routesWithAnEmailInput = new Set(["/login", "/register", "/forgot-password", "/magic-link", "/otp"]);
+const routesWithAnEmailInput = new Set([
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/magic-link",
+  "/otp",
+]);
 
 /** Reads whether the document is wider than the window can show. */
 async function horizontalOverflow(page: import("@playwright/test").Page) {
@@ -52,7 +58,9 @@ async function horizontalOverflow(page: import("@playwright/test").Page) {
     // than only the symptom.
     widest: (() => {
       let worst = { selector: "", right: 0 };
-      for (const node of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
+      for (const node of Array.from(
+        document.querySelectorAll<HTMLElement>("body *"),
+      )) {
         const right = node.getBoundingClientRect().right;
         if (right > worst.right) {
           worst = {
@@ -71,7 +79,8 @@ test.describe("layout", () => {
     test(`${route} does not scroll horizontally`, async ({ page }) => {
       await page.goto(route);
 
-      const { scrollWidth, clientWidth, widest } = await horizontalOverflow(page);
+      const { scrollWidth, clientWidth, widest } =
+        await horizontalOverflow(page);
 
       expect(
         scrollWidth,
@@ -85,15 +94,21 @@ test.describe("layout", () => {
      * and they are echoed back in confirmations.
      */
     test(`${route} survives a very long email address`, async ({ page }) => {
-      test.skip(!routesWithAnEmailInput.has(route), "no email input to fill on this route");
+      test.skip(
+        !routesWithAnEmailInput.has(route),
+        "no email input to fill on this route",
+      );
       await page.goto(route);
 
       await page
         .getByLabel(/email address|email/i)
         .first()
-        .fill("daniel.okonkwo.with.an.unusually.long.address@a-very-long-organisation-name.example.com");
+        .fill(
+          "daniel.okonkwo.with.an.unusually.long.address@a-very-long-organisation-name.example.com",
+        );
 
-      const { scrollWidth, clientWidth, widest } = await horizontalOverflow(page);
+      const { scrollWidth, clientWidth, widest } =
+        await horizontalOverflow(page);
 
       expect(
         scrollWidth,
@@ -107,7 +122,9 @@ test.describe("layout", () => {
    * other way a long one breaks a layout: not typed into a box that scrolls,
    * but rendered into a definition list that does not.
    */
-  test("/check-email survives echoing a very long address", async ({ page }) => {
+  test("/check-email survives echoing a very long address", async ({
+    page,
+  }) => {
     await page.goto("/check-email");
     await page.evaluate(() => {
       sessionStorage.setItem(
@@ -134,7 +151,9 @@ test.describe("layout", () => {
    * width the form would be pushed off screen, and somebody on a small phone
    * could not sign in at all.
    */
-  test("the authentication side panel is hidden on a narrow viewport", async ({ page }, testInfo) => {
+  test("the authentication side panel is hidden on a narrow viewport", async ({
+    page,
+  }, testInfo) => {
     test.skip(testInfo.project.name !== "narrow", "only meaningful at 320px");
 
     await page.goto("/login");
@@ -143,8 +162,13 @@ test.describe("layout", () => {
     await expect(page.getByLabel(/email/i)).toBeVisible();
   });
 
-  test("the side panel is shown when there is room", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "only meaningful at desktop width");
+  test("the side panel is shown when there is room", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "desktop",
+      "only meaningful at desktop width",
+    );
 
     await page.goto("/login");
 
@@ -158,7 +182,9 @@ test.describe("layout", () => {
   test("every form control is reachable and usable", async ({ page }) => {
     await page.goto("/register");
 
-    for (const control of await page.locator("input:not([type=hidden])").all()) {
+    for (const control of await page
+      .locator("input:not([type=hidden])")
+      .all()) {
       await expect(control).toBeVisible();
       const box = await control.boundingBox();
       expect(box, "a control has no box").not.toBeNull();

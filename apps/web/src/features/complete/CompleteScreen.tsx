@@ -171,13 +171,16 @@ function Ready({ session }: { session: InterviewSession }) {
 /** Terminal failure: the code, the safety, and the concrete next action. */
 function Failed({ session }: { session: InterviewSession }) {
   return (
-    <div role="alert" className="rounded-lg border border-border bg-surface p-5">
+    <div
+      role="alert"
+      className="rounded-lg border border-border bg-surface p-5"
+    >
       <h2 className="text-lg font-semibold">
         Evaluation failed for this session
       </h2>
       <p className="mt-2 text-sm text-fg-2">
-        Your transcript and evidence are safe and stored; nothing you said
-        was lost. The failure is on our side
+        Your transcript and evidence are safe and stored; nothing you said was
+        lost. The failure is on our side
         {session.failure_code ? (
           <>
             {" "}
@@ -187,8 +190,8 @@ function Failed({ session }: { session: InterviewSession }) {
         .
       </p>
       <p className="mt-2 text-sm text-fg-2">
-        If this does not resolve on its own, contact support and quote
-        session <span className="font-mono">{session.id}</span>.
+        If this does not resolve on its own, contact support and quote session{" "}
+        <span className="font-mono">{session.id}</span>.
       </p>
       <Link className="btn btn-secondary mt-4 inline-block" href="/practice">
         Back to practice
@@ -206,8 +209,8 @@ function MediaLine({ session }: { session: InterviewSession }) {
     case "none_by_choice":
       return (
         <p className="mt-2 text-sm text-fg-2">
-          No audio, by your choice: the transcript is kept, replay and
-          delivery measurement are off for this session.
+          No audio, by your choice: the transcript is kept, replay and delivery
+          measurement are off for this session.
         </p>
       );
     case "missing":
@@ -220,8 +223,7 @@ function MediaLine({ session }: { session: InterviewSession }) {
     default:
       return (
         <p className="mt-2 text-sm text-fg-2">
-          The recording is stored and will power replay and delivery
-          coaching.
+          The recording is stored and will power replay and delivery coaching.
         </p>
       );
   }

@@ -1,4 +1,4 @@
-"""Deterministic delivery features: articulation-features-v1 (ART-01).
+"""Deterministic delivery features: articulation-features-v2 (ART-01, ART-08).
 
 Everything here is arithmetic over the sealed transcript's word timings
 and confidences. No model is consulted and none could be: words per
@@ -15,13 +15,15 @@ status and warning, never by a made-up value.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from itertools import pairwise
+from pathlib import Path
 from typing import Any
 
-CALCULATION_VERSION = "articulation-features-v1"
+CALCULATION_VERSION = "articulation-features-v2"
 
 LONG_PAUSE_MS = 700
 """A gap between words a listener notices as a pause, not a breath."""
@@ -38,6 +40,26 @@ they are fillers sometimes and content the rest of the time, and a count
 that guesses is worse than one that abstains."""
 
 _TOKEN = re.compile(r"[a-z0-9']+")
+
+_HEDGE_DATA = json.loads((Path(__file__).parent / "hedges.json").read_text(encoding="utf-8"))
+
+HEDGES_VERSION: str = _HEDGE_DATA["version"]
+"""Versioned with the calculator, so a phrase added to the data is a new
+calculation rather than a quiet change to what an old session meant."""
+
+HEDGE_PHRASES: tuple[tuple[str, ...], ...] = tuple(
+    sorted((tuple(phrase.split()) for phrase in _HEDGE_DATA["phrases"]), key=len, reverse=True)
+)
+"""Softeners, as token sequences, longest first: 'a little bit' has to be
+matched before 'a bit' or the longer phrase is never seen. Sorted here rather
+than in the file, so that an edit to the data cannot silently break it. ART-08 keeps these
+in data so that adding one is a data change and a test.
+
+They are counted and never targeted. An answer that hedges nothing claims a
+certainty the candidate may not have, and 'I think' in front of a genuine
+estimate is correct English. What makes a hedge worth mentioning is decided in
+profile.py, where the evidence for the claim is known: a hedge in front of
+something the candidate then backs up is one they did not need."""
 
 CLIPPING_FLOOR = 0.02
 """Share of samples at full scale above which the recording is clipped:
@@ -106,6 +128,8 @@ class TurnFeatures:
     long_pause_count: int
     filler_count: int
     fillers_per_100_words: float
+    hedge_count: int
+    hedge_phrases: tuple[str, ...]
     restart_count: int
     repeated_phrase_count: int
     transcript_confidence: float
@@ -139,6 +163,35 @@ def _pauses(words: list[dict[str, Any]]) -> list[int]:
         if gap > 0:
             gaps.append(gap)
     return gaps
+
+
+def _hedges(tokens: list[str]) -> tuple[int, tuple[str, ...]]:
+    """Softening phrases in a turn, and which ones they were.
+
+    Longest-first with a skip, so 'a little bit' counts once rather than also
+    counting the 'a bit' inside it. The phrases are returned because the reason
+    a candidate reads has to name their own words, not a number on its own.
+    """
+    count = 0
+    found: list[str] = []
+    index = 0
+    while index < len(tokens):
+        for phrase in HEDGE_PHRASES:
+            end = index + len(phrase)
+            if end <= len(tokens) and tuple(tokens[index:end]) == phrase:
+                count += 1
+                found.append(" ".join(phrase))
+                index = end
+                break
+        else:
+            index += 1
+    # Distinct, in the order they were first said: a list repeating "i think"
+    # four times tells the candidate nothing the count has not already said.
+    seen: list[str] = []
+    for said in found:
+        if said not in seen:
+            seen.append(said)
+    return count, tuple(seen)
 
 
 def _restarts(tokens: list[str]) -> int:
@@ -186,6 +239,7 @@ def turn_features(turn: dict[str, Any]) -> TurnFeatures:
     gaps = _pauses(words)
     long_pauses = [gap for gap in gaps if gap >= LONG_PAUSE_MS]
     filler_count = sum(1 for token in tokens if token in FILLERS)
+    hedge_count, hedge_phrases = _hedges(tokens)
     fillers_per_100 = round(100 * filler_count / word_count, 1) if word_count else 0.0
     confidence = (
         round(sum(float(w.get("confidence", 0.0)) for w in words) / len(words), 3) if words else 0.0
@@ -215,6 +269,8 @@ def turn_features(turn: dict[str, Any]) -> TurnFeatures:
         long_pause_count=len(long_pauses),
         filler_count=filler_count,
         fillers_per_100_words=fillers_per_100,
+        hedge_count=hedge_count,
+        hedge_phrases=hedge_phrases,
         restart_count=_restarts(tokens),
         repeated_phrase_count=_repeated_phrases(tokens),
         transcript_confidence=confidence,

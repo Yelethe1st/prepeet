@@ -3,7 +3,7 @@
 The request names a manifest by reference and digest, exactly like every
 other pinned read; the calculator runs only over verified bytes. At this
 floor the manifest IS the sealed evaluation input (turns with word
-timings), which carries everything articulation-features-v1 measures;
+timings), which carries everything articulation-features-v2 measures;
 audio-derived quality joins when the recording is decoded here, and the
 result says so until then rather than inventing a number.
 """

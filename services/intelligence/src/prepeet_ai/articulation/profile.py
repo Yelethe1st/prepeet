@@ -164,12 +164,30 @@ def profile(turns: list[dict[str, Any]]) -> Profile:
         structured or sequences,
         f"{len(structured)} of {len(assessable)} answers moved from claim to a stated outcome",
     )
-    # Precision: answers carrying a concrete figure.
+    # Precision: answers carrying a concrete figure, and the ones that softened
+    # the figure they were carrying.
+    #
+    # ART-08's distinction is made here rather than in the calculator, because
+    # only here is it known whether the claim was backed. A hedge in a turn with
+    # no figure is somebody honestly marking an estimate, and it is left alone.
+    # A hedge in a turn that does carry a figure is a claim the candidate could
+    # have made plainly and softened anyway, which is the only kind worth
+    # mentioning. Neither changes the level: precision is what was said, and
+    # penalising "I think it was about 30%" would be penalising an honest
+    # estimate, which ART-07 forbids and which is the wrong lesson besides.
     precise = tuple(seq for seq, text in texts.items() if _NUMBER.search(text))
+    hedged = {t.sequence: t.hedge_phrases for t in assessable if t.hedge_count > 0}
+    softened = tuple(seq for seq in precise if seq in hedged)
+    reason = f"{len(precise)} of {len(assessable)} answers carried a concrete figure"
+    if softened:
+        phrases = sorted({phrase for seq in softened for phrase in hedged[seq]})
+        reason += f"; {len(softened)} of those softened it with " + ", ".join(
+            f'"{phrase}"' for phrase in phrases
+        )
     dims["precision"] = Dimension(
         _level(len(precise) / len(assessable), solid_at=0.34, strong_at=0.67),
-        precise or sequences,
-        f"{len(precise)} of {len(assessable)} answers carried a concrete figure",
+        softened or precise or sequences,
+        reason,
     )
 
     # Responsiveness: overlap between the question's content words and the

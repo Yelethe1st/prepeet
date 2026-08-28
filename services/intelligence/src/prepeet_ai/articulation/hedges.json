@@ -1,0 +1,33 @@
+{
+  "version": "articulation-hedges-v1",
+  "note": "Phrases that soften a claim. Data rather than code so that adding one is a data change and a test, per ART-08. Ordered longest first so that 'a little bit' is matched before 'a bit'.",
+  "excluded": {
+    "just": "Temporal and quantifying far more often than hedging: 'just one call' is precise. Counting it would make the measurement noise.",
+    "like": "Already excluded from fillers for the same reason: a filler sometimes and content the rest of the time.",
+    "really": "An intensifier, not a softener. It strengthens the claim it sits in front of."
+  },
+  "phrases": [
+    "if that makes sense",
+    "i would probably say",
+    "or something like that",
+    "i am not entirely sure",
+    "correct me if i am wrong",
+    "a little bit",
+    "more or less",
+    "i would say",
+    "or something",
+    "i suppose",
+    "i believe",
+    "i think",
+    "i guess",
+    "i mean",
+    "sort of",
+    "kind of",
+    "a bit",
+    "somewhat",
+    "probably",
+    "possibly",
+    "perhaps",
+    "maybe"
+  ]
+}

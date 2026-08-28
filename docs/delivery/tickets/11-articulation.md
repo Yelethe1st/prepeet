@@ -250,11 +250,42 @@ ten dimensions are what ART-03 published; a hedge is a candidate not saying exac
 which is what precision already measures.
 
 **Done when**
-- [ ] Hedge phrases are counted per turn in the deterministic feature set, with the same versioned calculation and the same not-assessable rules as fillers.
-- [ ] The phrase list is data rather than code, versioned with the calculator, so adding one is a data change and a test.
-- [ ] Precision's reason names the count and the phrases behind it, and its evidence points at the turns they occurred in.
-- [ ] A hedge on a claim the candidate goes on to support is told apart from a hedge that honestly marks uncertainty, and only the first is ever coached.
-- [ ] No count is presented as a target, and zero hedges is never described as the goal.
+- [x] Hedge phrases are counted per turn in the deterministic feature set, with the same versioned calculation and the same not-assessable rules as fillers.
+- [x] The phrase list is data rather than code, versioned with the calculator, so adding one is a data change and a test.
+- [x] Precision's reason names the count and the phrases behind it, and its evidence points at the turns they occurred in.
+- [x] A hedge on a claim the candidate goes on to support is told apart from a hedge that honestly marks uncertainty, and only the first is ever coached.
+- [x] No count is presented as a target, and zero hedges is never described as the goal.
+
+**Done, at articulation-features-v2.** `hedge_count` and `hedge_phrases` ride each turn beside
+the fillers they resemble, counted by the same arithmetic over the same tokens: no audio, no
+phonetics, no locale, which is what keeps the feature clear of ART-03's accent rule. The version
+bumped because the calculator's output changed, and a changed calculator must not claim to be the
+old one.
+
+The phrases are in `hedges.json` beside the module, versioned as `articulation-hedges-v1`, with
+the exclusions written down and argued rather than merely absent: "just" is temporal far more
+often than it is softening, "like" is already excluded from fillers for the same reason, and
+"really" strengthens a claim rather than softening it. They are sorted longest-first at load
+instead of by hand, so an edit to the file cannot silently stop "a little bit" being matched by
+leaving "a bit" in front of it.
+
+The distinction that makes the feature safe is made in the profile rather than the calculator,
+because only there is it known whether the claim was backed. Precision already defines support as
+a concrete figure, so a hedge in a turn carrying a figure is a claim the candidate could have made
+plainly and softened anyway, and a hedge in a turn with no figure is somebody honestly marking an
+estimate and is never surfaced at all. The reason reads: `1 of 1 answers carried a concrete
+figure; 1 of those softened it with "i think"`.
+
+Neither moves the level, and that is the point rather than an omission. Penalising "I think it
+was about 30%" would penalise an honest estimate, which is the opposite of the lesson, so the
+level stays what precision has always measured and the hedging is evidence beside it. A test
+asserts the level is identical for the same answer softened and plain, and another forbids
+"should", "aim", "target", "avoid" and "reduce" anywhere in the reason.
+
+One trap is recorded in the suite itself. Two of the tests first passed against
+`no assessable candidate speech`, because the replacement answer was eleven words and the floor is
+twenty, so an assertion that something was *absent* was true without measuring anything. A test now
+asserts the fixture is assessable before the three that depend on it.
 
 **Watch for**
 

@@ -1,4 +1,4 @@
-"""articulation-features-v1: counted, never judged, reproducible forever.
+"""articulation-features-v2: counted, never judged, reproducible forever.
 
 Known fixtures produce known values within a documented tolerance; every
 value carries its calculator version and its turn; no model is involved

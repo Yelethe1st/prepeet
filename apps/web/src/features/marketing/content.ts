@@ -45,6 +45,16 @@ import {
  *
  * 3. The prototype's mobile menu and footer link to its own prototype index and
  *    design-system page. Those are development artefacts and are not shipped.
+ *
+ * 4. No invented proof. The prototype opens with a strip of six named
+ *    organisations and four usage numbers, and later quotes three named people
+ *    at two of those organisations. None of them exists, and a front page that
+ *    names customers it does not have is making a claim rather than a design
+ *    decision. Both sections are gone rather than reworded, because there is no
+ *    honest wording for a number nobody measured. What they were standing in
+ *    for is on the page already and demonstrated instead of counted: the
+ *    visibility table says a person reviews every screen evaluation, and the
+ *    evidence section shows a competency withheld for want of a third quote.
  */
 
 /** A navigation destination. In-page anchors and real routes, nothing else. */
@@ -88,33 +98,6 @@ export const hero = {
   frameCaption:
     "Say Monday at 08:00 you get thirty thousand booking attempts a minute against overlapping slots. How do you stop double booking?",
   frameHint: "Captions on · Push-to-talk available",
-};
-
-/* ----------------------------------------------------------------- proof -- */
-
-export const proof = {
-  heading: "Organisations using Prepeet",
-  lead: "Interview teams in health systems, software companies, school trusts, finance and commercial sales run Prepeet alongside, never instead of, their own interviewers.",
-  logos: [
-    { initials: "NH", name: "Northwind Health System" },
-    { initials: "OL", name: "Orbital Labs" },
-    { initials: "MS", name: "Meridian Schools Trust" },
-    { initials: "CC", name: "Caldera Capital" },
-    { initials: "BC", name: "Brightpath Commercial" },
-    { initials: "SM", name: "Saltmarsh Care Trust" },
-  ],
-  stats: [
-    { value: "41,200", label: "Interviews completed in the last 12 months" },
-    {
-      value: "100%",
-      label: "Screen evaluations reviewed by a person before any decision",
-    },
-    { value: "0", label: "Scores published without a linked transcript quote" },
-    {
-      value: "6",
-      label: "Domains with maintained rubrics and calibration sets",
-    },
-  ],
 };
 
 /* ------------------------------------------------------------- use cases -- */
@@ -588,36 +571,6 @@ export const evidence = {
   }[],
   chartSummary:
     "Text summary: systems design scores 78 out of 100 (Solid) with a confidence range of 70 to 84, from 6 evidence spans. Debugging and incident response scores 66 (Solid) with a wider range of 56 to 74, from 4 spans. Prioritisation under pressure is not scored: only 1 supporting span was found, below the minimum of 3, so it is reported as insufficient evidence.",
-};
-
-/* ---------------------------------------------------------------- quotes -- */
-
-export const quotes = {
-  eyebrow: "What people say",
-  heading: "Three different jobs, three different reasons to trust it",
-  items: [
-    {
-      quote:
-        "“We were doing 40 phone screens a week and writing four sentences each. Now I read an evidence pack and disagree with it in writing. The disagreement is the point: I can see what it heard and say why I read it differently.”",
-      initials: "PR",
-      name: "Priya Raman",
-      role: "Talent acquisition lead · Northwind Health System",
-    },
-    {
-      quote:
-        "“It asked me the question I’d been avoiding for six months, then showed me my own answer rewritten. I did the same session four times. The fourth one, I heard myself name a trade-off out loud for the first time.”",
-      initials: "DO",
-      name: "Daniel Okonkwo",
-      role: "Backend engineer, 6 years · Manchester",
-    },
-    {
-      quote:
-        "“I approved it because of the boring parts: Frankfurt-only storage, SCIM deprovisioning that actually works, and an audit log that told me exactly who exported which candidate and when. No black box for me to defend.”",
-      initials: "ES",
-      name: "Elin Sørensen",
-      role: "Head of IT security · Meridian Schools Trust",
-    },
-  ],
 };
 
 /* ------------------------------------------------------------------- faq -- */

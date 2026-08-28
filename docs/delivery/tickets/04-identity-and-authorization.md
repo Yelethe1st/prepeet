@@ -300,3 +300,56 @@ are none. The capability gate (platform.privileged_elevate) and the console land
 which this unblocks.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md) · [observability.md](../../operations/observability.md)
+
+---
+
+### IAM-08 · Implement configured OAuth sign-in and account linking
+
+**Depends on** IAM-01, IAM-02 · **Blocks** WEB-06's sign-in and registration screens
+
+Sign in and register with Google and Microsoft, on the same session the password flow issues.
+
+This ticket exists because the plan lost it. [DEC-02](01-decisions-and-adrs.md) settled that
+"password, OAuth, magic link, OTP and recovery are required for the first release", and
+[ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md) lists "configured OAuth" among
+the flows built in Go. IAM-01 delivered the first item on that list and IAM-02 delivered the last
+three. OAuth sat in the middle of the same sentence and was never written down as work, so nothing
+scheduled it and nothing gated on its absence. There is no OAuth code in `internal/identity` and no
+provider endpoint in the OpenAPI document.
+
+Enterprise federation is **not** in scope and is not what this is. ADR-0003 defers SSO and SCIM
+deliberately, to be adopted for tenant members only, behind an adapter, and priced against the buyer
+who asks. The prototype's `login.html` stacks "Continue with Okta (Northwind Health)" alongside
+Google and Microsoft, which reads as one feature and is two: the Okta button belongs to that deferred
+work and stays out until a buyer pays for it. Only the consumer providers are built here.
+
+The seam is already in place. ADR-0003's risk table promised that "the identity module keeps a single
+authentication entry point so a federation adapter attaches at one boundary", and `identity.Service`
+has one: `Authenticate` issues the session, and everything about a password is decided before it.
+An OAuth identity that resolves to a user has to arrive at that same call rather than mint a session
+of its own, or there are two ways to be signed in and only one of them is audited, rate-limited and
+revocable.
+
+**Done when**
+- [ ] The contract gains the provider endpoints, and the generated code and the handlers follow it.
+- [ ] `state` and PKCE are mandatory, single-use and time-bound, and a replayed or absent `state` is refused rather than tolerated.
+- [ ] An OAuth sign-in issues the same session the password flow issues, through the same entry point, with the same cookies, rotation and revocation.
+- [ ] Linking rules are explicit and proven: an OAuth identity whose verified email matches an existing account links to it; an unverified email from a provider never does.
+- [ ] A provider that is unreachable, slow, or returns an error leaves the person on a screen that names what happened and offers email and password, without a half-created account behind it.
+- [ ] Every provider is configured rather than compiled in, so adding one is configuration and a test.
+- [ ] The callback screen is ported from `screens/oauth-callback.html` with its four states: processing, slow, invalid state and expired code.
+- [ ] Registration through a provider creates the same account a form does, including account type, and never silently creates a tenant.
+
+**Watch for**
+
+An OAuth identity meeting an existing password account is the whole risk of this ticket, and the
+failure mode is account takeover: a provider that asserts an email it has not verified, linked to an
+account somebody else owns, hands over that account. The email is not the identity; a verified email
+from a provider that says so is. Anything else creates a new account or refuses.
+
+The second is a half-created account. The callback does several things that can each fail after the
+provider has already succeeded, and a person who lands back on the sign-in screen with an account
+that exists but cannot be signed into has no way to describe what went wrong. One transaction, as
+organisation registration already does.
+
+**Spec** [authorization-model.md](../../architecture/authorization-model.md) · [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md)

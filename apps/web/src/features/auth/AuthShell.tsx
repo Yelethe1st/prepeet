@@ -1,4 +1,4 @@
-import { Accessibility, FileCheck2, Lock, ShieldCheck } from "lucide-react";
+import { Accessibility, Lock, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -15,7 +15,6 @@ const assurances = [
   { glyph: ShieldCheck, text: "EU data residency (Frankfurt)" },
   { glyph: Lock, text: "Practice data never reaches employers" },
   { glyph: Accessibility, text: "WCAG 2.2 AA" },
-  { glyph: FileCheck2, text: "SOC 2 Type II" },
 ];
 
 /**
@@ -40,6 +39,13 @@ const assurances = [
  * graduate roles, rejected nineteen times with no reason given, hearing his own
  * answer played back and finding the gap in it. That is the whole product in
  * five lines, which is why it sits where somebody signing in will read it.
+ *
+ * What is not here is the prototype's pair of counters, 184,600 practice
+ * sessions and 312 employers screening, and its "SOC 2 Type II" badge. The
+ * counters are numbers nobody measured, and the badge names a certification the
+ * company does not hold, which is the more serious of the two: an unearned
+ * compliance claim on the sign-in screen is the kind of thing a buyer relies on.
+ * The three that remain are commitments the product keeps and can be held to.
  *
  * The brand and the footer are here rather than on each screen because the
  * prototype puts them on both, and a header duplicated per screen is a header
@@ -75,43 +81,19 @@ export function AuthShell({ children }: { children: ReactNode }) {
 
         <p className="mt-4 text-sm text-stone-300">
           Kelvin Onouha · MSc Computer Science · York St John University, London
-          <span className="mt-1 block text-stone-400">
-            31 practice sessions before his first graduate offer
-          </span>
         </p>
 
-        <div className="mt-auto">
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-[18px] text-sm text-stone-300">
-            <div>
-              <dt className="text-2xs font-bold tracking-[0.08em] text-stone-400 uppercase">
-                Practice sessions run
-              </dt>
-              <dd className="mt-1 text-lg font-semibold text-stone-50 tabular-nums">
-                184,600
-              </dd>
-            </div>
-            <div>
-              <dt className="text-2xs font-bold tracking-[0.08em] text-stone-400 uppercase">
-                Employers screening
-              </dt>
-              <dd className="mt-1 text-lg font-semibold text-stone-50 tabular-nums">
-                312
-              </dd>
-            </div>
-          </dl>
-
-          <ul className="mt-8 flex flex-wrap gap-x-[18px] gap-y-2 text-xs text-stone-400">
-            {assurances.map((assurance) => (
-              <li
-                key={assurance.text}
-                className="inline-flex items-center gap-1.5"
-              >
-                <Icon glyph={assurance.glyph} size="sm" />
-                {assurance.text}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ul className="mt-auto flex flex-wrap gap-x-[18px] gap-y-2 text-xs text-stone-400">
+          {assurances.map((assurance) => (
+            <li
+              key={assurance.text}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Icon glyph={assurance.glyph} size="sm" />
+              {assurance.text}
+            </li>
+          ))}
+        </ul>
       </aside>
 
       <div className="flex flex-col px-6 py-8 sm:px-12">

@@ -3,15 +3,7 @@ import { describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
 import { MarketingPage } from "./MarketingPage";
-import {
-  faq,
-  footer,
-  howItWorks,
-  hero,
-  proof,
-  quotes,
-  useCases,
-} from "./content";
+import { faq, footer, howItWorks, hero, useCases } from "./content";
 
 /**
  * The front page, checked against the prototype it was ported from.
@@ -48,13 +40,11 @@ describe("the marketing page", () => {
     render(<MarketingPage />);
 
     for (const heading of [
-      proof.heading,
       useCases.heading,
       "Built for the part everyone skips: the write-up",
       howItWorks.heading,
       "It behaves like an interviewer, including when you cut it off",
       "A score you can’t trace back to a sentence isn’t a score",
-      quotes.heading,
       faq.heading,
       "Start with one conversation",
     ]) {

@@ -65,11 +65,12 @@ export function AuthShell({ children }: { children: ReactNode }) {
         </p>
 
         <blockquote className="mt-[18px] max-w-[440px] font-display text-xl leading-[1.35]">
-          “Nineteen graduate applications and not one of them told me why. The
-          first thing Prepeet played back to me was my own answer on scaling a
-          booking service: I named the fix in eleven seconds and never once said
-          what I traded away for it. No interviewer had ever told me that, and I
-          had been failing on it for a year.”
+          “Nineteen graduate applications and not one rejection said why. The
+          first thing Prepeet played back was my own answer about scaling a
+          booking service: I had jumped straight to the fix in eleven seconds,
+          and never said what it cost or why I chose it over anything else. That
+          was the gap in every interview I had failed, and no interviewer had
+          ever named it.”
         </blockquote>
 
         <p className="mt-4 text-sm text-stone-300">

@@ -429,6 +429,14 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 		PREPEET_SMTP_ADDRESS="localhost:$${PREPEET_SMTP_PORT:-1025}" \
 		PREPEET_EMAIL_FROM="noreply@prepeet.local" \
 		PREPEET_INTELLIGENCE_ADDRESS="localhost:50051" \
+		PREPEET_S3_ENDPOINT="http://localhost:$${PREPEET_LOCALSTACK_PORT:-4566}" \
+		PREPEET_S3_BUCKET="prepeet-documents" \
+		PREPEET_S3_ACCESS_KEY="test" PREPEET_S3_SECRET_KEY="test" \
+		PREPEET_S3_PATH_STYLE="true" \
+		PREPEET_LIVEKIT_URL="ws://localhost:7880" \
+		PREPEET_LIVEKIT_API_KEY="devkey" \
+		PREPEET_LIVEKIT_API_SECRET="devsecret-devsecret-devsecret" \
+		PREPEET_LIVEKIT_API_URL="http://localhost:7880" \
 		go run ./cmd/worker 2>&1 | awk '{ print "[worker] " $$0; fflush() }' ) & \
 	( cd $(WEB_DIR) && pnpm dev 2>&1 | awk '{ print "[web]    " $$0; fflush() }' ) & \
 	( cd $(PY_DIR) && uv run python -m prepeet_ai.transport.server --port 50051 2>&1 \
@@ -455,10 +463,23 @@ dev-api: ## Run the Go API alone
 
 .PHONY: dev-worker
 dev-worker: ## Run the worker alone
+	@# The object store and the SFU are not optional extras here: without a
+	@# bucket the worker serves no candidate queue and registers neither the
+	@# evidence nor the media route, so a completed session is never
+	@# evaluated and the stack looks healthy while doing nothing.
 	@$(LOCAL_ENV); cd $(GO_DIR) && PREPEET_DATABASE_URL="$$PREPEET_APP_URL" \
 		PREPEET_TEMPORAL_ADDRESS="localhost:$${PREPEET_TEMPORAL_PORT:-7233}" \
 		PREPEET_SMTP_ADDRESS="localhost:$${PREPEET_SMTP_PORT:-1025}" \
-		PREPEET_EMAIL_FROM="noreply@prepeet.local" go run ./cmd/worker
+		PREPEET_EMAIL_FROM="noreply@prepeet.local" \
+		PREPEET_INTELLIGENCE_ADDRESS="localhost:50051" \
+		PREPEET_S3_ENDPOINT="http://localhost:$${PREPEET_LOCALSTACK_PORT:-4566}" \
+		PREPEET_S3_BUCKET="prepeet-documents" \
+		PREPEET_S3_ACCESS_KEY="test" PREPEET_S3_SECRET_KEY="test" \
+		PREPEET_S3_PATH_STYLE="true" \
+		PREPEET_LIVEKIT_URL="ws://localhost:7880" \
+		PREPEET_LIVEKIT_API_KEY="devkey" \
+		PREPEET_LIVEKIT_API_SECRET="devsecret-devsecret-devsecret" \
+		PREPEET_LIVEKIT_API_URL="http://localhost:7880" go run ./cmd/worker
 
 .PHONY: dev-web
 dev-web: ## Run the Next.js application alone

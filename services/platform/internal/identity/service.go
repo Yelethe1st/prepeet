@@ -216,6 +216,24 @@ type Service struct {
 	// inferred, and a process misconfigured with the wrong region produces
 	// tenants that say so rather than tenants that say nothing.
 	region string
+	// oauth and providers are nil until WithOAuth. A deployment with no
+	// provider configured constructs neither, and BeginOAuth refuses with
+	// "unknown provider" rather than panicking on a nil map, which is the
+	// same answer somebody asking for a provider that was never configured
+	// should get.
+	oauth     OAuthRepository
+	providers map[string]Provider
+}
+
+// WithOAuth configures the providers this deployment offers.
+//
+// IAM-08 asks that adding one be configuration and a test rather than a
+// release, which is what a map built by the composition root buys: identity
+// knows the shape of a provider and nothing about which ones exist.
+func (s *Service) WithOAuth(repo OAuthRepository, providers map[string]Provider) *Service {
+	s.oauth = repo
+	s.providers = providers
+	return s
 }
 
 // NewService builds the service. The clock is injected so tests do not depend
@@ -341,6 +359,15 @@ func (s *Service) Authenticate(ctx context.Context, rawEmail, plaintext string) 
 			return Session{}, ErrCredentialsInvalid
 		}
 		return Session{}, fmt.Errorf("identity: looking up credentials: %w", err)
+	}
+
+	// An account created by signing in with a provider has no password. It
+	// must fail exactly as a wrong password does: an unparseable hash would
+	// otherwise return a different shape of error, and the difference is an
+	// oracle telling an attacker which addresses are provider-only.
+	if hash == "" {
+		_ = password.DummyVerify(plaintext)
+		return Session{}, ErrCredentialsInvalid
 	}
 
 	result, err := password.Verify(hash, plaintext)

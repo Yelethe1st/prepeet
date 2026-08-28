@@ -50,6 +50,8 @@ const (
 	PurposeMagicLink     Purpose = "magic_link"
 	PurposeOTP           Purpose = "otp"
 	PurposeInvitation    Purpose = "invitation"
+	PurposeOAuthState    Purpose = "oauth_state"
+	PurposeOAuthVerifier Purpose = "oauth_verifier"
 )
 
 // prefixes maps each purpose to its wire prefix.
@@ -61,6 +63,8 @@ var prefixes = map[Purpose]string{
 	PurposeMagicLink:     "mgc",
 	PurposeOTP:           "otp",
 	PurposeInvitation:    "inv",
+	PurposeOAuthState:    "oas",
+	PurposeOAuthVerifier: "oav",
 }
 
 // Purposes returns every known purpose, in a stable order.
@@ -140,6 +144,22 @@ func NewOTP() (Issued, error) {
 // A lookup hashes what the client presented and searches for that, so the
 // database never holds a usable credential and an index on the hash still
 // works.
+// ChallengeFor is the PKCE S256 challenge for a verifier.
+//
+// RFC 7636: the challenge is the base64url of the SHA-256 of the verifier,
+// unpadded. It is sent to the authorisation endpoint in the open; the
+// verifier is held back and presented at the token endpoint, so an
+// authorisation code intercepted on the way back cannot be exchanged by
+// whoever intercepted it.
+//
+// Unpadded and URL-safe are not cosmetic. Providers compare the string they
+// were sent against the one they derive, and '+' or '=' in a query string
+// survives a round trip differently depending on who encodes it.
+func ChallengeFor(verifier string) string {
+	sum := sha256.Sum256([]byte(verifier))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
 func HashOf(plaintext string) string {
 	sum := sha256.Sum256([]byte(plaintext))
 	return hex.EncodeToString(sum[:])

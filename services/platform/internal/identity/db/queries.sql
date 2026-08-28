@@ -328,3 +328,44 @@ VALUES (sqlc.arg(id)::uuid, sqlc.arg(tenant_id)::uuid, sqlc.arg(actor_id)::uuid,
         sqlc.arg(action)::text, nullif(sqlc.arg(subject_type)::text, ''),
         nullif(sqlc.arg(subject_id)::text, ''), sqlc.arg(outcome)::text,
         sqlc.arg(detail)::jsonb);
+
+-- name: InsertOAuthState :exec
+-- Mint one in-flight authorisation. The state is stored hashed; the verifier
+-- must be plaintext because the provider's token endpoint has to receive it.
+INSERT INTO identity.oauth_states (id, provider, state_hash, code_verifier, redirect_to, expires_at)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(provider)::text, sqlc.arg(state_hash)::text,
+        sqlc.arg(code_verifier)::text, sqlc.arg(redirect_to)::text, sqlc.arg(expires_at)::timestamptz);
+
+-- name: ConsumeOAuthState :one
+-- Take the state exactly once.
+--
+-- The condition is the guarantee: used_at IS NULL is checked in the UPDATE
+-- rather than read first and written after, so two callbacks arriving together
+-- cannot both find it unused. The loser updates no row and is told the state
+-- is spent, which is what a replay is.
+UPDATE identity.oauth_states
+SET used_at = now()
+WHERE state_hash = sqlc.arg(state_hash)::text
+  AND used_at IS NULL
+RETURNING id::text AS id, provider, code_verifier, redirect_to, expires_at;
+
+-- name: FindOAuthIdentity :one
+-- Which person this provider account signs in as, by the provider's own
+-- subject and never by email.
+SELECT id::text AS id, user_id::text AS user_id, provider, subject, email
+FROM identity.oauth_identities
+WHERE provider = sqlc.arg(provider)::text AND subject = sqlc.arg(subject)::text;
+
+-- name: LinkOAuthIdentity :exec
+-- Link a provider account to a person, or refresh what we know about a link
+-- that already exists.
+INSERT INTO identity.oauth_identities (id, user_id, provider, subject, email)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(user_id)::uuid, sqlc.arg(provider)::text,
+        sqlc.arg(subject)::text, sqlc.arg(email)::text)
+ON CONFLICT (provider, subject)
+DO UPDATE SET email = excluded.email, last_seen = now();
+
+-- name: DeleteExpiredOAuthStates :exec
+-- Sweep the abandoned ones. People start a sign-in and wander off.
+DELETE FROM identity.oauth_states
+WHERE expires_at < sqlc.arg(before)::timestamptz;

@@ -88,6 +88,52 @@ func (q *Queries) ChangeMembershipRole(ctx context.Context, arg ChangeMembership
 	return result.RowsAffected(), nil
 }
 
+const consumeOAuthState = `-- name: ConsumeOAuthState :one
+UPDATE identity.oauth_states
+SET used_at = now()
+WHERE state_hash = $1::text
+  AND used_at IS NULL
+RETURNING id::text AS id, provider, code_verifier, redirect_to, expires_at
+`
+
+type ConsumeOAuthStateRow struct {
+	ID           string
+	Provider     string
+	CodeVerifier string
+	RedirectTo   string
+	ExpiresAt    time.Time
+}
+
+// Take the state exactly once.
+//
+// The condition is the guarantee: used_at IS NULL is checked in the UPDATE
+// rather than read first and written after, so two callbacks arriving together
+// cannot both find it unused. The loser updates no row and is told the state
+// is spent, which is what a replay is.
+func (q *Queries) ConsumeOAuthState(ctx context.Context, stateHash string) (ConsumeOAuthStateRow, error) {
+	row := q.db.QueryRow(ctx, consumeOAuthState, stateHash)
+	var i ConsumeOAuthStateRow
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.CodeVerifier,
+		&i.RedirectTo,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const deleteExpiredOAuthStates = `-- name: DeleteExpiredOAuthStates :exec
+DELETE FROM identity.oauth_states
+WHERE expires_at < $1::timestamptz
+`
+
+// Sweep the abandoned ones. People start a sign-in and wander off.
+func (q *Queries) DeleteExpiredOAuthStates(ctx context.Context, before time.Time) error {
+	_, err := q.db.Exec(ctx, deleteExpiredOAuthStates, before)
+	return err
+}
+
 const findActionTokenByHash = `-- name: FindActionTokenByHash :one
 SELECT id::text AS id, user_id::text AS user_id, purpose,
        expires_at, used_at, superseded_at, attempts
@@ -258,6 +304,40 @@ func (q *Queries) FindMembershipInTenant(ctx context.Context, arg FindMembership
 		&i.Role,
 		&i.Status,
 		&i.Version,
+	)
+	return i, err
+}
+
+const findOAuthIdentity = `-- name: FindOAuthIdentity :one
+SELECT id::text AS id, user_id::text AS user_id, provider, subject, email
+FROM identity.oauth_identities
+WHERE provider = $1::text AND subject = $2::text
+`
+
+type FindOAuthIdentityParams struct {
+	Provider string
+	Subject  string
+}
+
+type FindOAuthIdentityRow struct {
+	ID       string
+	UserID   string
+	Provider string
+	Subject  string
+	Email    string
+}
+
+// Which person this provider account signs in as, by the provider's own
+// subject and never by email.
+func (q *Queries) FindOAuthIdentity(ctx context.Context, arg FindOAuthIdentityParams) (FindOAuthIdentityRow, error) {
+	row := q.db.QueryRow(ctx, findOAuthIdentity, arg.Provider, arg.Subject)
+	var i FindOAuthIdentityRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.Subject,
+		&i.Email,
 	)
 	return i, err
 }
@@ -577,6 +657,35 @@ func (q *Queries) InsertInvitedMembership(ctx context.Context, arg InsertInvited
 	return err
 }
 
+const insertOAuthState = `-- name: InsertOAuthState :exec
+INSERT INTO identity.oauth_states (id, provider, state_hash, code_verifier, redirect_to, expires_at)
+VALUES ($1::uuid, $2::text, $3::text,
+        $4::text, $5::text, $6::timestamptz)
+`
+
+type InsertOAuthStateParams struct {
+	ID           string
+	Provider     string
+	StateHash    string
+	CodeVerifier string
+	RedirectTo   string
+	ExpiresAt    time.Time
+}
+
+// Mint one in-flight authorisation. The state is stored hashed; the verifier
+// must be plaintext because the provider's token endpoint has to receive it.
+func (q *Queries) InsertOAuthState(ctx context.Context, arg InsertOAuthStateParams) error {
+	_, err := q.db.Exec(ctx, insertOAuthState,
+		arg.ID,
+		arg.Provider,
+		arg.StateHash,
+		arg.CodeVerifier,
+		arg.RedirectTo,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
 const insertOwningMembership = `-- name: InsertOwningMembership :exec
 INSERT INTO tenancy.memberships (id, tenant_id, user_id, status, role)
 VALUES ($1, $2, $3, 'active', 'owner')
@@ -701,6 +810,35 @@ type InsertUserParams struct {
 
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) error {
 	_, err := q.db.Exec(ctx, insertUser, arg.ID, arg.Email)
+	return err
+}
+
+const linkOAuthIdentity = `-- name: LinkOAuthIdentity :exec
+INSERT INTO identity.oauth_identities (id, user_id, provider, subject, email)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::text, $5::text)
+ON CONFLICT (provider, subject)
+DO UPDATE SET email = excluded.email, last_seen = now()
+`
+
+type LinkOAuthIdentityParams struct {
+	ID       string
+	UserID   string
+	Provider string
+	Subject  string
+	Email    string
+}
+
+// Link a provider account to a person, or refresh what we know about a link
+// that already exists.
+func (q *Queries) LinkOAuthIdentity(ctx context.Context, arg LinkOAuthIdentityParams) error {
+	_, err := q.db.Exec(ctx, linkOAuthIdentity,
+		arg.ID,
+		arg.UserID,
+		arg.Provider,
+		arg.Subject,
+		arg.Email,
+	)
 	return err
 }
 

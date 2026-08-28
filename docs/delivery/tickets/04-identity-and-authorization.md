@@ -332,11 +332,11 @@ revocable.
 
 **Done when**
 - [ ] The contract gains the provider endpoints, and the generated code and the handlers follow it.
-- [ ] `state` and PKCE are mandatory, single-use and time-bound, and a replayed or absent `state` is refused rather than tolerated.
+- [x] `state` and PKCE are mandatory, single-use and time-bound, and a replayed or absent `state` is refused rather than tolerated.
 - [ ] An OAuth sign-in issues the same session the password flow issues, through the same entry point, with the same cookies, rotation and revocation.
-- [ ] Linking rules are explicit and proven: an OAuth identity whose verified email matches an existing account links to it; an unverified email from a provider never does.
+- [x] Linking rules are explicit and proven: an OAuth identity whose verified email matches an existing account links to it; an unverified email from a provider never does.
 - [ ] A provider that is unreachable, slow, or returns an error leaves the person on a screen that names what happened and offers email and password, without a half-created account behind it.
-- [ ] Every provider is configured rather than compiled in, so adding one is configuration and a test.
+- [x] Every provider is configured rather than compiled in, so adding one is configuration and a test.
 - [ ] The callback screen is ported from `screens/oauth-callback.html` with its four states: processing, slow, invalid state and expired code.
 - [ ] Registration through a provider creates the same account a form does, including account type, and never silently creates a tenant.
 
@@ -351,5 +351,40 @@ The second is a half-created account. The callback does several things that can 
 provider has already succeeded, and a person who lands back on the sign-in screen with an account
 that exists but cannot be signed into has no way to describe what went wrong. One transaction, as
 organisation registration already does.
+
+**In progress: the domain is in and attacked; the endpoints and the screen are not.**
+Migration 0039 is two tables because there are two lifetimes: a state lives for minutes and dies on
+first use, a link between a provider account and a person lives as long as the account. The state
+is stored hashed, as action tokens are; the PKCE verifier is not, because it has to be replayed to
+the token endpoint and a hash cannot be.
+
+Single-use is the UPDATE's own `used_at IS NULL` rather than a read followed by a write, so two
+callbacks arriving together cannot both win. The state is consumed *before* the provider is called,
+which is why a replay costs nothing downstream: the test asserts the provider was called once for
+one usable state. `ChallengeFor` is checked against RFC 7636's own worked vector rather than
+against itself, because a challenge that looks right and is rejected at the token endpoint is the
+mistake this primitive actually makes.
+
+The linking rule is the ticket's whole risk and it is attacked rather than asserted. An account is
+found by the provider's subject and never by email; a verified address links to the account that
+owns it; an unverified address pointed at an existing account is refused with
+`ErrOAuthEmailUnverified`. A state minted for one provider cannot complete another's callback,
+which would otherwise make the weaker provider's redirect replayable at the stronger one.
+
+One thing this uncovered in the existing code. An account created by a provider has no password
+hash, and `Authenticate` answered an unparseable-hash error rather than the ordinary refusal: a
+different shape of failure, and therefore an oracle telling an attacker which addresses are
+provider-only, which is exactly the set worth attacking through a provider. Empty hashes now take
+the dummy-verify path and answer `ErrCredentialsInvalid` like every other wrong password, asserted
+by comparing the two messages.
+
+One decision to review. Registration through a provider creates a candidate and only a candidate,
+because an organisation registration creates a tenant and an owning membership and the last box
+forbids doing that silently. That makes the eighth box only half true as written, and it is left
+open rather than ticked: a recruiter signing up with Google presently has to register on the form
+first, and whether that is right is a product call rather than an implementation one.
+
+Still to build: the contract endpoints and handlers, cookie issuance on the callback, the provider
+HTTP clients in `cmd/api`, and `screens/oauth-callback.html` with its four states.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md) · [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md)

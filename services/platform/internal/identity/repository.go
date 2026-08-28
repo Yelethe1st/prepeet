@@ -501,3 +501,55 @@ func (r *PostgresRepository) RevokeFamily(ctx context.Context, familyID, reason 
 	}
 	return nil
 }
+
+// CreateOAuthState records one in-flight authorisation.
+func (r *PostgresRepository) CreateOAuthState(ctx context.Context, state OAuthState) error {
+	return r.q.InsertOAuthState(ctx, db.InsertOAuthStateParams{
+		ID: state.ID, Provider: state.Provider, StateHash: state.StateHash,
+		CodeVerifier: state.CodeVerifier, RedirectTo: state.RedirectTo,
+		ExpiresAt: state.ExpiresAt,
+	})
+}
+
+// ConsumeOAuthState takes the state exactly once.
+//
+// The single-use guarantee is the UPDATE's own `used_at IS NULL`, so two
+// callbacks racing cannot both win: one updates the row and the other updates
+// nothing and is told the state is unknown, which is what a replay is.
+func (r *PostgresRepository) ConsumeOAuthState(ctx context.Context, stateHash string) (OAuthState, error) {
+	row, err := r.q.ConsumeOAuthState(ctx, stateHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return OAuthState{}, ErrNotFound
+	}
+	if err != nil {
+		return OAuthState{}, fmt.Errorf("identity: consuming oauth state: %w", err)
+	}
+	return OAuthState{
+		ID: row.ID, Provider: row.Provider, CodeVerifier: row.CodeVerifier,
+		RedirectTo: row.RedirectTo, ExpiresAt: row.ExpiresAt,
+	}, nil
+}
+
+// FindOAuthIdentity answers which person a provider account signs in as, or
+// the empty string when nothing is linked.
+func (r *PostgresRepository) FindOAuthIdentity(ctx context.Context, provider, subject string) (string, error) {
+	row, err := r.q.FindOAuthIdentity(ctx, db.FindOAuthIdentityParams{
+		Provider: provider, Subject: subject,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("identity: finding oauth identity: %w", err)
+	}
+	return row.UserID, nil
+}
+
+// LinkOAuthIdentity links a provider account to a person, or refreshes what
+// is known about a link that already exists.
+func (r *PostgresRepository) LinkOAuthIdentity(ctx context.Context, userID, provider, subject, email string) error {
+	return r.q.LinkOAuthIdentity(ctx, db.LinkOAuthIdentityParams{
+		ID: id.New().String(), UserID: userID, Provider: provider,
+		Subject: subject, Email: email,
+	})
+}

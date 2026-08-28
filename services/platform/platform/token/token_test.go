@@ -212,3 +212,49 @@ func TestNewRejectsAnEmptyPurpose(t *testing.T) {
 		t.Error("New accepted an empty purpose")
 	}
 }
+
+// The PKCE challenge, against RFC 7636's own worked example.
+//
+// A hand-rolled assertion here would only prove the function agrees with
+// itself. The vector in Appendix B is what every provider implements against,
+// and getting the encoding wrong is the mistake that produces a challenge
+// which looks right and is rejected at the token endpoint.
+func TestTheChallengeMatchesTheSpecificationsVector(t *testing.T) {
+	const (
+		verifier  = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+		challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+	)
+
+	if got := token.ChallengeFor(verifier); got != challenge {
+		t.Fatalf("ChallengeFor = %q, want RFC 7636's %q", got, challenge)
+	}
+}
+
+// URL-safe and unpadded, which is not cosmetic: '+' and '=' survive a query
+// string differently depending on who encodes them, and a provider comparing
+// strings will disagree.
+func TestTheChallengeIsUrlSafeAndUnpadded(t *testing.T) {
+	for range 200 {
+		issued, err := token.New(token.PurposeOAuthVerifier)
+		if err != nil {
+			t.Fatalf("new: %v", err)
+		}
+		got := token.ChallengeFor(issued.Plaintext)
+		if strings.ContainsAny(got, "+/=") {
+			t.Fatalf("challenge %q contains a character that does not survive a query string", got)
+		}
+	}
+}
+
+func TestTheChallengeIsNotTheVerifier(t *testing.T) {
+	issued, err := token.New(token.PurposeOAuthVerifier)
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+
+	// The whole point: the challenge goes out in the open and must not be
+	// reversible to the verifier that is held back.
+	if token.ChallengeFor(issued.Plaintext) == issued.Plaintext {
+		t.Fatal("the challenge is the verifier")
+	}
+}

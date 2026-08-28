@@ -16,6 +16,7 @@ export {
 } from "./Button";
 export { Field, type FieldControlProps, type FieldProps } from "./Field";
 export { Icon, type IconProps, type IconSize } from "./Icon";
-export { Input } from "./Input";
+export { Input, type InputProps } from "./Input";
+export { TextLink } from "./TextLink";
 export { ThemeToggle } from "./ThemeToggle";
 export { Wordmark } from "./Wordmark";

@@ -62,7 +62,12 @@ export function Field({
   return (
     <div className="mb-4 flex flex-col gap-1.5">
       {labelAction ? (
-        <div className="flex flex-nowrap items-center justify-between gap-2">
+        // Wraps, despite the prototype declaring nowrap on it. At 200% text in a
+        // 320px viewport the label and "Forgot your password?" together are wider
+        // than the screen, and the whole document then scrolls sideways. WCAG
+        // 1.4.4 asks for 200% without loss of content, and the action dropping
+        // onto its own line is not a loss.
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <label className="text-sm font-semibold text-fg" htmlFor={id}>
             {label}
           </label>

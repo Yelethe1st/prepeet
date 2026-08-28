@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-
-import { ButtonLink } from "@/shared/components";
+import { ButtonLink, TextLink } from "@/shared/components";
 
 /**
  * The screen for a token that did not work, ported from auth-expired.html.
@@ -86,9 +84,7 @@ export function TokenTrouble({
             {requestLabel}
           </ButtonLink>
         ) : null}
-        <Link className="text-sm" href="/login">
-          Back to sign in
-        </Link>
+        <TextLink href="/login">Back to sign in</TextLink>
       </div>
 
       <section className="mt-10 border-t border-border pt-5">

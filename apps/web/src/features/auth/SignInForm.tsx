@@ -1,10 +1,18 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { Banner, Button, Field, Input } from "@/shared/components";
+import {
+  Banner,
+  Button,
+  Field,
+  Icon,
+  Input,
+  TextLink,
+} from "@/shared/components";
 import { ApiError } from "@/lib/api/client";
 import type { SignInCredentials } from "@/lib/auth/api";
 
@@ -32,13 +40,21 @@ export interface SignInFormProps {
  * the same error state as the schema's, so a field error looks the same to the
  * person whichever side decided it.
  *
- * What the prototype shows and this does not: the SSO provider buttons, the
- * one-time code and magic link routes, and "keep me signed in". Each needs an
- * endpoint that does not exist yet, and a button that cannot work is worse than
- * no button. They arrive with IAM-02.
+ * What the prototype shows and this does not: the three single sign-on provider
+ * buttons and "keep me signed in for 30 days". Neither has anything behind it.
+ * openapi.yaml has no OAuth endpoint at all, and LoginRequest carries an email
+ * and a password and no session-length field, so both would be controls that
+ * look like a way in and are not. A button that cannot work is worse than no
+ * button, and on the sign-in screen it is worse still.
+ *
+ * The one-time code and magic link used to be in that list and are not any
+ * more: both routes are built, and SignInOptions links to them.
  */
 export function SignInForm({ signIn, onSignedIn }: SignInFormProps) {
   const [failure, setFailure] = useState<ApiError | null>(null);
+  // Off by default: revealing has to be a thing somebody chooses, because the
+  // person who needs it is often the one with somebody behind them.
+  const [revealed, setRevealed] = useState(false);
 
   const {
     register,
@@ -111,6 +127,7 @@ export function SignInForm({ signIn, onSignedIn }: SignInFormProps) {
           <Input
             {...props}
             {...register("email")}
+            icon={Mail}
             type="email"
             autoComplete="username"
             placeholder="daniel.okonkwo@example.com"
@@ -118,13 +135,38 @@ export function SignInForm({ signIn, onSignedIn }: SignInFormProps) {
         )}
       </Field>
 
-      <Field label="Password" name="password" error={errors.password?.message}>
+      <Field
+        label="Password"
+        name="password"
+        error={errors.password?.message}
+        // Beside the label, where the prototype puts it. At the foot of the
+        // form it is something you find after failing; here it is an option
+        // while you are still deciding whether you remember the password.
+        labelAction={
+          <TextLink href="/forgot-password">Forgot your password?</TextLink>
+        }
+      >
         {(props) => (
           <Input
             {...props}
             {...register("password")}
-            type="password"
+            icon={Lock}
+            type={revealed ? "text" : "password"}
             autoComplete="current-password"
+            trailing={
+              <button
+                type="button"
+                onClick={() => setRevealed(!revealed)}
+                // The state is on the control, not only in its icon. A toggle
+                // whose only signal is which glyph is drawn tells a screen
+                // reader nothing about whether the password is on screen.
+                aria-pressed={revealed}
+                aria-label={revealed ? "Hide password" : "Show password"}
+                className="inline-flex size-8 items-center justify-center rounded-sm text-fg-3 hover:text-fg"
+              >
+                <Icon glyph={revealed ? EyeOff : Eye} size="sm" />
+              </button>
+            }
           />
         )}
       </Field>

@@ -1,5 +1,23 @@
-import type { InputHTMLAttributes } from "react";
+import type { LucideIcon } from "lucide-react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { forwardRef } from "react";
+
+import { Icon } from "./Icon";
+
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  /**
+   * A glyph inside the leading edge of the field, as the prototype's
+   * `.input-wrap` draws one. Decoration: it repeats the label, so it is hidden
+   * from assistive technology like every other icon here.
+   */
+  icon?: LucideIcon;
+  /**
+   * A control inside the trailing edge, which in practice means the password
+   * field's show and hide button. It is a child rather than a prop of its own
+   * because only the caller knows what it does.
+   */
+  trailing?: ReactNode;
+}
 
 /**
  * A text input, ported from the `.input` block in the prototype.
@@ -13,11 +31,11 @@ import { forwardRef } from "react";
  * value never appears in the serialised DOM where an error reporter or session
  * replay would capture it.
  */
-export const Input = forwardRef<
-  HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement>
->(function Input({ className, ...props }, ref) {
-  return (
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { className, icon, trailing, ...props },
+  ref,
+) {
+  const field = (
     <input
       {...props}
       ref={ref}
@@ -30,10 +48,28 @@ export const Input = forwardRef<
           "transition-colors placeholder:text-fg-muted hover:border-fg-muted " +
           "focus:border-primary disabled:cursor-not-allowed disabled:bg-surface-3 " +
           "disabled:text-fg-3 aria-invalid:border-danger",
+        icon === undefined ? "" : "pl-9",
+        trailing === undefined ? "" : "pr-11",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     />
+  );
+
+  if (icon === undefined && trailing === undefined) return field;
+
+  return (
+    <div className="relative flex items-center">
+      {icon === undefined ? null : (
+        <span className="pointer-events-none absolute left-3 text-fg-muted">
+          <Icon glyph={icon} size="sm" />
+        </span>
+      )}
+      {field}
+      {trailing === undefined ? null : (
+        <span className="absolute right-1.5">{trailing}</span>
+      )}
+    </div>
   );
 });

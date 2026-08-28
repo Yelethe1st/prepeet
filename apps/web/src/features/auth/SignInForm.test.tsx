@@ -306,11 +306,67 @@ describe("SignInForm from the keyboard", () => {
     await userEvent.tab();
     expect(screen.getByLabelText(/email/i)).toHaveFocus();
 
+    // Between the two fields, because it sits beside the password label and
+    // reading order is what tab order has to follow.
+    await userEvent.tab();
+    expect(
+      screen.getByRole("link", { name: /forgot your password/i }),
+    ).toHaveFocus();
+
     await userEvent.tab();
     expect(screen.getByLabelText(/^password$/i)).toHaveFocus();
 
     await userEvent.tab();
+    expect(
+      screen.getByRole("button", { name: /show password/i }),
+    ).toHaveFocus();
+
+    await userEvent.tab();
     expect(screen.getByRole("button", { name: /sign in/i })).toHaveFocus();
+  });
+
+  /**
+   * The reveal is the one control on this screen that changes what is on
+   * display rather than what is submitted, so what it must get right is saying
+   * which state it is in. A toggle whose only signal is which glyph is drawn
+   * tells somebody using a screen reader nothing.
+   */
+  it("shows and hides the password, and says which it is doing", async () => {
+    renderForm();
+
+    const password = screen.getByLabelText(/^password$/i);
+    expect(password).toHaveAttribute("type", "password");
+
+    const toggle = screen.getByRole("button", { name: /show password/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.click(toggle);
+
+    expect(screen.getByLabelText(/^password$/i)).toHaveAttribute(
+      "type",
+      "text",
+    );
+    expect(
+      screen.getByRole("button", { name: /hide password/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /hide password/i }),
+    );
+    expect(screen.getByLabelText(/^password$/i)).toHaveAttribute(
+      "type",
+      "password",
+    );
+  });
+
+  /** Hidden on arrival: the person who needs it is often the one being watched. */
+  it("starts with the password hidden", () => {
+    renderForm();
+
+    expect(screen.getByLabelText(/^password$/i)).toHaveAttribute(
+      "type",
+      "password",
+    );
   });
 
   it("does not trap focus behind a disabled button while busy", async () => {

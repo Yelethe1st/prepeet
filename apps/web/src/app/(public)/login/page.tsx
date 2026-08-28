@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AuthCard } from "@/features/auth/AuthCard";
 import { AuthShell } from "@/features/auth/AuthShell";
 import { SignInForm } from "@/features/auth/SignInForm";
+import { SignInOptions } from "@/features/auth/SignInOptions";
 import { signIn } from "@/lib/auth/api";
 
 /**
@@ -34,32 +34,7 @@ export default function LoginPage() {
           }}
           onSignedIn={() => router.push("/practice")}
         />
-
-        <div className="mt-[22px] space-y-1.5 text-xs leading-[1.45] text-fg-3">
-          <p>
-            <Link className="font-semibold" href="/forgot-password">
-              Forgot your password?
-            </Link>
-          </p>
-          <p>
-            Prefer not to type it?{" "}
-            <Link className="font-semibold" href="/magic-link">
-              Email me a sign-in link
-            </Link>{" "}
-            or{" "}
-            <Link className="font-semibold" href="/otp">
-              a one-time code
-            </Link>
-            .
-          </p>
-          <p>
-            New to Prepeet?{" "}
-            <Link className="font-semibold" href="/register">
-              Create an account
-            </Link>{" "}
-            — free for candidates, no card needed.
-          </p>
-        </div>
+        <SignInOptions />
       </AuthCard>
     </AuthShell>
   );

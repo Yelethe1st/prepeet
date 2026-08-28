@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { TextLink } from "@/shared/components";
 
 import { AuthCard } from "@/features/auth/AuthCard";
 import { AuthShell } from "@/features/auth/AuthShell";
@@ -24,11 +24,7 @@ export default function RegisterPage() {
         <RegisterForm register={register} onRegistered={() => {}} />
 
         <p className="mt-[22px] text-xs leading-[1.45] text-fg-3">
-          Already have an account?{" "}
-          <Link className="font-semibold" href="/login">
-            Sign in
-          </Link>
-          .
+          Already have an account? <TextLink href="/login">Sign in</TextLink>.
         </p>
       </AuthCard>
     </AuthShell>

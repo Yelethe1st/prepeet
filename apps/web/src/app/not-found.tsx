@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { ErrorScreen } from "@/features/errors/ErrorScreen";
-import { ButtonLink } from "@/shared/components";
+import { ButtonLink, TextLink } from "@/shared/components";
 
 /**
  * 404, from error-404.html. Next renders this for any route that does not
@@ -27,9 +26,7 @@ export default function NotFound() {
           <ButtonLink href="/practice" variant="primary">
             Go to your dashboard
           </ButtonLink>
-          <Link className="text-sm" href="/login">
-            Sign in
-          </Link>
+          <TextLink href="/login">Sign in</TextLink>
         </>
       }
       facts={[{ label: "Requested", value: path ?? "", mono: true }]}

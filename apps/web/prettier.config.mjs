@@ -11,10 +11,12 @@
  * The file exists rather than relying on those defaults implicitly, so that a
  * Prettier upgrade that changes one cannot quietly restyle the repository.
  */
-export default {
+const config = {
   printWidth: 80,
   semi: true,
   singleQuote: false,
   trailingComma: "all",
   tabWidth: 2,
 };
+
+export default config;

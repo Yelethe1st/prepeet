@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 import { AuthCard } from "@/features/auth/AuthCard";
 import { AuthShell } from "@/features/auth/AuthShell";
 import { TokenConsumer } from "@/features/auth/TokenConsumer";
-import { Banner } from "@/shared/components";
+import { Banner, TextLink } from "@/shared/components";
 import { confirmEmailVerification } from "@/lib/auth/api";
 
 /**
@@ -46,9 +45,7 @@ function VerifyEmail() {
             </ul>
           </section>
           <p className="mt-6 text-sm">
-            <Link className="font-semibold" href="/login">
-              Continue to sign in
-            </Link>
+            <TextLink href="/login">Continue to sign in</TextLink>
           </p>
         </div>
       }

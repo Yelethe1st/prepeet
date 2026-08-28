@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 import { ErrorScreen } from "@/features/errors/ErrorScreen";
 import { SessionProvider, useSession } from "@/lib/auth/session";
-import { ButtonLink } from "@/shared/components";
+import { ButtonLink, TextLink } from "@/shared/components";
 
 /**
  * 403, from error-403.html: the destination a refused request sends someone
@@ -66,9 +65,7 @@ function AccessDenied() {
           <ButtonLink href="/practice" variant="primary">
             Back to your dashboard
           </ButtonLink>
-          <Link className="text-sm" href="/login">
-            Sign in as someone else
-          </Link>
+          <TextLink href="/login">Sign in as someone else</TextLink>
         </>
       }
       facts={facts}

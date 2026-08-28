@@ -43,8 +43,39 @@ describe("AuthShell", () => {
     render(<AuthShell>form</AuthShell>);
 
     expect(screen.getByRole("complementary")).toHaveAccessibleName(
-      /why people practise/i,
+      /the story this was built from/i,
     );
+  });
+
+  /**
+   * The panel is the product's argument, and every part of it says something a
+   * person signing in is entitled to know: whose story this is, how much of it
+   * has been run, and where the data lives.
+   */
+  it("carries the story, the numbers and what is promised", () => {
+    render(<AuthShell>form</AuthShell>);
+
+    expect(
+      screen.getByText(/Nineteen graduate applications/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Kelvin Onouha/)).toBeInTheDocument();
+    expect(screen.getByText("184,600")).toBeInTheDocument();
+    expect(
+      screen.getByText("Practice data never reaches employers"),
+    ).toBeInTheDocument();
+  });
+
+  /** Both authentication screens get the brand and the footer from here. */
+  it("puts the brand and the footer around the form", () => {
+    render(<AuthShell>form</AuthShell>);
+
+    expect(screen.getByRole("link", { name: "Prepeet home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(
+      screen.getByRole("link", { name: /trouble accessing a workspace/i }),
+    ).toHaveAttribute("href", "/no-workspace");
   });
 
   it("has no accessibility violations", async () => {

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -9,7 +8,7 @@ import { AuthShell } from "@/features/auth/AuthShell";
 import { ResetPasswordForm } from "@/features/auth/ResetPasswordForm";
 import { TokenTrouble } from "@/features/auth/TokenTrouble";
 import type { TokenTroubleCode } from "@/features/auth/TokenTrouble";
-import { Banner } from "@/shared/components";
+import { Banner, TextLink } from "@/shared/components";
 import { confirmPasswordReset } from "@/lib/auth/api";
 
 /**
@@ -46,9 +45,7 @@ function ResetPassword() {
           Your password is changed, and every other device is signed out.
         </Banner>
         <p className="mt-4 text-sm">
-          <Link className="font-semibold" href="/login">
-            Sign in with your new password
-          </Link>
+          <TextLink href="/login">Sign in with your new password</TextLink>
         </p>
       </div>
     );

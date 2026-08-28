@@ -1142,6 +1142,53 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /interviews/{sessionId}/delivery/feedback:
+    put:
+      tags: [interview]
+      operationId: recordInsightFeedback
+      summary: Say whether a generated insight described you
+      description: |
+        A thumbs up or down on one generated strength, priority or drill.
+        Idempotent by design: the same insight answered again replaces the
+        previous answer rather than adding a second opinion from the same
+        person about the same sentence, so pressing the other thumb is a
+        correction.
+
+        It changes nothing the candidate is shown. The verdict is a report
+        about the coaching, recorded against the artifact digest and policy
+        version that produced the insight so a drop in helpfulness is
+        attributable to a version rather than to a date.
+
+        Practice only. A screening candidate rating their own assessment
+        would be a channel for pressure, so a screening session refuses
+        with FEEDBACK_PRACTICE_ONLY.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsightFeedbackRequest"
+      responses:
+        "204":
+          description: Recorded. Nothing is returned, because nothing changed.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: FEEDBACK_PRACTICE_ONLY on a screening session.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /interviews/{sessionId}/turns/{turnId}/redos:
     post:
       tags: [interview]
@@ -2118,6 +2165,43 @@ components:
               high: { type: number }
         note: { type: string }
 
+    InsightFeedbackRequest:
+      type: object
+      required: [insight_kind, insight_key, helpful]
+      properties:
+        insight_kind:
+          type: string
+          enum: [strength, priority, drill]
+          description: Which kind of generated insight is being answered.
+        insight_key:
+          type: string
+          maxLength: 120
+          description: |
+            Which one: the dimension a strength or priority was generated
+            for, or the drill's key. Stable across a re-read of the same
+            analysis, so an answer survives leaving and returning.
+        dimension:
+          type: string
+          maxLength: 120
+          description: The dimension it belongs to, where that is not the key itself.
+        helpful:
+          type: boolean
+          description: |
+            Whether it described the candidate. False means "this was not
+            about me", which is a quality signal; it does not mean "this was
+            harsh", and nothing treats it as a request to soften anything.
+
+    InsightVerdict:
+      type: object
+      required: [insight_kind, insight_key, helpful]
+      properties:
+        insight_kind:
+          type: string
+          enum: [strength, priority, drill]
+        insight_key: { type: string }
+        dimension: { type: string }
+        helpful: { type: boolean }
+
     DeliveryView:
       type: object
       required: [session_id, status, warnings, note, calculation_version,
@@ -2143,6 +2227,14 @@ components:
             features, the ten-dimension profile and the gated coaching.
             Shaped by the calculator named in calculation_version.
         created_at: { type: string, format: date-time }
+        insight_feedback:
+          type: array
+          items:
+            $ref: "#/components/schemas/InsightVerdict"
+          description: |
+            What this candidate has already said about these insights, so the
+            screen shows which thumb is pressed rather than asking again.
+            Their own answers only, and empty when they have given none.
 
     ReviewView:
       type: object

@@ -1,8 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
 import {
@@ -23,7 +23,10 @@ import {
   type ShapePart,
   type TurnFeatures,
 } from "./analysis";
+import { InsightFeedback } from "./InsightFeedback";
 import {
+  recordInsightFeedback,
+  type InsightFeedback as InsightVerdict,
   getBaseline,
   getDelivery,
   getInterview,
@@ -164,6 +167,38 @@ function DeliveryBody({
     analysis.coaching && !("available" in analysis.coaching)
       ? analysis.coaching
       : undefined;
+  /**
+   * The verdicts this candidate has already given, and the one being given.
+   *
+   * Held locally as well as sent, so the pressed thumb is immediate: the
+   * server returns nothing and there is nothing to re-read, because a verdict
+   * changes nothing about the coaching. A failure is deliberately silent. It
+   * is feedback about the product, given as a courtesy, and interrupting
+   * somebody reading their own coaching to tell them our telemetry call failed
+   * would be the product's problem becoming theirs.
+   */
+  const [verdicts, setVerdicts] = useState<Record<string, boolean>>({});
+  const feedback = useMutation({
+    mutationFn: (verdict: InsightVerdict) =>
+      recordInsightFeedback(sessionId, verdict),
+  });
+  const given = (kind: string, key: string): boolean | undefined => {
+    const local = verdicts[`${kind}:${key}`];
+    if (local !== undefined) return local;
+    const stored = (delivery.insight_feedback ?? []).find(
+      (verdict: { insight_kind: string; insight_key: string }) =>
+        verdict.insight_kind === kind && verdict.insight_key === key,
+    );
+    return stored?.helpful;
+  };
+  const record = (verdict: InsightVerdict) => {
+    setVerdicts((current) => ({
+      ...current,
+      [`${verdict.insight_kind}:${verdict.insight_key}`]: verdict.helpful,
+    }));
+    feedback.mutate(verdict);
+  };
+
   const withheld =
     analysis.coaching && "available" in analysis.coaching
       ? analysis.coaching.note
@@ -386,6 +421,8 @@ function DeliveryBody({
               priority={priority}
               segments={segments}
               onJump={jumpTo}
+              given={given("priority", priority.dimension)}
+              onVerdict={record}
             />
           ))}
         </ol>
@@ -438,6 +475,19 @@ function DeliveryBody({
                 )}
               </div>
               <p className="mt-1 text-fg-2">{drill.how}</p>
+              {/*
+                Only on the drills chosen for this session. An unselected drill
+                is a menu item rather than something generated about the
+                candidate, and there is nothing for them to say about it.
+              */}
+              {selectedDrills.has(drill.key) && (
+                <InsightFeedback
+                  kind="drill"
+                  insightKey={drill.key}
+                  given={given("drill", drill.key)}
+                  onVerdict={record}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -650,10 +700,14 @@ function PriorityCard({
   priority,
   segments,
   onJump,
+  given,
+  onVerdict,
 }: {
   priority: Priority;
   segments: { sequence: number; start_ms: number }[];
   onJump: (sequence: number) => void;
+  given: boolean | undefined;
+  onVerdict: (verdict: InsightVerdict) => void;
 }) {
   return (
     <li
@@ -679,6 +733,13 @@ function PriorityCard({
           />
         ))}
       </p>
+      <InsightFeedback
+        kind="priority"
+        insightKey={priority.dimension}
+        dimension={priority.dimension}
+        given={given}
+        onVerdict={onVerdict}
+      />
     </li>
   );
 }

@@ -320,14 +320,14 @@ whether "your opening establishes a clear, defensible position" is true of their
 person who gave it.
 
 **Done when**
-- [ ] Each generated insight can be marked helpful or not, once, changeable, and never required.
+- [x] Each generated insight can be marked helpful or not, once, changeable, and never required.
 - [x] The signal records the pinned artifact digest, the model policy and the dimension, so a drop is attributable to what produced it rather than to a date.
 - [ ] Rejections are queryable per artifact version and feed QUA-06's monitoring, rather than sitting in a table nobody reads.
-- [ ] A rejection changes nothing the candidate is shown: it is a report about the coaching, not a way to edit it.
-- [ ] Nothing is asked for. No free-text box, no prompt, no modal, and no follow-up if it is ignored.
+- [x] A rejection changes nothing the candidate is shown: it is a report about the coaching, not a way to edit it.
+- [x] Nothing is asked for. No free-text box, no prompt, no modal, and no follow-up if it is ignored.
 - [x] Practice only, and never attached to a screening evaluation, where a candidate rating their own assessment would be a channel for pressure.
 
-**In progress: the storage half is in and proven; the API and the screen are not.**
+**Done except QUA-06's read, which has nowhere to run from.**
 `evaluation.insight_feedback` (migration 0038) carries the verdict with the artifact digest and
 the policy version taken at the moment the insight was on screen, so a drop in helpfulness is
 attributable to a version rather than to a date. `RecordInsightFeedback` upserts on the unique
@@ -351,8 +351,23 @@ because somebody will believe it. QUA-06's read needs its own path, either a met
 verdict or a reporting role with a policy written for it, and that decision belongs with QUA-06
 rather than being faked here. The index the read will want is in place.
 
-Still to build: the contract endpoint, the handler, and the thumbs themselves on the delivery
-screen, which is where the remaining four boxes live.
+`PUT /interviews/{sessionId}/delivery/feedback` takes the verdict and answers 204 with an empty
+body, because nothing changed: returning the coaching again would suggest the verdict had edited
+it. The digest and policy version are read from the stored analysis rather than taken from the
+request, so a client cannot attribute a verdict to an artifact that did not produce what it was
+looking at. `DeliveryView` carries the candidate's own verdicts back, as an empty list rather than
+null, so the screen shows which thumb is pressed instead of asking again and does not crash on the
+person who has never pressed anything, which is most of them.
+
+On the screen the controls sit under each priority and under each drill chosen for this session.
+An unselected drill gets none: it is a menu item rather than something generated about this
+candidate, and there is nothing for them to answer about it. A failure to send is silent, which is
+deliberate. This is feedback about the product given as a courtesy, and interrupting somebody
+reading their own coaching to report that our own call failed makes our problem theirs.
+
+Four things are asserted rather than intended: the priority's text is byte-identical before and
+after a rejection, no dialog and no textbox exist on the screen, a verdict given before this visit
+is still pressed, and pressing the other thumb corrects rather than accumulates.
 
 **Watch for**
 

@@ -364,6 +364,16 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.code = string(prepeetapi.NOTFOUND)
 		base.message = "There is no fact at that identifier."
 		return base
+	case errors.Is(err, ErrFeedbackPracticeOnly):
+		base.status = http.StatusConflict
+		base.code = "FEEDBACK_PRACTICE_ONLY"
+		base.message = "Feedback on coaching is part of practice. A screening interview does not carry it."
+		return base
+	case errors.Is(err, ErrFeedbackMissingBody):
+		base.status = http.StatusBadRequest
+		base.code = string(prepeetapi.VALIDATIONFAILED)
+		base.message = "Say which insight this is about and whether it described you."
+		return base
 	case errors.Is(err, ErrDeliveryNotReady):
 		base.status = http.StatusConflict
 		base.code = "DELIVERY_NOT_READY"

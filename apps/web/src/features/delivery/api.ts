@@ -32,3 +32,23 @@ export async function getInterview(
 ): Promise<InterviewSession> {
   return apiFetch<InterviewSession>(`/interviews/${sessionId}`);
 }
+
+/** One verdict on one generated insight, as the contract shapes it. */
+export type InsightFeedback = components["schemas"]["InsightFeedbackRequest"];
+
+/**
+ * Say whether a generated insight described the candidate.
+ *
+ * Idempotent per insight: answering the same one again replaces the previous
+ * answer, so pressing the other thumb is a correction rather than a second
+ * opinion. It returns nothing, because nothing about the coaching changes.
+ */
+export async function recordInsightFeedback(
+  sessionId: string,
+  verdict: InsightFeedback,
+): Promise<void> {
+  await apiFetch<void>(`/interviews/${sessionId}/delivery/feedback`, {
+    method: "PUT",
+    body: verdict,
+  });
+}

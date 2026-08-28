@@ -77,6 +77,28 @@ type Interviews interface {
 	// coaching failure is NOT an error here - it arrives as a view with
 	// CoachingAvailable false, because the evaluation stands either way.
 	Review(ctx context.Context, userID, sessionID string) (ReviewView, error)
+	// RecordInsightFeedback stores whether one generated insight described
+	// the candidate. Idempotent per insight: the same one answered again
+	// replaces the previous answer. ErrFeedbackPracticeOnly on a screening
+	// session; ErrSessionMissing otherwise as Results.
+	RecordInsightFeedback(ctx context.Context, userID, sessionID string, verdict InsightFeedbackInput) error
+}
+
+// InsightFeedbackInput is one verdict on its way in.
+type InsightFeedbackInput struct {
+	Kind      string
+	Key       string
+	Dimension string
+	Helpful   bool
+}
+
+// InsightVerdictView is one verdict on its way back out, so the screen can
+// show which thumb is already pressed rather than asking again.
+type InsightVerdictView struct {
+	Kind      string
+	Key       string
+	Dimension string
+	Helpful   bool
 }
 
 // BaselineView mirrors the contract at the port.
@@ -88,6 +110,15 @@ type BaselineView struct {
 	Ranges           map[string][2]float64
 	Note             string
 }
+
+// ErrFeedbackMissingBody says the request carried no verdict to record.
+var ErrFeedbackMissingBody = errors.New("api: insight feedback needs a verdict")
+
+// ErrFeedbackPracticeOnly says feedback was offered on a screening session.
+//
+// A screening candidate rating their own assessment would be a channel for
+// pressure, so it is refused rather than quietly ignored.
+var ErrFeedbackPracticeOnly = errors.New("api: insight feedback is practice only")
 
 // ErrDeliveryNotReady says the delivery analysis has not landed yet.
 var ErrDeliveryNotReady = errors.New("api: the delivery analysis is not ready")
@@ -101,6 +132,9 @@ type DeliveryAnalysisView struct {
 	PolicyVersion      string
 	Analysis           json.RawMessage
 	CreatedAt          time.Time
+	// Feedback is this candidate's own verdicts on these insights, and only
+	// theirs. Empty when they have given none.
+	Feedback []InsightVerdictView
 }
 
 // ReviewView mirrors the contract at the port.
@@ -1238,8 +1272,68 @@ func (i *interviews) GetDelivery(ctx context.Context, request prepeetapi.GetDeli
 			Warnings: warnings, Note: note,
 			CalculationVersion: delivery.CalculationVersion, PolicyVersion: delivery.PolicyVersion,
 			Analysis: analysis, CreatedAt: delivery.CreatedAt,
+			InsightFeedback: insightVerdicts(delivery.Feedback),
 		},
 		Headers: prepeetapi.GetDelivery200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// insightVerdicts maps the port's verdicts onto the contract's.
+//
+// A nil slice rather than an empty one would serialise as null, and a screen
+// reading null where it expects a list is a screen that crashes on the
+// candidate who has never pressed anything, which is most of them.
+func insightVerdicts(given []InsightVerdictView) *[]prepeetapi.InsightVerdict {
+	verdicts := make([]prepeetapi.InsightVerdict, 0, len(given))
+	for _, verdict := range given {
+		mapped := prepeetapi.InsightVerdict{
+			InsightKind: prepeetapi.InsightVerdictInsightKind(verdict.Kind),
+			InsightKey:  verdict.Key,
+			Helpful:     verdict.Helpful,
+		}
+		if verdict.Dimension != "" {
+			dimension := verdict.Dimension
+			mapped.Dimension = &dimension
+		}
+		verdicts = append(verdicts, mapped)
+	}
+	return &verdicts
+}
+
+// RecordInsightFeedback stores one verdict about one generated insight.
+//
+// 204 and nothing back, because nothing changed: the verdict is a report
+// about the coaching, not a way to edit it, and returning the coaching again
+// would suggest otherwise.
+func (i *interviews) RecordInsightFeedback(ctx context.Context, request prepeetapi.RecordInsightFeedbackRequestObject) (prepeetapi.RecordInsightFeedbackResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	if request.Body == nil {
+		return i.authentication.failed(ctx, ErrFeedbackMissingBody), nil
+	}
+
+	dimension := ""
+	if request.Body.Dimension != nil {
+		dimension = *request.Body.Dimension
+	}
+	err = i.flows.RecordInsightFeedback(ctx, principal.UserID, request.SessionID.String(),
+		InsightFeedbackInput{
+			Kind:      string(request.Body.InsightKind),
+			Key:       request.Body.InsightKey,
+			Dimension: dimension,
+			Helpful:   request.Body.Helpful,
+		})
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	return prepeetapi.RecordInsightFeedback204Response{
+		Headers: prepeetapi.RecordInsightFeedback204ResponseHeaders{CacheControl: NoStore},
 	}, nil
 }
 
@@ -1407,6 +1501,9 @@ func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       {
 func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
 func (f failure) VisitGetDeliveryResponse(w http.ResponseWriter) error         { return f.write(w) }
+func (f failure) VisitRecordInsightFeedbackResponse(w http.ResponseWriter) error {
+	return f.write(w)
+}
 func (f failure) VisitGetDeliveryBaselineResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitCreateRedoResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitListMySessionsResponse(w http.ResponseWriter) error      { return f.write(w) }

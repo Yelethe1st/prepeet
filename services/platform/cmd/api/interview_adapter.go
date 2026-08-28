@@ -70,11 +70,66 @@ func (a interviewAdapter) Delivery(ctx context.Context, userID, sessionID string
 	if err != nil {
 		return api.DeliveryAnalysisView{}, err
 	}
+	ref := evaluation.SessionRef{SessionID: sessionID, Mode: "practice", CandidateID: userID}
+	given, err := a.results.InsightFeedbackFor(ctx, ref)
+	if err != nil {
+		return api.DeliveryAnalysisView{}, err
+	}
+	feedback := make([]api.InsightVerdictView, 0, len(given))
+	for _, verdict := range given {
+		feedback = append(feedback, api.InsightVerdictView{
+			Kind: verdict.Kind, Key: verdict.Key,
+			Dimension: verdict.Dimension, Helpful: verdict.Helpful,
+		})
+	}
 	return api.DeliveryAnalysisView{
 		SessionID: articulation.SessionID, Status: articulation.Status, Warnings: articulation.Warnings,
 		CalculationVersion: articulation.CalculationVersion, PolicyVersion: articulation.PolicyVersion,
 		Analysis: articulation.Document, CreatedAt: articulation.CreatedAt,
+		Feedback: feedback,
 	}, nil
+}
+
+// RecordInsightFeedback stores one verdict about one generated insight,
+// ownership first, exactly as Delivery reads it.
+//
+// The digest and policy version come from the analysis that is actually
+// stored rather than from the request, so a client cannot attribute a
+// verdict to an artifact that did not produce what it was looking at.
+func (a interviewAdapter) RecordInsightFeedback(ctx context.Context, userID, sessionID string, verdict api.InsightFeedbackInput) error {
+	session, err := a.sessions.Get(ctx, sessionID, "practice", userID, "")
+	if err != nil {
+		if errors.Is(err, interview.ErrNotFound) {
+			return api.ErrSessionMissing
+		}
+		return err
+	}
+	if session.Mode != "practice" {
+		return api.ErrFeedbackPracticeOnly
+	}
+
+	ref := evaluation.SessionRef{SessionID: sessionID, Mode: "practice", CandidateID: userID}
+	articulation, err := a.results.ArticulationOf(ctx, ref)
+	if errors.Is(err, evaluation.ErrNoArticulation) {
+		return api.ErrDeliveryNotReady
+	}
+	if err != nil {
+		return err
+	}
+
+	err = a.results.RecordInsightFeedback(ctx, ref, evaluation.InsightVerdict{
+		Kind: verdict.Kind, Key: verdict.Key, Dimension: verdict.Dimension,
+		Helpful:        verdict.Helpful,
+		ArtifactDigest: articulation.InputDigest,
+		PolicyVersion:  articulation.PolicyVersion,
+	})
+	switch {
+	case errors.Is(err, evaluation.ErrScreeningFeedback):
+		return api.ErrFeedbackPracticeOnly
+	case errors.Is(err, evaluation.ErrUnknownInsightKind):
+		return api.ErrFeedbackMissingBody
+	}
+	return err
 }
 
 // Review derives the coaching for the owner's evaluated session. The

@@ -22,20 +22,22 @@ import (
 // asked for at all - the contract's enum is the refusal.
 
 type fakeInterviews struct {
-	created    api.InterviewSession
-	started    api.StartedInterview
-	ack        api.ControlAck
-	ingested   []api.ControlEventIn
-	epoch      int
-	replayed   []api.ControlEventOut
-	transcript api.TranscriptView
-	result     api.EvaluationResultView
-	review     api.ReviewView
-	receipt    api.CompletionReceiptView
-	consent    api.PracticeConsent
-	err        error
-	selection  *api.InterviewSelection
-	users      []string
+	verdicts      []api.InsightFeedbackInput
+	givenFeedback []api.InsightVerdictView
+	created       api.InterviewSession
+	started       api.StartedInterview
+	ack           api.ControlAck
+	ingested      []api.ControlEventIn
+	epoch         int
+	replayed      []api.ControlEventOut
+	transcript    api.TranscriptView
+	result        api.EvaluationResultView
+	review        api.ReviewView
+	receipt       api.CompletionReceiptView
+	consent       api.PracticeConsent
+	err           error
+	selection     *api.InterviewSelection
+	users         []string
 }
 
 func (f *fakeInterviews) CreatePractice(_ context.Context, userID string, selection api.InterviewSelection) (api.InterviewSession, error) {
@@ -132,6 +134,7 @@ func (f *fakeInterviews) Delivery(_ context.Context, userID, sessionID string) (
 		return api.DeliveryAnalysisView{}, f.err
 	}
 	return api.DeliveryAnalysisView{
+		Feedback:  f.givenFeedback,
 		SessionID: sessionID, Status: "not_assessable", Warnings: []string{"AUDIO_CLIPPED"},
 		CalculationVersion: "articulation-features-v1", PolicyVersion: "articulation-practice-v1",
 		Analysis:  json.RawMessage(`{"profile":{"dimensions":{"pace":{"level":"solid"}}}}`),
@@ -142,6 +145,13 @@ func (f *fakeInterviews) Delivery(_ context.Context, userID, sessionID string) (
 func (f *fakeInterviews) Review(_ context.Context, userID, sessionID string) (api.ReviewView, error) {
 	f.users = append(f.users, "review:"+userID+":"+sessionID)
 	return f.review, f.err
+}
+
+func (f *fakeInterviews) RecordInsightFeedback(_ context.Context, userID, sessionID string, verdict api.InsightFeedbackInput) error {
+	f.users = append(f.users, fmt.Sprintf("feedback:%s:%s:%s:%s:%t",
+		userID, sessionID, verdict.Kind, verdict.Key, verdict.Helpful))
+	f.verdicts = append(f.verdicts, verdict)
+	return f.err
 }
 
 func (f *fakeInterviews) CompleteInterview(_ context.Context, userID, sessionID string, epoch, finalSequence int) (api.CompletionReceiptView, error) {
@@ -1437,5 +1447,105 @@ func TestAnOmissionIsNamedWithWordsThatFitItsCause(t *testing.T) {
 	}
 	if assessed != 1 {
 		t.Fatalf("an omission changed the competency results: %d assessed", assessed)
+	}
+}
+
+// ART-09 at the edge: a verdict goes in, nothing comes back, and a screening
+// session cannot carry one.
+
+const feedbackPath = "/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery/feedback"
+
+func TestAVerdictIsRecordedAndNothingIsReturned(t *testing.T) {
+	interviews := &fakeInterviews{}
+	handler := serveInterviews(t, interviews)
+
+	response := put(t, handler, feedbackPath,
+		`{"insight_kind":"strength","insight_key":"precision","dimension":"precision","helpful":false}`,
+		sessionCookie())
+
+	// 204: the verdict is a report about the coaching, not a way to edit it,
+	// and returning the coaching again would suggest otherwise.
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	if body := response.Body.String(); body != "" {
+		t.Fatalf("want an empty body, got %q", body)
+	}
+	if len(interviews.verdicts) != 1 {
+		t.Fatalf("want one verdict recorded, got %d", len(interviews.verdicts))
+	}
+	got := interviews.verdicts[0]
+	if got.Kind != "strength" || got.Key != "precision" || got.Helpful {
+		t.Fatalf("the verdict did not arrive intact: %+v", got)
+	}
+}
+
+func TestAScreeningSessionRefusesAVerdict(t *testing.T) {
+	handler := serveInterviews(t, &fakeInterviews{err: api.ErrFeedbackPracticeOnly})
+
+	response := put(t, handler, feedbackPath,
+		`{"insight_kind":"strength","insight_key":"precision","helpful":true}`, sessionCookie())
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	if !strings.Contains(response.Body.String(), "FEEDBACK_PRACTICE_ONLY") {
+		t.Fatalf("want the refusal named, got %s", response.Body)
+	}
+}
+
+func TestAVerdictNeedsASession(t *testing.T) {
+	interviews := &fakeInterviews{}
+	handler := serveInterviews(t, interviews)
+
+	response := put(t, handler, feedbackPath,
+		`{"insight_kind":"strength","insight_key":"precision","helpful":true}`)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	if len(interviews.verdicts) != 0 {
+		t.Fatal("an unauthenticated request reached the flows")
+	}
+}
+
+func TestTheDeliveryViewCarriesWhatTheCandidateAlreadySaid(t *testing.T) {
+	interviews := &fakeInterviews{}
+	interviews.givenFeedback = []api.InsightVerdictView{
+		{Kind: "strength", Key: "precision", Dimension: "precision", Helpful: false},
+	}
+	handler := serveInterviews(t, interviews)
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		InsightFeedback []struct {
+			InsightKind string `json:"insight_kind"`
+			InsightKey  string `json:"insight_key"`
+			Helpful     bool   `json:"helpful"`
+		} `json:"insight_feedback"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.InsightFeedback) != 1 || body.InsightFeedback[0].InsightKey != "precision" {
+		t.Fatalf("the screen cannot tell which thumb is pressed: %+v", body.InsightFeedback)
+	}
+}
+
+// A candidate who has answered nothing must read as an empty list rather than
+// null, or the screen crashes on the person who has never pressed anything,
+// which is most of them.
+func TestNoVerdictsSerialiseAsAnEmptyList(t *testing.T) {
+	handler := serveInterviews(t, &fakeInterviews{})
+
+	response := get(t, handler,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery", sessionCookie())
+
+	if !strings.Contains(response.Body.String(), `"insight_feedback":[]`) {
+		t.Fatalf("want an empty list, got %s", response.Body)
 	}
 }

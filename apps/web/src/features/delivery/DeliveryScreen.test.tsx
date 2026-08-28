@@ -486,3 +486,184 @@ describe("what the screen does with an absence", () => {
     expect(comparison).toHaveTextContent(/not available to compare yet/i);
   });
 });
+
+/**
+ * ART-09. The controls are a courtesy: they take an answer from the one
+ * person who knows whether the coaching described them, and they ask for
+ * nothing and change nothing.
+ */
+describe("saying whether a priority described you", () => {
+  it("records the verdict against the insight, and shows which thumb is pressed", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.recordInsightFeedback).mockResolvedValue();
+    renderDelivery();
+
+    const no = await screen.findByRole("button", {
+      name: /No, this did not describe me: fluency/i,
+    });
+    expect(no).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(no);
+
+    expect(api.recordInsightFeedback).toHaveBeenCalledWith(
+      "00000000-0000-7000-8000-0000000000e1",
+      {
+        insight_kind: "priority",
+        insight_key: "fluency",
+        dimension: "fluency",
+        helpful: false,
+      },
+    );
+    expect(
+      screen.getByRole("button", {
+        name: /No, this did not describe me: fluency/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("lets somebody correct a thumb they did not mean", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.recordInsightFeedback).mockResolvedValue();
+    renderDelivery();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /No, this did not describe me: fluency/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Yes, this described me: fluency/i }),
+    );
+
+    expect(api.recordInsightFeedback).toHaveBeenLastCalledWith(
+      "00000000-0000-7000-8000-0000000000e1",
+      expect.objectContaining({ insight_key: "fluency", helpful: true }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: /No, this did not describe me: fluency/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /** A verdict given last week is still pressed this week. */
+  it("shows a verdict given before this visit", async () => {
+    vi.mocked(api.recordInsightFeedback).mockResolvedValue();
+    renderDelivery({
+      ...delivery,
+      insight_feedback: [
+        { insight_kind: "priority", insight_key: "fluency", helpful: true },
+      ],
+    });
+
+    expect(
+      await screen.findByRole("button", {
+        name: /Yes, this described me: fluency/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  /**
+   * The ticket's fifth criterion. A prompt, a modal or a box to type in would
+   * make this a survey somebody has to get past to read their own coaching.
+   */
+  it("asks for nothing", async () => {
+    renderDelivery();
+    await screen.findByRole("button", {
+      name: /No, this did not describe me: fluency/i,
+    });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  /**
+   * A rejection is a report about the coaching, not a way to edit it: the
+   * priority reads exactly the same afterwards.
+   */
+  it("changes nothing the candidate is shown", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.recordInsightFeedback).mockResolvedValue();
+    renderDelivery();
+
+    const card = await screen.findByTestId("priority-fluency");
+    const before = card.textContent;
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /No, this did not describe me: fluency/i,
+      }),
+    );
+
+    expect(screen.getByTestId("priority-fluency").textContent).toBe(before);
+  });
+
+  /**
+   * A failed verdict is silent. It is feedback about the product given as a
+   * courtesy, and interrupting somebody reading their own coaching to report
+   * that our telemetry call failed makes the product's problem theirs.
+   */
+  it("says nothing when the verdict cannot be sent", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.recordInsightFeedback).mockRejectedValue(
+      new Error("offline"),
+    );
+    renderDelivery();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /No, this did not describe me: fluency/i,
+      }),
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /No, this did not describe me: fluency/i,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("saying whether a drill was worth doing", () => {
+  it("takes a verdict on a drill chosen for this session", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.recordInsightFeedback).mockResolvedValue();
+    renderDelivery();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /No, this did not describe me: deliberate_pause/i,
+      }),
+    );
+
+    expect(api.recordInsightFeedback).toHaveBeenCalledWith(
+      "00000000-0000-7000-8000-0000000000e1",
+      expect.objectContaining({
+        insight_kind: "drill",
+        insight_key: "deliberate_pause",
+        helpful: false,
+      }),
+    );
+  });
+
+  /**
+   * An unselected drill is a menu item rather than something generated about
+   * this candidate, so there is nothing for them to answer about it.
+   */
+  it("offers nothing on a drill that was not chosen", async () => {
+    renderDelivery();
+    await screen.findByTestId("drill-deliberate_pause");
+
+    const drills = screen.getAllByTestId(/^drill-/);
+    const unselected = drills.filter(
+      (drill) => !drill.textContent?.includes("selected for you"),
+    );
+    expect(unselected.length).toBeGreaterThan(0);
+    for (const drill of unselected) {
+      expect(
+        within(drill).queryByRole("button", { name: /describe me/i }),
+      ).not.toBeInTheDocument();
+    }
+  });
+});

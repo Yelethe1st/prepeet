@@ -825,6 +825,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/delivery/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Say whether a generated insight described you
+         * @description A thumbs up or down on one generated strength, priority or drill.
+         *     Idempotent by design: the same insight answered again replaces the
+         *     previous answer rather than adding a second opinion from the same
+         *     person about the same sentence, so pressing the other thumb is a
+         *     correction.
+         *
+         *     It changes nothing the candidate is shown. The verdict is a report
+         *     about the coaching, recorded against the artifact digest and policy
+         *     version that produced the insight so a drop in helpfulness is
+         *     attributable to a version rather than to a date.
+         *
+         *     Practice only. A screening candidate rating their own assessment
+         *     would be a channel for pressure, so a screening session refuses
+         *     with FEEDBACK_PRACTICE_ONLY.
+         */
+        put: operations["recordInsightFeedback"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews/{sessionId}/turns/{turnId}/redos": {
         parameters: {
             query?: never;
@@ -1368,6 +1401,34 @@ export interface components {
             };
             note: string;
         };
+        InsightFeedbackRequest: {
+            /**
+             * @description Which kind of generated insight is being answered.
+             * @enum {string}
+             */
+            insight_kind: "strength" | "priority" | "drill";
+            /**
+             * @description Which one: the dimension a strength or priority was generated
+             *     for, or the drill's key. Stable across a re-read of the same
+             *     analysis, so an answer survives leaving and returning.
+             */
+            insight_key: string;
+            /** @description The dimension it belongs to, where that is not the key itself. */
+            dimension?: string;
+            /**
+             * @description Whether it described the candidate. False means "this was not
+             *     about me", which is a quality signal; it does not mean "this was
+             *     harsh", and nothing treats it as a request to soften anything.
+             */
+            helpful: boolean;
+        };
+        InsightVerdict: {
+            /** @enum {string} */
+            insight_kind: "strength" | "priority" | "drill";
+            insight_key: string;
+            dimension?: string;
+            helpful: boolean;
+        };
         DeliveryView: {
             /** Format: uuid */
             session_id: string;
@@ -1388,6 +1449,12 @@ export interface components {
             };
             /** Format: date-time */
             created_at: string;
+            /**
+             * @description What this candidate has already said about these insights, so the
+             *     screen shows which thumb is pressed rather than asking again.
+             *     Their own answers only, and empty when they have given none.
+             */
+            insight_feedback?: components["schemas"]["InsightVerdict"][];
         };
         ReviewView: {
             /** Format: uuid */
@@ -3177,6 +3244,44 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             /** @description DELIVERY_NOT_READY while the analysis has not landed. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    recordInsightFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsightFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Recorded. Nothing is returned, because nothing changed. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description FEEDBACK_PRACTICE_ONLY on a screening session. */
             409: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];

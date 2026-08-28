@@ -129,3 +129,32 @@ SELECT id::text AS id, stage, status, reason, retryable, required, cost_units, c
 FROM evaluation.stage_outcomes
 WHERE session_id = sqlc.arg(session_id)::uuid
 ORDER BY created_at, id;
+
+-- name: RecordInsightFeedback :exec
+-- Once per insight, changeable. The conflict target is the unique constraint,
+-- so pressing the other thumb corrects the row rather than adding a second
+-- opinion from the same person about the same sentence.
+--
+-- The digest and policy version are re-written on the update: if the analysis
+-- was regenerated under a new artifact between the two presses, the surviving
+-- verdict belongs to what was actually on screen when it was given.
+INSERT INTO evaluation.insight_feedback
+    (id, session_id, candidate_id, mode, insight_kind, insight_key, dimension,
+     helpful, artifact_digest, policy_version)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(candidate_id)::uuid,
+        'practice', sqlc.arg(insight_kind)::text, sqlc.arg(insight_key)::text,
+        nullif(sqlc.arg(dimension)::text, ''), sqlc.arg(helpful)::boolean,
+        sqlc.arg(artifact_digest)::text, sqlc.arg(policy_version)::text)
+ON CONFLICT (session_id, candidate_id, insight_kind, insight_key)
+DO UPDATE SET helpful = excluded.helpful,
+              artifact_digest = excluded.artifact_digest,
+              policy_version = excluded.policy_version,
+              updated_at = now();
+
+-- name: ListInsightFeedback :many
+-- What this candidate already said about this session's insights, so the
+-- screen can show which thumb is pressed. RLS scopes it to their own rows.
+SELECT insight_kind, insight_key, dimension, helpful, updated_at
+FROM evaluation.insight_feedback
+WHERE session_id = sqlc.arg(session_id)::uuid
+ORDER BY insight_kind, insight_key;

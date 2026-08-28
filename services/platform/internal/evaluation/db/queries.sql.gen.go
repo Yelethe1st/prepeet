@@ -8,6 +8,8 @@ package evaluationdb
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const deleteContradictions = `-- name: DeleteContradictions :exec
@@ -569,6 +571,49 @@ func (q *Queries) ListEvidence(ctx context.Context, sessionID string) ([]ListEvi
 	return items, nil
 }
 
+const listInsightFeedback = `-- name: ListInsightFeedback :many
+SELECT insight_kind, insight_key, dimension, helpful, updated_at
+FROM evaluation.insight_feedback
+WHERE session_id = $1::uuid
+ORDER BY insight_kind, insight_key
+`
+
+type ListInsightFeedbackRow struct {
+	InsightKind string
+	InsightKey  string
+	Dimension   pgtype.Text
+	Helpful     bool
+	UpdatedAt   time.Time
+}
+
+// What this candidate already said about this session's insights, so the
+// screen can show which thumb is pressed. RLS scopes it to their own rows.
+func (q *Queries) ListInsightFeedback(ctx context.Context, sessionID string) ([]ListInsightFeedbackRow, error) {
+	rows, err := q.db.Query(ctx, listInsightFeedback, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListInsightFeedbackRow{}
+	for rows.Next() {
+		var i ListInsightFeedbackRow
+		if err := rows.Scan(
+			&i.InsightKind,
+			&i.InsightKey,
+			&i.Dimension,
+			&i.Helpful,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStageOutcomes = `-- name: ListStageOutcomes :many
 SELECT id::text AS id, stage, status, reason, retryable, required, cost_units, created_at
 FROM evaluation.stage_outcomes
@@ -616,4 +661,53 @@ func (q *Queries) ListStageOutcomes(ctx context.Context, sessionID string) ([]Li
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordInsightFeedback = `-- name: RecordInsightFeedback :exec
+INSERT INTO evaluation.insight_feedback
+    (id, session_id, candidate_id, mode, insight_kind, insight_key, dimension,
+     helpful, artifact_digest, policy_version)
+VALUES ($1::uuid, $2::uuid, $3::uuid,
+        'practice', $4::text, $5::text,
+        nullif($6::text, ''), $7::boolean,
+        $8::text, $9::text)
+ON CONFLICT (session_id, candidate_id, insight_kind, insight_key)
+DO UPDATE SET helpful = excluded.helpful,
+              artifact_digest = excluded.artifact_digest,
+              policy_version = excluded.policy_version,
+              updated_at = now()
+`
+
+type RecordInsightFeedbackParams struct {
+	ID             string
+	SessionID      string
+	CandidateID    string
+	InsightKind    string
+	InsightKey     string
+	Dimension      string
+	Helpful        bool
+	ArtifactDigest string
+	PolicyVersion  string
+}
+
+// Once per insight, changeable. The conflict target is the unique constraint,
+// so pressing the other thumb corrects the row rather than adding a second
+// opinion from the same person about the same sentence.
+//
+// The digest and policy version are re-written on the update: if the analysis
+// was regenerated under a new artifact between the two presses, the surviving
+// verdict belongs to what was actually on screen when it was given.
+func (q *Queries) RecordInsightFeedback(ctx context.Context, arg RecordInsightFeedbackParams) error {
+	_, err := q.db.Exec(ctx, recordInsightFeedback,
+		arg.ID,
+		arg.SessionID,
+		arg.CandidateID,
+		arg.InsightKind,
+		arg.InsightKey,
+		arg.Dimension,
+		arg.Helpful,
+		arg.ArtifactDigest,
+		arg.PolicyVersion,
+	)
+	return err
 }

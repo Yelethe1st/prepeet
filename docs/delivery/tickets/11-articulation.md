@@ -321,11 +321,38 @@ person who gave it.
 
 **Done when**
 - [ ] Each generated insight can be marked helpful or not, once, changeable, and never required.
-- [ ] The signal records the pinned artifact digest, the model policy and the dimension, so a drop is attributable to what produced it rather than to a date.
+- [x] The signal records the pinned artifact digest, the model policy and the dimension, so a drop is attributable to what produced it rather than to a date.
 - [ ] Rejections are queryable per artifact version and feed QUA-06's monitoring, rather than sitting in a table nobody reads.
 - [ ] A rejection changes nothing the candidate is shown: it is a report about the coaching, not a way to edit it.
 - [ ] Nothing is asked for. No free-text box, no prompt, no modal, and no follow-up if it is ignored.
-- [ ] Practice only, and never attached to a screening evaluation, where a candidate rating their own assessment would be a channel for pressure.
+- [x] Practice only, and never attached to a screening evaluation, where a candidate rating their own assessment would be a channel for pressure.
+
+**In progress: the storage half is in and proven; the API and the screen are not.**
+`evaluation.insight_feedback` (migration 0038) carries the verdict with the artifact digest and
+the policy version taken at the moment the insight was on screen, so a drop in helpfulness is
+attributable to a version rather than to a date. `RecordInsightFeedback` upserts on the unique
+constraint, so pressing the other thumb corrects the row rather than adding a second opinion from
+the same person about the same sentence: this is the one judgment in the schema that is
+deliberately not immutable, because it is a report about the coaching rather than a record of what
+happened.
+
+Practice-only is structural twice over. There is no `tenant_id` column and no tenant policy, so a
+screening scope matches no row it could read or write, and the domain refuses a screening ref
+before the database with a sentence rather than a constraint name. Both are attacked: a screening
+session is refused, a tenant scope reads nothing, and a second candidate reads nothing. The last
+two also assert the owner still sees the row, because an attack that matches zero rows for want of
+any row proves nothing at all.
+
+**The aggregate read has nowhere to run from, and that is the finding of this ticket.** A rates
+query was written, generated and then removed. Both database roles are NOBYPASSRLS and the only
+policy scopes to one candidate, so a query counting rejections across candidates returns an empty
+result rather than an error: a report that silently answers "none" is worse than no report,
+because somebody will believe it. QUA-06's read needs its own path, either a metric emitted per
+verdict or a reporting role with a policy written for it, and that decision belongs with QUA-06
+rather than being faked here. The index the read will want is in place.
+
+Still to build: the contract endpoint, the handler, and the thumbs themselves on the delivery
+screen, which is where the remaining four boxes live.
 
 **Watch for**
 

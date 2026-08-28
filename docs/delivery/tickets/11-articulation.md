@@ -230,3 +230,77 @@ does not own and shows their baseline still counts zero measured sessions. Trend
 the same history plotted, which PRG-03's progression screen owns.
 
 **Spec** [articulation-system.md](../../architecture/articulation-system.md)
+
+---
+
+### ART-08 · Detect hedging and softeners as evidence under precision
+
+**Depends on** ART-01, ART-03 · **Blocks** nothing
+
+"I think", "maybe", "sort of", "kind of", "I guess", "probably", "a little bit": the phrases that
+blunt a claim the candidate can actually back.
+
+Hedging is the one delivery feature the product does not measure that it plainly should. It is
+language, not sound, so it is computed from the transcript exactly as fillers and restarts already
+are, and it needs no audio, no phonetics and no locale, which is what keeps it on the right side of
+ART-03's accent rule.
+
+It is evidence under **precision**, not an eleventh dimension. The profile's shape is contractual and
+ten dimensions are what ART-03 published; a hedge is a candidate not saying exactly what they mean,
+which is what precision already measures.
+
+**Done when**
+- [ ] Hedge phrases are counted per turn in the deterministic feature set, with the same versioned calculation and the same not-assessable rules as fillers.
+- [ ] The phrase list is data rather than code, versioned with the calculator, so adding one is a data change and a test.
+- [ ] Precision's reason names the count and the phrases behind it, and its evidence points at the turns they occurred in.
+- [ ] A hedge on a claim the candidate goes on to support is told apart from a hedge that honestly marks uncertainty, and only the first is ever coached.
+- [ ] No count is presented as a target, and zero hedges is never described as the goal.
+
+**Watch for**
+
+Zero is the wrong target and the reason matters. An interview answer that hedges nothing is an
+answer claiming certainty the candidate does not have, and coaching somebody into that is coaching
+them to bluff, which the interview will find out and which this product exists to argue against.
+"I think" before a genuine estimate is correct English and correct behaviour. The feature is only
+useful where the hedge sits in front of something the candidate then evidences, and the coaching
+has to be able to tell the difference or it should stay quiet, per ART-07's rule that guidance is
+never a target.
+
+The second is register. Hedging frequency varies with first language, gender and culture, and a
+count read without that context is a politeness tax dressed as feedback. It is practice-only for
+that reason: it never reaches a screening evaluation, and it never becomes a number anybody is
+compared on.
+
+**Spec** [articulation-system.md](../../architecture/articulation-system.md)
+
+---
+
+### ART-09 · Let a candidate say a generated insight was wrong
+
+**Depends on** ART-05 · **Blocks** nothing
+
+A thumbs up and a thumbs down on each generated strength, priority and drill, recorded against the
+artifact digest that produced it.
+
+Nothing in the product currently carries a signal from the person the coaching is about back to the
+people who maintain it. QUA-06 monitors AI quality in production and QUA-03 calibrates against human
+benchmarks, and neither has an input from the candidate reading the output. The one person who knows
+whether "your opening establishes a clear, defensible position" is true of their own answer is the
+person who gave it.
+
+**Done when**
+- [ ] Each generated insight can be marked helpful or not, once, changeable, and never required.
+- [ ] The signal records the pinned artifact digest, the model policy and the dimension, so a drop is attributable to what produced it rather than to a date.
+- [ ] Rejections are queryable per artifact version and feed QUA-06's monitoring, rather than sitting in a table nobody reads.
+- [ ] A rejection changes nothing the candidate is shown: it is a report about the coaching, not a way to edit it.
+- [ ] Nothing is asked for. No free-text box, no prompt, no modal, and no follow-up if it is ignored.
+- [ ] Practice only, and never attached to a screening evaluation, where a candidate rating their own assessment would be a channel for pressure.
+
+**Watch for**
+
+A thumbs down means "this did not describe me", and the temptation is to read it as "this was
+harsh". Those are different, and only the first is a quality signal. The rate is the measurement,
+per artifact version and per dimension; an individual rejection says nothing on its own and must not
+be actionable on its own, or the honest coaching is the coaching that gets tuned away.
+
+**Spec** [articulation-system.md](../../architecture/articulation-system.md) · [ADR-0011](../../architecture/decisions/0011-artifact-registry-review-publication-and-rollback.md)

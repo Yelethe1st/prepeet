@@ -207,4 +207,43 @@ a screen is not ported until its states are reachable, not merely its default vi
 - [ ] Deviations from the prototype are recorded with a reason, and a research finding is the only thing that overrides it.
 - [ ] Ported screens carry the component and accessibility tests required by PLT-10 before they are considered done.
 
+**In progress.** The front page is ported, `screens/index.html` whole: ten sections in the
+prototype's order, its copy, the live-interview still, the practice-versus-screen visibility table,
+the worked evidence cards and the eight questions. It lives in `features/marketing`, composed by a
+route thin enough to be nothing but composition, with its copy in one content module so a change to
+the words is a change in one place.
+
+The design tokens finally tell the truth. `tokens.css` had named Figtree, Fraunces and JetBrains Mono
+since WEB-01 and nothing had ever fetched them, so every screen in the product rendered in system-ui
+and Georgia. `next/font` now downloads them at build time and serves them from our own origin, which
+is also why every visual baseline in this commit changed: the port is the reason it was noticed, not
+the only screen it fixes.
+
+Deviations, all recorded where they were made and two of them enforced by tests. No em dashes, per
+the copy rule, so every one is a colon, a comma or a full stop. No link to a screen that is not
+ported: the prototype links freely across 56 files, and a dead link from the front page is the worst
+place in the product to have one, so an unported destination becomes an anchor to the section that
+answers the same question, or is dropped. The visibility table stays a table at every width and
+scrolls inside its own box, rather than being restyled into cards by `display: block`, which strips
+the row and column relationships that make it navigable. A tagged evidence span explains itself in
+text rather than in a tooltip a touch user never sees. The theme toggle has a name and says which
+theme it switches to, rather than announcing itself as pressed and nothing else.
+
+Three things the browser found that no unit test could. At 320px the header was eight pixels wider
+than the screen, so the theme toggle moves into the menu there. The table's scroll container could
+not be focused, which put its last two columns out of reach of a keyboard on a phone. And the
+persona avatar in the interviewer's own colour missed 4.5:1 in the dark theme. `/` is in the
+accessibility and layout sweeps now, at both widths and in both themes, which is what caught all
+three.
+
+Icons arrive with it. WEB-04 recorded that they stay out until a screen needs one, and this screen
+draws thirty: `lucide-react`, the React build of the set the prototype uses, behind one `Icon`
+component that fixes the sizes and hides every glyph from assistive technology, because every icon
+here sits beside the words it illustrates.
+
+No visual baseline for this page, deliberately, and for the reason the appearance suite already
+gives for covering two of IAM-02's screens rather than all seven: a full-page screenshot of a
+six-thousand-pixel marketing page at zero tolerance is the highest-maintenance and lowest-signal
+baseline in the suite, and this page has no interactive state the other two tiers miss.
+
 **Spec** [information-architecture.md](../../product/information-architecture.md)

@@ -120,6 +120,44 @@
   --color-neutral-soft: var(--neutral-soft);
   --color-neutral-fg: var(--neutral-fg);
 
+  /* ---------- Score bands ---------- */
+  /*
+   * The five bands a competency can land in. Mapped because a bar drawn in
+   * `bg-primary` says "brand" where the design says "solid", and because
+   * insufficient has to be able to look unlike the other four.
+   *
+   * Never the only signal. Every band is drawn with its name beside it.
+   */
+  --color-score-strong: var(--score-strong);
+  --color-score-solid: var(--score-solid);
+  --color-score-developing: var(--score-developing);
+  --color-score-concern: var(--score-concern);
+  --color-score-insufficient: var(--score-insufficient);
+
+  /* ---------- Evidence ---------- */
+  /*
+   * The four evidence types. They are a vocabulary rather than a palette: a
+   * span is supporting, contradicting, a claim or a gap, and the colour is how
+   * that reads at a glance. Mapped so a component can say which type a span is
+   * instead of picking a colour that happens to match.
+   *
+   * Never the only signal. Every use of these is paired with the word.
+   */
+  --color-ev-supporting: var(--ev-supporting);
+  --color-ev-contradiction: var(--ev-contradiction);
+  --color-ev-claim: var(--ev-claim);
+  --color-ev-gap: var(--ev-gap);
+
+  /* ---------- Live session ---------- */
+  /*
+   * The waveform's three states. Mapped because the marketing page draws the
+   * live interview as a still, and a bar painted `bg-primary` would be the
+   * wrong colour in a picture whose whole job is to look like the real screen.
+   */
+  --color-waveform-idle: var(--waveform-idle);
+  --color-waveform-user: var(--waveform-user);
+  --color-waveform-ai: var(--waveform-ai);
+
   /* ---------- Application chrome ---------- */
   --color-sidebar-bg: var(--sidebar-bg);
   --color-sidebar-fg: var(--sidebar-fg);

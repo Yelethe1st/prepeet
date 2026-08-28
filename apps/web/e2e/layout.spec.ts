@@ -12,6 +12,10 @@ import { expect, test } from "./fixtures";
  */
 
 const routes = [
+  // The front page, ported under WEB-06. It is the widest thing in the product
+  // by a distance: a nine-by-four table, three-column grids and a hero laid out
+  // side by side, all of which have to fold onto a phone.
+  "/",
   "/login",
   "/register",
   // IAM-02's screens. The consume pages land on their invalid state without a

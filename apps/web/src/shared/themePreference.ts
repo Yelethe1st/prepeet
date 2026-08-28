@@ -65,6 +65,33 @@ export function applyTheme(theme: Theme): void {
   document.documentElement.setAttribute(ATTRIBUTE, theme);
 }
 
+/** Everything currently rendering the theme, so a change reaches all of it. */
+const listeners = new Set<() => void>();
+
+/**
+ * subscribeToTheme reports a change to whoever is displaying it.
+ *
+ * The theme lives on the document and in storage, neither of which React can
+ * see, so a component that shows it has to be told. Two things can change it:
+ * this tab, through setTheme, and another tab, which the browser reports as a
+ * storage event.
+ *
+ * It exists because the alternative is reading the stored value into state in
+ * an effect, which is a render, then a second render, on every mount. The React
+ * compiler rejects that pattern outright, and it is also how two toggles on the
+ * same page end up disagreeing: the footer's copy would never hear about the
+ * header's click.
+ */
+export function subscribeToTheme(listener: () => void): () => void {
+  listeners.add(listener);
+  window.addEventListener("storage", listener);
+
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
 /**
  * setTheme records a choice and applies it.
  *
@@ -79,6 +106,8 @@ export function setTheme(theme: Theme): void {
     // Deliberately ignored. See above.
   }
   applyTheme(theme);
+
+  for (const listener of listeners) listener();
 }
 
 /**

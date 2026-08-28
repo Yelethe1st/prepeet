@@ -189,6 +189,8 @@ describe("colour utilities resolve to mapped tokens", () => {
       "dashed",
       "dotted",
       "double", // border styles
+      "collapse",
+      "separate", // border-collapse and border-separate
       "0",
       "2",
       "4",
@@ -197,7 +199,21 @@ describe("colour utilities resolve to mapped tokens", () => {
 
     const offences: string[] = [];
     for (const file of markupFiles()) {
-      const source = readFileSync(file, "utf8");
+      // A side is not part of the name. `border-l-ev-supporting` sets the same
+      // colour on one edge that `border-ev-supporting` sets on four, and
+      // `border-l-4` is a width, but reading them whole makes the first look
+      // like a token called "l-ev-supporting" and the second like one called
+      // "l-4". Both were reported as utilities that generate no CSS, which they
+      // do. Dropping the side first checks the part that names a colour.
+      //
+      // The cost is that an offence is reported without its side, so a mistyped
+      // `border-l-ev-supprting` names `border-ev-supprting`. The file and the
+      // token are both still in the message, which is what sends somebody to
+      // the right line.
+      const source = readFileSync(file, "utf8").replace(
+        /\bborder-(?:t|b|l|r|x|y|s|e)-/g,
+        "border-",
+      );
       for (const match of source.matchAll(
         /(?:text|bg|border)-([a-z][a-z0-9-]*)/g,
       )) {

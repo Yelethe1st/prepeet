@@ -1,10 +1,37 @@
 import type { Metadata } from "next";
+import { Figtree, Fraunces, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 
 import "@/shared/styles/theme.css";
 
 import { DEFAULT_THEME, themeScript } from "@/shared/themePreference";
 import { QueryProvider } from "@/lib/api/QueryProvider";
+
+/*
+ * The three faces the design system names.
+ *
+ * tokens.css has asked for Figtree, Fraunces and JetBrains Mono since WEB-01
+ * and nothing ever fetched them, so every screen rendered in the fallbacks:
+ * system-ui for the body and Georgia for the display face. A token that names a
+ * font nobody loaded is a token that is not telling the truth, and the display
+ * face is most of the difference between the prototype's front page and a page
+ * that merely has the same words on it.
+ *
+ * Served by the application rather than by Google: next/font downloads the
+ * files at build time and serves them from this origin, so there is no request
+ * to a third party from a visitor's browser and nothing to consent to.
+ *
+ * No `weight`. All three are variable fonts, so one file covers every weight the
+ * design system uses, and listing weights would download a static instance per
+ * weight instead.
+ *
+ * `display: "swap"` so text is readable in the fallback while the face loads.
+ * The alternative is invisible text on a slow connection, which is worse than
+ * text in the wrong font.
+ */
+const sans = Figtree({ subsets: ["latin"], variable: "--font-figtree", display: "swap" });
+const display = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Prepeet",
@@ -27,7 +54,14 @@ export const metadata: Metadata = {
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-GB" data-theme={DEFAULT_THEME} suppressHydrationWarning>
+    <html
+      lang="en-GB"
+      data-theme={DEFAULT_THEME}
+      // The three font variables land on the document element, which is where
+      // tokens.css reads them from.
+      className={`${sans.variable} ${display.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/*
           Runs before anything paints. suppressHydrationWarning is on the html

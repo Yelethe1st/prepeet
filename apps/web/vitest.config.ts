@@ -16,6 +16,12 @@ export default defineConfig({
       // The generated contract types, aliased rather than made a workspace
       // package: openapi-typescript emits interfaces and nothing else, so a
       // package would ship no runtime and exist only to be resolved.
+      // `next/font/google` is a marker the Next compiler rewrites at build
+      // time, not a module that runs. Nothing rewrites it here, so the root
+      // layout's call to it throws. See the stub for the whole of it.
+      "next/font/google": fileURLToPath(
+        new URL("./test-stubs/next-font-google.ts", import.meta.url),
+      ),
       "@contracts/capabilities": fileURLToPath(
         new URL(
           "../../packages/generated/typescript/capabilities.gen.ts",

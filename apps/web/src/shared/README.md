@@ -11,6 +11,13 @@
   those tokens.
 - `themePreference.ts` — which theme renders, and why it defaults to dark.
 
+The three faces the tokens name are fetched at build time and served from this
+origin, wired up in `app/layout.tsx` with `next/font`. They are declared there
+rather than here because the variables have to land on the document element,
+which only the root layout renders. `tokens.css` names both the variable and the
+family, so a document rendered without that layout still asks for the right font
+before falling back.
+
 It was called `design-system` while it was a stylesheet port with a few
 components around it. Since the styling moved to Tailwind, most of what is here
 is the shared component set and the theme it is built on, so it is named for

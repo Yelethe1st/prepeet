@@ -75,9 +75,16 @@
   --stone-950: #100F0D;
 
   /* ---------- Typography ---------- */
-  --font-sans: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /*
+   * The face first, then the stack behind it. The first entry is the variable
+   * the root layout defines with next/font, which resolves to the family name
+   * of the file the application serves. The named family is kept after it so a
+   * document rendered without that layout, which is what a test does, still
+   * asks for the right font before falling back.
+   */
+  --font-sans: var(--font-figtree), "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-fraunces), "Fraunces", Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --text-2xs: 0.6875rem;  /* 11px */
   --text-xs:  0.75rem;    /* 12px */

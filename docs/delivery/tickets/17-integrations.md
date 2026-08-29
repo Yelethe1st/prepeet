@@ -82,11 +82,29 @@ and the one place being tied to PostgreSQL is an advantage.
 - [x] An event type without a contract version is refused, since that version is what consumers subscribe against.
 - [x] The dispatcher runs in `cmd/worker`, polling on an interval.
 - [x] A notification shortens the wait without being relied on for delivery.
-- [ ] Replay of a delivery does not duplicate its effect for a well-behaved consumer.
+- [x] Replay of a delivery does not duplicate its effect for a well-behaved consumer.
 
 **Remaining.** The last box needs a consumer to be idempotent against, and there is none yet: `routes()`
 in `cmd/worker` is deliberately empty because nothing publishes an event. It closes with INT-03, the
 first real handler.
+
+**Replay is harmless because the effect is idempotent, and that is now asserted.** At-least-once
+means a consumer will see the same event twice: a dispatcher dying between the handler succeeding
+and the row being marked leaves a window that cannot be closed, only made harmless. Every route
+that starts a workflow does it the same way, and all three parts are load bearing: the workflow id
+is derived from the entity, the reuse policy is REJECT_DUPLICATE, and the resulting
+`WorkflowExecutionAlreadyStarted` is swallowed as success rather than returned, because an error
+there would make the outbox retry a row that was fully handled until it dead lettered.
+
+The test delivers the same row twice with the attempt count incremented, which is what a
+redelivery actually looks like, and asserts one workflow started and both deliveries reported as
+handled.
+
+The first version of it proved less than it appeared to. The fixture left `ID` and `Attempts` at
+their zero values, so a deliberate regression building the workflow id from `event.ID` changed
+nothing and the test passed. With a realistic row both regressions are caught: an id carrying the
+outbox row id fails the derivation test, and an id carrying the attempt count starts two workflows
+and fails the replay test. Both were introduced and reverted to check.
 
 **Spec** [event-catalog.md](../../contracts/event-catalog.md)
 

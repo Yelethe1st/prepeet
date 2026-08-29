@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
@@ -7,11 +8,30 @@ const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 const signIn = vi.fn();
+// The sign-in screen now also asks which providers exist, per IAM-08. It
+// answers none here: these tests are about the form, and the provider buttons
+// have their own file.
 vi.mock("@/lib/auth/api", () => ({
   signIn: (...args: unknown[]) => signIn(...args),
+  listOAuthProviders: () => Promise.resolve({ providers: [] }),
+  startOAuth: () => Promise.resolve({ authorization_url: "", state: "" }),
 }));
 
+import { QueryProvider } from "@/lib/api/QueryProvider";
+
 import LoginPage from "./page";
+
+/**
+ * The route is rendered inside the query provider the root layout supplies,
+ * because the sign-in screen now asks which providers are configured.
+ */
+function renderLogin() {
+  return render(<LoginPage />, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryProvider>{children}</QueryProvider>
+    ),
+  });
+}
 
 /**
  * The sign-in route.
@@ -39,7 +59,7 @@ async function signInWith(
 
 describe("LoginPage", () => {
   it("renders the form", () => {
-    render(<LoginPage />);
+    renderLogin();
 
     expect(
       screen.getByRole("heading", { name: /sign in/i }),
@@ -49,7 +69,7 @@ describe("LoginPage", () => {
 
   it("calls the real sign-in with what was typed", async () => {
     signIn.mockResolvedValue({});
-    render(<LoginPage />);
+    renderLogin();
 
     await signInWith();
 
@@ -61,7 +81,7 @@ describe("LoginPage", () => {
 
   it("navigates once there is a session", async () => {
     signIn.mockResolvedValue({});
-    render(<LoginPage />);
+    renderLogin();
 
     await signInWith();
 
@@ -75,7 +95,7 @@ describe("LoginPage", () => {
    */
   it("does not navigate when signing in failed", async () => {
     signIn.mockRejectedValue(new Error("nope"));
-    render(<LoginPage />);
+    renderLogin();
 
     await signInWith();
 
@@ -84,7 +104,7 @@ describe("LoginPage", () => {
   });
 
   it("offers a way to register, so a new person is not stuck here", () => {
-    render(<LoginPage />);
+    renderLogin();
 
     expect(
       screen.getByRole("link", { name: /create an account/i }),
@@ -92,13 +112,13 @@ describe("LoginPage", () => {
   });
 
   it("has no accessibility violations", async () => {
-    const { container } = render(<LoginPage />);
+    const { container } = renderLogin();
 
     expect(await axe(container)).toHaveNoViolations();
   });
 
   it("has exactly one first-level heading", () => {
-    render(<LoginPage />);
+    renderLogin();
 
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });

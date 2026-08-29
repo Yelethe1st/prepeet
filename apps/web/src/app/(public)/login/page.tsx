@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 
 import { AuthCard } from "@/features/auth/AuthCard";
 import { AuthShell } from "@/features/auth/AuthShell";
+import { OAuthButtons } from "@/features/auth/OAuthButtons";
 import { SignInForm } from "@/features/auth/SignInForm";
 import { SignInOptions } from "@/features/auth/SignInOptions";
 import { signIn } from "@/lib/auth/api";
@@ -28,6 +29,7 @@ export default function LoginPage() {
         title="Sign in to Prepeet"
         lead="Practice sessions, screening invitations and your recruiter workspace all live behind one account."
       >
+        <OAuthButtons />
         <SignInForm
           signIn={async (credentials) => {
             await signIn(credentials);

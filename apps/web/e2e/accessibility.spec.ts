@@ -21,6 +21,10 @@ const routes = [
   // side by side, all of which have to fold onto a phone.
   "/",
   "/login",
+  // IAM-08's callback. Reached from a provider's redirect, so it is arrived at
+  // from outside the product and lands on its failure state without a code,
+  // which is what a truncated or copied callback link renders.
+  "/auth/callback/google",
   "/register",
   // IAM-02's screens. The consume pages land on their invalid state without a
   // token, which is itself a state worth auditing: it is what a truncated

@@ -335,9 +335,9 @@ revocable.
 - [x] `state` and PKCE are mandatory, single-use and time-bound, and a replayed or absent `state` is refused rather than tolerated.
 - [x] An OAuth sign-in issues the same session the password flow issues, through the same entry point, with the same cookies, rotation and revocation.
 - [x] Linking rules are explicit and proven: an OAuth identity whose verified email matches an existing account links to it; an unverified email from a provider never does.
-- [ ] A provider that is unreachable, slow, or returns an error leaves the person on a screen that names what happened and offers email and password, without a half-created account behind it.
+- [x] A provider that is unreachable, slow, or returns an error leaves the person on a screen that names what happened and offers email and password, without a half-created account behind it.
 - [x] Every provider is configured rather than compiled in, so adding one is configuration and a test.
-- [ ] The callback screen is ported from `screens/oauth-callback.html` with its four states: processing, slow, invalid state and expired code.
+- [x] The callback screen is ported from `screens/oauth-callback.html` with its four states: processing, slow, invalid state and expired code.
 - [ ] Registration through a provider creates the same account a form does, including account type, and never silently creates a tenant.
 
 **Watch for**
@@ -423,7 +423,30 @@ sign-in screen never draws a button that fails at the token endpoint. The endpoi
 defaults because knowing them is not the deployer's job; the credentials carry none, because a
 default credential is one somebody forgot to set.
 
-Still to build: `screens/oauth-callback.html` with its four states, which is where the fifth and
-seventh boxes live.
+The screen is at `/auth/callback/[provider]`, with the provider in the path because it is part of
+the redirect URI registered with each provider and a registered URI that varies by query string is
+one more thing to get wrong in two places. The sign-in screen draws its buttons from
+`/auth/oauth/providers`, so a deployment with none configured renders nothing at all rather than an
+empty heading or a divider with nothing above it.
+
+One recorded deviation, and it is the whole design of the screen. The prototype shows three stages
+with per-stage timings ticking over as they complete. There is one request here and no way to know
+which part of it the server is in, so rendering three stages that advance on a timer would be an
+animation pretending to be telemetry, on the screen where somebody is waiting to find out whether
+they are signed in. It shows what is true: in progress, and after six seconds, that it is taking
+longer than usual.
+
+The failure states are one state rather than the prototype's two, for the same reason the server
+answers one refusal for a forged state and a replayed one: they cannot be told apart from outside,
+so the screen does not claim to. It names what the server said, carries the reference to quote,
+lists the three things that usually cause it, and offers email and password. A provider that
+declines redirects with `error` and no code, which is shown as a failure rather than left to become
+"no code", and a truncated callback link never reaches the server at all.
+
+`/auth/callback/google` is in the accessibility and layout sweeps, which caught the one defect
+here: the muted foreground on the danger surface measures 4.48:1 in the light theme, under the 4.5
+it needs, and looking at it would not have found that.
+
+Only the eighth box is left, and it is the open product question rather than work.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md) · [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md)

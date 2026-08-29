@@ -151,3 +151,43 @@ export async function consumeOtp(
     body: { email, code },
   });
 }
+
+/** The sign-in providers this deployment offers, for IAM-08. */
+export type OAuthProviders = components["schemas"]["OAuthProviders"];
+export type OAuthStart = components["schemas"]["OAuthStart"];
+
+/**
+ * Which providers to draw buttons for.
+ *
+ * An empty list is the ordinary answer for a deployment with none configured,
+ * and the sign-in screen shows email and password alone rather than nothing.
+ */
+export async function listOAuthProviders(): Promise<OAuthProviders> {
+  return apiFetch<OAuthProviders>("/auth/oauth/providers");
+}
+
+/** Begin a provider sign-in and get where to send the browser. */
+export async function startOAuth(
+  provider: string,
+  redirectTo?: string,
+): Promise<OAuthStart> {
+  return apiFetch<OAuthStart>(`/auth/oauth/${provider}/start`, {
+    method: "POST",
+    body: redirectTo === undefined ? {} : { redirect_to: redirectTo },
+  });
+}
+
+/**
+ * Finish a provider sign-in. The cookies arrive on this response, exactly as
+ * they do from signing in with a password.
+ */
+export async function completeOAuth(
+  provider: string,
+  state: string,
+  code: string,
+): Promise<Session> {
+  return apiFetch<Session>(`/auth/oauth/${provider}/callback`, {
+    method: "POST",
+    body: { state, code },
+  });
+}

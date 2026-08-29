@@ -125,7 +125,7 @@ never inferred from a resource identifier.
 **Done when**
 - [x] `GET /me/memberships` and `PUT /me/active-tenant` work and are audited.
 - [x] No handler infers tenant from a path parameter.
-- [ ] Switching tenant cannot expose a resource from the previous one, including through a cached read model.
+- [x] Switching tenant cannot expose a resource from the previous one, including through a cached read model.
 
 **The selection lives on the session**, not in a cookie or a header. A client-supplied tenant is a claim
 the server must verify on every request, and the request that forgets is a cross-tenant read. Stored
@@ -150,10 +150,18 @@ nobody writing the `UPDATE`, which is verified by trying.
 walks the contract and refuses any path parameter that names a tenant, and adding such an endpoint also
 fails to compile until a handler exists. Both were checked by adding one.
 
-**Remaining.** The third box needs something to switch between. Nothing tenant-scoped is served yet, so
-there is no read model to leak through and nothing to assert. The pieces are in place and tested:
-`Principal.ActiveTenantID` carries the selection, and `database.SetTenant` scopes a transaction to it.
-The first tenant-scoped endpoint joins them, and that is where this becomes checkable.
+**The cached read model was the last box, and it was leaking.** The note here used to say there was
+nothing to leak through because nothing tenant-scoped was served. That stopped being true as the
+screens landed, and nobody came back to it: every query key in the web application is scoped by what
+it reads rather than by whose it is, so `["sessions"]`, `["profile"]` and `["documents"]` mean the
+same thing in both workspaces, and TanStack Query answers from cache before it revalidates. The
+first paint after a switch was the previous workspace's data.
+
+Switching now removes every cached query except the session itself, which is what says who the
+caller has become and is re-read on the next line. Removed by exclusion rather than by naming what
+to drop: adding the tenant to every key, or listing the keys to clear, both work until somebody adds
+a key and forgets, and the forgotten one is the leak. A test puts a key nobody has added yet into
+the cache and asserts it is gone, which is the rule rather than an instance of it.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md)
 
@@ -228,9 +236,26 @@ something somebody does while doing something else. See [WEB-02](05-web-foundati
 interface even though the API supports it.*
 
 **Done when**
-- [ ] A user in more than one tenant can see and switch active tenant from the application shell.
-- [ ] The active tenant is visible at all times, not only inside the switcher.
-- [ ] Switching re-fetches rather than re-labels, and never renders stale tenant data.
+- [x] A user in more than one tenant can see and switch active tenant from the application shell.
+- [x] The active tenant is visible at all times, not only inside the switcher.
+- [x] Switching re-fetches rather than re-labels, and never renders stale tenant data.
+
+**Done.** The switcher is in the shell's topbar rather than on a screen of its own, because
+switching workspace is something somebody does while doing something else. Radix rather than a
+native select, which buys the part a styled dropdown usually loses: focus trapped and restored,
+typeahead, and the trigger wired to the listbox for assistive technology. The trigger carries the
+active workspace's name at rest, so the second box is satisfied without opening anything.
+
+The third box was the one with substance, and it is IAM-03's last criterion seen from the other
+side. Switching re-reads the session, because switching changes what the session may do and the
+navigation is built from that; and it removes every cached query except the session, because
+re-fetching what the shell shows while leaving the previous workspace's reads in the cache is
+re-labelling with extra steps. Both are asserted, the second by seeding a key nobody has added yet
+and finding it gone.
+
+One thing the browser suite caught that no unit test could: a workspace name is user supplied, and
+the Radix trigger does not shrink where the native select it replaced did. At 320px with text at
+200% the topbar measured 357px and the page scrolled sideways. The trigger is bounded and truncates.
 
 **Spec** [information-architecture.md](../../product/information-architecture.md)
 

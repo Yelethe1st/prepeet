@@ -63,13 +63,16 @@ function renderLayout() {
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
 
-  return render(
-    <QueryClientProvider client={client}>
-      <AuthenticatedLayout>
-        <h1>Practice</h1>
-      </AuthenticatedLayout>
-    </QueryClientProvider>,
-  );
+  return {
+    client,
+    ...render(
+      <QueryClientProvider client={client}>
+        <AuthenticatedLayout>
+          <h1>Practice</h1>
+        </AuthenticatedLayout>
+      </QueryClientProvider>,
+    ),
+  };
 }
 
 describe("AuthenticatedLayout", () => {
@@ -164,5 +167,93 @@ describe("AuthenticatedLayout", () => {
     // Re-read rather than assumed: switching changes what the session may do,
     // and the navigation is built from that.
     await waitFor(() => expect(currentUser).toHaveBeenCalled());
+  });
+
+  /**
+   * IAM-03's last criterion: switching cannot expose a resource from the
+   * previous workspace, including through a cached read model.
+   *
+   * This is that cache. Every query key in the application is scoped by what it
+   * reads rather than by whose it is, so ["sessions"] means the same thing in
+   * both workspaces, and the client answers from cache before it revalidates.
+   * The first paint after a switch was the previous tenant's data.
+   */
+  it("keeps nothing the previous workspace put in the cache", async () => {
+    currentUser.mockResolvedValue({
+      ...user,
+      active_tenant_id: "t-a",
+      memberships: [
+        { tenant_id: "t-a", tenant_name: "Northwind", status: "active" },
+        { tenant_id: "t-b", tenant_name: "Orbital", status: "active" },
+      ],
+    });
+    setActiveTenant.mockResolvedValue({});
+    const { client } = renderLayout();
+
+    const switcher = await screen.findByRole("combobox", {
+      name: /workspace/i,
+    });
+    // Something the first workspace read, cached under a key that says nothing
+    // about which workspace it belongs to.
+    client.setQueryData(["sessions"], [{ id: "northwinds-session" }]);
+
+    const { default: userEvent } = await import("@testing-library/user-event");
+    await userEvent.click(switcher);
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Orbital" }),
+    );
+
+    await waitFor(() => expect(setActiveTenant).toHaveBeenCalledWith("t-b"));
+    await waitFor(() =>
+      expect(client.getQueryData(["sessions"])).toBeUndefined(),
+    );
+  });
+
+  /**
+   * Cleared wholesale rather than keyed per query, because a per-key discipline
+   * is one somebody forgets and the forgotten key is the leak. This asserts the
+   * rule rather than one instance of it.
+   */
+  it("keeps nothing at all, not merely the keys somebody thought of", async () => {
+    currentUser.mockResolvedValue({
+      ...user,
+      active_tenant_id: "t-a",
+      memberships: [
+        { tenant_id: "t-a", tenant_name: "Northwind", status: "active" },
+        { tenant_id: "t-b", tenant_name: "Orbital", status: "active" },
+      ],
+    });
+    setActiveTenant.mockResolvedValue({});
+    const { client } = renderLayout();
+
+    const switcher = await screen.findByRole("combobox", {
+      name: /workspace/i,
+    });
+    for (const key of [
+      ["profile"],
+      ["documents"],
+      ["catalogue"],
+      ["a-key-nobody-has-added-yet"],
+    ]) {
+      client.setQueryData(key, { from: "northwind" });
+    }
+
+    const { default: userEvent } = await import("@testing-library/user-event");
+    await userEvent.click(switcher);
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Orbital" }),
+    );
+
+    await waitFor(() => expect(setActiveTenant).toHaveBeenCalledWith("t-b"));
+    await waitFor(() => {
+      for (const key of [
+        ["profile"],
+        ["documents"],
+        ["catalogue"],
+        ["a-key-nobody-has-added-yet"],
+      ]) {
+        expect(client.getQueryData(key)).toBeUndefined();
+      }
+    });
   });
 });

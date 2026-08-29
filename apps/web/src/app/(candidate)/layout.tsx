@@ -6,7 +6,13 @@ import "@/shared/styles/theme.css";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { SessionProvider, useSession } from "@/lib/auth/session";
+import { useQueryClient } from "@tanstack/react-query";
+
+import {
+  SessionProvider,
+  sessionQueryKey,
+  useSession,
+} from "@/lib/auth/session";
 import { setActiveTenant, signOut } from "@/lib/auth/api";
 import { AppShell } from "@/features/shell/AppShell";
 
@@ -37,6 +43,7 @@ export default function AuthenticatedLayout({
 function Authenticated({ children }: { children: ReactNode }) {
   const session = useSession();
   const router = useRouter();
+  const client = useQueryClient();
 
   useEffect(() => {
     if (session.status === "signed-out") {
@@ -69,6 +76,24 @@ function Authenticated({ children }: { children: ReactNode }) {
       onSignOut={signOut}
       onSwitchTenant={async (tenantId) => {
         await setActiveTenant(tenantId);
+        // Everything cached belonged to the workspace being left.
+        //
+        // IAM-03's last criterion is that switching cannot expose a resource
+        // from the previous tenant, including through a cached read model, and
+        // this is that cache. Every query key in the application is scoped by
+        // what it reads rather than by whose it is: ["sessions"], ["profile"],
+        // ["documents"] are the same key in both workspaces, and the client
+        // answers from cache before it revalidates, so the first paint after a
+        // switch was the previous tenant's data.
+        //
+        // Removed by exclusion rather than by listing what to drop. Adding the
+        // tenant to every key would work until somebody adds a key and
+        // forgets, and the forgotten one is the leak; naming what to remove
+        // has the same flaw. Everything goes except the session itself, which
+        // is what says who the caller now is and is re-read on the next line.
+        client.removeQueries({
+          predicate: (query) => query.queryKey[0] !== sessionQueryKey[0],
+        });
         // Re-read rather than assume. Switching changes what the session may do,
         // and the navigation is built from that, so the shell must be rebuilt
         // from what the server says rather than from what was asked for.

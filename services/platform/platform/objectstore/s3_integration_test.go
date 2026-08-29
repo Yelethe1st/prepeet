@@ -35,6 +35,7 @@ import (
 
 	"github.com/testcontainers/testcontainers-go"
 	tclocalstack "github.com/testcontainers/testcontainers-go/modules/localstack"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
 )
@@ -62,8 +63,20 @@ func TestMain(m *testing.M) {
 	// Signature validation is off by default in LocalStack, which would let an
 	// expired presigned URL keep working and make the expiry test pass without
 	// proving anything.
+	//
+	// The startup deadline is raised from the module's own sixty seconds.
+	// LocalStack takes about fifty on a warm machine and more on a cold one,
+	// so the default sits close enough to the real time that the suite fails
+	// intermittently with "context deadline exceeded" and a container that was
+	// about to be ready. Twice in one afternoon here, and a flake in an
+	// integration suite is worse than a slow one: it teaches people to rerun
+	// rather than to read.
 	container, err := tclocalstack.Run(ctx, localstackImage,
-		testcontainers.WithEnv(map[string]string{"S3_SKIP_SIGNATURE_VALIDATION": "0"}))
+		testcontainers.WithEnv(map[string]string{"S3_SKIP_SIGNATURE_VALIDATION": "0"}),
+		testcontainers.WithWaitStrategy(
+			wait.ForHTTP("/_localstack/health").
+				WithPort("4566/tcp").
+				WithStartupTimeout(4*time.Minute)))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "starting LocalStack: %v\n", err)
 		os.Exit(1)

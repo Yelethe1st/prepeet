@@ -68,9 +68,17 @@ func TestMain(m *testing.M) {
 	// LocalStack takes about fifty on a warm machine and more on a cold one,
 	// so the default sits close enough to the real time that the suite fails
 	// intermittently with "context deadline exceeded" and a container that was
-	// about to be ready. Twice in one afternoon here, and a flake in an
-	// integration suite is worse than a slow one: it teaches people to rerun
-	// rather than to read.
+	// about to be ready.
+	//
+	// That is not the only way this fails, and the second cause is worth
+	// writing down because the symptom is identical. Under a full run every
+	// integration package starts its own container at once, and the failure
+	// that time came from the Docker socket rather than from LocalStack:
+	// "get state: ... context deadline exceeded" after ten minutes, with the
+	// daemon saturated by the containers of a dozen other packages. A longer
+	// deadline does not fix that one. It passes on a rerun, and the real
+	// remedy is fewer containers at once, which belongs with PLT-02's
+	// pipeline-duration box rather than here.
 	container, err := tclocalstack.Run(ctx, localstackImage,
 		testcontainers.WithEnv(map[string]string{"S3_SKIP_SIGNATURE_VALIDATION": "0"}),
 		testcontainers.WithWaitStrategy(

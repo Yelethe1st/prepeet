@@ -50,9 +50,26 @@ CI is where the invariants become enforceable. Build, test, contract lint, drift
 check, dependency audit and container scan, on every change.
 
 **Done when**
-- [ ] Pipeline fails on contract drift, forbidden imports, or a failing migration.
+- [x] Pipeline fails on contract drift, forbidden imports, or a failing migration.
 - [ ] Build artifacts are immutable and digest-addressed.
 - [ ] Pipeline duration is fast enough that engineers do not route around it.
+
+**One of three, and the first was already true.** Contract drift fails in the contracts job:
+`make check-generated` regenerates everything from the contracts and fails on a diff, which is what
+makes ADR-0004's "the contract is the source" enforceable rather than aspirational. Forbidden
+imports fail in the Go job, because `internal/architecture` is an ordinary test package and runs
+with the suite; PLT-04 added table ownership to it, so a module reading another module's schema
+now fails there too. A failing migration fails in the same job: every integration suite calls
+`database.Migrate` against a real PostgreSQL before it asserts anything, so a migration that does
+not apply takes the build down before a single test runs.
+
+The compatibility gates joined them with CTR-04: events, RPC and now the HTTP contract each refuse
+a change that would break a deployed consumer.
+
+The two remaining boxes are genuinely undone rather than unticked. Nothing builds a container at
+all, so there is no artifact to address by digest, and that arrives with PLT-09's deployment work.
+Pipeline duration has never been measured against a stated budget, and a box that says "fast
+enough" without a number is one nobody can close.
 
 **Spec** [release-criteria.md](../release-criteria.md)
 

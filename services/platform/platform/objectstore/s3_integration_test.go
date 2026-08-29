@@ -70,15 +70,16 @@ func TestMain(m *testing.M) {
 	// intermittently with "context deadline exceeded" and a container that was
 	// about to be ready.
 	//
-	// That is not the only way this fails, and the second cause is worth
-	// writing down because the symptom is identical. Under a full run every
-	// integration package starts its own container at once, and the failure
-	// that time came from the Docker socket rather than from LocalStack:
-	// "get state: ... context deadline exceeded" after ten minutes, with the
-	// daemon saturated by the containers of a dozen other packages. A longer
-	// deadline does not fix that one. It passes on a rerun, and the real
-	// remedy is fewer containers at once, which belongs with PLT-02's
-	// pipeline-duration box rather than here.
+	// A second cause is worth writing down because the symptom is identical
+	// and the conclusion is not. Under a full run this failed three times with
+	// the deadline coming from the Docker socket rather than from LocalStack:
+	// "get state: ... context deadline exceeded", with the daemon saturated.
+	// It looked like a property of the suite. It was not: each of those runs
+	// had a web test suite or a second Go run alongside it on the same
+	// machine, and the full suite on an idle machine passes every package. CI
+	// gives the Go job a runner to itself, so this is a local-development
+	// characteristic rather than a pipeline risk, and the remedy is to run one
+	// suite at a time rather than to change the suite.
 	container, err := tclocalstack.Run(ctx, localstackImage,
 		testcontainers.WithEnv(map[string]string{"S3_SKIP_SIGNATURE_VALIDATION": "0"}),
 		testcontainers.WithWaitStrategy(

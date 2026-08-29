@@ -42,5 +42,15 @@ apps/web/coverage/
 # Locally installed code generators
 .tools/
 
+# The tool binaries, when somebody builds one in place.
+#
+# All three were tracked: ten megabytes of compiled darwin executables, rebuilt
+# and re-committed on every change, and useless to CI, which runs Linux. The
+# Makefile builds each into .tools/ when it needs one, so nothing ever read the
+# copies in the tree.
+tools/apicompat/apicompat
+tools/authzgen/authzgen
+tools/eventgen/eventgen
+
 # The pnpm store, if a containerised run puts one here.
 .pnpm-store/

@@ -101,7 +101,27 @@ in the check itself was found: it was reading only its own package and would hav
 - [x] No context imports another, and infrastructure does not import a context.
 - [x] The AWS SDK stays in the adapter layer, which is what ADR-0001 relies on to keep the cloud reversible.
 - [x] Each rule is verified by a deliberate violation rather than assumed to work.
-- [ ] Table ownership is declared per module and violations fail the build. Schemas exist per ADR-0002; the check does not yet read them.
+- [x] Table ownership is declared per module and violations fail the build.
+
+**Done.** `internal/architecture/ownership_test.go` declares which schemas each module may name and
+fails the build for any other. A declaration rather than an inference: deriving ownership from what
+the queries already do would make every existing crossing legal by definition and the check
+vacuous. `audit` is everybody's and named as the one exception, because a module that could not
+record what it did would be a module whose decisions are unreviewable, and migration 0008 makes it
+append-only by grant so sharing it cannot mean editing it. Tenancy is identity's, because IAM-03
+makes identity the one place that decides who may act under which tenant.
+
+The rule is only complete because ADR-0010 puts every statement through sqlc, so the query files
+are the whole surface. That is asserted rather than assumed: a third rule refuses hand-written SQL
+anywhere in a module, because without it the ownership check would pass while measuring nothing,
+which is precisely how the first rule in this package was found broken.
+
+A second rule refuses a module that has queries and no declared ownership, so the check cannot
+silently skip whichever module is added next.
+
+All three were verified by introducing the violation and watching them fail: a billing query
+reading `interview.sessions`, billing's declaration deleted, and a raw statement in
+`billing/ledger.go`. Each named the offender.
 
 **Spec** [domain-model.md](../../architecture/domain-model.md)
 

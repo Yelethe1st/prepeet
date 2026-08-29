@@ -95,8 +95,37 @@ carries tenant, actor, correlation, version and occurrence time.
 A contract that can silently diverge from the implementation is documentation, not a contract.
 
 **Done when**
-- [ ] Generated clients are regenerated in CI and a diff fails the build.
-- [ ] Backwards-incompatible changes fail unless an explicit version bump accompanies them.
+- [x] Generated clients are regenerated in CI and a diff fails the build.
+- [x] Backwards-incompatible changes fail unless an explicit version bump accompanies them.
 - [ ] Consumer contract tests run for the web client and the Python service.
+
+**Two of three.** The drift gate was already there and unticked: `make check-generated` regenerates
+everything and fails on a diff, and it runs in the contracts job on every change. That box had been
+true for some time and nobody came back to it.
+
+The compatibility gate was genuinely missing, and it was missing for the contract with the most
+consumers. Events have had `check-events` and RPC has had `check-rpc` since CTR-03; the OpenAPI
+document had nothing, so removing an endpoint, dropping a required response field or making a
+request field mandatory passed CI and broke a client at run time instead. `tools/apicompat` closes
+it, in the same shape as its siblings and against the previous release rather than the previous
+commit, per ADR-0004, so a document can be revised while in progress.
+
+It reports what a client would actually meet: a removed path or operation, a request property that
+is newly required, a request enum value no longer accepted, a response property removed or no
+longer guaranteed, a changed type, and a removed success response. Each carries a remedy as well as
+a reason, because a gate that says only "this is breaking" is one people learn to route around.
+
+What it deliberately does not flag is written down rather than left silent: additions of any kind,
+and a new value in a *response* enum. The last can strictly break a client with an exhaustive
+switch, and flagging it would fire on almost every release while the product grows.
+
+Every break is proven by making it and every safe change by making that too, because a gate that
+fires on a safe change is a gate people ignore. It was also run against the real document: the
+additions made to it this week report clean, and renaming `/auth/login` reports one break naming
+the path.
+
+The third box remains. The web client is typed from the contract and a drift fails `tsc`, which is
+most of a consumer test but not one: nothing yet asserts the *server* answers the shape the client
+was generated against.
 
 **Spec** [public-api.md](../../contracts/public-api.md)

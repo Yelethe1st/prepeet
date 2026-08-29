@@ -105,6 +105,11 @@ jobs:
         run: make check-events
       - name: Refuse a breaking change to the RPC contracts
         run: make check-rpc
+      # The HTTP contract had no such gate, which is the one the most consumers
+      # read: removing an endpoint or a required response field passed here and
+      # broke a client at run time instead.
+      - name: Refuse a breaking change to the HTTP contract
+        run: make check-api
       # Nothing imports the RPC stubs yet, so building the module is the only
       # thing proving they compile, which is CTR-02's first criterion.
       - name: Build the generated Go stubs

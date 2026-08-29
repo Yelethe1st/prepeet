@@ -67,7 +67,7 @@ test-go: ## Run the Go suite with the race detector
 # files under the package being tested and cannot see those change, so a cached
 # run reports a pass after the very drift the test exists to catch. Verified by
 # deleting a schema and watching a cached run say ok.
-TOOL_MODULES := tools/authzgen tools/eventgen
+TOOL_MODULES := tools/authzgen tools/eventgen tools/apicompat
 
 .PHONY: test-tools
 test-tools: ## Run the generators' tests, uncached
@@ -253,6 +253,31 @@ check-rpc: tools ## Fail if the RPC contracts would break a deployed reader
 	fi; \
 	cd packages/contracts/rpc && $(TOOLS_BIN)/buf breaking \
 		--against "../../../.git#tag=$$tag,subdir=packages/contracts/rpc"
+
+.PHONY: check-api
+check-api: ## Fail if the HTTP contract would break a deployed client
+	@# The same shape and the same reason as check-events: against the previous
+	@# release rather than the previous commit, per ADR-0004, so a document can
+	@# be revised while in progress without the gate firing on every
+	@# intermediate state.
+	@#
+	@# This existed for events and for RPC and not for HTTP, which is the
+	@# contract the most consumers read. Removing an endpoint, dropping a
+	@# required response field or making a request field mandatory passed CI
+	@# and broke a client at run time instead.
+	@set -e; \
+	tag=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
+	if [ -z "$$tag" ]; then \
+		printf 'no release tag yet, so there is no baseline to compare against.\n'; \
+		printf 'This becomes a real gate at the first tagged release.\n'; \
+		exit 0; \
+	fi; \
+	baseline=$$(mktemp -d); \
+	trap 'rm -rf "$$baseline"' EXIT; \
+	git archive "$$tag" packages/contracts/api/openapi.yaml | tar -x -C "$$baseline"; \
+	cd tools/apicompat && go build -o $(TOOLS_BIN)/apicompat . && cd $(CURDIR); \
+	$(TOOLS_BIN)/apicompat "$$baseline/packages/contracts/api/openapi.yaml" \
+		packages/contracts/api/openapi.yaml
 
 .PHONY: lint-contracts
 # Depends on tools for the same reason generate does: buf is a pinned

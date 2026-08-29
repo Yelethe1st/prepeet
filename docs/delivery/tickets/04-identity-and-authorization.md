@@ -401,7 +401,29 @@ does not contain the provider. And the unverified-address refusal must not confi
 exists, so its message says what would be true either way, with a test refusing the words that
 would leak it.
 
-Still to build: the provider HTTP clients in `cmd/api` (the map is wired and empty, so adding one
-is a client, a map entry and a test), and `screens/oauth-callback.html` with its four states.
+`platform/oidc` is the provider half, and it is one client rather than a Google type and a
+Microsoft type: the endpoints are configuration, which is what makes the sixth box true in
+practice rather than in principle. Adding a third provider is a map entry and its credentials.
+
+It does not verify an ID token, deliberately. The code is exchanged at the provider's own token
+endpoint over TLS and the claims are then read from the provider's own userinfo endpoint with the
+access token, so the answers come from the issuer directly rather than in a bearer artefact that
+has to be validated. That trades one round trip for not shipping a JWT verifier, a JWKS cache and
+a clock-skew policy, each of which is a way to be subtly wrong about who somebody is.
+
+One line carries the linking rule and it fails closed: `email_verified` absent is not verified.
+Microsoft omits it for personal accounts, where the address may be one the holder simply typed, so
+reading absence as true would let anybody set an address there and link to somebody else's account
+here. Both the absent and the explicitly-false cases are tested against a provider the suite
+controls, along with the verifier actually reaching the token endpoint and never reaching the
+authorization endpoint.
+
+A provider missing its credentials is left out of the map rather than added broken, so the
+sign-in screen never draws a button that fails at the token endpoint. The endpoints carry
+defaults because knowing them is not the deployer's job; the credentials carry none, because a
+default credential is one somebody forgot to set.
+
+Still to build: `screens/oauth-callback.html` with its four states, which is where the fifth and
+seventh boxes live.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md) · [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md)

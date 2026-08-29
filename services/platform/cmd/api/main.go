@@ -150,7 +150,7 @@ func main() {
 			// With none configured the endpoints still answer: the list is
 			// empty and the sign-in screen shows email and password alone,
 			// which is what a deployment without OAuth should look like.
-			WithOAuth(identity.NewRepository(pool), oauthProviders())},
+			WithOAuth(identity.NewRepository(pool), oauthProviders(cfg))},
 		Candidates: candidates,
 		Documents:  candidates,
 		Catalog:    newCatalogAdapter(content.NewStore(pool)),

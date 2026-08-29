@@ -40,6 +40,23 @@ var environments = []Environment{
 }
 
 // Config is the validated configuration for one process.
+// OAuthProvider is one configured sign-in provider.
+//
+// The endpoints carry defaults because they are stable and knowing them is not
+// the deployer's job; the credentials carry none, because a default credential
+// is a credential somebody forgot to set.
+type OAuthProvider struct {
+	ClientID     string
+	ClientSecret string
+	AuthorizeURL string
+	TokenURL     string
+	UserInfoURL  string
+	// RedirectURI must match what is registered with the provider exactly.
+	// It has no default: it is the one field that differs per deployment and
+	// a wrong one fails at the provider with a message nobody sees.
+	RedirectURI string
+}
+
 type Config struct {
 	// Address is the TCP address the HTTP server listens on.
 	Address string
@@ -112,6 +129,19 @@ type Config struct {
 	// thousand dead links that cannot be recalled.
 	WebBaseURL string
 
+	// OAuthGoogle and OAuthMicrosoft are the providers this deployment offers.
+	//
+	// Empty means not offered, which is the honest default: the sign-in screen
+	// draws a button per configured provider, so a deployment that has not set
+	// these shows email and password alone rather than a button that fails at
+	// the token endpoint.
+	//
+	// The endpoints are here rather than compiled in because a provider is
+	// configuration, per IAM-08, and because Google and Microsoft both move
+	// them: pinning a URL in code is a release to fix a redirect.
+	OAuthGoogle    OAuthProvider
+	OAuthMicrosoft OAuthProvider
+
 	// TemporalNamespace is derived from Environment rather than configured
 	// independently. ADR-0007 separates environments by namespace, and a
 	// namespace that could name any environment makes that a matter of getting
@@ -179,12 +209,34 @@ func Load(lookup Lookup) (Config, error) {
 
 		OTLPEndpoint: value(lookup, "PREPEET_OTLP_ENDPOINT", ""),
 
-		TemporalAddress:        value(lookup, "PREPEET_TEMPORAL_ADDRESS", ""),
-		SMTPAddress:            value(lookup, "PREPEET_SMTP_ADDRESS", ""),
-		SMTPUsername:           value(lookup, "PREPEET_SMTP_USERNAME", ""),
-		SMTPPassword:           value(lookup, "PREPEET_SMTP_PASSWORD", ""),
-		EmailFrom:              value(lookup, "PREPEET_EMAIL_FROM", ""),
-		WebBaseURL:             value(lookup, "PREPEET_WEB_BASE_URL", ""),
+		TemporalAddress: value(lookup, "PREPEET_TEMPORAL_ADDRESS", ""),
+		SMTPAddress:     value(lookup, "PREPEET_SMTP_ADDRESS", ""),
+		SMTPUsername:    value(lookup, "PREPEET_SMTP_USERNAME", ""),
+		SMTPPassword:    value(lookup, "PREPEET_SMTP_PASSWORD", ""),
+		EmailFrom:       value(lookup, "PREPEET_EMAIL_FROM", ""),
+		WebBaseURL:      value(lookup, "PREPEET_WEB_BASE_URL", ""),
+		OAuthGoogle: OAuthProvider{
+			ClientID:     value(lookup, "PREPEET_OAUTH_GOOGLE_CLIENT_ID", ""),
+			ClientSecret: value(lookup, "PREPEET_OAUTH_GOOGLE_CLIENT_SECRET", ""),
+			AuthorizeURL: value(lookup, "PREPEET_OAUTH_GOOGLE_AUTHORIZE_URL",
+				"https://accounts.google.com/o/oauth2/v2/auth"),
+			TokenURL: value(lookup, "PREPEET_OAUTH_GOOGLE_TOKEN_URL",
+				"https://oauth2.googleapis.com/token"),
+			UserInfoURL: value(lookup, "PREPEET_OAUTH_GOOGLE_USERINFO_URL",
+				"https://openidconnect.googleapis.com/v1/userinfo"),
+			RedirectURI: value(lookup, "PREPEET_OAUTH_GOOGLE_REDIRECT_URI", ""),
+		},
+		OAuthMicrosoft: OAuthProvider{
+			ClientID:     value(lookup, "PREPEET_OAUTH_MICROSOFT_CLIENT_ID", ""),
+			ClientSecret: value(lookup, "PREPEET_OAUTH_MICROSOFT_CLIENT_SECRET", ""),
+			AuthorizeURL: value(lookup, "PREPEET_OAUTH_MICROSOFT_AUTHORIZE_URL",
+				"https://login.microsoftonline.com/common/oauth2/v2.0/authorize"),
+			TokenURL: value(lookup, "PREPEET_OAUTH_MICROSOFT_TOKEN_URL",
+				"https://login.microsoftonline.com/common/oauth2/v2.0/token"),
+			UserInfoURL: value(lookup, "PREPEET_OAUTH_MICROSOFT_USERINFO_URL",
+				"https://graph.microsoft.com/oidc/userinfo"),
+			RedirectURI: value(lookup, "PREPEET_OAUTH_MICROSOFT_REDIRECT_URI", ""),
+		},
 		LiveKitURL:             value(lookup, "PREPEET_LIVEKIT_URL", ""),
 		LiveKitAPIKey:          value(lookup, "PREPEET_LIVEKIT_API_KEY", ""),
 		LiveKitAPISecret:       value(lookup, "PREPEET_LIVEKIT_API_SECRET", ""),

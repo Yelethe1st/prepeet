@@ -7,6 +7,8 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/authz"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/oidc"
 )
 
 // identityAdapter presents the identity context as the port the API layer
@@ -329,10 +331,50 @@ func (a identityAdapter) translateOAuth(err error) error {
 
 // oauthProviders builds the providers this deployment offers.
 //
-// Empty until the provider clients land: the HTTP round trip to Google and
-// Microsoft is its own piece of work, and a half-written client behind a
-// visible button is worse than no button. Everything above it is finished and
-// proven, so adding one is a client, a map entry and a test.
-func oauthProviders() map[string]identity.Provider {
-	return map[string]identity.Provider{}
+// A provider missing its credentials is left out rather than added broken, so
+// the sign-in screen never draws a button that fails at the token endpoint.
+// A deployment that configures none gets an empty map, which is what the
+// endpoints and the screen are already written to expect.
+//
+// Adding a third is a map entry and its configuration. There is no Google
+// type and no Microsoft type: platform/oidc is one client and the endpoints
+// are config, which is IAM-08's sixth criterion.
+func oauthProviders(cfg config.Config) map[string]identity.Provider {
+	providers := map[string]identity.Provider{}
+	for name, settings := range map[string]config.OAuthProvider{
+		"google":    cfg.OAuthGoogle,
+		"microsoft": cfg.OAuthMicrosoft,
+	} {
+		client := oidc.Config{
+			AuthorizeURL: settings.AuthorizeURL, TokenURL: settings.TokenURL,
+			UserInfoURL: settings.UserInfoURL, ClientID: settings.ClientID,
+			ClientSecret: settings.ClientSecret, RedirectURI: settings.RedirectURI,
+		}
+		if !client.Configured() {
+			continue
+		}
+		providers[name] = oauthProvider{client: oidc.New(client)}
+	}
+	return providers
+}
+
+// oauthProvider adapts the OIDC client to what identity asks for.
+//
+// The translation is only the identity type: identity must not import a
+// platform package's shape into its own vocabulary, or the provider client
+// becomes something identity has an opinion about.
+type oauthProvider struct{ client *oidc.Client }
+
+func (p oauthProvider) AuthorizationURL(state, codeChallenge string) string {
+	return p.client.AuthorizationURL(state, codeChallenge)
+}
+
+func (p oauthProvider) Exchange(ctx context.Context, code, codeVerifier string) (identity.ProviderIdentity, error) {
+	got, err := p.client.Exchange(ctx, code, codeVerifier)
+	if err != nil {
+		return identity.ProviderIdentity{}, err
+	}
+	return identity.ProviderIdentity{
+		Subject: got.Subject, Email: got.Email, EmailVerified: got.EmailVerified,
+	}, nil
 }

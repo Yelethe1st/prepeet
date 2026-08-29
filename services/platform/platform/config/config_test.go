@@ -350,3 +350,43 @@ func TestATemporalClientCertificatePairIsRead(t *testing.T) {
 		t.Error("the certificate pair was not read")
 	}
 }
+
+// IAM-08: a provider is configuration, and a half-configured one is absent.
+
+func TestAProviderIsAbsentUntilItsCredentialsAreSet(t *testing.T) {
+	cfg, err := config.Load(func(string) (string, bool) { return "", false })
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	// The endpoints have sensible defaults, so "configured" cannot mean
+	// "some fields are set": it has to mean the credentials are there.
+	if cfg.OAuthGoogle.ClientID != "" || cfg.OAuthGoogle.ClientSecret != "" {
+		t.Fatalf("google arrived with credentials nobody set: %+v", cfg.OAuthGoogle)
+	}
+	if cfg.OAuthGoogle.TokenURL == "" || cfg.OAuthMicrosoft.TokenURL == "" {
+		t.Fatal("the endpoints lost their defaults, so a deployer has to know them")
+	}
+}
+
+func TestAProvidersEndpointsCanBeOverridden(t *testing.T) {
+	env := map[string]string{}
+	env["PREPEET_OAUTH_GOOGLE_CLIENT_ID"] = "client"
+	env["PREPEET_OAUTH_GOOGLE_CLIENT_SECRET"] = "secret"
+	env["PREPEET_OAUTH_GOOGLE_REDIRECT_URI"] = "https://app.example/auth/callback"
+	// Overridable because providers move their endpoints, and pinning one in
+	// code makes a redirect change into a release.
+	env["PREPEET_OAUTH_GOOGLE_TOKEN_URL"] = "https://stand-in.example/token"
+
+	cfg, err := config.Load(lookupFrom(env))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if cfg.OAuthGoogle.TokenURL != "https://stand-in.example/token" {
+		t.Fatalf("token url = %q", cfg.OAuthGoogle.TokenURL)
+	}
+	if cfg.OAuthGoogle.RedirectURI != "https://app.example/auth/callback" {
+		t.Fatalf("redirect = %q", cfg.OAuthGoogle.RedirectURI)
+	}
+}

@@ -316,3 +316,40 @@ describe("RegisterForm from the keyboard", () => {
     await waitFor(() => expect(register).toHaveBeenCalledOnce());
   });
 });
+
+/**
+ * ADR-0018's copy rule. One brand across practice and screening is only
+ * defensible if the isolation is stated where a candidate meets both, and this
+ * radio group is that place: it is where somebody chooses between practising
+ * and being screened, and where the fear the ADR is about arrives.
+ */
+describe("the isolation guarantee", () => {
+  it("is stated to somebody registering to practise", async () => {
+    renderForm();
+
+    expect(
+      await screen.findByText(/recordings are visible to you alone/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/no employer can see them/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Not to somebody buying screening. They are not the person being reassured,
+   * and saying it to them reads as a limitation of what they are purchasing
+   * rather than a promise to the people they will screen.
+   */
+  it("is not stated to somebody creating a workspace", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(
+      screen.getByRole("radio", {
+        name: /screen candidates for my organisation/i,
+      }),
+    );
+
+    expect(
+      screen.queryByText(/recordings are visible to you alone/i),
+    ).not.toBeInTheDocument();
+  });
+});

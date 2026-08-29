@@ -392,4 +392,23 @@ validation sessions, and a negative result reopens the decision before screening
 two brands are still cheap. The second box is the build item: the copy rule is handed to WEB-02
 and the SCR disclosure surfaces, and the box closes when those screens ship it.
 
+**Audited against every surface that exists.** Five candidate-facing places where the two modes
+meet today, and all five now carry it: the front page states it twice, in the
+practice-versus-screen table and in the answer about practice history; the sign-in panel carries it
+as one of three assurances; the practice wizard states it in the recording consent, which is
+server-supplied so no client can drop or reword it; the prepare screen repeats it beside the
+device check; and the no-workspace destination explains that a practice account belongs to the
+person rather than to a workspace.
+
+Registration was the gap and is fixed. The account-type choice is the one screen where a candidate
+literally chooses between practising and being screened, which is exactly where the fear this ADR
+is about arrives, and the prototype states the guarantee there. The port had dropped it. It is
+stated only to somebody registering to practise: to somebody buying screening the same sentence
+reads as a limitation of what they are purchasing rather than a promise to the people they will
+screen.
+
+The box stays open because the screening side does not exist. Nothing in the SCR epic is built, so
+the surfaces where a *screen* candidate meets the boundary cannot yet carry it, and those are the
+ones the guarantee matters most on.
+
 **Spec** [product-requirements.md](../../product/product-requirements.md) · [user-journeys.md](../../product/user-journeys.md)

@@ -222,6 +222,25 @@ export function RegisterForm({
         </Field>
       ) : null}
 
+      {/*
+        ADR-0018's copy rule, at the one surface where a candidate meets both
+        modes today: this radio group is where somebody chooses between
+        practising and screening, and it is where the fear the ADR is about
+        arrives. One brand is only defensible if the isolation is stated where
+        the two meet, and the prototype states it here. The port had dropped it.
+
+        Only for a candidate. Somebody creating a workspace is not the person
+        being reassured, and saying it to them would read as a limitation of
+        what they are buying rather than a promise to the people they screen.
+      */}
+      {accountType === "candidate" ? (
+        <p className="mb-4 text-xs leading-[1.55] text-fg-2">
+          Practice sessions are recorded and transcribed so they can be
+          reviewed. The recordings are visible to you alone: no employer can see
+          them, and practising is never mentioned in a screening interview.
+        </p>
+      ) : null}
+
       <Button
         type="submit"
         variant="primary"

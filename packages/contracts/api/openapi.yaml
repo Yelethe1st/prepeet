@@ -181,6 +181,134 @@ paths:
                 $ref: "#/components/schemas/Error"
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /auth/oauth/providers:
+    get:
+      tags: [authentication]
+      operationId: listOAuthProviders
+      summary: Which sign-in providers this deployment offers
+      description: |
+        The sign-in screen draws a button per provider returned here rather
+        than hard-coding a list, so adding one is configuration and a
+        deployment rather than a release. A deployment with none configured
+        answers an empty list, and the screen shows email and password alone.
+      security: []
+      responses:
+        "200":
+          description: The configured providers, in a stable order.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthProviders"
+
+  /auth/oauth/{provider}/start:
+    post:
+      tags: [authentication]
+      operationId: startOAuth
+      summary: Begin signing in with a provider
+      description: |
+        Mints the anti-forgery state and the PKCE verifier, stores both
+        server-side, and answers where to send the browser. The verifier never
+        leaves the server; only its challenge does.
+
+        The state is single-use and expires in ten minutes. Refusals:
+        OAUTH_PROVIDER_UNKNOWN.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/OAuthProvider"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthStartRequest"
+      responses:
+        "200":
+          description: Where to send the browser.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthStart"
+        "404":
+          description: OAUTH_PROVIDER_UNKNOWN for a provider that is not configured.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/oauth/{provider}/callback:
+    post:
+      tags: [authentication]
+      operationId: completeOAuth
+      summary: Finish signing in with a provider
+      description: |
+        Consumes the state, exchanges the authorisation code with the provider
+        presenting the PKCE verifier, and issues the same session the password
+        flow issues, with the same cookies, rotation and revocation. There is
+        no second way to hold a session.
+
+        The state is consumed before the provider is called, so a replayed
+        callback is refused whether or not the provider would have answered.
+
+        Refusals: OAUTH_STATE_INVALID for a state that is absent, unknown,
+        already used or minted for a different provider; OAUTH_STATE_EXPIRED
+        for one that timed out; OAUTH_EMAIL_UNVERIFIED when the provider
+        asserts an address it has not verified and an account already holds
+        it.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/OAuthProvider"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthCallbackRequest"
+      responses:
+        "200":
+          description: Authenticated, with the session and refresh cookies set.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+            Set-Cookie:
+              description: Session and refresh cookies, HTTP-only and SameSite.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "404":
+          description: OAUTH_PROVIDER_UNKNOWN for a provider that is not configured.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: |
+            OAUTH_STATE_INVALID, OAUTH_STATE_EXPIRED or
+            OAUTH_EMAIL_UNVERIFIED. Each names what happened and what to do.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429": { $ref: "#/components/responses/RateLimited" }
+
   /auth/logout:
     post:
       tags: [authentication]
@@ -1557,6 +1685,15 @@ components:
         revocation must take effect within seconds. See ADR-0003.
 
   parameters:
+    OAuthProvider:
+      name: provider
+      in: path
+      required: true
+      description: Which configured provider, as listed by /auth/oauth/providers.
+      schema:
+        type: string
+        maxLength: 40
+        pattern: "^[a-z][a-z0-9_-]*$"
     DocumentId:
       name: documentId
       in: path
@@ -2164,6 +2301,53 @@ components:
               low: { type: number }
               high: { type: number }
         note: { type: string }
+
+    OAuthProviders:
+      type: object
+      required: [providers]
+      properties:
+        providers:
+          type: array
+          items:
+            type: object
+            required: [id, label]
+            properties:
+              id: { type: string }
+              label: { type: string }
+          description: |
+            Stably ordered, so the sign-in screen does not reorder its buttons
+            between requests and make somebody misclick.
+
+    OAuthStartRequest:
+      type: object
+      properties:
+        redirect_to:
+          type: string
+          maxLength: 500
+          description: |
+            Where to go once signed in. Validated when it is stored rather
+            than when it is read, because an open redirect stored is an open
+            redirect.
+
+    OAuthStart:
+      type: object
+      required: [authorization_url, state]
+      properties:
+        authorization_url:
+          type: string
+          description: Where to send the browser.
+        state:
+          type: string
+          description: |
+            The anti-forgery value, which comes back in the provider's
+            redirect and is presented to the callback. Single-use.
+
+    OAuthCallbackRequest:
+      type: object
+      required: [state, code]
+      properties:
+        state: { type: string, maxLength: 200 }
+        code: { type: string, maxLength: 2048 }
 
     InsightFeedbackRequest:
       type: object

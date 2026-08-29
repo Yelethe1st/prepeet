@@ -331,9 +331,9 @@ of its own, or there are two ways to be signed in and only one of them is audite
 revocable.
 
 **Done when**
-- [ ] The contract gains the provider endpoints, and the generated code and the handlers follow it.
+- [x] The contract gains the provider endpoints, and the generated code and the handlers follow it.
 - [x] `state` and PKCE are mandatory, single-use and time-bound, and a replayed or absent `state` is refused rather than tolerated.
-- [ ] An OAuth sign-in issues the same session the password flow issues, through the same entry point, with the same cookies, rotation and revocation.
+- [x] An OAuth sign-in issues the same session the password flow issues, through the same entry point, with the same cookies, rotation and revocation.
 - [x] Linking rules are explicit and proven: an OAuth identity whose verified email matches an existing account links to it; an unverified email from a provider never does.
 - [ ] A provider that is unreachable, slow, or returns an error leaves the person on a screen that names what happened and offers email and password, without a half-created account behind it.
 - [x] Every provider is configured rather than compiled in, so adding one is configuration and a test.
@@ -384,7 +384,24 @@ forbids doing that silently. That makes the eighth box only half true as written
 open rather than ticked: a recruiter signing up with Google presently has to register on the form
 first, and whether that is right is a product call rather than an implementation one.
 
-Still to build: the contract endpoints and handlers, cookie issuance on the callback, the provider
-HTTP clients in `cmd/api`, and `screens/oauth-callback.html` with its four states.
+Three endpoints now carry it. `/auth/oauth/providers` is what the sign-in screen draws its buttons
+from, so a deployment with none configured answers an empty list and shows email and password
+alone. `/auth/oauth/{provider}/start` mints the state and answers where to send the browser;
+`/auth/oauth/{provider}/callback` finishes it. The callback ends at the same `issued` that Login
+and Refresh end at, which is the third box: one place writes the cookies, so a session held by
+somebody who signed in with Google is indistinguishable from one held by somebody who typed a
+password, including to logout and to revocation. Asserted by counting the cookies rather than by
+reading the code.
+
+Two defects were found while wiring it. The rate limiter was first keyed on the provider name,
+which put every person signing in with Google into one bucket: one attacker starting sign-ins
+would have locked everybody out of that provider, a lockout dressed as a rate limit. There is no
+address at that point in the flow, so the counter is by network alone, and a test asserts the key
+does not contain the provider. And the unverified-address refusal must not confirm that an account
+exists, so its message says what would be true either way, with a test refusing the words that
+would leak it.
+
+Still to build: the provider HTTP clients in `cmd/api` (the map is wired and empty, so adding one
+is a client, a map entry and a test), and `screens/oauth-callback.html` with its four states.
 
 **Spec** [authorization-model.md](../../architecture/authorization-model.md) · [ADR-0003](../../architecture/decisions/0003-identity-built-in-go.md)

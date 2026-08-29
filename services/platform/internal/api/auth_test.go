@@ -106,6 +106,15 @@ type fakeIdentity struct {
 	user        api.User
 	describeErr error
 
+	oauthProviders []string
+	oauthStart     api.OAuthStart
+	oauthStartErr  error
+	oauthBegun     []string
+	oauthSession   api.Session
+	oauthRedirect  string
+	oauthErr       error
+	oauthCompleted []string
+
 	tokenRequests   []string
 	tokenRequestErr error
 	confirmedTokens []string
@@ -252,6 +261,26 @@ func serveWith(t *testing.T, identity api.Identity, candidates api.CandidateProf
 		Members:     &fakeMembers{},
 		Billing:     &fakeBilling{},
 		Environment: config.EnvironmentLocal,
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	return handler
+}
+
+func serveWithLimiter(t *testing.T, identity api.Identity, limiter api.Limiter) http.Handler {
+	t.Helper()
+	handler, err := api.NewServer(api.ServerConfig{
+		Identity:           identity,
+		Candidates:         &fakeCandidates{},
+		Documents:          &fakeDocuments{},
+		Catalog:            &fakeCatalog{},
+		Interviews:         &fakeInterviews{},
+		Members:            &fakeMembers{},
+		Billing:            &fakeBilling{},
+		AttemptsPerAddress: limiter,
+		AttemptsPerNetwork: limiter,
+		Environment:        config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -864,5 +893,192 @@ func TestTheServerRefusesToStartWithoutAnIdentity(t *testing.T) {
 
 	if _, err := api.NewServer(api.ServerConfig{Environment: config.EnvironmentLocal}); err == nil {
 		t.Error("NewServer accepted a nil identity, so the first request would panic instead")
+	}
+}
+
+func (f *fakeIdentity) ConfiguredOAuthProviders() []string { return f.oauthProviders }
+
+func (f *fakeIdentity) BeginOAuth(_ context.Context, provider, redirectTo string) (api.OAuthStart, error) {
+	f.oauthBegun = append(f.oauthBegun, provider+":"+redirectTo)
+	if f.oauthStartErr != nil {
+		return api.OAuthStart{}, f.oauthStartErr
+	}
+	return f.oauthStart, nil
+}
+
+func (f *fakeIdentity) CompleteOAuth(_ context.Context, provider, state, code string) (api.Session, string, error) {
+	f.oauthCompleted = append(f.oauthCompleted, provider+":"+state+":"+code)
+	if f.oauthErr != nil {
+		return api.Session{}, "", f.oauthErr
+	}
+	return f.oauthSession, f.oauthRedirect, nil
+}
+
+// IAM-08 at the edge. The properties worth asserting here are the ones the
+// domain cannot: that the callback issues the same cookies login does, and
+// that each refusal reaches the person as its own sentence.
+
+func TestTheSignInScreenIsToldWhichProvidersExist(t *testing.T) {
+	identity := workingIdentity()
+	identity.oauthProviders = []string{"google", "microsoft"}
+
+	response := get(t, serve(t, identity), "/api/v1/auth/oauth/providers")
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		Providers []struct {
+			ID    string `json:"id"`
+			Label string `json:"label"`
+		} `json:"providers"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Providers) != 2 || body.Providers[0].ID != "google" {
+		t.Fatalf("providers came back as %+v", body.Providers)
+	}
+	// Labelled for people, not by key.
+	if body.Providers[0].Label != "Google" {
+		t.Fatalf("label = %q, want Google", body.Providers[0].Label)
+	}
+}
+
+// A deployment with none configured must answer an empty list rather than
+// null, so the screen renders email and password alone instead of crashing.
+func TestNoProvidersIsAnEmptyListNotNull(t *testing.T) {
+	response := get(t, serve(t, workingIdentity()), "/api/v1/auth/oauth/providers")
+
+	if !strings.Contains(response.Body.String(), `"providers":[]`) {
+		t.Fatalf("want an empty list, got %s", response.Body)
+	}
+}
+
+func TestStartingASignInAnswersWhereToSendTheBrowser(t *testing.T) {
+	identity := workingIdentity()
+	identity.oauthStart = api.OAuthStart{
+		AuthorizationURL: "https://accounts.google.example/authorize?state=abc",
+		State:            "abc",
+	}
+
+	response := post(t, serve(t, identity), "/api/v1/auth/oauth/google/start",
+		`{"redirect_to":"/practice"}`)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	if !strings.Contains(response.Body.String(), "accounts.google.example") {
+		t.Fatalf("no authorization url: %s", response.Body)
+	}
+	if len(identity.oauthBegun) != 1 || identity.oauthBegun[0] != "google:/practice" {
+		t.Fatalf("the provider and destination did not arrive: %v", identity.oauthBegun)
+	}
+}
+
+func TestAnUnknownProviderIsNotFound(t *testing.T) {
+	identity := workingIdentity()
+	identity.oauthStartErr = api.ErrOAuthProviderUnknown
+
+	response := post(t, serve(t, identity), "/api/v1/auth/oauth/myspace/start", `{}`)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	if !strings.Contains(response.Body.String(), "OAUTH_PROVIDER_UNKNOWN") {
+		t.Fatalf("want the refusal named, got %s", response.Body)
+	}
+}
+
+// The third criterion, at the edge: the callback sets the same two cookies
+// login sets, so an OAuth session is indistinguishable downstream.
+func TestTheCallbackIssuesTheSameCookiesLoginDoes(t *testing.T) {
+	identity := workingIdentity()
+	identity.oauthSession = identity.session
+
+	response := post(t, serve(t, identity), "/api/v1/auth/oauth/google/callback",
+		`{"state":"abc","code":"auth-code"}`)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	cookies := response.Result().Cookies()
+	if len(cookies) != 2 {
+		t.Fatalf("want two cookies as login sets, got %d", len(cookies))
+	}
+	for _, cookie := range cookies {
+		if !cookie.HttpOnly {
+			t.Fatalf("%s is readable by script", cookie.Name)
+		}
+	}
+	if len(identity.oauthCompleted) != 1 || identity.oauthCompleted[0] != "google:abc:auth-code" {
+		t.Fatalf("the callback did not pass through intact: %v", identity.oauthCompleted)
+	}
+}
+
+func TestEachOAuthRefusalGetsItsOwnAnswer(t *testing.T) {
+	for _, refusal := range []struct {
+		err    error
+		status int
+		code   string
+	}{
+		{api.ErrOAuthStateRejected, http.StatusConflict, "OAUTH_STATE_INVALID"},
+		{api.ErrOAuthStateExpired, http.StatusConflict, "OAUTH_STATE_EXPIRED"},
+		{api.ErrOAuthAddressUnverified, http.StatusConflict, "OAUTH_EMAIL_UNVERIFIED"},
+	} {
+		t.Run(refusal.code, func(t *testing.T) {
+			identity := workingIdentity()
+			identity.oauthErr = refusal.err
+
+			response := post(t, serve(t, identity), "/api/v1/auth/oauth/google/callback",
+				`{"state":"abc","code":"auth-code"}`)
+
+			if response.Code != refusal.status {
+				t.Fatalf("status %d: %s", response.Code, response.Body)
+			}
+			if !strings.Contains(response.Body.String(), refusal.code) {
+				t.Fatalf("want %s, got %s", refusal.code, response.Body)
+			}
+			// No cookies on a refusal: a failed sign-in must not leave
+			// anything behind that looks like a session.
+			if len(response.Result().Cookies()) != 0 {
+				t.Fatal("a refused sign-in set a cookie")
+			}
+		})
+	}
+}
+
+// The unverified-address refusal must not confirm that an account exists.
+func TestTheUnverifiedRefusalDoesNotConfirmAnAccount(t *testing.T) {
+	identity := workingIdentity()
+	identity.oauthErr = api.ErrOAuthAddressUnverified
+
+	response := post(t, serve(t, identity), "/api/v1/auth/oauth/google/callback",
+		`{"state":"abc","code":"auth-code"}`)
+
+	body := strings.ToLower(response.Body.String())
+	for _, leak := range []string{"already", "exists", "registered", "taken"} {
+		if strings.Contains(body, leak) {
+			t.Fatalf("the message says %q, which confirms an account: %s", leak, response.Body)
+		}
+	}
+}
+
+// The counter is per network, not per provider. Keyed on the provider, one
+// attacker starting sign-ins would exhaust the allowance for everybody using
+// that provider, which is a lockout dressed as a rate limit.
+func TestStartingASignInIsNotCountedPerProvider(t *testing.T) {
+	identity := workingIdentity()
+	limiter := newCountingLimiter(50)
+	handler := serveWithLimiter(t, identity, limiter)
+
+	post(t, handler, "/api/v1/auth/oauth/google/start", `{}`)
+
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+	for key := range limiter.seen {
+		if strings.Contains(key, "google") {
+			t.Fatalf("the allowance is keyed on the provider: %q", key)
+		}
 	}
 }

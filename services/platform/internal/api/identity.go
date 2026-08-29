@@ -21,6 +21,29 @@ import (
 // translation is the price of the two being separable, and it is small because
 // this interface is deliberately narrow. It describes what the HTTP layer does,
 // not what identity can do.
+// OAuthStart is where to send the browser, and the state that comes back.
+type OAuthStart struct {
+	AuthorizationURL string
+	State            string
+}
+
+// The OAuth refusals, named here because the API decides what each one says
+// to a person and identity decides only that they happened.
+var (
+	// ErrOAuthStateRejected covers absent, unknown, replayed, and minted for
+	// another provider. One error for all four: a caller cannot tell a forged
+	// state from a replayed one and answering differently would say which.
+	ErrOAuthStateRejected = errors.New("api: the sign-in could not be completed")
+	// ErrOAuthStateExpired is a timeout rather than a rejection, and gets its
+	// own sentence because "start again" is not "something is wrong with you".
+	ErrOAuthStateExpired = errors.New("api: the sign-in took too long")
+	// ErrOAuthAddressUnverified is the linking refusal: the provider asserted
+	// an address it has not verified and an account already holds it.
+	ErrOAuthAddressUnverified = errors.New("api: the provider has not verified that address")
+	// ErrOAuthProviderUnknown is a provider this deployment does not offer.
+	ErrOAuthProviderUnknown = errors.New("api: unknown sign-in provider")
+)
+
 type Identity interface {
 	// Register creates an account, or does nothing, and reports neither. The
 	// caller cannot tell a new address from a known one, which is the whole
@@ -36,6 +59,20 @@ type Identity interface {
 	// Refresh rotates a session. Presenting a retired token revokes the whole
 	// family and returns ErrSessionRejected.
 	Refresh(ctx context.Context, refreshToken string) (Session, error)
+
+	// The OAuth half, for IAM-08.
+	//
+	// ConfiguredOAuthProviders is what the sign-in screen draws buttons from,
+	// so a deployment with none configured shows email and password alone.
+	ConfiguredOAuthProviders() []string
+	// BeginOAuth mints the state and the PKCE verifier and answers where to
+	// send the browser. ErrOAuthProviderUnknown for one not configured.
+	BeginOAuth(ctx context.Context, provider, redirectTo string) (OAuthStart, error)
+	// CompleteOAuth consumes the state, exchanges the code and issues the
+	// same session Authenticate issues. It returns the post-sign-in
+	// destination the start recorded. ErrOAuthStateRejected,
+	// ErrOAuthStateExpired and ErrOAuthAddressUnverified are its refusals.
+	CompleteOAuth(ctx context.Context, provider, state, code string) (Session, string, error)
 
 	// Authorize resolves the session AND decides one capability through the
 	// single policy path. The Principal comes back only when the decision

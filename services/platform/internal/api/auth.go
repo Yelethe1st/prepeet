@@ -364,6 +364,29 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.code = string(prepeetapi.NOTFOUND)
 		base.message = "There is no fact at that identifier."
 		return base
+	case errors.Is(err, ErrOAuthProviderUnknown):
+		base.status = http.StatusNotFound
+		base.code = "OAUTH_PROVIDER_UNKNOWN"
+		base.message = "That sign-in provider is not available here."
+		return base
+	case errors.Is(err, ErrOAuthStateRejected):
+		base.status = http.StatusConflict
+		base.code = "OAUTH_STATE_INVALID"
+		base.message = "That sign-in could not be completed. Start again from the sign-in page."
+		return base
+	case errors.Is(err, ErrOAuthStateExpired):
+		base.status = http.StatusConflict
+		base.code = "OAUTH_STATE_EXPIRED"
+		base.message = "That sign-in took too long. Start again and it will work."
+		return base
+	case errors.Is(err, ErrOAuthAddressUnverified):
+		base.status = http.StatusConflict
+		base.code = "OAUTH_EMAIL_UNVERIFIED"
+		// Names what to do, and does not confirm that an account exists: it
+		// says what would be true either way.
+		base.message = "That provider has not verified the address, so it cannot be used to sign in here. " +
+			"Sign in with your email and password."
+		return base
 	case errors.Is(err, ErrFeedbackPracticeOnly):
 		base.status = http.StatusConflict
 		base.code = "FEEDBACK_PRACTICE_ONLY"
@@ -484,4 +507,96 @@ func (a *authentication) record(ctx context.Context, err error) {
 	span := trace.SpanFromContext(ctx)
 	span.RecordError(errors.New(telemetry.Scrub(err.Error())))
 	span.SetAttributes(telemetry.MustAttr(telemetry.KeyOutcome, "internal_error"))
+}
+
+// oauthLabels are what the sign-in screen calls each provider.
+//
+// Here rather than in identity, because identity knows a provider by the key
+// it was configured under and the label is a presentation concern. A provider
+// configured without a label here is shown by its key, which is ugly and
+// working rather than absent.
+var oauthLabels = map[string]string{
+	"google":    "Google",
+	"microsoft": "Microsoft",
+}
+
+// ListOAuthProviders answers which providers this deployment offers.
+func (a *authentication) ListOAuthProviders(_ context.Context, _ prepeetapi.ListOAuthProvidersRequestObject) (prepeetapi.ListOAuthProvidersResponseObject, error) {
+	configured := a.identity.ConfiguredOAuthProviders()
+	providers := make([]struct {
+		ID    string `json:"id"`
+		Label string `json:"label"`
+	}, 0, len(configured))
+	for _, id := range configured {
+		label, known := oauthLabels[id]
+		if !known {
+			label = id
+		}
+		providers = append(providers, struct {
+			ID    string `json:"id"`
+			Label string `json:"label"`
+		}{ID: id, Label: label})
+	}
+	return prepeetapi.ListOAuthProviders200JSONResponse{
+		Body:    prepeetapi.OAuthProviders{Providers: providers},
+		Headers: prepeetapi.ListOAuthProviders200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// StartOAuth begins the round trip and answers where to send the browser.
+func (a *authentication) StartOAuth(ctx context.Context, request prepeetapi.StartOAuthRequestObject) (prepeetapi.StartOAuthResponseObject, error) {
+	// Counted by network alone. Minting state is cheap, but an uncounted
+	// endpoint that writes a row per call is a way to fill a table.
+	//
+	// The subject is empty on purpose. There is no address yet: nobody has
+	// said who they are, and keying on the provider would put every person
+	// signing in with Google into one bucket, so one attacker could lock
+	// everybody out of it.
+	if err := a.limits.check(ctx, "oauth_start", "", networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
+
+	redirectTo := ""
+	if request.Body != nil && request.Body.RedirectTo != nil {
+		redirectTo = *request.Body.RedirectTo
+	}
+
+	start, err := a.identity.BeginOAuth(ctx, request.Provider, redirectTo)
+	if err != nil {
+		return a.failed(ctx, err), nil
+	}
+	return prepeetapi.StartOAuth200JSONResponse{
+		Body: prepeetapi.OAuthStart{
+			AuthorizationURL: start.AuthorizationURL,
+			State:            start.State,
+		},
+		Headers: prepeetapi.StartOAuth200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// CompleteOAuth finishes the round trip and issues the session.
+//
+// It ends at a.issued, which is where Login and Refresh end: one place writes
+// the cookies, so an OAuth session is indistinguishable from a password one
+// to everything downstream, including logout and revocation.
+func (a *authentication) CompleteOAuth(ctx context.Context, request prepeetapi.CompleteOAuthRequestObject) (prepeetapi.CompleteOAuthResponseObject, error) {
+	// By network, for the reason StartOAuth gives.
+	if err := a.limits.check(ctx, "oauth_callback", "", networkFromContext(ctx)); err != nil {
+		return a.failed(ctx, err), nil
+	}
+	if request.Body == nil {
+		return a.failed(ctx, ErrOAuthStateRejected), nil
+	}
+
+	session, _, err := a.identity.CompleteOAuth(ctx, request.Provider,
+		request.Body.State, request.Body.Code)
+	if err != nil {
+		return a.failed(ctx, err), nil
+	}
+
+	issued, err := a.issued(session)
+	if err != nil {
+		return a.failed(ctx, err), nil
+	}
+	return issued, nil
 }

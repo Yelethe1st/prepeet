@@ -1501,6 +1501,9 @@ func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       {
 func (f failure) VisitGetResultsResponse(w http.ResponseWriter) error          { return f.write(w) }
 func (f failure) VisitGetReviewResponse(w http.ResponseWriter) error           { return f.write(w) }
 func (f failure) VisitGetDeliveryResponse(w http.ResponseWriter) error         { return f.write(w) }
+func (f failure) VisitStartOAuthResponse(w http.ResponseWriter) error          { return f.write(w) }
+func (f failure) VisitCompleteOAuthResponse(w http.ResponseWriter) error       { return f.write(w) }
+func (f failure) VisitListOAuthProvidersResponse(w http.ResponseWriter) error  { return f.write(w) }
 func (f failure) VisitRecordInsightFeedbackResponse(w http.ResponseWriter) error {
 	return f.write(w)
 }

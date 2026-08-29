@@ -65,6 +65,12 @@ func (r sessionIssued) VisitRefreshResponse(w http.ResponseWriter) error { retur
 func (r sessionIssued) VisitConsumeMagicLinkResponse(w http.ResponseWriter) error { return r.write(w) }
 func (r sessionIssued) VisitConsumeOTPResponse(w http.ResponseWriter) error       { return r.write(w) }
 
+// The OAuth callback ends here too, which is the point of IAM-08's third
+// criterion: one place writes the cookies, so a session held by somebody who
+// signed in with Google is indistinguishable from one held by somebody who
+// typed a password, including to logout and to revocation.
+func (r sessionIssued) VisitCompleteOAuthResponse(w http.ResponseWriter) error { return r.write(w) }
+
 // sessionCleared is the 204 for logout and the cookie-clearing half of a
 // rejected refresh.
 type sessionCleared struct {

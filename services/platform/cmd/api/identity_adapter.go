@@ -275,3 +275,64 @@ func (a identityAdapter) DescribeSession(ctx context.Context, sessionToken, user
 }
 
 var _ api.Identity = identityAdapter{}
+
+// ConfiguredOAuthProviders names what this deployment offers.
+func (a identityAdapter) ConfiguredOAuthProviders() []string {
+	return a.service.ConfiguredProviders()
+}
+
+// BeginOAuth mints the state and answers where to send the browser.
+func (a identityAdapter) BeginOAuth(ctx context.Context, provider, redirectTo string) (api.OAuthStart, error) {
+	// Validated here rather than trusted from the request. An open redirect
+	// stored is an open redirect, and this is the moment it would be stored.
+	// An unsafe destination becomes no destination rather than a refusal: the
+	// sign-in is what the person asked for, and the redirect is a convenience
+	// they will not miss if it silently becomes the default landing page.
+	safe, ok := api.SafeRedirect(redirectTo)
+	if !ok {
+		safe = ""
+	}
+	start, err := a.service.BeginOAuth(ctx, provider, safe)
+	if err != nil {
+		return api.OAuthStart{}, a.translateOAuth(err)
+	}
+	return api.OAuthStart{AuthorizationURL: start.URL, State: start.State}, nil
+}
+
+// CompleteOAuth finishes the round trip and issues the session.
+func (a identityAdapter) CompleteOAuth(ctx context.Context, provider, state, code string) (api.Session, string, error) {
+	session, redirectTo, err := a.service.CompleteOAuth(ctx, provider, state, code)
+	if err != nil {
+		return api.Session{}, "", a.translateOAuth(err)
+	}
+	return sessionFrom(session), redirectTo, nil
+}
+
+// translateOAuth maps identity's refusals onto the API's.
+//
+// The mapping exists because the two vocabularies are answerable to different
+// things: identity says what happened, and the API says what it means to
+// somebody looking at a screen.
+func (a identityAdapter) translateOAuth(err error) error {
+	switch {
+	case errors.Is(err, identity.ErrOAuthStateInvalid):
+		return api.ErrOAuthStateRejected
+	case errors.Is(err, identity.ErrOAuthStateExpired):
+		return api.ErrOAuthStateExpired
+	case errors.Is(err, identity.ErrOAuthEmailUnverified):
+		return api.ErrOAuthAddressUnverified
+	case errors.Is(err, identity.ErrOAuthProviderUnknown):
+		return api.ErrOAuthProviderUnknown
+	}
+	return a.translate(err)
+}
+
+// oauthProviders builds the providers this deployment offers.
+//
+// Empty until the provider clients land: the HTTP round trip to Google and
+// Microsoft is its own piece of work, and a half-written client behind a
+// visible button is worse than no button. Everything above it is finished and
+// proven, so adding one is a client, a map entry and a test.
+func oauthProviders() map[string]identity.Provider {
+	return map[string]identity.Provider{}
+}

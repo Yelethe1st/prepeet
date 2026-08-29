@@ -99,6 +99,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/oauth/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which sign-in providers this deployment offers
+         * @description The sign-in screen draws a button per provider returned here rather
+         *     than hard-coding a list, so adding one is configuration and a
+         *     deployment rather than a release. A deployment with none configured
+         *     answers an empty list, and the screen shows email and password alone.
+         */
+        get: operations["listOAuthProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/oauth/{provider}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin signing in with a provider
+         * @description Mints the anti-forgery state and the PKCE verifier, stores both
+         *     server-side, and answers where to send the browser. The verifier never
+         *     leaves the server; only its challenge does.
+         *
+         *     The state is single-use and expires in ten minutes. Refusals:
+         *     OAUTH_PROVIDER_UNKNOWN.
+         */
+        post: operations["startOAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/oauth/{provider}/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish signing in with a provider
+         * @description Consumes the state, exchanges the authorisation code with the provider
+         *     presenting the PKCE verifier, and issues the same session the password
+         *     flow issues, with the same cookies, rotation and revocation. There is
+         *     no second way to hold a session.
+         *
+         *     The state is consumed before the provider is called, so a replayed
+         *     callback is refused whether or not the provider would have answered.
+         *
+         *     Refusals: OAUTH_STATE_INVALID for a state that is absent, unknown,
+         *     already used or minted for a different provider; OAUTH_STATE_EXPIRED
+         *     for one that timed out; OAUTH_EMAIL_UNVERIFIED when the provider
+         *     asserts an address it has not verified and an account already holds
+         *     it.
+         */
+        post: operations["completeOAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -1401,6 +1481,37 @@ export interface components {
             };
             note: string;
         };
+        OAuthProviders: {
+            /**
+             * @description Stably ordered, so the sign-in screen does not reorder its buttons
+             *     between requests and make somebody misclick.
+             */
+            providers: {
+                id: string;
+                label: string;
+            }[];
+        };
+        OAuthStartRequest: {
+            /**
+             * @description Where to go once signed in. Validated when it is stored rather
+             *     than when it is read, because an open redirect stored is an open
+             *     redirect.
+             */
+            redirect_to?: string;
+        };
+        OAuthStart: {
+            /** @description Where to send the browser. */
+            authorization_url: string;
+            /**
+             * @description The anti-forgery value, which comes back in the provider's
+             *     redirect and is presented to the callback. Single-use.
+             */
+            state: string;
+        };
+        OAuthCallbackRequest: {
+            state: string;
+            code: string;
+        };
         InsightFeedbackRequest: {
             /**
              * @description Which kind of generated insight is being answered.
@@ -2146,6 +2257,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Which configured provider, as listed by /auth/oauth/providers. */
+        OAuthProvider: string;
         DocumentId: string;
         FactId: string;
         SessionId: string;
@@ -2297,6 +2410,121 @@ export interface operations {
              *     address and a wrong password.
              */
             401: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    listOAuthProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The configured providers, in a stable order. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthProviders"];
+                };
+            };
+        };
+    };
+    startOAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which configured provider, as listed by /auth/oauth/providers. */
+                provider: components["parameters"]["OAuthProvider"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OAuthStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Where to send the browser. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthStart"];
+                };
+            };
+            /** @description OAUTH_PROVIDER_UNKNOWN for a provider that is not configured. */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    completeOAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which configured provider, as listed by /auth/oauth/providers. */
+                provider: components["parameters"]["OAuthProvider"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Authenticated, with the session and refresh cookies set. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    /** @description Session and refresh cookies, HTTP-only and SameSite. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            /** @description OAUTH_PROVIDER_UNKNOWN for a provider that is not configured. */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /**
+             * @description OAUTH_STATE_INVALID, OAUTH_STATE_EXPIRED or
+             *     OAUTH_EMAIL_UNVERIFIED. Each names what happened and what to do.
+             */
+            409: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;

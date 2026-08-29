@@ -144,7 +144,13 @@ func main() {
 				// person sees is the cooldown that holds.
 				Resend:  ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 1, Window: time.Minute}, time.Now),
 				BaseURL: cfg.WebBaseURL,
-			})},
+			}).
+			// The storage is wired whether or not a provider is configured, so
+			// adding one is a client and a map entry rather than a change here.
+			// With none configured the endpoints still answer: the list is
+			// empty and the sign-in screen shows email and password alone,
+			// which is what a deployment without OAuth should look like.
+			WithOAuth(identity.NewRepository(pool), oauthProviders())},
 		Candidates: candidates,
 		Documents:  candidates,
 		Catalog:    newCatalogAdapter(content.NewStore(pool)),

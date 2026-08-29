@@ -25,11 +25,21 @@ describe("the marketing page", () => {
     );
   });
 
+  /**
+   * Given longer than the five seconds vitest allows by default.
+   *
+   * axe walks every node and computes a great many rules, and this is the
+   * largest page in the product by an order of magnitude: eight sections, a
+   * nine-by-four table and around three hundred elements. It measures a few
+   * seconds on an idle machine and timed out on a busy one, which is a flake
+   * rather than a failure, and a flake in the accessibility tier is the worst
+   * place for one: it teaches people to rerun the check that matters most.
+   */
   it("has no accessibility violations", async () => {
     const { container } = render(<MarketingPage />);
 
     expect(await axe(container)).toHaveNoViolations();
-  });
+  }, 20_000);
 
   /**
    * Ten sections, in the prototype's order, because the order is the argument.

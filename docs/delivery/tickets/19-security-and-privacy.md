@@ -15,9 +15,49 @@ Trust boundaries, threats, abuse cases and controls, reviewed on a defined caden
 the start.
 
 **Done when**
-- [ ] Every trust boundary in the architecture has an owner and a control set.
-- [ ] Abuse cases include candidate-directed harms, not only platform-directed ones.
-- [ ] The review cadence is scheduled and the first review has happened.
+- [x] Every trust boundary in the architecture has an owner and a control set.
+- [x] Abuse cases include candidate-directed harms, not only platform-directed ones.
+- [ ] The review cadence is scheduled and the first review has happened. The first review has happened
+  and the cadence is defined; nothing schedules it, which is the document's own R10.
+
+**Two of three, and the third is the one the ticket's word "maintain" was actually asking about.**
+
+The previous model listed fourteen threats against generic controls: "Go resource policy, repository
+tenant predicates, RLS, adversarial list/batch tests" for cross-tenant leakage, and so on for the rest.
+Every line of it was defensible and none of it was checkable, because nothing in it named a file, and a
+control nobody can locate is indistinguishable from one nobody wrote. The rewrite traces each threat to
+the code, migration or trigger that mitigates it, or says plainly that nothing does.
+
+Each entry now carries two states rather than one, because conflating them is how these documents
+overstate themselves. A control state, what the code refuses. An assurance state, what has tried to
+break it. Nothing anywhere reads "attacked" by an independent party, and the section that says what has
+actually been attacked leads with SEC-02's own limits rather than its coverage: three layers, two
+request paths, and no objects, workflows, caches, analytics or telemetry.
+
+**Reading the code rather than the architecture found five places the documents were ahead of it**, and
+they are recorded as open risks rather than fixed, because an undiscussed security change buried in a
+documentation ticket is worse than the gap.
+
+`recruiting.campaign` carries a tenant policy only. Migration 0043 says per-campaign scope is "the
+database's rather than a handler's", and for `campaign_recruiter` that is true, but a query reading
+`recruiting.campaign` under tenant scope without the join sees every campaign in the tenant, and
+`authz.ScopeCampaign` is consulted by no production code at all. `evaluation.evidence_spans` and
+`evaluation.contradictions` grant `DELETE` with `UPDATE`-only triggers, deliberately, so a retried
+extraction converges, but `evaluation.results` holds no digest over the spans it cites and nothing
+checks whether a result exists before evidence is replaced. Three of ADR-0019's four provider terms are
+unenforceable from code, which that ADR already says. No read of a transcript, audio file or evaluation
+writes an audit row, which `authorization-model.md` and `data-classification.md` both require.
+`SameSite=Lax` is the entire CSRF defence: there is no token, no `Origin` check and no `Sec-Fetch-Site`
+check anywhere, which `grep` confirms rather than infers.
+
+**The third box is open on purpose.** The cadence is defined and event-driven, which is right, since a
+calendar review of an unchanged system is theatre. But there is no CODEOWNERS file, no scheduled
+review, and no CI gate that fails when a migration adds a table or an ADR moves a boundary without this
+document moving. The one thing that does hold is indirect: `internal/isolation/registry_test.go` caps
+its declaration lists, so widening what the database does not defend is a deliberate edit with a reason
+in a commit message, and that edit is the signal a review is due. Until R10 closes, this is maintained
+by whoever remembers, and ticking a box that says "scheduled" would be the first untrue line in a
+document whose value is that it has none.
 
 **Spec** [threat-model.md](../../security/threat-model.md)
 

@@ -19,12 +19,6 @@ VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, tenant_id, name, status, role_reference, jurisdiction,
           determination_id, opened_at, closed_at, created_at, created_by;
 
--- name: CampaignByID :one
-SELECT id, tenant_id, name, status, role_reference, jurisdiction,
-       determination_id, opened_at, closed_at, created_at, created_by
-FROM recruiting.campaign
-WHERE id = $1;
-
 -- name: PinArtifact :exec
 INSERT INTO recruiting.campaign_pin
     (campaign_id, tenant_id, artifact_type, artifact_id, digest, reference, version)

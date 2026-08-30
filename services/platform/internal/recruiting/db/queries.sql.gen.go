@@ -61,32 +61,6 @@ func (q *Queries) AcceptancesFor(ctx context.Context, arg AcceptancesForParams) 
 	return items, nil
 }
 
-const campaignByID = `-- name: CampaignByID :one
-SELECT id, tenant_id, name, status, role_reference, jurisdiction,
-       determination_id, opened_at, closed_at, created_at, created_by
-FROM recruiting.campaign
-WHERE id = $1
-`
-
-func (q *Queries) CampaignByID(ctx context.Context, id string) (RecruitingCampaign, error) {
-	row := q.db.QueryRow(ctx, campaignByID, id)
-	var i RecruitingCampaign
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Name,
-		&i.Status,
-		&i.RoleReference,
-		&i.Jurisdiction,
-		&i.DeterminationID,
-		&i.OpenedAt,
-		&i.ClosedAt,
-		&i.CreatedAt,
-		&i.CreatedBy,
-	)
-	return i, err
-}
-
 const campaignsForRecruiter = `-- name: CampaignsForRecruiter :many
 SELECT c.id, c.tenant_id, c.name, c.status, c.role_reference, c.jurisdiction,
        c.determination_id, c.opened_at, c.closed_at, c.created_at, c.created_by

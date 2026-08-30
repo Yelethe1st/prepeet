@@ -201,9 +201,23 @@ GRANT SELECT, INSERT ON recruiting.campaign_pin TO prepeet_app;
 -- The ticket's third criterion is that recruiter access is scoped per campaign
 -- and enforced server-side. Membership of the tenant is not enough: a tenant
 -- may run campaigns for several roles and teams, and a recruiter on one is not
--- thereby a recruiter on all of them. This table is that scope, and the read
--- policy on it is what makes the enforcement the database's rather than a
--- handler's.
+-- thereby a recruiter on all of them. This table is that scope.
+--
+-- Be precise about where the guarantee actually lives, because an earlier
+-- version of this comment was not. recruiting.campaign carries a tenant policy
+-- and nothing narrower, so row-level security alone does NOT scope a campaign
+-- to a recruiter: it scopes it to the tenant. The per-campaign guarantee comes
+-- from reading campaigns only through the join in CampaignsForRecruiter, which
+-- yields nothing to a caller who forgets rather than everything.
+--
+-- That makes the join load-bearing, so a plain by-id read of this table is a
+-- bypass wearing ordinary clothes. One existed here, generated and uncalled,
+-- and was removed rather than left for the next caller to reach for. A future
+-- by-id read belongs in a query that carries the recruiter with it.
+--
+-- platform/authz declares ScopeCampaign for six permissions and no production
+-- code consults it yet, so treat that catalogue as intent rather than as a
+-- second line of defence.
 CREATE TABLE recruiting.campaign_recruiter (
     campaign_id uuid        NOT NULL REFERENCES recruiting.campaign (id) ON DELETE CASCADE,
     tenant_id   uuid        NOT NULL,

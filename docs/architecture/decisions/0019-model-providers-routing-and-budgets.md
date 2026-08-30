@@ -51,6 +51,34 @@ beside this ADR as it is signed. **Open weights served on our own
 infrastructure meet all four trivially**, because nothing leaves it; that
 is a reason to keep the local path first-class, not an afterthought.
 
+### What the four terms are enforced by
+
+The four are contractual, and three of them can only be contractual: no
+inspection of a response tells us whether the provider retained it,
+trained on it, or processed it in Frankfurt or Virginia. Writing them
+here does not make them true of a running deployment, and the honest
+statement of the gap is that `PREPEET_LLM_BASE_URL` accepts any host that
+speaks the chat API. A deployment can point the interviewer at an
+inadmissible endpoint, and nothing in the code will refuse it.
+
+What the code does carry is the evidence to answer for it afterwards:
+every turn records the provider and model that asked the question
+(`model_version`), so a session can name every endpoint that saw the
+candidate's speech. Enforcement is the signed record beside this ADR plus
+the egress restriction in
+[deployment-topology.md](../../operations/deployment-topology.md), which
+is where an inadmissible endpoint is actually stopped: the network, not
+the configuration parser.
+
+The local path is the one case where all four hold by construction rather
+than by contract, which is the reason it stays first-class.
+
+**Open:** DEC-10's third criterion, the recorded provider terms, is not
+met. No signed terms are on file beside this ADR, while the shipped voice
+loop sends candidate speech to whichever provider a deployment names.
+Until that record exists, the admissibility rule above is a rule nobody
+has yet been held to.
+
 ### Configuration, not code
 
 The language model is named by the deployment: `PREPEET_LLM_PROVIDER`

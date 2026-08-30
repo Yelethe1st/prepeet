@@ -220,12 +220,22 @@ exhaustion does to a session that is already running.
 - [ ] Provider data-processing terms reviewed and recorded.
 
 Accepted as [ADR-0019](../../architecture/decisions/0019-model-providers-routing-and-budgets.md):
-Deepgram, Claude and Cartesia behind the agent's adapters, per-stage routing pinned on every
-activity, fallback only after measured equivalence with the deterministic floors as the terminal
-fallback, and exhaustion that always produces the required result while marking optional
-omissions. The third box stays open honestly: the ADR fixes the four admissibility terms (zero
-retention, no training, UK/EU processing, a DPA compatible with DEC-15) and each provider's
-signed terms are recorded beside the ADR as they arrive.
+Deepgram for speech to text and Cartesia for speech, and for the language model **any** admissible
+provider named per deployment, behind two adapters (Anthropic's API and the OpenAI-compatible chat
+API everything else speaks) with open weights on our own infrastructure a first-class choice.
+Per-stage routing is pinned on every activity, fallback follows measured equivalence with the
+deterministic floors as the terminal fallback, and exhaustion always produces the required result
+while marking optional omissions. This summary previously read "Deepgram, Claude and Cartesia",
+which described the language model as a fixed vendor choice the ADR does not make.
+
+The third box stays open honestly, and is worth more than a box. The ADR fixes four admissibility
+terms (zero retention, no training, UK/EU processing, a DPA compatible with DEC-15); no signed
+terms are yet on file, while the shipped voice loop already sends candidate speech to whichever
+provider a deployment names. Three of the four cannot be enforced by code at all, and
+`PREPEET_LLM_BASE_URL` accepts any host that speaks the chat API, so the restriction that actually
+stops an inadmissible endpoint is the network egress rule in
+[deployment-topology.md](../../operations/deployment-topology.md), not configuration. What the code
+guarantees is the evidence afterwards: every turn records the provider and model that asked it.
 
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md) · [cost-and-capacity-model.md](../../operations/cost-and-capacity-model.md)
 

@@ -1082,3 +1082,71 @@ func TestStartingASignInIsNotCountedPerProvider(t *testing.T) {
 		}
 	}
 }
+
+// Regression from the IAM-08 review: the handler took the destination the
+// start had recorded and assigned it to _, so a sign-in begun from anywhere
+// other than the default landed on the default anyway.
+func TestTheCallbackReturnsWhereTheSignInWasStartedFrom(t *testing.T) {
+	identity := workingIdentity()
+	identity.oauthSession = identity.session
+	identity.oauthRedirect = "/session/abc/results"
+
+	response := post(t, serve(t, identity), "/api/v1/auth/oauth/google/callback",
+		`{"state":"abc","code":"auth-code"}`)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+	var body struct {
+		RedirectTo string `json:"redirect_to"`
+		Session    struct {
+			UserID string `json:"user_id"`
+		} `json:"session"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.RedirectTo != "/session/abc/results" {
+		t.Fatalf("redirect_to = %q, want the destination the start recorded", body.RedirectTo)
+	}
+	// And the session is still there, in its own field: the callback answers
+	// with both, not one instead of the other.
+	if body.Session.UserID == "" {
+		t.Fatalf("the session did not survive carrying the destination: %s", response.Body)
+	}
+}
+
+// No destination is an empty string rather than an absent field, so a client
+// can use its own default without distinguishing null from missing.
+func TestNoDestinationIsAnEmptyString(t *testing.T) {
+	identity := workingIdentity()
+	identity.oauthSession = identity.session
+
+	response := post(t, serve(t, identity), "/api/v1/auth/oauth/google/callback",
+		`{"state":"abc","code":"auth-code"}`)
+
+	if !strings.Contains(response.Body.String(), `"redirect_to":""`) {
+		t.Fatalf("want an empty destination, got %s", response.Body)
+	}
+}
+
+// The cookies still arrive, which is IAM-08's third criterion and the thing
+// most easily lost when a response body changes shape.
+func TestTheCallbackStillSetsBothCookiesWithTheNewBody(t *testing.T) {
+	identity := workingIdentity()
+	identity.oauthSession = identity.session
+	identity.oauthRedirect = "/practice"
+
+	response := post(t, serve(t, identity), "/api/v1/auth/oauth/google/callback",
+		`{"state":"abc","code":"auth-code"}`)
+
+	cookies := response.Result().Cookies()
+	if len(cookies) != 2 {
+		t.Fatalf("want two cookies as login sets, got %d", len(cookies))
+	}
+	for _, cookie := range cookies {
+		if !cookie.HttpOnly {
+			t.Fatalf("%s is readable by script", cookie.Name)
+		}
+	}
+}

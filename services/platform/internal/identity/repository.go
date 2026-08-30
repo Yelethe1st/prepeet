@@ -285,6 +285,49 @@ func (r *PostgresRepository) CreateUserWithCredentials(ctx context.Context, user
 	return tx.Commit(ctx)
 }
 
+// CreateUserWithOAuthIdentity writes the person, their empty credential and
+// the provider link in one transaction.
+//
+// One method rather than three calls, because the atomicity is the
+// requirement. Creating the user first and linking afterwards leaves, on any
+// failure between them, an account with no password and no provider: the
+// address is taken, password sign-in cannot succeed because the hash is empty,
+// and a later provider attempt finds an existing account and refuses to link
+// an unverified address to it. The address is stranded until somebody repairs
+// it by hand, and nothing about the system looks wrong.
+//
+// This is the same argument CreateOrganisationAccount makes, and IAM-08's own
+// notes named the risk before this existed to answer it.
+func (r *PostgresRepository) CreateUserWithOAuthIdentity(
+	ctx context.Context, userID, email, provider, subject string,
+) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("identity: beginning transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := db.New(tx)
+
+	if err := q.InsertUser(ctx, db.InsertUserParams{ID: userID, Email: email}); err != nil {
+		return fmt.Errorf("identity: inserting user: %w", err)
+	}
+	// An empty hash, deliberately: this account has no password. Authenticate
+	// treats it as a wrong password rather than as a corrupted record, so the
+	// two are indistinguishable to somebody guessing.
+	if err := q.InsertCredentials(ctx, db.InsertCredentialsParams{
+		UserID: userID, PasswordHash: "",
+	}); err != nil {
+		return fmt.Errorf("identity: inserting credentials: %w", err)
+	}
+	if err := q.LinkOAuthIdentity(ctx, db.LinkOAuthIdentityParams{
+		ID: id.New().String(), UserID: userID, Provider: provider,
+		Subject: subject, Email: email,
+	}); err != nil {
+		return fmt.Errorf("identity: linking the provider account: %w", err)
+	}
+	return tx.Commit(ctx)
+}
+
 // maxSlugAttempts bounds the search for a free slug.
 //
 // Retry rather than a uniqueness check first, because checking then inserting
@@ -552,4 +595,17 @@ func (r *PostgresRepository) LinkOAuthIdentity(ctx context.Context, userID, prov
 		ID: id.New().String(), UserID: userID, Provider: provider,
 		Subject: subject, Email: email,
 	})
+}
+
+// DeleteExpiredOAuthStates removes states past their expiry, used or not.
+//
+// Safe for used rows because replay detection only has to hold inside the
+// window: a callback arriving after expiry is refused for being expired, and
+// one arriving after the row is gone is refused for being unknown, and the two
+// are deliberately the same sentence.
+func (r *PostgresRepository) DeleteExpiredOAuthStates(ctx context.Context, before time.Time) error {
+	if err := r.q.DeleteExpiredOAuthStates(ctx, before); err != nil {
+		return fmt.Errorf("identity: sweeping oauth states: %w", err)
+	}
+	return nil
 }

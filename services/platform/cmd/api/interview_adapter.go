@@ -117,6 +117,20 @@ func (a interviewAdapter) RecordInsightFeedback(ctx context.Context, userID, ses
 		return err
 	}
 
+	// The key has to name something this analysis actually generated.
+	//
+	// Without this the caller chooses its own keys: the store checks the kind
+	// against a closed set and refuses an empty key, and the unique constraint
+	// happily accepts every distinct fabricated one. A candidate could write
+	// unbounded rows against their own session and, worse, fill QUA-06's
+	// per-artifact rates with verdicts about insights nobody was ever shown.
+	// The measurement is the point of the table, so a verdict about nothing
+	// is not merely junk, it is a wrong answer to the question the table
+	// exists to answer.
+	if !insightExists(articulation.Document, verdict.Kind, verdict.Key) {
+		return api.ErrFeedbackUnknownInsight
+	}
+
 	err = a.results.RecordInsightFeedback(ctx, ref, evaluation.InsightVerdict{
 		Kind: verdict.Kind, Key: verdict.Key, Dimension: verdict.Dimension,
 		Helpful:        verdict.Helpful,
@@ -130,6 +144,54 @@ func (a interviewAdapter) RecordInsightFeedback(ctx context.Context, userID, ses
 		return api.ErrFeedbackMissingBody
 	}
 	return err
+}
+
+// insightExists reports whether the stored analysis generated the insight a
+// verdict names.
+//
+// Read from the document rather than from a list kept here, because the
+// document is what the candidate was shown. A key that was valid for one
+// session is not valid for another, and only the analysis knows which.
+func insightExists(document json.RawMessage, kind, key string) bool {
+	if len(document) == 0 || key == "" {
+		return false
+	}
+
+	var analysis struct {
+		Coaching struct {
+			Priorities []struct {
+				Dimension string `json:"dimension"`
+				Drill     string `json:"drill"`
+			} `json:"priorities"`
+		} `json:"coaching"`
+	}
+	if err := json.Unmarshal(document, &analysis); err != nil {
+		// An analysis that cannot be read is not one that generated this
+		// insight. Refusing is the safe direction: the alternative accepts
+		// everything the moment the document shape changes.
+		return false
+	}
+
+	for _, priority := range analysis.Coaching.Priorities {
+		switch kind {
+		case evaluation.InsightPriority:
+			if priority.Dimension == key {
+				return true
+			}
+		case evaluation.InsightDrill:
+			// Only the drills this session chose. The other five are a menu
+			// rather than something generated about this candidate, which is
+			// the same rule the delivery screen renders by.
+			if priority.Drill == key {
+				return true
+			}
+		}
+	}
+
+	// Strengths are in the contract's vocabulary and nothing generates them
+	// yet, so no key can name one. When ART-04 produces them this gains a
+	// branch; until then accepting one would be accepting anything.
+	return false
 }
 
 // Review derives the coaching for the owner's evaluated session. The

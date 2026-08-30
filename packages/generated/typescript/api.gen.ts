@@ -1508,6 +1508,20 @@ export interface components {
              */
             state: string;
         };
+        OAuthSession: {
+            session: components["schemas"]["Session"];
+            /**
+             * @description Where the sign-in was started from, validated when it was stored
+             *     rather than when it is read. Empty when none was given or when the
+             *     one given was refused, in which case the client uses its own
+             *     default.
+             *
+             *     Returned rather than acted on: the server cannot navigate a
+             *     browser, and a redirect from a call the client made with fetch
+             *     would not be followed anyway.
+             */
+            redirect_to: string;
+        };
         OAuthCallbackRequest: {
             state: string;
             code: string;
@@ -2506,7 +2520,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Session"];
+                    "application/json": components["schemas"]["OAuthSession"];
                 };
             };
             400: components["responses"]["ValidationFailed"];

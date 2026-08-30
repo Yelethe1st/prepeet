@@ -88,6 +88,13 @@ type OAuthRepository interface {
 	ConsumeOAuthState(ctx context.Context, stateHash string) (OAuthState, error)
 	FindOAuthIdentity(ctx context.Context, provider, subject string) (string, error)
 	LinkOAuthIdentity(ctx context.Context, userID, provider, subject, email string) error
+	// CreateUserWithOAuthIdentity writes the person, their empty credential
+	// and the provider link in one transaction. One method because the
+	// atomicity is the requirement: creating the user and linking afterwards
+	// strands the address on any failure between the two.
+	CreateUserWithOAuthIdentity(ctx context.Context, userID, email, provider, subject string) error
+	// DeleteExpiredOAuthStates removes states past their expiry, used or not.
+	DeleteExpiredOAuthStates(ctx context.Context, before time.Time) error
 }
 
 // OAuthState is one in-flight authorisation.
@@ -133,6 +140,20 @@ func (s *Service) BeginOAuth(ctx context.Context, providerName, redirectTo strin
 	if err != nil {
 		return Authorization{}, fmt.Errorf("identity: recording the sign-in attempt: %w", err)
 	}
+
+	// Sweep the dead ones while we are here.
+	//
+	// There is no scheduler in this deployment yet, and a table that only ever
+	// grows is a table that eventually costs something: every abandoned
+	// sign-in leaves a row, and each row holds a PKCE verifier and wherever
+	// the person was going. Doing it here ties the cleanup to the one event
+	// that creates the rows, so it happens exactly as often as it needs to.
+	//
+	// The error is deliberately ignored. Housekeeping must never fail a
+	// sign-in: somebody trying to get into their account does not care that a
+	// delete of rows nobody will read did not run, and it will run on the next
+	// attempt.
+	_ = s.oauth.DeleteExpiredOAuthStates(ctx, s.clock())
 
 	return Authorization{
 		URL:   provider.AuthorizationURL(state.Plaintext, token.ChallengeFor(verifier.Plaintext)),
@@ -236,12 +257,25 @@ func (s *Service) resolveOAuthUser(ctx context.Context, providerName string, ass
 	// candidate: an organisation registration creates a tenant and an owning
 	// membership, and IAM-08 is explicit that signing in with a provider
 	// never silently creates one.
+	//
+	// One transaction, not two. Creating the account and linking it afterwards
+	// leaves, on any failure between them, an address that is taken by an
+	// account with no password and no provider: password sign-in cannot
+	// succeed because the hash is empty, and the next provider attempt finds
+	// an existing account and refuses to link an unverified address to it. The
+	// address is stranded until somebody repairs it by hand.
 	userID := id.New().String()
-	if err := s.repo.CreateUserWithCredentials(ctx, userID, email, ""); err != nil {
+	err = s.oauth.CreateUserWithOAuthIdentity(ctx, userID, email, providerName, asserted.Subject)
+	if err != nil {
+		// A race is the expected way this fails: two callbacks for the same
+		// new address at once, one of which loses the unique index. The winner
+		// created the account and the link, so reading it back is the correct
+		// answer rather than an error.
+		linked, findErr := s.oauth.FindOAuthIdentity(ctx, providerName, asserted.Subject)
+		if findErr == nil && linked != "" {
+			return linked, nil
+		}
 		return "", fmt.Errorf("identity: creating the account: %w", err)
-	}
-	if err := s.oauth.LinkOAuthIdentity(ctx, userID, providerName, asserted.Subject, email); err != nil {
-		return "", fmt.Errorf("identity: linking the new account: %w", err)
 	}
 	return userID, nil
 }

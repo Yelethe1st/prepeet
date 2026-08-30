@@ -387,6 +387,11 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.message = "That provider has not verified the address, so it cannot be used to sign in here. " +
 			"Sign in with your email and password."
 		return base
+	case errors.Is(err, ErrFeedbackUnknownInsight):
+		base.status = http.StatusBadRequest
+		base.code = "FEEDBACK_INSIGHT_UNKNOWN"
+		base.message = "That is not one of the insights in this session's analysis."
+		return base
 	case errors.Is(err, ErrFeedbackPracticeOnly):
 		base.status = http.StatusConflict
 		base.code = "FEEDBACK_PRACTICE_ONLY"
@@ -588,7 +593,7 @@ func (a *authentication) CompleteOAuth(ctx context.Context, request prepeetapi.C
 		return a.failed(ctx, ErrOAuthStateRejected), nil
 	}
 
-	session, _, err := a.identity.CompleteOAuth(ctx, request.Provider,
+	session, redirectTo, err := a.identity.CompleteOAuth(ctx, request.Provider,
 		request.Body.State, request.Body.Code)
 	if err != nil {
 		return a.failed(ctx, err), nil
@@ -598,5 +603,8 @@ func (a *authentication) CompleteOAuth(ctx context.Context, request prepeetapi.C
 	if err != nil {
 		return a.failed(ctx, err), nil
 	}
-	return issued, nil
+	// The destination is carried back rather than discarded. It was validated
+	// when it was stored, at the start of the round trip, because an open
+	// redirect stored is an open redirect; here it is only handed on.
+	return oauthSessionIssued{sessionIssued: issued, redirectTo: redirectTo}, nil
 }

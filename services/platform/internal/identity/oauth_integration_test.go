@@ -11,6 +11,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/token"
 )
 
 // IAM-08 against real PostgreSQL. Every property here is one an attacker
@@ -316,5 +317,175 @@ func TestAProviderOnlyAccountRefusesAPasswordLikeAnyWrongOne(t *testing.T) {
 	if viaPassword.Error() != viaUnknown.Error() {
 		t.Fatalf("provider-only says %q and unknown says %q: the difference is an oracle",
 			viaPassword, viaUnknown)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Regressions from the IAM-08 review. Each names the finding it holds down.
+
+// Finding: account creation committed before the link, so a failure between
+// them left a user with an empty password hash and no provider identity. The
+// address was taken, password sign-in could not succeed, and the next provider
+// attempt refused to link an unverified address to the account that existed.
+func TestANewAccountAndItsProviderLinkAreOneTransaction(t *testing.T) {
+	ctx := context.Background()
+	repo := identity.NewRepository(pool)
+	address := newAddress()
+	subject := "google-" + id.New().String()
+
+	provider := &stubProvider{identity: identity.ProviderIdentity{
+		Subject: subject, Email: address, EmailVerified: true,
+	}}
+	service := identity.NewService(repo, time.Now).
+		WithOAuth(repo, map[string]identity.Provider{"google": provider})
+
+	begun, err := service.BeginOAuth(ctx, "google", "")
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	session, _, err := service.CompleteOAuth(ctx, "google", begun.State, "auth-code")
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	// The link exists for the account that was created, which is the half that
+	// used to be able to go missing.
+	linked, err := repo.FindOAuthIdentity(ctx, "google", subject)
+	if err != nil {
+		t.Fatalf("the account was created without its provider link: %v", err)
+	}
+	if linked != session.UserID {
+		t.Fatalf("the link points at %s and the session is %s", linked, session.UserID)
+	}
+}
+
+// The same account, signed into twice concurrently. One transaction wins the
+// unique index and the loser must read the winner back rather than error,
+// which is the race the fix has to survive.
+func TestTwoSimultaneousFirstSignInsResolveToOneAccount(t *testing.T) {
+	ctx := context.Background()
+	repo := identity.NewRepository(pool)
+	address := newAddress()
+	subject := "google-" + id.New().String()
+
+	service := func() *identity.Service {
+		return identity.NewService(repo, time.Now).
+			WithOAuth(repo, map[string]identity.Provider{"google": &stubProvider{
+				identity: identity.ProviderIdentity{
+					Subject: subject, Email: address, EmailVerified: true,
+				},
+			}})
+	}
+
+	first, err := service().BeginOAuth(ctx, "google", "")
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	second, err := service().BeginOAuth(ctx, "google", "")
+	if err != nil {
+		t.Fatalf("begin again: %v", err)
+	}
+
+	results := make(chan string, 2)
+	failures := make(chan error, 2)
+	for _, state := range []string{first.State, second.State} {
+		go func(state string) {
+			session, _, err := service().CompleteOAuth(ctx, "google", state, "auth-code")
+			if err != nil {
+				failures <- err
+				return
+			}
+			results <- session.UserID
+		}(state)
+	}
+
+	seen := []string{}
+	for range 2 {
+		select {
+		case userID := <-results:
+			seen = append(seen, userID)
+		case err := <-failures:
+			t.Fatalf("a concurrent first sign-in failed rather than resolving: %v", err)
+		}
+	}
+	if seen[0] != seen[1] {
+		t.Fatalf("one address became two accounts: %s and %s", seen[0], seen[1])
+	}
+}
+
+// Finding: the destination recorded at the start was returned by the service
+// and thrown away by the caller. It has to survive the round trip.
+func TestTheDestinationSurvivesTheRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	provider := &stubProvider{identity: identity.ProviderIdentity{
+		Subject: "google-" + id.New().String(), Email: newAddress(), EmailVerified: true,
+	}}
+	service := oauthService(t, provider)
+
+	begun, err := service.BeginOAuth(ctx, "google", "/session/abc/results")
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+
+	_, redirect, err := service.CompleteOAuth(ctx, "google", begun.State, "auth-code")
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	if redirect != "/session/abc/results" {
+		t.Fatalf("redirect = %q, want the destination the sign-in was started with", redirect)
+	}
+}
+
+// Finding: DeleteExpiredOAuthStates was generated and never called, so every
+// completed, expired or abandoned attempt left a permanent row holding a PKCE
+// verifier and a destination.
+func TestStartingASignInSweepsTheExpiredOnes(t *testing.T) {
+	ctx := context.Background()
+	repo := identity.NewRepository(pool)
+	provider := &stubProvider{}
+
+	// A state minted well in the past, which is what an abandoned sign-in
+	// leaves behind.
+	stale := identity.NewService(repo, func() time.Time {
+		return time.Now().Add(-2 * time.Hour)
+	}).WithOAuth(repo, map[string]identity.Provider{"google": provider})
+	abandoned, err := stale.BeginOAuth(ctx, "google", "")
+	if err != nil {
+		t.Fatalf("begin in the past: %v", err)
+	}
+
+	// Any sign-in started now sweeps it.
+	if _, err := oauthService(t, provider).BeginOAuth(ctx, "google", ""); err != nil {
+		t.Fatalf("begin now: %v", err)
+	}
+
+	// Gone rather than merely expired: consuming it finds nothing at all.
+	_, err = repo.ConsumeOAuthState(ctx, token.HashOf(abandoned.State))
+	if !errors.Is(err, identity.ErrNotFound) {
+		t.Fatalf("the abandoned state is still there: %v", err)
+	}
+}
+
+// The sweep must not take a live state with it, which is the way a cleanup
+// turns into an outage: everybody mid-sign-in is refused.
+func TestTheSweepLeavesLiveStatesAlone(t *testing.T) {
+	ctx := context.Background()
+	provider := &stubProvider{identity: identity.ProviderIdentity{
+		Subject: "google-" + id.New().String(), Email: newAddress(), EmailVerified: true,
+	}}
+	service := oauthService(t, provider)
+
+	inFlight, err := service.BeginOAuth(ctx, "google", "")
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	// Somebody else starts one, which is what runs the sweep.
+	if _, err := service.BeginOAuth(ctx, "google", ""); err != nil {
+		t.Fatalf("begin again: %v", err)
+	}
+
+	if _, _, err := service.CompleteOAuth(ctx, "google", inFlight.State, "auth-code"); err != nil {
+		t.Fatalf("a sign-in in flight was swept away: %v", err)
 	}
 }

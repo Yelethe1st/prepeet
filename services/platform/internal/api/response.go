@@ -65,11 +65,33 @@ func (r sessionIssued) VisitRefreshResponse(w http.ResponseWriter) error { retur
 func (r sessionIssued) VisitConsumeMagicLinkResponse(w http.ResponseWriter) error { return r.write(w) }
 func (r sessionIssued) VisitConsumeOTPResponse(w http.ResponseWriter) error       { return r.write(w) }
 
-// The OAuth callback ends here too, which is the point of IAM-08's third
-// criterion: one place writes the cookies, so a session held by somebody who
-// signed in with Google is indistinguishable from one held by somebody who
-// typed a password, including to logout and to revocation.
-func (r sessionIssued) VisitCompleteOAuthResponse(w http.ResponseWriter) error { return r.write(w) }
+// oauthSessionIssued is the callback's answer: the same session, plus where
+// the sign-in was started from.
+//
+// It embeds sessionIssued rather than repeating it, which is the point of
+// IAM-08's third criterion: one place writes the cookies, so a session held by
+// somebody who signed in with Google is indistinguishable from one held by
+// somebody who typed a password, including to logout and to revocation. The
+// destination rides alongside because the server cannot navigate a browser and
+// a redirect from a fetch call would not be followed.
+type oauthSessionIssued struct {
+	sessionIssued
+	redirectTo string
+}
+
+func (r oauthSessionIssued) VisitCompleteOAuthResponse(w http.ResponseWriter) error {
+	SetSessionCookies(w, r.environment,
+		r.session.SessionToken, r.session.RefreshToken,
+		r.session.ExpiresAt, r.session.RefreshExpires)
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", NoStore)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(prepeetapi.OAuthSession{
+		Session: r.body, RedirectTo: r.redirectTo,
+	})
+}
 
 // sessionCleared is the 204 for logout and the cookie-clearing half of a
 // rejected refresh.

@@ -61,7 +61,10 @@ export function OAuthCallback({
 
   const finish = useMutation({
     mutationFn: () => completeOAuth(provider, state, code),
-    onSuccess: () => onSignedIn("/practice"),
+    // Where the sign-in was started from, which the server validated when it
+    // stored it. Empty when none was given or the one given was refused, and
+    // the practice list is the default a candidate expects to land on.
+    onSuccess: (completed) => onSignedIn(completed.redirect_to || "/practice"),
   });
 
   // Fired once, on arrival. The provider has already redirected; there is

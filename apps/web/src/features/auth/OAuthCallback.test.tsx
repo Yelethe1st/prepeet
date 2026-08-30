@@ -45,7 +45,10 @@ afterEach(() => {
 
 describe("the OAuth callback", () => {
   it("completes the sign-in on arrival, without asking anything", async () => {
-    vi.mocked(api.completeOAuth).mockResolvedValue({} as never);
+    vi.mocked(api.completeOAuth).mockResolvedValue({
+      session: {} as never,
+      redirect_to: "",
+    });
 
     const onSignedIn = renderCallback();
 
@@ -156,5 +159,38 @@ describe("the OAuth callback", () => {
     );
 
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * Regression from the IAM-08 review. The destination recorded when the sign-in
+ * started was returned by the server and discarded twice over: the handler
+ * assigned it to _, and this screen navigated to /practice unconditionally.
+ * Somebody sent to sign in from a results page came back to the practice list.
+ */
+describe("where the callback sends somebody", () => {
+  it("goes where the sign-in was started from", async () => {
+    vi.mocked(api.completeOAuth).mockResolvedValue({
+      session: {} as never,
+      redirect_to: "/session/abc/results",
+    });
+
+    const onSignedIn = renderCallback();
+
+    await waitFor(() =>
+      expect(onSignedIn).toHaveBeenCalledWith("/session/abc/results"),
+    );
+  });
+
+  /** No destination falls back rather than navigating to an empty string. */
+  it("falls back to the practice list when there was none", async () => {
+    vi.mocked(api.completeOAuth).mockResolvedValue({
+      session: {} as never,
+      redirect_to: "",
+    });
+
+    const onSignedIn = renderCallback();
+
+    await waitFor(() => expect(onSignedIn).toHaveBeenCalledWith("/practice"));
   });
 });

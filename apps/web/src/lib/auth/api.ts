@@ -181,12 +181,19 @@ export async function startOAuth(
  * Finish a provider sign-in. The cookies arrive on this response, exactly as
  * they do from signing in with a password.
  */
+export type OAuthSession = components["schemas"]["OAuthSession"];
+
+/**
+ * Finish a provider sign-in. The cookies arrive on this response, exactly as
+ * they do from signing in with a password, and `redirect_to` is where the
+ * sign-in was started from.
+ */
 export async function completeOAuth(
   provider: string,
   state: string,
   code: string,
-): Promise<Session> {
-  return apiFetch<Session>(`/auth/oauth/${provider}/callback`, {
+): Promise<OAuthSession> {
+  return apiFetch<OAuthSession>(`/auth/oauth/${provider}/callback`, {
     method: "POST",
     body: { state, code },
   });

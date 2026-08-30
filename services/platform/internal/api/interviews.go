@@ -114,6 +114,14 @@ type BaselineView struct {
 // ErrFeedbackMissingBody says the request carried no verdict to record.
 var ErrFeedbackMissingBody = errors.New("api: insight feedback needs a verdict")
 
+// ErrFeedbackUnknownInsight says the verdict names an insight this session's
+// analysis never generated.
+//
+// Refused rather than stored. The rate per artifact version is what QUA-06
+// reads, and a verdict about an insight nobody was shown is a wrong answer to
+// the question that measurement exists to ask.
+var ErrFeedbackUnknownInsight = errors.New("api: that insight is not part of this analysis")
+
 // ErrFeedbackPracticeOnly says feedback was offered on a screening session.
 //
 // A screening candidate rating their own assessment would be a channel for

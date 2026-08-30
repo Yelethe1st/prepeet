@@ -285,7 +285,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Session"
+                $ref: "#/components/schemas/OAuthSession"
         "400": { $ref: "#/components/responses/ValidationFailed" }
         "404":
           description: OAUTH_PROVIDER_UNKNOWN for a provider that is not configured.
@@ -2341,6 +2341,24 @@ components:
           description: |
             The anti-forgery value, which comes back in the provider's
             redirect and is presented to the callback. Single-use.
+
+    OAuthSession:
+      type: object
+      required: [session, redirect_to]
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+        redirect_to:
+          type: string
+          description: |
+            Where the sign-in was started from, validated when it was stored
+            rather than when it is read. Empty when none was given or when the
+            one given was refused, in which case the client uses its own
+            default.
+
+            Returned rather than acted on: the server cannot navigate a
+            browser, and a redirect from a call the client made with fetch
+            would not be followed anyway.
 
     OAuthCallbackRequest:
       type: object

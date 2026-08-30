@@ -34,7 +34,7 @@ describe("completeInterview", () => {
 
     expect(apiFetch).toHaveBeenCalledWith("/interviews/ses-5/complete", {
       method: "POST",
-      body: JSON.stringify({ connection_epoch: 2, final_sequence: 9 }),
+      body: { connection_epoch: 2, final_sequence: 9 },
     });
   });
 });

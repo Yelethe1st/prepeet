@@ -22,7 +22,7 @@ describe("the live shell's exit", () => {
     expect(vi.mocked(apiFetch).mock.calls[0]?.[0]).toBe("/interviews/ses-6");
     expect(apiFetch).toHaveBeenLastCalledWith("/interviews/ses-6/complete", {
       method: "POST",
-      body: JSON.stringify({ connection_epoch: 1, final_sequence: 4 }),
+      body: { connection_epoch: 1, final_sequence: 4 },
     });
   });
 });

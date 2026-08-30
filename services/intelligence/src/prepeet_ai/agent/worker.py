@@ -80,6 +80,7 @@ def main() -> None:  # pragma: no cover - LiveKit process entrypoint
                     brief=brief,
                     complete=completer_from_config(model_config),
                     version=model_config.version,
+                    timeout_seconds=model_config.timeout_seconds,
                 )
             except Exception:  # the scripted floor is the fallback
                 logger.exception(

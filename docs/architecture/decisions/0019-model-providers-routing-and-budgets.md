@@ -61,6 +61,23 @@ mid-interview. The provider and model that asked each question are
 recorded on the turn boundary (`model_version`), so a session's
 provenance names them exactly as evaluation results name their rubric.
 
+`PREPEET_LLM_TIMEOUT_SECONDS` bounds one question, defaulting to twenty.
+Both SDKs default to roughly ten minutes, which is reasonable for batch
+work and unusable here: a live interview puts a person in the silence.
+The interviewer enforces the budget itself rather than trusting the
+client, so the guarantee holds for a provider whose SDK ignores the
+argument, and the clients retry nothing, because a retry spends a budget
+nobody is waiting on any more.
+
+A question the provider cannot answer degrades the interview rather than
+ending it: the interviewer asks an open fallback question, recorded as
+`model_version` with a `/fallback` suffix so no turn claims a model
+asked what none did. Two consecutive failures are absorbed; a third ends
+the session cleanly, because a candidate answering an endless list of
+four generic questions is worse served than one whose interview stopped.
+This is degradation within a stage and is distinct from the cross-provider
+fallback below, which stays gated on measured equivalence.
+
 ### Routing and fallback
 
 - Routing is per stage and pinned: which provider and model a stage used

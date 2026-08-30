@@ -18,6 +18,8 @@ transfers nothing, so ADR-0019's admissibility terms are met trivially.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
@@ -25,10 +27,39 @@ from dataclasses import dataclass, field
 from prepeet_ai.agent.ports import Turn
 from prepeet_ai.agent.timeline import Brief
 
+logger = logging.getLogger(__name__)
+
 END_MARKER = "[END]"
 """What the model says when the interview is over: explicit, never inferred."""
 
 MAX_QUESTION_TOKENS = 200
+
+FALLBACK_QUESTIONS = (
+    "Tell me about a piece of work you are proud of.",
+    "What was the hardest decision in that work, and what did you weigh?",
+    "What would you do differently next time?",
+    "What did you learn that you have carried into later work?",
+)
+"""Asked when the provider does not answer. Open enough to follow anything."""
+
+DEFAULT_TIMEOUT_SECONDS = 20.0
+"""One question's budget. See ModelConfig.timeout_seconds for why it is short."""
+
+
+def _parse_timeout(raw: str) -> float:
+    """Read the configured budget, leaving an unusable one to fail in validate.
+
+    A value that cannot be parsed becomes a sentinel rather than the default,
+    because falling back to the default would silently ignore what a deployment
+    asked for.
+    """
+    if not raw.strip():
+        return DEFAULT_TIMEOUT_SECONDS
+    try:
+        return float(raw)
+    except ValueError:
+        return float("nan")
+
 
 Complete = Callable[[str, list[dict[str, str]]], Awaitable[str]]
 """(system prompt, messages) -> the model's reply text."""
@@ -45,6 +76,13 @@ class ModelConfig:
     model: str
     api_key: str = ""
     base_url: str = ""
+    # How long one question may take. Both SDKs default to roughly ten
+    # minutes, which is a sensible batch default and a catastrophic one for a
+    # live interview: the candidate sits in silence for the whole of it. The
+    # bound is short enough that giving up and asking something else is faster
+    # than waiting, and it is configuration because a self-hosted endpoint on
+    # modest hardware is legitimately slower than a hosted one.
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> ModelConfig | None:
@@ -57,6 +95,10 @@ class ModelConfig:
             model=env.get("PREPEET_LLM_MODEL", "").strip(),
             api_key=env.get("PREPEET_LLM_API_KEY", "").strip(),
             base_url=env.get("PREPEET_LLM_BASE_URL", "").strip(),
+            # Kept as written so validate() can name what was wrong with it;
+            # parsing here would turn "thirty" into the default and say
+            # nothing.
+            timeout_seconds=_parse_timeout(env.get("PREPEET_LLM_TIMEOUT_SECONDS", "")),
         )
 
     @property
@@ -86,6 +128,10 @@ def validate(config: ModelConfig) -> ModelConfig:
         raise ModelConfigError(f"PREPEET_LLM_API_KEY is required for {config.provider}")
     if config.provider in ("openai-compatible", "huggingface") and not config.base_url:
         raise ModelConfigError(f"PREPEET_LLM_BASE_URL is required for {config.provider}")
+    if not config.timeout_seconds > 0:
+        # NaN arrives here from an unparseable value and fails this comparison
+        # too, which is the point of using it as the sentinel.
+        raise ModelConfigError("PREPEET_LLM_TIMEOUT_SECONDS must be a positive number of seconds")
     return config
 
 
@@ -125,8 +171,15 @@ class ModelInterviewer:
     # version is recorded on every turn boundary: which provider and model
     # asked this question, so a session's provenance names it.
     version: str = "scripted"
+    # One question's budget, and how many consecutive provider failures are
+    # absorbed before the interview ends rather than continuing on fallbacks.
+    # Two, because one failure is a blip and a third would mean the candidate
+    # is answering questions no model chose, which is worse than a clean end.
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+    max_consecutive_failures: int = 2
     _history: list[dict[str, str]] = field(default_factory=list)
     _asked: int = 0
+    _consecutive_failures: int = 0
 
     def __post_init__(self) -> None:
         """Bound questions by the plan when the caller did not: two per stage, floor of three.
@@ -141,9 +194,46 @@ class ModelInterviewer:
             self.max_questions = max(3, 2 * count)
 
     async def _ask(self, user_text: str) -> Turn | None:
+        """Ask the model, degrading to a fallback question when it cannot answer.
+
+        A live interview has a person sitting in whatever silence a provider
+        makes, so neither a hang nor an error may reach the conversation loop:
+        this used to await the completion bare, and a rate limit on question
+        four ended the session. The timeout is applied here rather than only on
+        the client so the guarantee holds for any provider, including one whose
+        SDK ignores the argument.
+        """
         self._history.append({"role": "user", "content": user_text})
         started = time.monotonic()
-        reply = (await self.complete(system_prompt(self.brief), list(self._history))).strip()
+        try:
+            raw = await asyncio.wait_for(
+                self.complete(system_prompt(self.brief), list(self._history)),
+                timeout=self.timeout_seconds,
+            )
+        except asyncio.CancelledError:
+            # Redundant today, and deliberately kept: CancelledError is a
+            # BaseException, so the clause below already lets it past. It is
+            # here to say that a worker shutting down is not a provider fault,
+            # because the tempting widening to `except BaseException` would
+            # turn a shutdown into a fallback question. A test fails on that
+            # widening; this clause is what the test is describing.
+            raise
+        except Exception as error:
+            self._consecutive_failures += 1
+            logger.warning(
+                "the interviewer's model did not answer; asking a fallback question",
+                exc_info=error,
+                extra={
+                    "model_version": self.version,
+                    "consecutive_failures": self._consecutive_failures,
+                },
+            )
+            # The history keeps the candidate's turn but not a question the
+            # model never asked, so a recovered provider sees a truthful
+            # exchange rather than words attributed to it.
+            return self._fallback()
+        self._consecutive_failures = 0
+        reply = raw.strip()
         latency_ms = int((time.monotonic() - started) * 1000)
         if reply.startswith(END_MARKER) or not reply:
             return None
@@ -153,6 +243,24 @@ class ModelInterviewer:
         self._history.append({"role": "assistant", "content": text})
         self._asked += 1
         return Turn(text=text, latency_ms=latency_ms, model_version=self.version)
+
+    def _fallback(self) -> Turn | None:
+        """A question to carry one failed turn, or None once the provider is gone.
+
+        Ending is the honest outcome for a provider that is not coming back: a
+        fallback loop would have the candidate answering questions drawn from a
+        list of four, which reads as an interview and is not one. The fallback
+        counts against the question cap for the same reason the model's own
+        questions do, so a degraded interview is not also a longer one.
+        """
+        if self._consecutive_failures > self.max_consecutive_failures:
+            return None
+        text = FALLBACK_QUESTIONS[self._asked % len(FALLBACK_QUESTIONS)]
+        self._history.append({"role": "assistant", "content": text})
+        self._asked += 1
+        # The provenance says the model did not ask this. Every turn records
+        # which model asked it, so the one case where none did has to say so.
+        return Turn(text=text, latency_ms=0, model_version=f"{self.version}/fallback")
 
     async def opening(self) -> Turn:
         """Greet and ask the first question; for a retake, ask exactly the original question."""
@@ -191,7 +299,14 @@ def _anthropic_completer(config: ModelConfig) -> Complete:  # pragma: no cover -
     from anthropic import AsyncAnthropic
     from anthropic.types import TextBlock
 
-    client = AsyncAnthropic(api_key=config.api_key, base_url=config.base_url or None)
+    client = AsyncAnthropic(
+        api_key=config.api_key,
+        base_url=config.base_url or None,
+        timeout=config.timeout_seconds,
+        # The interviewer gives up on its own budget, so a retrying client
+        # would spend that budget on attempts nobody is waiting for any more.
+        max_retries=0,
+    )
 
     async def complete(system: str, messages: list[dict[str, str]]) -> str:
         response = await client.messages.create(
@@ -212,6 +327,8 @@ def _openai_compatible_completer(config: ModelConfig) -> Complete:  # pragma: no
     client = AsyncOpenAI(
         api_key=config.api_key or "not-needed",
         base_url=config.base_url or None,
+        timeout=config.timeout_seconds,
+        max_retries=0,
     )
 
     async def complete(system: str, messages: list[dict[str, str]]) -> str:

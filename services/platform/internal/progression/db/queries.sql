@@ -40,3 +40,64 @@ SELECT id::text AS id, session_id::text AS session_id,
        observed_at, created_at
 FROM progression.observations
 ORDER BY observed_at, competency_id;
+
+-- name: InsertReadinessSnapshot :execrows
+-- Idempotent per (candidate, standard, answer): recomputing an answer that
+-- has not changed converges on the snapshot already written, so history
+-- records what changed rather than how often somebody looked.
+INSERT INTO progression.readiness_snapshots
+    (id, candidate_id, mode, tenant_id,
+     standard_reference, standard_version, standard_digest,
+     role_id, discipline_id, rubric_reference, answer_digest, computed_at)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(candidate_id)::uuid, sqlc.arg(mode)::text,
+        nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        sqlc.arg(standard_reference)::text, sqlc.arg(standard_version)::text,
+        sqlc.arg(standard_digest)::text,
+        sqlc.arg(role_id)::text, sqlc.arg(discipline_id)::text,
+        sqlc.arg(rubric_reference)::text,
+        sqlc.arg(answer_digest)::text, sqlc.arg(computed_at)::timestamptz)
+ON CONFLICT (candidate_id, standard_reference, answer_digest) DO NOTHING;
+
+-- name: InsertReadinessCompetency :exec
+-- One requirement's outcome. The schema refuses an unassessed row that
+-- carries a band, an observation or a date, so the empties below are not
+-- a convention but the only accepted shape.
+INSERT INTO progression.readiness_competencies
+    (snapshot_id, candidate_id, mode, tenant_id, competency_id, target_band,
+     outcome, observed_band, observation_id, observed_at, reason)
+VALUES (sqlc.arg(snapshot_id)::uuid, sqlc.arg(candidate_id)::uuid,
+        sqlc.arg(mode)::text, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        sqlc.arg(competency_id)::text, sqlc.arg(target_band)::text,
+        sqlc.arg(outcome)::text, sqlc.arg(observed_band)::text,
+        nullif(sqlc.arg(observation_id)::text, '')::uuid,
+        sqlc.narg(observed_at)::timestamptz,
+        sqlc.arg(reason)::text)
+ON CONFLICT (snapshot_id, competency_id) DO NOTHING;
+
+-- name: ListReadiness :many
+-- The current readiness for every standard this owner has one for: the
+-- newest snapshot per standard, with every one of its requirements,
+-- ordered by discipline and role. Grouped rather than aggregated - there
+-- is no row here that spans two standards, because incomparable roles are
+-- never averaged. How many were met is counted from these rows rather
+-- than stored, so no summary can disagree with what it summarises.
+WITH latest AS (
+    SELECT DISTINCT ON (standard_reference)
+           id, standard_reference, standard_version, standard_digest,
+           role_id, discipline_id, rubric_reference, computed_at
+    FROM progression.readiness_snapshots
+    ORDER BY standard_reference, computed_at DESC, created_at DESC
+)
+SELECT latest.id::text AS snapshot_id,
+       latest.standard_reference, latest.standard_version, latest.standard_digest,
+       latest.role_id, latest.discipline_id, latest.rubric_reference,
+       latest.computed_at,
+       requirement.competency_id, requirement.target_band, requirement.outcome,
+       requirement.observed_band, requirement.reason,
+       coalesce(requirement.observation_id::text, '')::text AS observation_id,
+       requirement.observed_at
+FROM latest
+JOIN progression.readiness_competencies AS requirement
+     ON requirement.snapshot_id = latest.id
+ORDER BY latest.discipline_id, latest.role_id, latest.standard_reference,
+         requirement.competency_id;

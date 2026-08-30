@@ -100,6 +100,108 @@ func (q *Queries) InsertObservation(ctx context.Context, arg InsertObservationPa
 	return result.RowsAffected(), nil
 }
 
+const insertReadinessCompetency = `-- name: InsertReadinessCompetency :exec
+INSERT INTO progression.readiness_competencies
+    (snapshot_id, candidate_id, mode, tenant_id, competency_id, target_band,
+     outcome, observed_band, observation_id, observed_at, reason)
+VALUES ($1::uuid, $2::uuid,
+        $3::text, nullif($4::text, '')::uuid,
+        $5::text, $6::text,
+        $7::text, $8::text,
+        nullif($9::text, '')::uuid,
+        $10::timestamptz,
+        $11::text)
+ON CONFLICT (snapshot_id, competency_id) DO NOTHING
+`
+
+type InsertReadinessCompetencyParams struct {
+	SnapshotID    string
+	CandidateID   string
+	Mode          string
+	TenantID      string
+	CompetencyID  string
+	TargetBand    string
+	Outcome       string
+	ObservedBand  string
+	ObservationID string
+	ObservedAt    *time.Time
+	Reason        string
+}
+
+// One requirement's outcome. The schema refuses an unassessed row that
+// carries a band, an observation or a date, so the empties below are not
+// a convention but the only accepted shape.
+func (q *Queries) InsertReadinessCompetency(ctx context.Context, arg InsertReadinessCompetencyParams) error {
+	_, err := q.db.Exec(ctx, insertReadinessCompetency,
+		arg.SnapshotID,
+		arg.CandidateID,
+		arg.Mode,
+		arg.TenantID,
+		arg.CompetencyID,
+		arg.TargetBand,
+		arg.Outcome,
+		arg.ObservedBand,
+		arg.ObservationID,
+		arg.ObservedAt,
+		arg.Reason,
+	)
+	return err
+}
+
+const insertReadinessSnapshot = `-- name: InsertReadinessSnapshot :execrows
+INSERT INTO progression.readiness_snapshots
+    (id, candidate_id, mode, tenant_id,
+     standard_reference, standard_version, standard_digest,
+     role_id, discipline_id, rubric_reference, answer_digest, computed_at)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        nullif($4::text, '')::uuid,
+        $5::text, $6::text,
+        $7::text,
+        $8::text, $9::text,
+        $10::text,
+        $11::text, $12::timestamptz)
+ON CONFLICT (candidate_id, standard_reference, answer_digest) DO NOTHING
+`
+
+type InsertReadinessSnapshotParams struct {
+	ID                string
+	CandidateID       string
+	Mode              string
+	TenantID          string
+	StandardReference string
+	StandardVersion   string
+	StandardDigest    string
+	RoleID            string
+	DisciplineID      string
+	RubricReference   string
+	AnswerDigest      string
+	ComputedAt        time.Time
+}
+
+// Idempotent per (candidate, standard, answer): recomputing an answer that
+// has not changed converges on the snapshot already written, so history
+// records what changed rather than how often somebody looked.
+func (q *Queries) InsertReadinessSnapshot(ctx context.Context, arg InsertReadinessSnapshotParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertReadinessSnapshot,
+		arg.ID,
+		arg.CandidateID,
+		arg.Mode,
+		arg.TenantID,
+		arg.StandardReference,
+		arg.StandardVersion,
+		arg.StandardDigest,
+		arg.RoleID,
+		arg.DisciplineID,
+		arg.RubricReference,
+		arg.AnswerDigest,
+		arg.ComputedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listObservations = `-- name: ListObservations :many
 SELECT id::text AS id, session_id::text AS session_id,
        evaluation_id::text AS evaluation_id, competency_id,
@@ -172,6 +274,89 @@ func (q *Queries) ListObservations(ctx context.Context) ([]ListObservationsRow, 
 			&i.Supersedes,
 			&i.ObservedAt,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReadiness = `-- name: ListReadiness :many
+WITH latest AS (
+    SELECT DISTINCT ON (standard_reference)
+           id, standard_reference, standard_version, standard_digest,
+           role_id, discipline_id, rubric_reference, computed_at
+    FROM progression.readiness_snapshots
+    ORDER BY standard_reference, computed_at DESC, created_at DESC
+)
+SELECT latest.id::text AS snapshot_id,
+       latest.standard_reference, latest.standard_version, latest.standard_digest,
+       latest.role_id, latest.discipline_id, latest.rubric_reference,
+       latest.computed_at,
+       requirement.competency_id, requirement.target_band, requirement.outcome,
+       requirement.observed_band, requirement.reason,
+       coalesce(requirement.observation_id::text, '')::text AS observation_id,
+       requirement.observed_at
+FROM latest
+JOIN progression.readiness_competencies AS requirement
+     ON requirement.snapshot_id = latest.id
+ORDER BY latest.discipline_id, latest.role_id, latest.standard_reference,
+         requirement.competency_id
+`
+
+type ListReadinessRow struct {
+	SnapshotID        string
+	StandardReference string
+	StandardVersion   string
+	StandardDigest    string
+	RoleID            string
+	DisciplineID      string
+	RubricReference   string
+	ComputedAt        time.Time
+	CompetencyID      string
+	TargetBand        string
+	Outcome           string
+	ObservedBand      string
+	Reason            string
+	ObservationID     string
+	ObservedAt        *time.Time
+}
+
+// The current readiness for every standard this owner has one for: the
+// newest snapshot per standard, with every one of its requirements,
+// ordered by discipline and role. Grouped rather than aggregated - there
+// is no row here that spans two standards, because incomparable roles are
+// never averaged. How many were met is counted from these rows rather
+// than stored, so no summary can disagree with what it summarises.
+func (q *Queries) ListReadiness(ctx context.Context) ([]ListReadinessRow, error) {
+	rows, err := q.db.Query(ctx, listReadiness)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReadinessRow{}
+	for rows.Next() {
+		var i ListReadinessRow
+		if err := rows.Scan(
+			&i.SnapshotID,
+			&i.StandardReference,
+			&i.StandardVersion,
+			&i.StandardDigest,
+			&i.RoleID,
+			&i.DisciplineID,
+			&i.RubricReference,
+			&i.ComputedAt,
+			&i.CompetencyID,
+			&i.TargetBand,
+			&i.Outcome,
+			&i.ObservedBand,
+			&i.Reason,
+			&i.ObservationID,
+			&i.ObservedAt,
 		); err != nil {
 			return nil, err
 		}

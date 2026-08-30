@@ -48,9 +48,59 @@ Readiness is measured against a specific, versioned role standard — never a fl
 incomparable roles.
 
 **Done when**
-- [ ] Readiness names the role standard and version it was computed against.
-- [ ] Progression is grouped by role and discipline, and incomparable roles are never averaged.
-- [ ] Assessed and unassessed competencies stay visibly distinct.
+- [x] Readiness names the role standard and version it was computed against.
+- [x] Progression is grouped by role and discipline, and incomparable roles are never averaged.
+- [x] Assessed and unassessed competencies stay visibly distinct.
+
+**Done as a calculation and a read model. Nothing is wired to it yet, and the last section says why.**
+
+`progression.readiness_snapshots` and `progression.readiness_competencies` are migration 0046's two
+tables, and the calculation above them is pure: `Compute` takes one pinned standard and the
+candidate's history and answers one readiness. The pin travels inside the answer rather than beside
+it, so a figure cannot be produced or stored without the reference, version and digest that produced
+it. `ParseStandard` refuses a standard that cannot name itself, `Compute` refuses one built by hand
+that cannot, and the schema refuses the row. Each of the three was proven by removing it and watching
+its own named test fail.
+
+Two roles are two answers at every layer. `ComputeAll` returns a list ordered by discipline then role
+and refuses two standards claiming one role, because ambiguity about which answer belongs to a role
+is how averaging starts. There is no function that combines two readinesses, no column that could
+hold a combined figure and no table for one, so incomparable roles cannot be averaged for want of
+anywhere to put the average. The test that matters is the unglamorous one: a backend engineer's
+strong systems-design reading does not answer an engineering manager's standard, though both are
+software engineering. Comparability includes the rubric, per the evaluation spec, so a reading
+produced under another rubric reference is reported as incomparable rather than counted.
+
+Assessed and unassessed are mirror shapes rather than a flag. An unassessed requirement carries no
+band, no resolving observation and no date, and must state why: `never_observed`, `not_assessed`,
+`incomparable_rubric` or `incomparable_band`, because a competency that has never come up asks for a
+different next session from one measured under a rubric this standard cannot be compared with. Four
+CHECK constraints hold the mirror in both directions, so a met requirement with no reading is refused
+as firmly as an unassessed one wearing a band.
+
+The met, below and unassessed totals are deliberately not stored. A count beside the rows it
+summarises is a count that can stop agreeing with them, and the disagreement that would matter here
+is exactly the invisible one, an unmeasured competency shown as a pass. They are derived from the
+requirement rows when a readiness is computed and again when one is read back, by the same function.
+The first attempt did store them, with a CHECK that they summed to the requirement count; writing the
+attack showed that check passing while the lie went through, which is how the column came out.
+
+Recomputation converges instead of accumulating. A snapshot's identity is a digest of the pin and
+every resolved requirement, so an unchanged answer is the row already written and a changed answer
+appends beside it, which makes the history a record of what changed rather than of how often somebody
+looked. Append-only by trigger, attacked with UPDATE and DELETE from inside the owner's scope.
+Row-level security attacked from a second tenant, aimed at a snapshot id known to exist under the
+first: zero rows for the snapshot, zero for its requirements, and nothing from the store; the same
+for a second practice candidate. Sixteen guards in all were broken deliberately and each failed a
+named test before being restored.
+
+**What is not wired.** No `role_standard` artifact has been published: `services/intelligence/artifacts`
+holds none and was outside this change, so the document shape is defined and parsed here but nothing
+resolves one yet. `contentctl` does not validate the type, no worker route computes a readiness when
+an evaluation publishes, and `GET /api/v1/me/readiness` remains only in the contract. The boxes above
+are ticked for the calculation, the schema and the read model, which is what this ticket owns. A
+candidate cannot see readiness until PRG-04 builds the screen, and nothing will populate it until a
+standard exists to pin.
 
 **Spec** [practice-mode.md](../../product/practice-mode.md)
 

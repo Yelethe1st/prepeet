@@ -237,3 +237,145 @@ func TestStartPublishesTheSessionStartedEvent(t *testing.T) {
 		t.Fatalf("%d started events, want exactly 1", count)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Regressions from the RTC-05 review.
+
+// recordingFailure is a recorder that refuses, so the claim-release path can
+// be exercised.
+type recordingFailure struct{ attempts int }
+
+func (r *recordingFailure) StartTrack(context.Context, string, string, string) (string, error) {
+	r.attempts++
+	return "", errors.New("provider unavailable")
+}
+
+func (r *recordingFailure) StopTrack(context.Context, string) error { return nil }
+
+// Finding: StartRecording checked the recording preference and nothing else,
+// so a delayed or retried interview.session_started.v1 could begin egress
+// after the candidate had finished and the session was sealed. Capture would
+// continue past the consent it was given, and because completion had already
+// run there was no later step to stop it or account for it.
+func TestARecordingDoesNotStartAfterTheSessionIsSealed(t *testing.T) {
+	ctx := context.Background()
+	store := interview.NewStore(pool)
+	session := audioSession(t)
+	recorder := &fakeRecorder{}
+
+	// Complete first, which seals. This is the delayed-delivery order: the
+	// candidate has finished before the start event is handled.
+	if _, err := interview.NewCompleter(store).
+		Complete(ctx, session.ID, "practice", candidateID, "", 1, 2); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	current, err := store.Get(ctx, session.ID, "practice", candidateID, "")
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if err := store.StartRecording(ctx, recorder, current); err != nil {
+		t.Fatalf("start after completion: %v", err)
+	}
+
+	if len(recorder.started) != 0 {
+		t.Fatalf("egress began after the session was sealed: %v", recorder.started)
+	}
+}
+
+// The claim and the state check are one transaction, so the slot is only ever
+// taken by a session that may still record.
+func TestARecordingDoesNotStartOnceTheSessionHasLeftTheLiveStates(t *testing.T) {
+	ctx := context.Background()
+	store := interview.NewStore(pool)
+	session := audioSession(t)
+	recorder := &fakeRecorder{}
+
+	current, err := store.Get(ctx, session.ID, "practice", candidateID, "")
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	ended, err := store.Transition(ctx, current, interview.StateFinalizing, interview.Effects{}, candidate)
+	if err != nil {
+		t.Fatalf("transition: %v", err)
+	}
+
+	if err := store.StartRecording(ctx, recorder, ended); err != nil {
+		t.Fatalf("start after finalizing: %v", err)
+	}
+
+	if len(recorder.started) != 0 {
+		t.Fatalf("egress began for a session that had left the live states: %v", recorder.started)
+	}
+}
+
+// Finding: the check, the provider call and the insert were three steps, so
+// two deliveries could both reach the provider and only one keep its egress
+// id. The other job records the same participant to the same key and nothing
+// ever stops it. The claim is taken first now, and losing it means starting
+// nothing.
+func TestTwoConcurrentDeliveriesStartOneEgressPerTrack(t *testing.T) {
+	ctx := context.Background()
+	store := interview.NewStore(pool)
+	session := audioSession(t)
+
+	first := &fakeRecorder{}
+	second := &fakeRecorder{}
+	errs := make(chan error, 2)
+	for _, recorder := range []*fakeRecorder{first, second} {
+		go func(r *fakeRecorder) { errs <- store.StartRecording(ctx, r, session) }(recorder)
+	}
+	for range 2 {
+		if err := <-errs; err != nil {
+			t.Fatalf("concurrent start: %v", err)
+		}
+	}
+
+	// One egress per track across both deliveries, not one per delivery.
+	started := len(first.started) + len(second.started)
+	if started != len(first.started)+len(second.started) || started > 2 {
+		t.Fatalf("started %d egress jobs for two tracks: %v then %v",
+			started, first.started, second.started)
+	}
+
+	tracks, err := store.MediaTracks(ctx, session)
+	if err != nil {
+		t.Fatalf("reading tracks: %v", err)
+	}
+	if len(tracks) != started {
+		t.Fatalf("%d egress jobs and %d rows: an unstopped job is one nobody will finalise",
+			started, len(tracks))
+	}
+}
+
+// A provider that refuses must give the slot back, or the claim stays with no
+// egress behind it and every retry starts nothing at all: a session that
+// records silently nothing.
+func TestAFailedStartReleasesTheClaimSoARetryCanWork(t *testing.T) {
+	ctx := context.Background()
+	store := interview.NewStore(pool)
+	session := audioSession(t)
+
+	failing := &recordingFailure{}
+	if err := store.StartRecording(ctx, failing, session); err == nil {
+		t.Fatal("a refusing provider was reported as success")
+	}
+
+	working := &fakeRecorder{}
+	if err := store.StartRecording(ctx, working, session); err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+
+	if len(working.started) == 0 {
+		t.Fatal("the retry started nothing, so the failed claim was never released")
+	}
+	tracks, err := store.MediaTracks(ctx, session)
+	if err != nil {
+		t.Fatalf("reading tracks: %v", err)
+	}
+	for _, track := range tracks {
+		if track.EgressID == "" {
+			t.Fatalf("track %s has a claim and no egress", track.Track)
+		}
+	}
+}

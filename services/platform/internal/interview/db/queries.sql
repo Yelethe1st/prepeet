@@ -167,6 +167,46 @@ VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text,
         sqlc.arg(track)::text, sqlc.arg(storage_key)::text, sqlc.arg(egress_id)::text)
 ON CONFLICT (session_id, track) DO NOTHING;
 
+-- name: ClaimMediaTrack :execrows
+-- Take the (session, track) slot before any egress is started.
+--
+-- The claim comes first and the egress id arrives afterwards, which is the
+-- opposite of the original order and the reason it had to change: a unique
+-- constraint protects the row, not the external side effect, so checking and
+-- then calling LiveKit lets two deliveries both call it and only one keep its
+-- egress id. The other job records the same participant to the same key and
+-- nothing ever stops it.
+--
+-- The conflict branch takes over a claim that never started, which is what a
+-- provider failure leaves behind. Deleting such a row was the first attempt
+-- and cannot work here: this table grants no DELETE, and under FORCE row-level
+-- security a delete with no matching policy removes nothing and raises
+-- nothing, so the claim survived and every retry found the slot taken and
+-- started silently nothing at all. Claiming by update needs no new grant and
+-- has the same effect.
+--
+-- Zero rows affected means somebody else owns this track and has an egress
+-- running. That is an answer, not an error, and the caller must not start one.
+INSERT INTO interview.media_tracks
+    (id, session_id, mode, candidate_id, tenant_id, track, storage_key, egress_id)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text,
+        sqlc.arg(candidate_id)::uuid, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        sqlc.arg(track)::text, sqlc.arg(storage_key)::text, '')
+ON CONFLICT (session_id, track) DO UPDATE
+    SET storage_key = excluded.storage_key
+    WHERE interview.media_tracks.egress_id = '';
+
+-- name: RecordTrackEgress :execrows
+-- Attach the egress id to a claim this caller owns.
+--
+-- Only while the id is still empty, so a caller that lost its claim cannot
+-- overwrite the winner's egress id and orphan its job.
+UPDATE interview.media_tracks
+SET egress_id = sqlc.arg(egress_id)::text
+WHERE session_id = sqlc.arg(session_id)::uuid
+  AND track = sqlc.arg(track)::text
+  AND egress_id = '';
+
 -- name: ListMediaTracks :many
 SELECT id::text AS id, track, storage_key, egress_id, state, digest,
        size_bytes, created_at, resolved_at

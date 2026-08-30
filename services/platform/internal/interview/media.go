@@ -78,63 +78,114 @@ func (s *Store) StartRecording(ctx context.Context, recorder Recorder, session S
 			return err
 		}
 
-		tx, err := s.pool.Begin(ctx)
+		// Claim the slot before starting anything, and only while the session
+		// is still live.
+		//
+		// Both halves are one transaction because both were wrong. The state
+		// was never checked at all, so a delayed or retried
+		// session_started.v1 could begin egress after the candidate had
+		// finished and sealed: capture continuing past the consent it was
+		// given, with no later lifecycle step to stop it or pay for it. And
+		// the claim used to come after the egress, so two deliveries could
+		// both call the provider and only one keep its id, leaving a job
+		// nobody would ever stop recording the same participant to the same
+		// key.
+		claimed, err := s.claimTrack(ctx, session, track, key.String())
 		if err != nil {
-			return fmt.Errorf("interview: beginning track record: %w", err)
-		}
-		if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
-			_ = tx.Rollback(ctx)
 			return err
 		}
-		existing, err := db.New(tx).ListMediaTracks(ctx, session.ID)
-		if err != nil {
-			_ = tx.Rollback(ctx)
-			return fmt.Errorf("interview: reading tracks: %w", err)
-		}
-		_ = tx.Rollback(ctx)
-		already := false
-		for _, row := range existing {
-			if row.Track == track {
-				already = true
-			}
-		}
-		if already {
+		if !claimed {
+			// Somebody else owns this track, or the session is no longer one
+			// that may be recorded. Either way there is nothing to start.
 			continue
 		}
 
-		// Start the egress first, then record it: a crash between the two
-		// leaves an orphan egress writing to the derived key, and the
-		// retry claims the row for its own egress id; finalization reads
-		// the key either way, so the artifact is never lost to the race.
 		identity := track
 		if track == "candidate" {
 			identity = session.CandidateID
 		}
 		egressID, err := recorder.StartTrack(ctx, session.ID, identity, key.String())
 		if err != nil {
+			// The claim is left as it is, with no egress behind it. The
+			// next attempt takes it over, which is what the claim's
+			// conflict branch is for: releasing it by deleting cannot work
+			// on this table, which grants no DELETE.
 			return fmt.Errorf("interview: starting %s egress: %w", track, err)
 		}
-		tx, err = s.pool.Begin(ctx)
-		if err != nil {
-			return fmt.Errorf("interview: beginning track insert: %w", err)
-		}
-		if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
-			_ = tx.Rollback(ctx)
-			return err
-		}
-		if _, err := db.New(tx).InsertMediaTrack(ctx, db.InsertMediaTrackParams{
-			ID: id.New().String(), SessionID: session.ID, Mode: session.Mode,
-			CandidateID: session.CandidateID, TenantID: session.TenantID,
-			Track: track, StorageKey: key.String(), EgressID: egressID,
-		}); err != nil {
-			_ = tx.Rollback(ctx)
-			return fmt.Errorf("interview: recording the track row: %w", err)
-		}
-		if err := tx.Commit(ctx); err != nil {
+
+		if err := s.recordEgress(ctx, session, track, egressID); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// claimTrack takes the (session, track) slot, refusing once the session has
+// been sealed or has left the states that may record.
+//
+// The state check and the claim are in one transaction so a completion
+// committing between them cannot be missed.
+func (s *Store) claimTrack(ctx context.Context, session Session, track, key string) (bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("interview: beginning track claim: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
+		return false, err
+	}
+
+	// A sealed session is finished. Nothing may begin capturing after the
+	// transcript it belongs to has been closed.
+	if _, err := db.New(tx).GetSeal(ctx, session.ID); err == nil {
+		return false, nil
+	}
+
+	current, err := db.New(tx).GetSession(ctx, session.ID)
+	if err != nil {
+		return false, fmt.Errorf("interview: reading the session to record: %w", err)
+	}
+	if !recordableStates[current.State] {
+		return false, nil
+	}
+
+	rows, err := db.New(tx).ClaimMediaTrack(ctx, db.ClaimMediaTrackParams{
+		ID: id.New().String(), SessionID: session.ID, Mode: session.Mode,
+		CandidateID: session.CandidateID, TenantID: session.TenantID,
+		Track: track, StorageKey: key,
+	})
+	if err != nil {
+		return false, fmt.Errorf("interview: claiming %s: %w", track, err)
+	}
+	if rows == 0 {
+		return false, nil
+	}
+	return true, tx.Commit(ctx)
+}
+
+// recordableStates are the states a recording may begin in.
+//
+// A closed set rather than "not finished", so a state added later has to be
+// considered rather than silently permitting capture.
+var recordableStates = map[string]bool{
+	"connecting": true, "in_progress": true, "reconnecting": true,
+}
+
+func (s *Store) recordEgress(ctx context.Context, session Session, track, egressID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("interview: beginning egress record: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
+		return err
+	}
+	if _, err := db.New(tx).RecordTrackEgress(ctx, db.RecordTrackEgressParams{
+		SessionID: session.ID, Track: track, EgressID: egressID,
+	}); err != nil {
+		return fmt.Errorf("interview: recording %s egress: %w", track, err)
+	}
+	return tx.Commit(ctx)
 }
 
 // FinalizeRecording stops egress and reconciles each track against what

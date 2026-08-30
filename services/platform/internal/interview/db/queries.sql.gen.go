@@ -31,6 +31,62 @@ func (q *Queries) AdvanceSessionEpoch(ctx context.Context, arg AdvanceSessionEpo
 	return result.RowsAffected(), nil
 }
 
+const claimMediaTrack = `-- name: ClaimMediaTrack :execrows
+INSERT INTO interview.media_tracks
+    (id, session_id, mode, candidate_id, tenant_id, track, storage_key, egress_id)
+VALUES ($1::uuid, $2::uuid, $3::text,
+        $4::uuid, nullif($5::text, '')::uuid,
+        $6::text, $7::text, '')
+ON CONFLICT (session_id, track) DO UPDATE
+    SET storage_key = excluded.storage_key
+    WHERE interview.media_tracks.egress_id = ''
+`
+
+type ClaimMediaTrackParams struct {
+	ID          string
+	SessionID   string
+	Mode        string
+	CandidateID string
+	TenantID    string
+	Track       string
+	StorageKey  string
+}
+
+// Take the (session, track) slot before any egress is started.
+//
+// The claim comes first and the egress id arrives afterwards, which is the
+// opposite of the original order and the reason it had to change: a unique
+// constraint protects the row, not the external side effect, so checking and
+// then calling LiveKit lets two deliveries both call it and only one keep its
+// egress id. The other job records the same participant to the same key and
+// nothing ever stops it.
+//
+// The conflict branch takes over a claim that never started, which is what a
+// provider failure leaves behind. Deleting such a row was the first attempt
+// and cannot work here: this table grants no DELETE, and under FORCE row-level
+// security a delete with no matching policy removes nothing and raises
+// nothing, so the claim survived and every retry found the slot taken and
+// started silently nothing at all. Claiming by update needs no new grant and
+// has the same effect.
+//
+// Zero rows affected means somebody else owns this track and has an egress
+// running. That is an answer, not an error, and the caller must not start one.
+func (q *Queries) ClaimMediaTrack(ctx context.Context, arg ClaimMediaTrackParams) (int64, error) {
+	result, err := q.db.Exec(ctx, claimMediaTrack,
+		arg.ID,
+		arg.SessionID,
+		arg.Mode,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.Track,
+		arg.StorageKey,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const controlEventExists = `-- name: ControlEventExists :one
 SELECT EXISTS (
     SELECT 1 FROM interview.control_events WHERE event_id = $1::uuid
@@ -642,6 +698,32 @@ type PersistCursorParams struct {
 // a takeover already moved the session on.
 func (q *Queries) PersistCursor(ctx context.Context, arg PersistCursorParams) (int64, error) {
 	result, err := q.db.Exec(ctx, persistCursor, arg.Accepted, arg.ID, arg.Epoch)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const recordTrackEgress = `-- name: RecordTrackEgress :execrows
+UPDATE interview.media_tracks
+SET egress_id = $1::text
+WHERE session_id = $2::uuid
+  AND track = $3::text
+  AND egress_id = ''
+`
+
+type RecordTrackEgressParams struct {
+	EgressID  string
+	SessionID string
+	Track     string
+}
+
+// Attach the egress id to a claim this caller owns.
+//
+// Only while the id is still empty, so a caller that lost its claim cannot
+// overwrite the winner's egress id and orphan its job.
+func (q *Queries) RecordTrackEgress(ctx context.Context, arg RecordTrackEgressParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordTrackEgress, arg.EgressID, arg.SessionID, arg.Track)
 	if err != nil {
 		return 0, err
 	}

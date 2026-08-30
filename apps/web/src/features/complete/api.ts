@@ -25,9 +25,9 @@ export async function completeInterview(
 ): Promise<CompletionReceipt> {
   return apiFetch<CompletionReceipt>(`/interviews/${sessionId}/complete`, {
     method: "POST",
-    body: JSON.stringify({
+    body: {
       connection_epoch: connectionEpoch,
       final_sequence: finalSequence,
-    }),
+    },
   });
 }

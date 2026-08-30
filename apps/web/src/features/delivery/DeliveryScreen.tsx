@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   DelayedState,
   ErrorState,
+  EmptyState,
   LoadingSurface,
   SkeletonBlock,
   SkeletonText,
@@ -50,6 +51,9 @@ export function DeliveryScreen({ sessionId }: { sessionId: string }) {
     queryKey: ["delivery", sessionId],
     queryFn: () => getDelivery(sessionId),
     retry: false,
+    // Only while it is genuinely still running. A terminal outcome answers
+    // with its own code, and polling one of those is traffic that can never
+    // change its own answer.
     refetchInterval: (query) =>
       query.state.error instanceof ApiError &&
       query.state.error.code === "DELIVERY_NOT_READY"
@@ -101,6 +105,46 @@ export function DeliveryScreen({ sessionId }: { sessionId: string }) {
           again on its own.
         </p>
       </DelayedState>
+    );
+  }
+  {
+    /*
+      A delivery that will never arrive says so and stops.
+      
+      Both of these used to be answered as "not ready", so the page said
+      measurement was still running forever and polled every five seconds for
+      as long as it was open. The reason was recorded and the candidate was
+      never shown it.
+      
+      Neither is a result about them, and both say so: an omission is a
+      decision about the session, and a failure is something that went wrong on
+      our side with the evaluation untouched.
+    */
+  }
+  if (
+    delivery.error instanceof ApiError &&
+    (delivery.error.code === "DELIVERY_OMITTED" ||
+      delivery.error.code === "DELIVERY_FAILED")
+  ) {
+    return (
+      <EmptyState
+        title={
+          delivery.error.code === "DELIVERY_OMITTED"
+            ? "Delivery was not measured for this session"
+            : "Delivery could not be measured for this session"
+        }
+        action={
+          <Link className="underline" href={`/session/${sessionId}/results`}>
+            Back to your results
+          </Link>
+        }
+      >
+        <p>{delivery.error.message}</p>
+        <p className="mt-2">
+          Your results and coaching are unaffected, and a new practice session
+          is measured as usual.
+        </p>
+      </EmptyState>
     );
   }
   if (delivery.error || transcript.error) {

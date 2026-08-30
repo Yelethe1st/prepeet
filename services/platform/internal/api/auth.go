@@ -402,6 +402,18 @@ func (a *authentication) failed(ctx context.Context, err error) failure {
 		base.code = string(prepeetapi.VALIDATIONFAILED)
 		base.message = "Say which insight this is about and whether it described you."
 		return base
+	case errors.Is(err, ErrDeliveryOmitted):
+		base.status = http.StatusConflict
+		base.code = "DELIVERY_OMITTED"
+		base.message = "Delivery measurement was not run for this session. " +
+			"That is a decision about the session, not a result about you."
+		return base
+	case errors.Is(err, ErrDeliveryFailed):
+		base.status = http.StatusConflict
+		base.code = "DELIVERY_FAILED"
+		base.message = "Delivery measurement could not be produced for this session. " +
+			"Nothing about your evaluation is affected."
+		return base
 	case errors.Is(err, ErrDeliveryNotReady):
 		base.status = http.StatusConflict
 		base.code = "DELIVERY_NOT_READY"

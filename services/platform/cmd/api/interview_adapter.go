@@ -65,7 +65,14 @@ func (a interviewAdapter) Delivery(ctx context.Context, userID, sessionID string
 		SessionID: sessionID, Mode: "practice", CandidateID: userID,
 	})
 	if errors.Is(err, evaluation.ErrNoArticulation) {
-		return api.DeliveryAnalysisView{}, api.ErrDeliveryNotReady
+		// No row is not the same as not finished.
+		//
+		// The workflow records an omission when the session cannot afford an
+		// optional stage, and a non-retryable failure when the analyser
+		// refuses, and neither writes an analysis. Answering "not ready" to
+		// both told the screen to keep polling every five seconds forever and
+		// never gave the candidate the reason that was recorded for them.
+		return api.DeliveryAnalysisView{}, a.deliveryStanding(ctx, userID, sessionID)
 	}
 	if err != nil {
 		return api.DeliveryAnalysisView{}, err
@@ -88,6 +95,41 @@ func (a interviewAdapter) Delivery(ctx context.Context, userID, sessionID string
 		Analysis: articulation.Document, CreatedAt: articulation.CreatedAt,
 		Feedback: feedback,
 	}, nil
+}
+
+// deliveryStanding decides what a missing analysis means.
+//
+// Pending only while nothing terminal has been recorded. The last outcome for
+// the stage wins, because the table is append-only and a retry that succeeded
+// after a failure is still a success.
+func (a interviewAdapter) deliveryStanding(ctx context.Context, userID, sessionID string) error {
+	outcomes, err := a.results.StageOutcomes(ctx, evaluation.SessionRef{
+		SessionID: sessionID, Mode: "practice", CandidateID: userID,
+	})
+	if err != nil {
+		// The standing cannot be read, so the honest answer is the one that
+		// says nothing has happened yet rather than one that claims a result.
+		return api.ErrDeliveryNotReady
+	}
+
+	var latest *evaluation.StageOutcome
+	for i := range outcomes {
+		if outcomes[i].Stage == evaluation.StageArticulation {
+			latest = &outcomes[i]
+		}
+	}
+	if latest == nil {
+		return api.ErrDeliveryNotReady
+	}
+
+	switch {
+	case latest.Status == "omitted":
+		return api.ErrDeliveryOmitted
+	case latest.Status == "failed" && !latest.Retryable:
+		return api.ErrDeliveryFailed
+	}
+	// A retryable failure is still in flight: the workflow will try again.
+	return api.ErrDeliveryNotReady
 }
 
 // RecordInsightFeedback stores one verdict about one generated insight,

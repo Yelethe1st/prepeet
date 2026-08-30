@@ -45,12 +45,15 @@ PRIORITY_COPY: dict[str, tuple[str, str, str]] = {
         "Pause silently where you would say a filler; the pause reads as thought.",
         "deliberate_pause",
     ),
-    "pace": (
-        "A rate far from conversational makes the listener work to keep up or wait.",
-        "Aim for a pace that lets you finish each sentence cleanly; "
-        "the number is guidance, not a rule.",
-        "playback_and_redo",
-    ),
+    # Pace has no entry, and its absence is deliberate.
+    #
+    # It used to say a rate far from conversational makes the listener work,
+    # and to aim for a different one. The product's position is that there is
+    # no correct speaking rate, so there is nothing to aim for: telling
+    # somebody whose ordinary rate is 100 or 200 words a minute to change it
+    # is coaching them away from how they speak. The profile reports the
+    # number as an observation now, and a candidate compares it with their own
+    # baseline rather than with a band.
     "pausing": (
         "Long hesitations leave the listener unsure whether the answer is over.",
         "Decide your first sentence before you start speaking, then the pauses shorten.",

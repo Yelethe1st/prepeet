@@ -1549,3 +1549,60 @@ func TestNoVerdictsSerialiseAsAnEmptyList(t *testing.T) {
 		t.Fatalf("want an empty list, got %s", response.Body)
 	}
 }
+
+// Regression from the ART review: a delivery that will never arrive was
+// answered as DELIVERY_NOT_READY, so the screen said measurement was still
+// running forever and polled every five seconds for as long as it was open.
+// The reason had been recorded and the candidate was never shown it.
+func TestATerminalDeliveryOutcomeIsNotReportedAsPending(t *testing.T) {
+	for _, outcome := range []struct {
+		name string
+		err  error
+		code string
+	}{
+		{"omitted", api.ErrDeliveryOmitted, "DELIVERY_OMITTED"},
+		{"failed", api.ErrDeliveryFailed, "DELIVERY_FAILED"},
+	} {
+		t.Run(outcome.name, func(t *testing.T) {
+			handler := serveInterviews(t, &fakeInterviews{err: outcome.err})
+
+			response := get(t, handler,
+				"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery", sessionCookie())
+
+			if response.Code != http.StatusConflict {
+				t.Fatalf("status %d: %s", response.Code, response.Body)
+			}
+			body := response.Body.String()
+			if !strings.Contains(body, outcome.code) {
+				t.Fatalf("want %s, got %s", outcome.code, body)
+			}
+			// Distinct from pending, or the screen cannot tell them apart and
+			// polls a state that can never change its own answer.
+			if strings.Contains(body, "DELIVERY_NOT_READY") {
+				t.Fatalf("a terminal outcome answered as pending: %s", body)
+			}
+		})
+	}
+}
+
+// The two terminal outcomes stay distinct, because they mean different things
+// to a person: one is a decision about the session and the other is something
+// that went wrong.
+func TestAnOmissionAndAFailureAreDifferentAnswers(t *testing.T) {
+	omitted := get(t, serveInterviews(t, &fakeInterviews{err: api.ErrDeliveryOmitted}),
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery", sessionCookie())
+	failed := get(t, serveInterviews(t, &fakeInterviews{err: api.ErrDeliveryFailed}),
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/delivery", sessionCookie())
+
+	if omitted.Body.String() == failed.Body.String() {
+		t.Fatal("an omission and a failure read the same to a candidate")
+	}
+	// Neither may read as a result about the candidate.
+	for _, body := range []string{omitted.Body.String(), failed.Body.String()} {
+		for _, forbidden := range []string{"score", "low", "poor"} {
+			if strings.Contains(strings.ToLower(body), forbidden) {
+				t.Fatalf("the message says %q, which reads as a result: %s", forbidden, body)
+			}
+		}
+	}
+}

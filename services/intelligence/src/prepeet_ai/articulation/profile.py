@@ -108,12 +108,21 @@ def profile(turns: list[dict[str, Any]]) -> Profile:
     sequences = tuple(t.sequence for t in assessable)
     total_words = sum(t.words for t in assessable)
 
-    # Pace: 120 to 180 words per minute reads as conversational; outside
-    # that in either direction is developing, without saying which way is
-    # "correct" - the reason does.
+    # Pace is observed, not graded.
+    #
+    # This used to award strong, solid or developing from fixed bands, which
+    # is a universal correct speaking rate however carefully the reason was
+    # worded: a candidate whose ordinary rate is 100 or 200 words a minute was
+    # told their delivery was developing for speaking the way they speak, and
+    # the coaching then told them to aim for a different one. The product's
+    # position is that there is no correct rate, and ART-07's personal baseline
+    # was displayed beside this grade rather than replacing it.
+    #
+    # "observed" is a level with no direction. The number is the finding, and
+    # what it means for this candidate is a comparison with their own range,
+    # which only the baseline knows and which is theirs to read.
     wpm = features.words_per_minute
-    pace_level = "strong" if 130 <= wpm <= 170 else ("solid" if 110 <= wpm <= 190 else "developing")
-    dims["pace"] = Dimension(pace_level, sequences, f"{wpm} words per minute over assessable turns")
+    dims["pace"] = Dimension("observed", sequences, f"{wpm} words per minute over assessable turns")
 
     # Pausing: long pauses per minute of speech.
     minutes = sum(t.duration_ms for t in assessable) / 60_000 or 1
@@ -212,25 +221,39 @@ def profile(turns: list[dict[str, Any]]) -> Profile:
     else:
         dims["responsiveness"] = _not_assessable("no interviewer questions to answer")
 
-    # Intelligibility as followability: confidence and sentence length,
-    # nothing about how the words sounded.
-    confidence = features.transcript_confidence
+    # Intelligibility as followability, from the candidate's own sentences.
+    #
+    # Transcript confidence used to decide this level: below 0.85 could not be
+    # strong and below 0.70 was developing. That is the transcription
+    # provider's uncertainty turned into a judgment about the person, and it
+    # is exactly the accent-bias channel this dimension claims not to have.
+    # A provider is less certain about accented speech, unusual vocabulary and
+    # poor rooms, and none of those is a fact about how followable somebody was.
+    #
+    # It also contradicted the assessability guarantee, which says transcript
+    # uncertainty produces a warning or a not-assessable status and never a low
+    # delivery result. A turn is assessable at 0.60 and was then graded down
+    # for being under 0.70, which is a low result caused by the microphone.
+    #
+    # Confidence is a gate and nothing else: a turn below the floor is not
+    # assessable and never reaches here. What remains is sentence length, which
+    # is the candidate's own choice and the thing a listener actually loses.
     long_sentences = sum(
         1
         for text in texts.values()
         for sentence in _SENTENCE.findall(text)
         if len(_TOKEN.findall(sentence)) > 35
     )
-    if confidence >= 0.85 and long_sentences == 0:
+    if long_sentences == 0:
         level = "strong"
-    elif confidence >= 0.7 and long_sentences <= 2:
+    elif long_sentences <= 2:
         level = "solid"
     else:
         level = "developing"
     dims["intelligibility"] = Dimension(
         level,
         sequences,
-        f"transcript confidence {confidence} with {long_sentences} sentences over 35 words",
+        f"{long_sentences} sentences over 35 words",
     )
 
     # Vocal delivery needs the audio itself; until it is decoded here the

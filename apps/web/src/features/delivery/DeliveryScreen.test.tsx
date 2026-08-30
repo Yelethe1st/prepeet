@@ -721,3 +721,49 @@ describe("saying whether a drill was worth doing", () => {
     }
   });
 });
+
+/**
+ * Regression from the ART review. A delivery that will never arrive was
+ * answered as DELIVERY_NOT_READY, so the screen claimed measurement was still
+ * running forever and polled every five seconds for as long as the page was
+ * open. The reason had been recorded for the candidate and never shown.
+ */
+describe("a delivery that will never arrive", () => {
+  for (const [code, heading] of [
+    ["DELIVERY_OMITTED", /was not measured/i],
+    ["DELIVERY_FAILED", /could not be measured/i],
+  ] as const) {
+    it(`says what happened for ${code} rather than waiting`, async () => {
+      vi.mocked(api.getDelivery).mockRejectedValue(
+        new ApiError({
+          status: 409,
+          code,
+          message: "Delivery measurement was not run for this session.",
+        }),
+      );
+      vi.mocked(api.getTranscript).mockResolvedValue(transcript);
+      vi.mocked(api.getBaseline).mockResolvedValue(absentBaseline);
+      vi.mocked(api.getInterview).mockResolvedValue(plainSession);
+
+      render(
+        <DeliveryScreen sessionId="00000000-0000-7000-8000-0000000000e1" />,
+        {
+          wrapper: ({ children }: { children: ReactNode }) => (
+            <QueryProvider>{children}</QueryProvider>
+          ),
+        },
+      );
+
+      expect(await screen.findByText(heading)).toBeInTheDocument();
+      // Not the pending copy: this one never resolves itself.
+      expect(
+        screen.queryByText(/still being measured/i),
+      ).not.toBeInTheDocument();
+      // And it says the evaluation is untouched, because a candidate reading
+      // this needs to know it is not a result about them.
+      expect(
+        screen.getByText(/results and coaching are unaffected/i),
+      ).toBeInTheDocument();
+    });
+  }
+});

@@ -128,6 +128,18 @@ var ErrFeedbackUnknownInsight = errors.New("api: that insight is not part of thi
 // pressure, so it is refused rather than quietly ignored.
 var ErrFeedbackPracticeOnly = errors.New("api: insight feedback is practice only")
 
+// ErrDeliveryOmitted says the delivery analysis was deliberately not run.
+//
+// Terminal. An optional stage that a session could not afford is omitted and
+// recorded, which is a fact to state rather than a failure to retry.
+var ErrDeliveryOmitted = errors.New("api: the delivery analysis was not run for this session")
+
+// ErrDeliveryFailed says the delivery analysis failed and will not be retried.
+//
+// Also terminal. Distinct from omitted because the two mean different things
+// to a person: one is a decision and the other is something that went wrong.
+var ErrDeliveryFailed = errors.New("api: the delivery analysis could not be produced")
+
 // ErrDeliveryNotReady says the delivery analysis has not landed yet.
 var ErrDeliveryNotReady = errors.New("api: the delivery analysis is not ready")
 

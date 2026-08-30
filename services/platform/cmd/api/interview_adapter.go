@@ -127,15 +127,28 @@ func (a interviewAdapter) RecordInsightFeedback(ctx context.Context, userID, ses
 	// The measurement is the point of the table, so a verdict about nothing
 	// is not merely junk, it is a wrong answer to the question the table
 	// exists to answer.
-	if !insightExists(articulation.Document, verdict.Kind, verdict.Key) {
+	// Everything but the verdict itself comes from the stored analysis.
+	//
+	// The key must name something it generated, and the dimension is read
+	// from it rather than accepted: the client used to supply that field and
+	// nothing checked it, so a caller could pass a real key with a fabricated
+	// dimension and corrupt per-dimension monitoring while passing the key
+	// guard. The only thing the candidate actually decides here is whether it
+	// described them.
+	insight, found := resolveInsight(articulation.Document, verdict.Kind, verdict.Key)
+	if !found {
 		return api.ErrFeedbackUnknownInsight
 	}
 
 	err = a.results.RecordInsightFeedback(ctx, ref, evaluation.InsightVerdict{
-		Kind: verdict.Kind, Key: verdict.Key, Dimension: verdict.Dimension,
-		Helpful:        verdict.Helpful,
-		ArtifactDigest: articulation.InputDigest,
+		Kind: verdict.Kind, Key: verdict.Key, Dimension: insight.dimension,
+		Helpful: verdict.Helpful,
+		// The governed revision that generated it, not the transcript. The
+		// input digest is unique per session, so aggregating by it would put
+		// every candidate in a group of one.
+		ArtifactDigest: insight.artifact,
 		PolicyVersion:  articulation.PolicyVersion,
+		InputDigest:    articulation.InputDigest,
 	})
 	switch {
 	case errors.Is(err, evaluation.ErrScreeningFeedback):
@@ -146,20 +159,30 @@ func (a interviewAdapter) RecordInsightFeedback(ctx context.Context, userID, ses
 	return err
 }
 
-// insightExists reports whether the stored analysis generated the insight a
+// generatedInsight is what the stored analysis says about the insight a
 // verdict names.
+type generatedInsight struct {
+	// dimension is the analysis's own attribution, never the client's.
+	dimension string
+	// artifact is the governed revision that generated it, which is what a
+	// rate is aggregated by.
+	artifact string
+}
+
+// resolveInsight finds the insight a verdict names in the stored analysis.
 //
 // Read from the document rather than from a list kept here, because the
 // document is what the candidate was shown. A key that was valid for one
 // session is not valid for another, and only the analysis knows which.
-func insightExists(document json.RawMessage, kind, key string) bool {
+func resolveInsight(document json.RawMessage, kind, key string) (generatedInsight, bool) {
 	if len(document) == 0 || key == "" {
-		return false
+		return generatedInsight{}, false
 	}
 
 	var analysis struct {
 		Coaching struct {
-			Priorities []struct {
+			CoachingVersion string `json:"coaching_version"`
+			Priorities      []struct {
 				Dimension string `json:"dimension"`
 				Drill     string `json:"drill"`
 			} `json:"priorities"`
@@ -169,21 +192,30 @@ func insightExists(document json.RawMessage, kind, key string) bool {
 		// An analysis that cannot be read is not one that generated this
 		// insight. Refusing is the safe direction: the alternative accepts
 		// everything the moment the document shape changes.
-		return false
+		return generatedInsight{}, false
+	}
+
+	// An analysis that does not say what generated it cannot have a verdict
+	// attributed to anything, and "unknown" in the aggregation column is worse
+	// than no row: it pools unrelated sessions under one name.
+	artifact := analysis.Coaching.CoachingVersion
+	if artifact == "" {
+		return generatedInsight{}, false
 	}
 
 	for _, priority := range analysis.Coaching.Priorities {
 		switch kind {
 		case evaluation.InsightPriority:
 			if priority.Dimension == key {
-				return true
+				return generatedInsight{dimension: priority.Dimension, artifact: artifact}, true
 			}
 		case evaluation.InsightDrill:
 			// Only the drills this session chose. The other five are a menu
 			// rather than something generated about this candidate, which is
-			// the same rule the delivery screen renders by.
+			// the same rule the delivery screen renders by. The dimension is
+			// the priority the drill was chosen for.
 			if priority.Drill == key {
-				return true
+				return generatedInsight{dimension: priority.Dimension, artifact: artifact}, true
 			}
 		}
 	}
@@ -191,7 +223,7 @@ func insightExists(document json.RawMessage, kind, key string) bool {
 	// Strengths are in the contract's vocabulary and nothing generates them
 	// yet, so no key can name one. When ART-04 produces them this gains a
 	// branch; until then accepting one would be accepting anything.
-	return false
+	return generatedInsight{}, false
 }
 
 // Review derives the coaching for the owner's evaluated session. The

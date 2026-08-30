@@ -172,15 +172,46 @@ function DeliveryBody({
    *
    * Held locally as well as sent, so the pressed thumb is immediate: the
    * server returns nothing and there is nothing to re-read, because a verdict
-   * changes nothing about the coaching. A failure is deliberately silent. It
-   * is feedback about the product, given as a courtesy, and interrupting
-   * somebody reading their own coaching to tell them our telemetry call failed
-   * would be the product's problem becoming theirs.
+   * changes nothing about the coaching.
+   *
+   * Two things this has to get right, and the first version got neither.
+   *
+   * The last press wins, not the last response. Pressing one thumb and then
+   * the other issues two upserts, and the server takes them in arrival order,
+   * so a slow first request could land after the second and store the verdict
+   * the candidate had already changed their mind about. Each insight carries
+   * the sequence of the press it came from, and a response for an older press
+   * is ignored.
+   *
+   * A failure puts the thumb back. Showing it pressed when nothing was stored
+   * is the screen claiming something it has no reason to believe, and the
+   * candidate finds out on reload. It stays silent, which is the original
+   * intent and still right: this is feedback about the product given as a
+   * courtesy, and interrupting somebody reading their own coaching to report
+   * that our own call failed makes our problem theirs. Silent is not the same
+   * as pretending it worked.
    */
   const [verdicts, setVerdicts] = useState<Record<string, boolean>>({});
+  const presses = useRef<Record<string, number>>({});
   const feedback = useMutation({
-    mutationFn: (verdict: InsightVerdict) =>
-      recordInsightFeedback(sessionId, verdict),
+    mutationFn: (verdict: InsightVerdict & { press: number }) =>
+      recordInsightFeedback(sessionId, {
+        insight_kind: verdict.insight_kind,
+        insight_key: verdict.insight_key,
+        helpful: verdict.helpful,
+      }),
+    onError: (_error, verdict) => {
+      const slot = `${verdict.insight_kind}:${verdict.insight_key}`;
+      // Only if nothing newer has been pressed since. A later press owns the
+      // thumb, and undoing it here would show the opposite of what the
+      // candidate last chose.
+      if (presses.current[slot] !== verdict.press) return;
+      setVerdicts((current) => {
+        const next = { ...current };
+        delete next[slot];
+        return next;
+      });
+    },
   });
   const given = (kind: string, key: string): boolean | undefined => {
     const local = verdicts[`${kind}:${key}`];
@@ -192,11 +223,11 @@ function DeliveryBody({
     return stored?.helpful;
   };
   const record = (verdict: InsightVerdict) => {
-    setVerdicts((current) => ({
-      ...current,
-      [`${verdict.insight_kind}:${verdict.insight_key}`]: verdict.helpful,
-    }));
-    feedback.mutate(verdict);
+    const slot = `${verdict.insight_kind}:${verdict.insight_key}`;
+    const press = (presses.current[slot] ?? 0) + 1;
+    presses.current[slot] = press;
+    setVerdicts((current) => ({ ...current, [slot]: verdict.helpful }));
+    feedback.mutate({ ...verdict, press });
   };
 
   const withheld =

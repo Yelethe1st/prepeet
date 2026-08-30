@@ -48,8 +48,8 @@ func TestAVerdictMustNameAnInsightTheAnalysisGenerated(t *testing.T) {
 		"an empty key":                {evaluation.InsightPriority, "", false},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := insightExists(document, probe.kind, probe.key); got != probe.want {
-				t.Fatalf("insightExists(%q, %q) = %v, want %v",
+			if _, got := resolveInsight(document, probe.kind, probe.key); got != probe.want {
+				t.Fatalf("resolveInsight(%q, %q) = %v, want %v",
 					probe.kind, probe.key, got, probe.want)
 			}
 		})
@@ -61,7 +61,7 @@ func TestAVerdictMustNameAnInsightTheAnalysisGenerated(t *testing.T) {
 func TestNoStrengthIsAcceptedWhileNoneAreGenerated(t *testing.T) {
 	document := json.RawMessage(analysisWithCoaching)
 
-	if insightExists(document, evaluation.InsightStrength, "fluency") {
+	if _, found := resolveInsight(document, evaluation.InsightStrength, "fluency"); found {
 		t.Fatal("a strength was accepted against an analysis that generates none")
 	}
 }
@@ -78,7 +78,7 @@ func TestAnUnreadableAnalysisAcceptsNothing(t *testing.T) {
 		"withheld":    json.RawMessage(`{"coaching":{"available":false}}`),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if insightExists(document, evaluation.InsightPriority, "fluency") {
+			if _, found := resolveInsight(document, evaluation.InsightPriority, "fluency"); found {
 				t.Fatalf("%s accepted a verdict", name)
 			}
 		})
@@ -109,11 +109,70 @@ func TestTheAdapterActuallyAsksBeforeRecording(t *testing.T) {
 	}
 	method := body[start : start+end]
 
-	if !strings.Contains(method, "insightExists(") {
+	if !strings.Contains(method, "resolveInsight(") {
 		t.Fatal("RecordInsightFeedback no longer checks the key against the analysis, " +
 			"so a fabricated one is stored and reaches QUA-06's rates")
 	}
 	if !strings.Contains(method, "ErrFeedbackUnknownInsight") {
 		t.Fatal("the check is made and its answer is not acted on")
+	}
+}
+
+// Regression from the second ART review: the dimension came from the client
+// and nothing checked it, so a caller could pass a real key with a fabricated
+// dimension and corrupt per-dimension monitoring while passing the key guard.
+// It is read from the analysis now.
+func TestTheDimensionComesFromTheAnalysisNotTheCaller(t *testing.T) {
+	document := json.RawMessage(analysisWithCoaching)
+
+	t.Run("a priority is attributed to itself", func(t *testing.T) {
+		insight, found := resolveInsight(document, evaluation.InsightPriority, "fluency")
+		if !found {
+			t.Fatal("a generated priority was not found")
+		}
+		if insight.dimension != "fluency" {
+			t.Fatalf("dimension = %q, want the analysis's own", insight.dimension)
+		}
+	})
+
+	t.Run("a drill is attributed to the priority it was chosen for", func(t *testing.T) {
+		insight, found := resolveInsight(document, evaluation.InsightDrill, "headline_first")
+		if !found {
+			t.Fatal("a chosen drill was not found")
+		}
+		// Not the drill's key, and not whatever the caller sent: the drill was
+		// chosen because of pace, so that is what a verdict about it says.
+		if insight.dimension != "pace" {
+			t.Fatalf("dimension = %q, want pace", insight.dimension)
+		}
+	})
+}
+
+// Regression: artifact_digest held the seal's evaluation-input digest, which
+// is unique per session, so the rate per artifact put every candidate in a
+// group of one and answered nothing.
+func TestTheArtifactIsTheGoverendRevisionNotTheTranscript(t *testing.T) {
+	insight, found := resolveInsight(json.RawMessage(analysisWithCoaching),
+		evaluation.InsightPriority, "fluency")
+	if !found {
+		t.Fatal("not found")
+	}
+
+	if insight.artifact != "articulation-coaching-v1" {
+		t.Fatalf("artifact = %q, want the coaching version", insight.artifact)
+	}
+	if strings.HasPrefix(insight.artifact, "sha256:") {
+		t.Fatal("the transcript digest is being used as the aggregation key")
+	}
+}
+
+// An analysis that does not say what generated it cannot have a verdict
+// attributed to anything. "unknown" in the aggregation column is worse than no
+// row: it pools unrelated sessions under one name.
+func TestAnAnalysisWithNoCoachingVersionAcceptsNothing(t *testing.T) {
+	document := json.RawMessage(`{"coaching":{"priorities":[{"dimension":"fluency","drill":"d"}]}}`)
+
+	if _, found := resolveInsight(document, evaluation.InsightPriority, "fluency"); found {
+		t.Fatal("a verdict was accepted with nothing to attribute it to")
 	}
 }

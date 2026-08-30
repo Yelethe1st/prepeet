@@ -50,9 +50,16 @@ type InsightVerdict struct {
 	// ArtifactDigest and PolicyVersion are what produced the insight, taken
 	// at the moment it was on screen rather than at the moment it is read
 	// back, so a drop is attributable to a version rather than to a date.
+	//
+	// A governed revision, never the transcript. This first held the seal's
+	// evaluation-input digest, which is unique per session: grouping by it put
+	// every candidate in a group of one and the rate answered nothing.
 	ArtifactDigest string
 	PolicyVersion  string
-	UpdatedAt      time.Time
+	// InputDigest is which analysis the verdict was about. Provenance rather
+	// than a key, for the reason above.
+	InputDigest string
+	UpdatedAt   time.Time
 }
 
 func validKind(kind string) bool {
@@ -93,6 +100,7 @@ func (s *Store) RecordInsightFeedback(ctx context.Context, ref SessionRef, verdi
 		Helpful:        verdict.Helpful,
 		ArtifactDigest: verdict.ArtifactDigest,
 		PolicyVersion:  verdict.PolicyVersion,
+		InputDigest:    verdict.InputDigest,
 	})
 	if err != nil {
 		return fmt.Errorf("evaluation: recording insight feedback: %w", err)

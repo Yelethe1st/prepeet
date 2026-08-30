@@ -62,9 +62,12 @@ func event(t *testing.T, eventType string, payload any) outbox.Pending {
 	// attempt count are what a replay actually varies, and leaving them zero
 	// made an earlier version of these tests pass against a workflow id built
 	// from `event.ID`: the probe changed nothing because the field was empty.
+	// Stamped practice, because a real completion is. The articulation route
+	// refuses anything else, and a fixture with no purpose would test the
+	// refusal rather than the replay behaviour it is here for.
 	return outbox.Pending{
 		ID: "01a0301d-aa10-7000-8f3e-000000000001", Type: eventType,
-		SchemaVersion: "1.0", Producer: "api", Payload: body,
+		SchemaVersion: "1.0", Producer: "api", Purpose: "practice", Payload: body,
 	}
 }
 
@@ -198,5 +201,57 @@ func TestAnUndecodablePayloadFailsRatherThanBeingMarkedDone(t *testing.T) {
 	}
 	if len(workflows.started) != 0 {
 		t.Fatal("a workflow was started from a payload that could not be read")
+	}
+}
+
+// Regression from the ART review: startArticulation forwarded whatever mode
+// the completion event carried, so a completed screening session whose pinned
+// policy included the articulation stage would have had its transcript turned
+// into delivery measurements and stored under a tenant scope. The product says
+// in candidate-facing copy that screening never produces delivery coaching.
+func TestArticulationIgnoresAScreeningCompletion(t *testing.T) {
+	workflows := &fakeWorkflows{}
+	delivery := event(t, "interview.session_completed.v1", map[string]string{
+		"session_id": "ses-1",
+	})
+	delivery.Purpose = "screening"
+
+	// Handled, not failed: a screening completion is nothing to do here, and
+	// returning an error would retry it forever and then dead letter it.
+	if err := startArticulation(workflows)(context.Background(), delivery); err != nil {
+		t.Fatalf("a screening completion was reported as a failure: %v", err)
+	}
+
+	if len(workflows.started) != 0 {
+		t.Fatalf("delivery analysis began for a screening session: %v", workflows.started)
+	}
+}
+
+func TestArticulationStillRunsForPractice(t *testing.T) {
+	workflows := &fakeWorkflows{}
+	if err := startArticulation(workflows)(context.Background(),
+		event(t, "interview.session_completed.v1", map[string]string{"session_id": "ses-1"})); err != nil {
+		t.Fatalf("practice: %v", err)
+	}
+
+	if len(workflows.started) != 1 {
+		t.Fatalf("practice delivery analysis did not start: %v", workflows.started)
+	}
+}
+
+// A purpose nobody set is not practice. Defaulting to running would make the
+// guard depend on every producer remembering to stamp the field.
+func TestArticulationIgnoresACompletionWithNoPurpose(t *testing.T) {
+	workflows := &fakeWorkflows{}
+
+	unstamped := event(t, "interview.session_completed.v1", map[string]string{"session_id": "ses-1"})
+	unstamped.Purpose = ""
+
+	if err := startArticulation(workflows)(context.Background(), unstamped); err != nil {
+		t.Fatalf("no purpose: %v", err)
+	}
+
+	if len(workflows.started) != 0 {
+		t.Fatalf("delivery analysis began for an unstamped completion: %v", workflows.started)
 	}
 }

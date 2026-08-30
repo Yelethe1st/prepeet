@@ -140,15 +140,21 @@ ORDER BY created_at, id;
 -- verdict belongs to what was actually on screen when it was given.
 INSERT INTO evaluation.insight_feedback
     (id, session_id, candidate_id, mode, insight_kind, insight_key, dimension,
-     helpful, artifact_digest, policy_version)
+     helpful, artifact_digest, policy_version, input_digest)
 VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(candidate_id)::uuid,
         'practice', sqlc.arg(insight_kind)::text, sqlc.arg(insight_key)::text,
         nullif(sqlc.arg(dimension)::text, ''), sqlc.arg(helpful)::boolean,
-        sqlc.arg(artifact_digest)::text, sqlc.arg(policy_version)::text)
+        sqlc.arg(artifact_digest)::text, sqlc.arg(policy_version)::text,
+        sqlc.arg(input_digest)::text)
 ON CONFLICT (session_id, candidate_id, insight_kind, insight_key)
 DO UPDATE SET helpful = excluded.helpful,
+              -- The dimension is corrected too. Leaving it alone meant a row
+              -- written once with the wrong dimension kept it forever, so a
+              -- correction fixed the verdict and left the attribution wrong.
+              dimension = excluded.dimension,
               artifact_digest = excluded.artifact_digest,
               policy_version = excluded.policy_version,
+              input_digest = excluded.input_digest,
               updated_at = now();
 
 -- name: ListInsightFeedback :many

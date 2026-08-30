@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -507,10 +507,12 @@ describe("saying whether a priority described you", () => {
 
     expect(api.recordInsightFeedback).toHaveBeenCalledWith(
       "00000000-0000-7000-8000-0000000000e1",
+      // No dimension. The server reads it from the stored analysis, because
+      // a client-supplied one could name a real key and a fabricated
+      // dimension and corrupt per-dimension monitoring.
       {
         insight_kind: "priority",
         insight_key: "fluency",
-        dimension: "fluency",
         helpful: false,
       },
     );
@@ -603,7 +605,14 @@ describe("saying whether a priority described you", () => {
    * courtesy, and interrupting somebody reading their own coaching to report
    * that our telemetry call failed makes the product's problem theirs.
    */
-  it("says nothing when the verdict cannot be sent", async () => {
+  /**
+   * Silent, and not pretending. Interrupting somebody reading their own
+   * coaching to report that our telemetry call failed makes our problem
+   * theirs; leaving the thumb pressed when nothing was stored is the screen
+   * claiming something it has no reason to believe, which the candidate finds
+   * out on reload.
+   */
+  it("says nothing when the verdict cannot be sent, and does not claim it saved", async () => {
     const user = userEvent.setup();
     vi.mocked(api.recordInsightFeedback).mockRejectedValue(
       new Error("offline"),
@@ -617,9 +626,54 @@ describe("saying whether a priority described you", () => {
     );
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: /No, this did not describe me: fluency/i,
+        }),
+      ).toHaveAttribute("aria-pressed", "false"),
+    );
+  });
+
+  /**
+   * The last press wins, not the last response. Two presses issue two upserts
+   * and the server takes them in arrival order, so a slow first request
+   * landing after the second would leave the screen showing the verdict the
+   * candidate had already changed their mind about.
+   */
+  it("keeps the last thumb pressed when an earlier request fails late", async () => {
+    const user = userEvent.setup();
+    let failFirst: (reason: Error) => void = () => {};
+    vi.mocked(api.recordInsightFeedback)
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            failFirst = reject;
+          }),
+      )
+      .mockResolvedValueOnce();
+    renderDelivery();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: /No, this did not describe me: fluency/i,
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Yes, this described me: fluency/i }),
+    );
+
+    // Flushed inside act, or the assertion below runs on the value that was
+    // already true and never observes the late failure at all: the first
+    // version of this test passed with the sequencing removed.
+    await act(async () => {
+      failFirst(new Error("offline"));
+      await Promise.resolve();
+    });
+
     expect(
       screen.getByRole("button", {
-        name: /No, this did not describe me: fluency/i,
+        name: /Yes, this described me: fluency/i,
       }),
     ).toHaveAttribute("aria-pressed", "true");
   });

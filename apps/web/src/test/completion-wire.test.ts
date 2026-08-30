@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { completeInterview as completeFromComplete } from "@/features/complete/api";
-import { completeInterview as completeFromLive } from "./api";
+import { completeInterview as completeFromLive } from "@/features/live/api";
 
 /**
  * What actually goes on the wire, through the real apiFetch.
@@ -15,6 +15,10 @@ import { completeInterview as completeFromLive } from "./api";
  *
  * A mock at the boundary you are testing cannot see a bug on the other side of
  * it. These stub fetch instead and read the body the server would have parsed.
+ *
+ * It lives in src/test rather than in either feature because it reads both,
+ * and a feature importing another feature is what the boundary test forbids:
+ * it caught this file in its first home, which is the rule working.
  */
 
 const fetchMock = vi.fn();

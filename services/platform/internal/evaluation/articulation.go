@@ -54,6 +54,12 @@ type Articulation struct {
 	CreatedAt          time.Time
 }
 
+// ErrArticulationRefused says the analysis must not run for this session.
+//
+// Not retryable: a screening session will still be a screening session on the
+// next attempt, so this ends the workflow rather than looping it.
+var ErrArticulationRefused = errors.New("evaluation: delivery analysis refused")
+
 // ErrNoArticulation says the session has no delivery analysis (yet).
 var ErrNoArticulation = errors.New("evaluation: no articulation for this session")
 
@@ -153,6 +159,17 @@ func (a *ArticulationActivities) WithPolicy(policies RubricSource) *Articulation
 // on the unique row on retry. A non-retryable refusal from the plane is
 // this workflow's failure alone: the content evaluation never hears of it.
 func (a *ArticulationActivities) AnalyzeAndStore(ctx context.Context, input EvidenceInput) (string, error) {
+	// Refused again here, and this is not belt and braces for its own sake.
+	// A workflow can be started by hand, by a replay, or by a future producer
+	// that forgets the rule, and the boundary this protects is one the product
+	// states in candidate-facing copy: screening never produces delivery
+	// coaching, and a stored screening analysis would make that untrue
+	// whatever reads it.
+	if input.Mode != "practice" {
+		return "", fmt.Errorf("%w: delivery analysis is practice only, not %q",
+			ErrArticulationRefused, input.Mode)
+	}
+
 	ref := SessionRef{
 		SessionID: input.SessionID, Mode: input.Mode,
 		CandidateID: input.CandidateID, TenantID: input.TenantID,

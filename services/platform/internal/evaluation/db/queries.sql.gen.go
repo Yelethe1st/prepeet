@@ -666,15 +666,21 @@ func (q *Queries) ListStageOutcomes(ctx context.Context, sessionID string) ([]Li
 const recordInsightFeedback = `-- name: RecordInsightFeedback :exec
 INSERT INTO evaluation.insight_feedback
     (id, session_id, candidate_id, mode, insight_kind, insight_key, dimension,
-     helpful, artifact_digest, policy_version)
+     helpful, artifact_digest, policy_version, input_digest)
 VALUES ($1::uuid, $2::uuid, $3::uuid,
         'practice', $4::text, $5::text,
         nullif($6::text, ''), $7::boolean,
-        $8::text, $9::text)
+        $8::text, $9::text,
+        $10::text)
 ON CONFLICT (session_id, candidate_id, insight_kind, insight_key)
 DO UPDATE SET helpful = excluded.helpful,
+              -- The dimension is corrected too. Leaving it alone meant a row
+              -- written once with the wrong dimension kept it forever, so a
+              -- correction fixed the verdict and left the attribution wrong.
+              dimension = excluded.dimension,
               artifact_digest = excluded.artifact_digest,
               policy_version = excluded.policy_version,
+              input_digest = excluded.input_digest,
               updated_at = now()
 `
 
@@ -688,6 +694,7 @@ type RecordInsightFeedbackParams struct {
 	Helpful        bool
 	ArtifactDigest string
 	PolicyVersion  string
+	InputDigest    string
 }
 
 // Once per insight, changeable. The conflict target is the unique constraint,
@@ -708,6 +715,7 @@ func (q *Queries) RecordInsightFeedback(ctx context.Context, arg RecordInsightFe
 		arg.Helpful,
 		arg.ArtifactDigest,
 		arg.PolicyVersion,
+		arg.InputDigest,
 	)
 	return err
 }

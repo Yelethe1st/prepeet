@@ -102,6 +102,19 @@ func startArticulation(workflows sdkclient.Client) outbox.HandlerFunc {
 		if err := json.Unmarshal(event.Payload, &payload); err != nil {
 			return fmt.Errorf("decoding %s: %w", event.Type, err)
 		}
+
+		// Practice only, refused here rather than downstream.
+		//
+		// Delivery measurement is a coaching feature and screening must never
+		// produce it: a recruiter is not shown how somebody sounded, and a
+		// stored screening analysis is a row a future read could expose or a
+		// future feature could quietly start using. The event's purpose is the
+		// mode, and a screening completion is nothing to do here rather than a
+		// failure, so it is marked handled.
+		if event.Purpose != "practice" {
+			return nil
+		}
+
 		_, err := workflows.ExecuteWorkflow(ctx, sdkclient.StartWorkflowOptions{
 			ID:                    "articulation-" + payload.SessionID,
 			TaskQueue:             evaluation.TaskQueue,

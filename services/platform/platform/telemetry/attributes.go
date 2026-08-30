@@ -22,6 +22,8 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/otel/attribute"
+
+	"github.com/Yelethe1st/prepeet/services/platform/platform/token"
 )
 
 // MaxMessageLength bounds any free text attached to telemetry.
@@ -141,11 +143,16 @@ var restrictedShapes = []struct {
 		pattern:     regexp.MustCompile(`\$argon2(id|i|d)\$[^\s]*`),
 		replacement: "[redacted hash]",
 	},
-	// A rejected token logged so somebody can "check which one it was". The
-	// prefixes are the ones platform/token issues.
+	// A rejected token logged so somebody can "check which one it was".
+	//
+	// The prefixes come from platform/token rather than being spelled out
+	// again here. They were spelled out here, and IAM-08 then issued two more
+	// purposes: the pattern went on matching the six it knew about while an
+	// OAuth state and a PKCE verifier passed through untouched. Building it
+	// from the source means a new purpose cannot leave this behind.
 	{
 		name:        "a bearer token",
-		pattern:     regexp.MustCompile(`\b(ses|ref|vrf|rst|mgc|inv)_[A-Za-z0-9_\-]{16,}`),
+		pattern:     regexp.MustCompile(`\b(` + strings.Join(quoted(token.Prefixes()), "|") + `)_[A-Za-z0-9_\-]{16,}`),
 		replacement: "[redacted token]",
 	},
 	// A driver error naming the user it could not find, or a validation error
@@ -155,6 +162,20 @@ var restrictedShapes = []struct {
 		pattern:     regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`),
 		replacement: "[redacted address]",
 	},
+}
+
+// quoted escapes each prefix for use inside a pattern.
+//
+// Every prefix is three letters today, so this changes nothing. It is here
+// because the list is no longer written by whoever writes the pattern, and a
+// future prefix containing a metacharacter would otherwise silently widen what
+// the scrubber matches rather than failing.
+func quoted(values []string) []string {
+	escaped := make([]string, len(values))
+	for i, value := range values {
+		escaped[i] = regexp.QuoteMeta(value)
+	}
+	return escaped
 }
 
 // FindRestricted reports the first restricted shape in text, and whether one

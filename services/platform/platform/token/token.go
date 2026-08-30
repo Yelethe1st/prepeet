@@ -29,6 +29,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 )
 
@@ -68,11 +69,44 @@ var prefixes = map[Purpose]string{
 }
 
 // Purposes returns every known purpose, in a stable order.
+//
+// Derived from the prefix map rather than listed again beside it. It was a
+// second list, and IAM-08 added two OAuth purposes to the map without adding
+// them here; nothing failed, because the only callers are tests, which simply
+// stopped covering the purposes they could not see. A guarantee that quietly
+// narrows is worse than one that breaks.
 func Purposes() []Purpose {
-	return []Purpose{
-		PurposeSession, PurposeRefresh, PurposeEmailVerify,
-		PurposePasswordReset, PurposeMagicLink, PurposeOTP, PurposeInvitation,
+	purposes := make([]Purpose, 0, len(prefixes))
+	for purpose := range prefixes {
+		purposes = append(purposes, purpose)
 	}
+	// Sorted because map iteration is randomised, and a test that ranges over
+	// this should fail the same way twice.
+	slices.Sort(purposes)
+	return purposes
+}
+
+// Prefixes returns every wire prefix a token may carry, in a stable order.
+//
+// Exported so that code which has to recognise a token by its shape - the log
+// scrubber above all - can be built from this map instead of restating it.
+// The scrubber did restate it, and went stale the moment a purpose was added,
+// so an OAuth state or a PKCE verifier quoted into an error reached the log
+// intact.
+func Prefixes() []string {
+	values := make([]string, 0, len(prefixes))
+	for purpose, prefix := range prefixes {
+		if purpose == PurposeOTP {
+			// A one-time code is six digits and carries no prefix; "otp" is
+			// in the map only so New refuses to mint one the wrong way.
+			// Offering it as a shape would have the scrubber redacting the
+			// word "otp" wherever it appeared.
+			continue
+		}
+		values = append(values, prefix)
+	}
+	slices.Sort(values)
+	return values
 }
 
 // Issued is a freshly minted token.

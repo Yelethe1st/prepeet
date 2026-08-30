@@ -344,6 +344,10 @@ class TestTheCommandLine:
         printed = capsys.readouterr().out
         assert "results digest" in printed
         assert "GATE FAILED" not in printed
+        # QUA-03 did not calibrate anything, and the command that prints
+        # the numbers says so rather than leaving a reader to assume.
+        assert "NOT calibrated" in printed
+        assert "NO_HUMAN_BENCHMARK_SET" in printed
 
     def test_a_gate_failure_is_a_non_zero_exit(
         self, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch

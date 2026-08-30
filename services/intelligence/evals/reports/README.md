@@ -10,7 +10,11 @@ comparable to nothing. This file is a stable document with sorted keys and a `re
 everything except timing, so two runs of the same code produce the same digest and a diff between two
 versions shows exactly which span, contradiction or sufficiency outcome moved and in which profession.
 
-Timing sits outside the digest deliberately. A slower laptop is not a regression in the evaluation.
+Timing sits outside the digest deliberately, and outside the artifact: it is written to
+`latest.timing.json`, which is not tracked. A slower laptop is not a regression in the evaluation, and
+a report that changed on every run would dirty the tree instead of recording anything. The generation
+date sits outside the digest for the same reason and inside the artifact, because QUA-04's publication
+gate refuses a report older than its policy allows and cannot check an age it cannot see.
 
 ## Why a change to the pipeline fails the build
 

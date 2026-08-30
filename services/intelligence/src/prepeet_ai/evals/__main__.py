@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 
 from prepeet_ai.evals import harness
+from prepeet_ai.evals.calibration import calibrate
 from prepeet_ai.evals.dataset import refresh_manifest
 
 
@@ -55,6 +56,17 @@ def main() -> int:
     print(f"  connections observed {totals['cost']['network_connections']}")
     print(f"  latency              {document['timing']['total_ms']} ms (outside the digest)")
     print(f"  results digest       {document['results_digest']}")
+
+    # QUA-03's answer, printed beside QUA-02's numbers on purpose. Every
+    # figure above is uncalibrated, and a reader who is not told that will
+    # assume somebody checked.
+    outcome = calibrate(report=document)
+    print(
+        f"  confidence rules     {'calibrated' if outcome.calibrated else 'NOT calibrated'} "
+        "against human judgement"
+    )
+    for refusal in outcome.refusals:
+        print(f"                       {refusal.split(':')[0]}")
 
     violations = harness.gate_violations(document)
     for violation in violations:

@@ -1,0 +1,58 @@
+{
+  "policy_version": "1.0.0",
+  "serves": ["QUA-04"],
+  "created": "2026-08-31",
+  "decides": "What has to be true before a git-authored artifact in services/intelligence/artifacts may be published into the registry ADR-0011 describes.",
+  "owner": {
+    "role": "Publication gate owner",
+    "team": "AI and data quality workstream"
+  },
+  "review": {
+    "date": "2027-02-28",
+    "owner": "AI and data quality workstream",
+    "why": "The age limit and the material-change list are governance choices, and a governance choice nobody revisits becomes a habit. The review date is when somebody has to defend them again."
+  },
+  "gates": {
+    "evaluation_report_required": true,
+    "evaluation_report_required_why": "QUA-04's first criterion. A publication without a report is a change to how candidates are evaluated with no evidence that it evaluates them any better.",
+    "report_must_cover_the_artifact": true,
+    "report_must_cover_the_artifact_why": "A report produced against a different rubric is evidence about that rubric. The gate compares the artifact's digest against the digests the report records in its governed inputs, so a report can only ever vouch for the bytes it actually ran against.",
+    "report_must_match_the_current_governed_inputs": true,
+    "report_must_match_the_current_governed_inputs_why": "The report's governed digest covers the extractor, calculator, profile and coaching versions, the model policy, the pinned rubric and policy bodies and the dataset manifest. A report produced before any of those moved is stale, whatever its own numbers say.",
+    "maximum_report_age_days": 30,
+    "maximum_report_age_days_why": "A governance cadence, not a quality threshold. The digest check above is what catches a real change; this one stops an approval being reused indefinitely, so a publication is always accompanied by a run somebody can still remember. Thirty days is one review cycle and is stated here to be argued with rather than discovered in code.",
+    "hard_floors": "Delegated to the harness's own gate_violations: evidence grounding and schema conformance perfect, unsupported facts zero, every fixture behaving as it declares. Those are absolutes the specification already requires, so this policy does not restate them and cannot quietly loosen them.",
+    "approver_must_not_be_the_author": true,
+    "approver_must_not_be_the_author_why": "ADR-0011 makes separation of duties structural for every artifact, not only for material ones. QUA-04 asks for it on material changes; the stricter rule is the one that binds.",
+    "approver_must_be_a_named_person": true,
+    "approver_must_be_a_named_person_why": "contentctl publishes as a service principal, so the person who actually approved a git-authored artifact is the pull request reviewer and is recorded nowhere a machine can read. The publication record is where that name lives.",
+    "service_principals": [
+      "service:contentctl-author",
+      "service:contentctl-publisher"
+    ],
+    "service_principals_why": "Two accounts that satisfy the registry's two-person rule without either of them being a person. They are listed so the gate can refuse to accept one as the approver of a material change.",
+    "rollback_plan_required": true,
+    "rollback_plan_required_why": "QUA-04's third criterion. ADR-0011 makes rollback a pointer move to a previously published version, so a plan naming a version that was never published is not a plan."
+  },
+  "material_change_types": ["rubric", "policy", "plan", "catalogue", "prompt", "model_policy"],
+  "material_change_types_why": "These decide what a candidate is asked and how their answers are read, so a change to any of them changes an evaluation outcome and needs evidence that it changes it for the better.",
+  "report_exempt_types": ["consent"],
+  "report_exempt_types_why": "Consent wording is material in the legal sense and is reviewed as such, but an evaluation report says nothing whatever about it. Requiring one here would teach people that the report is a formality. The approver and rollback rules still apply.",
+  "pre_gate_artifacts": [
+    { "file": "catalogue/catalog@1.0.0.json", "sha256": "d69fcd12d435b61efc8f75be2eb8adaffd683fc3cbf6403985dfc0bcf5f1855c" },
+    { "file": "consent/practice-recording@1.0.0.json", "sha256": "fbb99c6205f0b1dda8b5a644ac1cf7bd749ba5e3a1bb8c3534269acadec4db96" },
+    { "file": "plan/shape_behavioural@1.0.0.json", "sha256": "274dd37d6a47a61029fa9136c8fc3ca80f3e31eaaaea980b90bd1e641bf6df7e" },
+    { "file": "plan/shape_case@1.0.0.json", "sha256": "ace15e607e0c77f287f8b6b56758127421904fb4a71d2d6bd29592f57932a894" },
+    { "file": "plan/shape_panel@1.0.0.json", "sha256": "5af14198c8264d00c2c7710f6bb7b2bad254c92ee0a8af821caea22c45bfc567" },
+    { "file": "plan/shape_screen@1.0.0.json", "sha256": "65edc98f2563c686b9e3aa536373e91163a141ebb66328e52742d97564e223cc" },
+    { "file": "plan/shape_technical@1.0.0.json", "sha256": "09ec917ef3de082339e34f6225520b93f8c41b910cc53aa226d17e82fd80ea19" },
+    { "file": "policy/practice-default@1.0.0.json", "sha256": "bf1a1e85ea26559eff567bf29994def119e88182fc0f1e72f3370d1bff95edbd" },
+    { "file": "rubric/practice-default@1.1.0.json", "sha256": "a436eb4bdb1416f67bb0bc0d11594a1bceb06909e5a0a20ab40b9d95effb42fd" }
+  ],
+  "pre_gate_artifacts_why": "Every artifact already in the tree predates QUA-04 and has no publication record, because writing one now would mean naming an approver for an approval that never happened. They are listed by digest instead. A new artifact, or an edit to one of these, has no entry and fails the gate, which is what makes this list a floor rather than an amnesty.",
+  "what_this_gate_does_not_do": {
+    "contentctl": "Nothing in the Go publishing tool calls this gate. It runs in the Python suite, so CI refuses the change before it can be deployed, but the registry itself would still accept a publication that never passed here. Wiring it into contentctl is Go work and belongs with the ticket that does it.",
+    "tenant_artifacts": "TEN-04's tenant-authored rubrics never appear in this tree, so this gate never sees them. Their equivalent is the service running the validating state, per ADR-0011.",
+    "the_registry_half": "Immutability by trigger, the pointer move and the actual two-person publish are enforced in the registry and tested there. This gate is the authoring path's validating state and nothing more."
+  }
+}

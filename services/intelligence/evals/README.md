@@ -7,6 +7,10 @@ stability, latency and cost.
 
 - [`datasets/`](datasets): the fixtures and their provenance record (QUA-01).
 - [`reports/`](reports): the committed evaluation report artifact (QUA-02).
+- [`calibration/`](calibration): the calibration plan, the agreement machinery and the refusal that
+  says nothing here is calibrated (QUA-03).
+- [`publications/`](publications) and [`publication-policy.json`](publication-policy.json): the gate an
+  artifact publication has to pass (QUA-04).
 
 The harness code lives in `src/prepeet_ai/evals/` rather than beside the data, so it is linted, type
 checked, documented and covered by the same gates as the rest of the service. A grader nobody checks is

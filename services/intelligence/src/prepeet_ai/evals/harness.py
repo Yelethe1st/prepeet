@@ -28,6 +28,7 @@ is the honest next step and is not this ticket.
 
 from __future__ import annotations
 
+import datetime
 import hashlib
 import json
 import pathlib
@@ -576,9 +577,13 @@ def run(datasets: tuple[Dataset, ...] | None = None) -> dict[str, Any]:
         "failures": counts.failures,
     }
     document["results_digest"] = results_digest(document)
-    # Timing is attached after the digest and excluded from it on purpose:
-    # a slower machine is not a regression in the evaluation, and a report
-    # whose digest moved every run would be comparable to nothing.
+    # Timing and the generation date are attached after the digest and
+    # excluded from it on purpose: a slower machine and a later day are
+    # not regressions in the evaluation, and a report whose digest moved
+    # every run would be comparable to nothing. The date is a date rather
+    # than a timestamp because QUA-04's gate measures a report's age in
+    # days, and a clock reading would make the artifact churn hourly.
+    document["generated"] = datetime.date.today().isoformat()
     document["timing"] = {"total_ms": total_ms, "per_case_ms": per_case_ms}
     return document
 
@@ -631,7 +636,17 @@ def load_committed_report() -> dict[str, Any]:
 
 
 def write_report(document: dict[str, Any]) -> pathlib.Path:
-    """Write the report artifact, stably encoded so a diff is readable."""
+    """Write the report artifact, stably encoded so a diff is readable.
+
+    Timing is written to a sibling file rather than into the artifact. The
+    report is tracked, because QUA-04 gates publication on it and a gate
+    cannot read a file a clean checkout does not have; timing changes on
+    every run on every machine, so keeping it inside would make an
+    unchanged evaluation look like a change on each run.
+    """
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")
+    artifact = {key: value for key, value in document.items() if key != "timing"}
+    REPORT_PATH.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n")
+    timing_path = REPORT_PATH.with_name(REPORT_PATH.stem + ".timing.json")
+    timing_path.write_text(json.dumps(document.get("timing", {}), indent=2, sort_keys=True) + "\n")
     return REPORT_PATH

@@ -148,6 +148,12 @@ target belongs in the root Makefile, which is outside this ticket's service. Not
 against human judgement, which is QUA-03's whole subject, so every number that would need calibrating
 is reported and none of it is gated.
 
+**Amended by QUA-04.** The committed report was not committed. It was described here and in
+`evals/reports/README.md` as the tracked artifact, required by two named tests, and listed in
+`.gitignore`, so a clean checkout could not collect the Python suite at all. It is tracked now, with
+the per-run timing that motivated the ignore written to an untracked `latest.timing.json` beside it,
+and it carries the date it was generated so QUA-04's gate can refuse a stale one.
+
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md)
 
 ---
@@ -164,6 +170,55 @@ benchmark ratings and record the evidence.
 - [ ] Inter-rater agreement on the benchmark set is measured and reported.
 - [ ] The thresholds carry a review date and an owner.
 
+**Not done, and none of the three is ticked. There is no human benchmark data in this repository, so
+there is nothing to calibrate against.** Every threshold in the product is still the crude initial rule
+ADR-0015 describes as crude, and ADR-0015's prohibition on numeric confidence display stands
+unchanged. What landed is the machinery, the refusal, and the plan for the data that does not exist.
+
+The refusal is the part that matters, because the failure mode here is not an incomplete ticket, it is
+a calibration nobody performed wearing the word calibrated. `calibrate()` returns
+`calibrated=False` with a named reason, `numeric_confidence_permitted()` returns False, and the
+harness command prints `NOT calibrated against human judgement` beside every number it reports, so a
+reader who is not told cannot assume somebody checked. Two separate acts are required before anything
+here can say otherwise: a rating set declaring human provenance with a collection record, and the
+plan's owner naming that set in `approved_benchmark_sets`. A test also asserts that no file in
+`evals/calibration` claims a human rater today, so fabricated benchmark data cannot arrive quietly.
+Verified by planting one: a set of 78 items with three raters in perfect agreement, dropped into
+`benchmarks/`, failed the tripwire test by name and was still refused with `SET_NOT_APPROVED`, and
+numeric confidence stayed prohibited. Doing the second act as well did produce a calibration, which is
+the design working rather than a hole: it takes two visible edits by somebody who has decided to lie.
+
+The arithmetic is real and is checked against answers worked out by hand rather than against its own
+output. Observed agreement, Cohen's kappa, Fleiss' kappa and Krippendorff's alpha, each with the
+worked example in the test's own docstring, and each refusing where the statistic is undefined: a
+kappa whose chance agreement is one is not 1.0, and an agreement rate over zero comparable items is
+not 0.0. Alpha is there because a real exercise loses ratings and an estimator that cannot take a gap
+invites somebody to fill it in. The confidence derivation mirrors Go's `confidenceOf` exactly, so the
+sweep sweeps the rule the product applies, and the sweep only generates candidates that would still be
+a publishable rubric under the registry's own ordering rules. The threshold record a calibration would
+publish carries the measured agreement, the whole sweep rather than only the winner, an owner and a
+review date, and cannot be constructed without all four.
+
+`evals/calibration/exercise.json` exercises all of it end to end. Its three raters are declared rules,
+not people, and its labels are computed at runtime rather than stored, because a file of stored labels
+is indistinguishable on inspection from a file of human ratings. Every figure it produces is stamped
+`exercise_only`.
+
+**What is not calibrated, stated plainly.** The confidence thresholds. The sufficiency floor. The
+band boundaries. Every quality threshold in the evaluation system. No inter-rater agreement has been
+measured on any benchmark set, because no benchmark set exists; the only agreement figures in the
+repository describe three arithmetic rules disagreeing with each other. Nothing here licenses a
+numeric confidence display, a percentage, an interval or a gauge on any surface. EVL-05, which this
+ticket blocks, is still blocked.
+
+**What would unblock it, and why it was not done here.** Ratings are judgements by identified people
+about recorded speech, and collecting them needs a lawful basis, a purpose statement, a retention rule
+and each rater's agreement to be named. The plan in `evals/calibration/plan.json` states the floors a
+set would have to clear: three independent raters, sixty items, all six professions, and Krippendorff's
+alpha at or above 0.800, which is quoted from Krippendorff's published convention rather than chosen
+here, because a floor picked by the team that wants to pass it is not a floor. Inventing raters to fill
+this in would have produced a green ticket and a worse product.
+
 **Spec** [evaluation-system.md](../../architecture/evaluation-system.md)
 
 ---
@@ -175,9 +230,67 @@ benchmark ratings and record the evidence.
 No prompt, model or rubric reaches production without a report, an approver and a rollback plan.
 
 **Done when**
-- [ ] Publication is blocked without an attached evaluation report.
-- [ ] The approver is a named person and cannot be the author for a material change.
-- [ ] Rollback is demonstrated, not assumed.
+- [x] Publication is blocked without an attached evaluation report.
+- [x] The approver is a named person and cannot be the author for a material change.
+- [x] Rollback is demonstrated, not assumed.
+
+**Done for the git-authoring path, which is the only path an artifact takes today, and the one place
+it is still not enforced is named below rather than left to be discovered.** `prepeet_ai.evals.publication`
+is the validating state ADR-0011 gives to artifacts authored in git. It refuses a publication eleven
+ways and every one of them is a named test driven by a deliberately broken record: no report at all, a
+report quoting a run that does not exist, a report produced before the governed inputs moved, a report
+older than the policy's age limit, an undated report, a report below one of the harness's hard floors,
+a report that never ran against these bytes, an approver who is the author, an approver who is a
+service principal on a material change, a missing rollback plan, and a rollback plan naming a version
+that is not in the tree or has been edited since. A twelfth test admits a complete record, because a
+gate that has only ever refused is a gate nobody can use.
+
+The floors are not restated in the policy. `harness.gate_violations` owns them, so this gate cannot
+loosen an absolute the specification already requires, and coverage is checked by digest rather than
+by trust: a report vouches for the rubric and policy bodies its governed inputs actually record, and a
+plan or catalogue change is refused with `REPORT_DOES_NOT_COVER_THE_ARTIFACT` because today's harness
+produces no evidence about them. That refusal is honest rather than obstructive, and it is where the
+cross-language harness QUA-02 asked for would pay for itself.
+
+Where it bites in this repository is the whole tree. A named test walks every artifact and requires
+each one to be either covered by a publication record that itself survives the gate, or listed by
+digest in the policy's pre-gate list. The list is digests rather than filenames on purpose, so editing
+one of the nine existing artifacts fails exactly as adding a tenth does. Proved both ways: adding an
+unrecorded rubric failed `test_every_artifact_in_the_tree_is_recorded_or_declared_pre_gate` by name,
+and moving the pinned rubric's sufficiency floor from 2 to 3 failed that test plus the report coverage
+test, each restored afterwards with the restore asserted rather than assumed.
+
+The approver rule is stricter than the ticket asks. ADR-0011 refuses a publisher who drafted the
+change for every artifact, not only material ones, so that is the rule enforced. On top of it, a
+material change may not be approved by a service principal, which closes a real gap: `contentctl`
+drafts as one account and publishes as another, satisfying the registry's two-person rule with two
+accounts and no person, so the human who approved a git-authored artifact was recorded nowhere a
+machine could read. The publication record is where that name now lives.
+
+Rollback is executed rather than asserted. The plan is run, the previous version is read from the
+tree, and its bytes and digest are compared with what was published; the failure paths are run too, so
+a target that has been deleted or edited since is reported rather than silently landed on. The
+demonstration uses a synthetic two-version tree in `tmp_path`, because the real tree holds exactly one
+version of every reference, which is itself worth recording: a republication of
+`rubric/practice-default@1.1.0` could not name a resolvable predecessor today, since no 1.0.0 of it
+exists on disk. The registry's half of rollback, the pointer move, the deprecation and the
+immutability trigger, is enforced and tested in the control plane and is deliberately not
+reimplemented here.
+
+**What is not true, and should not be read into the ticks.** Nothing in Go's `contentctl` calls this
+gate. CI refuses the change before it can be deployed, so no artifact reaches the tree without a
+record, but somebody running the publishing tool by hand against a database would still insert a row
+that never passed here. Wiring the gate into the loader is Go work and is outside this service. No
+publication record exists yet for any real artifact: all nine predate the gate and are grandfathered
+by digest, because writing a record for them now would mean naming an approver for an approval that
+never happened. Tenant-authored artifacts never appear in this tree and this gate never sees them.
+
+**One QUA-02 defect fixed on the way, because this gate reads the report.** `evals/reports/latest.json`
+was described as the committed artifact, required by two named tests, and listed in `.gitignore`, so a
+clean checkout could not even collect the Python suite. It is now tracked, and the per-run timing that
+was the reason for ignoring it is written to a sibling `latest.timing.json` which is not, so a rerun
+leaves the tree clean. The report also now carries the date it was generated, outside the results
+digest beside timing, because a gate cannot check an age it cannot see.
 
 **Spec** [responsible-hiring.md](../../security/responsible-hiring.md)
 

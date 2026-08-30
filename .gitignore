@@ -58,7 +58,8 @@ tools/eventgen/eventgen
 # Agent worktrees. Transient, and each is a git repository of its own.
 .claude/worktrees/
 
-# Generated evaluation reports. The digest inside is the comparable part;
-# the file also carries per-run timing, so tracking it would dirty the tree
-# on every run. evals/reports/README.md explains how to regenerate one.
-services/intelligence/evals/reports/latest.json
+# Per-run timing from the evaluation harness. The report itself is tracked,
+# because QUA-04 gates publication on it and a gate cannot read a file a
+# clean checkout does not have; timing is what would dirty the tree on every
+# run, so it is written beside the report rather than into it.
+services/intelligence/evals/reports/latest.timing.json

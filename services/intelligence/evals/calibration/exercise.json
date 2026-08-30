@@ -1,0 +1,63 @@
+{
+  "set_id": "synthetic-threshold-exercise",
+  "set_version": "1.0.0",
+  "rater_provenance": "synthetic_exercise",
+  "provenance_note": "Not a benchmark set and not a rating exercise. Nobody rated anything. Each rater here is a stated rule applied to the committed evaluation report, and the labels are materialised by running that rule rather than stored, so no invented judgement is ever committed to this repository as data. Its only purpose is to exercise the agreement arithmetic and the threshold sweep end to end, so that the machinery is known to work on the day real ratings exist.",
+  "why_no_labels_are_stored": "A file of stored labels would be indistinguishable, on inspection, from a file of human ratings. Deriving them from a declared rule makes the fabrication impossible to mistake for data: anyone can regenerate every label from this file and the report, and a test does exactly that.",
+  "raters": [
+    {
+      "id": "rule-current-rubric",
+      "kind": "declared_rule",
+      "not_a_person": true,
+      "description": "The confidence rules of the pinned rubric practice-default@1.1.0, applied to the report's own evidence counts.",
+      "rule": {
+        "min_supporting": 2,
+        "high_min_supporting": 4,
+        "high_max_contradictory": 0,
+        "medium_min_supporting": 2,
+        "medium_max_contradictory": 1
+      }
+    },
+    {
+      "id": "rule-lenient",
+      "kind": "declared_rule",
+      "not_a_person": true,
+      "description": "A deliberately looser rule, present so the raters disagree. Agreement measured on a set where every rater applies the same rule is one by construction and measures nothing.",
+      "rule": {
+        "min_supporting": 1,
+        "high_min_supporting": 3,
+        "high_max_contradictory": 0,
+        "medium_min_supporting": 1,
+        "medium_max_contradictory": 2
+      }
+    },
+    {
+      "id": "rule-current-rubric-with-drift",
+      "kind": "declared_rule",
+      "not_a_person": true,
+      "description": "The current rubric's rule, with every third item in sorted order shifted one step down the scale. Models a rater who is systematically harsher on part of the set, which is the pattern chance correction exists to notice.",
+      "rule": {
+        "min_supporting": 2,
+        "high_min_supporting": 4,
+        "high_max_contradictory": 0,
+        "medium_min_supporting": 2,
+        "medium_max_contradictory": 1
+      },
+      "drift": {
+        "every_nth_item": 3,
+        "shift": "one_step_down",
+        "shift_map": {
+          "high": "medium",
+          "medium": "low",
+          "low": "low",
+          "not_assessable": "not_assessable"
+        }
+      }
+    }
+  ],
+  "what_this_may_never_be_used_for": [
+    "Deriving a threshold. The calibrator refuses this set by provenance, and a test proves the refusal.",
+    "Reporting an agreement figure as if it described people. Every number produced from this set is labelled exercise_only.",
+    "Standing in for the benchmark work. It is scaffolding for data that does not exist."
+  ]
+}

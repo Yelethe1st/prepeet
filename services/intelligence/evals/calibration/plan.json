@@ -1,0 +1,63 @@
+{
+  "plan_version": "1.0.0",
+  "serves": ["QUA-03"],
+  "created": "2026-08-31",
+  "status": "awaiting_human_benchmark_data",
+  "status_note": "No human benchmark ratings exist in this repository, so no threshold in this product is calibrated. This plan states what would have to be collected and what the harness will do with it. It is not a calibration and must never be cited as one.",
+  "owner": {
+    "role": "Calibration owner",
+    "team": "AI and data quality workstream",
+    "accountable_for": "The benchmark exercise, the agreement measurement, and any threshold derived from it."
+  },
+  "review": {
+    "date": "2027-02-28",
+    "owner": "AI and data quality workstream",
+    "why": "A calibration plan with no data ages into an assumption that the work was done. The review date forces somebody to answer whether the benchmark exercise has happened, been abandoned, or been superseded."
+  },
+  "label_scale": {
+    "labels": ["high", "medium", "low", "not_assessable"],
+    "kind": "nominal",
+    "why_not_ordered": "ADR-0015 makes not_assessable a fact about the session rather than a low rung of the same ladder, so the scale is not an interval one and agreement is measured with a nominal difference function. Treating the labels as ordered would assert that an unassessable competency is a weak one, which is the exact misreading the ADR exists to prevent."
+  },
+  "unit_of_rating": {
+    "item": "one competency within one evaluation case",
+    "item_id": "case_id::competency_id",
+    "why": "Confidence is per competency (ADR-0015), so agreement has to be measured per competency. Rating whole sessions would average away the disagreement the thresholds exist to resolve."
+  },
+  "what_raters_would_see": {
+    "shown": ["The candidate turns of the transcript", "The competency and its rubric description", "The evidence spans the pipeline extracted, unlabelled"],
+    "withheld": ["The pipeline's own confidence label", "Any band or score", "The other raters' answers"],
+    "why": "A rater shown the machine's answer is measuring their agreement with an anchor rather than with the evidence, and the resulting agreement figure would be an artefact of the display."
+  },
+  "acceptance_floors": {
+    "minimum_independent_raters": 3,
+    "minimum_independent_raters_why": "Two raters give a kappa with no way to tell a shared misreading from a shared standard. Three is the smallest number at which a majority consensus exists without a tie-break rule inventing one.",
+    "minimum_items": 60,
+    "minimum_items_why": "The current dataset has 26 cases with 3 competencies each, so 78 items exist. A floor below the available set would let a calibration rest on a convenient subset.",
+    "professions_required": ["engineering", "finance", "nursing", "product", "sales", "teaching"],
+    "professions_required_why": "A threshold calibrated on software interviews and applied to a nursing one is the failure this epic's dataset was built to prevent.",
+    "agreement_metric": "krippendorff_alpha",
+    "agreement_metric_why": "Alpha tolerates a rater who did not rate every item, which every real exercise produces, and corrects for chance. Observed agreement alone would look high simply because most competencies land on one label.",
+    "minimum_agreement": 0.8,
+    "minimum_agreement_source": "Krippendorff's own convention: alpha at or above 0.800 for firm conclusions, with 0.667 the lowest figure on which tentative conclusions may rest. The floor is quoted from a published convention rather than chosen here, because a floor picked by the team that wants to pass it is not a floor.",
+    "tentative_agreement_floor": 0.667,
+    "tentative_floor_licenses": "Nothing on its own. A set between 0.667 and 0.800 may inform a rubric proposal that is reviewed as a proposal. It may not produce a published threshold and it may not unlock numeric display."
+  },
+  "collection_requirements": {
+    "lawful_basis": "required_before_collection",
+    "note": "Ratings are judgements by named people about recorded speech. Collecting them needs a lawful basis, a purpose statement, a retention rule and each rater's agreement to be identified in the record. None of that exists yet, which is a reason this work has not been done rather than an obstacle to doing it.",
+    "raters_must_be": ["Independent of one another", "Competent in the profession being rated", "Identified in the collection record"],
+    "real_candidate_data": "prohibited_without_its_own_basis",
+    "real_candidate_data_note": "The current fixtures are synthetic, so a benchmark exercise over them raises no candidate privacy question at all. A benchmark drawn from real sessions is a different piece of work with its own lawful basis, retention rule and access control, and it does not belong in this repository."
+  },
+  "approved_benchmark_sets": [],
+  "approved_benchmark_sets_why": "A set is admitted by the plan's owner naming it here. Dropping a file into benchmarks/ that declares itself human is not enough, on purpose: two acts are needed before any number in this repository can call itself calibrated.",
+  "what_calibration_would_produce": {
+    "artifact": "A new version of rubric/practice-default carrying derived confidence rules, published through ADR-0011's registry with an approver who is not the author.",
+    "not_produced_here": "This plan never edits a rubric. A threshold is a published artifact version, so a calibration that did not move a rubric version would be a constant that drifted.",
+    "records": ["The measured inter-rater agreement with its metric", "The full threshold sweep, not only the winner", "The owner and the review date of the resulting thresholds"]
+  },
+  "prohibited_until_calibrated": {
+    "numeric_confidence_display": "ADR-0015 forbids any numeric confidence, percentage, interval, decimal or gauge on any surface until calibrated thresholds exist with measured agreement. Nothing in this plan relaxes that, and the harness reports the prohibition as still in force."
+  }
+}

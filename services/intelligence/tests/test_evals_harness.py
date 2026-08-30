@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import datetime
 import json
 import socket
+import subprocess
 from typing import Any
 
 import pytest
@@ -481,3 +483,52 @@ class TestDegradationAndTheArtifactItself:
             probe.close()
 
         assert meter.connections >= 1
+
+
+class TestTheCommittedReportSurvivesACleanCheckout:
+    """QUA-04 gates publication on the committed report, so it has to be there.
+
+    The report was ignored by git and required by two tests at once, which
+    meant a clean checkout could not collect this suite at all. These two
+    hold the fix in place: the artifact is tracked, and the part that would
+    dirty the tree on every run is written beside it rather than into it.
+    """
+
+    def test_the_committed_report_is_tracked_in_git(self) -> None:
+        """An untracked report is one no reviewer and no gate can read."""
+        listed = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", str(harness.REPORT_PATH)],
+            capture_output=True,
+            check=False,
+            cwd=harness.REPORT_PATH.parent,
+        )
+
+        assert listed.returncode == 0, (
+            "evals/reports/latest.json is not tracked, so a clean checkout has no report: "
+            f"{listed.stderr.decode().strip()}"
+        )
+
+    def test_the_written_report_keeps_per_run_timing_out_of_the_artifact(
+        self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Timing beside the report, not inside it, so a rerun leaves no diff."""
+        target = tmp_path / "latest.json"
+        monkeypatch.setattr(harness, "REPORT_PATH", target)
+
+        harness.write_report(REPORT)
+
+        written = json.loads(target.read_text())
+        assert "timing" not in written
+        assert json.loads((tmp_path / "latest.timing.json").read_text())["total_ms"] >= 0
+
+    def test_the_report_carries_the_date_it_was_generated(self) -> None:
+        """QUA-04's gate refuses a report older than the policy allows.
+
+        The date sits outside the results digest, beside timing, because a
+        rerun on a later day is not a different evaluation.
+        """
+        assert datetime.date.fromisoformat(REPORT["generated"]) <= datetime.date.today()
+
+        later = json.loads(json.dumps(REPORT))
+        later["generated"] = "2099-01-01"
+        assert harness.results_digest(later) == harness.results_digest(REPORT)

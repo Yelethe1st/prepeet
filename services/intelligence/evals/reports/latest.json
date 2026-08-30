@@ -1,0 +1,2403 @@
+{
+  "cases": [
+    {
+      "case_class": "well_evidenced",
+      "case_id": "engineering-well-evidenced-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.948,
+        "words": 140
+      },
+      "evidence_spans": [
+        {
+          "char_end": 151,
+          "char_start": 0,
+          "competency_id": "systems-design",
+          "end_ms": 15675,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I owned the systems design for our checkout service last year. We sharded the write path by region and cut median latency from 900 milliseconds to 240.",
+          "segment_sequence": 2,
+          "start_ms": 3920
+        },
+        {
+          "char_end": 46,
+          "char_start": 0,
+          "competency_id": "systems-design",
+          "end_ms": 22432,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The design work took 6 weeks with 2 engineers.",
+          "segment_sequence": 4,
+          "start_ms": 18795
+        },
+        {
+          "char_end": 81,
+          "char_start": 0,
+          "competency_id": "incident-response",
+          "end_ms": 38809,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "During one incident I bisected the deploy and found the regression in 20 minutes.",
+          "segment_sequence": 6,
+          "start_ms": 33373
+        },
+        {
+          "char_end": 81,
+          "char_start": 0,
+          "competency_id": "incident-response",
+          "end_ms": 52695,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "Afterwards we rewrote the response runbook and pages dropped from 14 a week to 3.",
+          "segment_sequence": 8,
+          "start_ms": 46745
+        },
+        {
+          "char_end": 71,
+          "char_start": 0,
+          "competency_id": "code-review",
+          "end_ms": 67477,
+          "extraction_version": "evidence-1",
+          "kind": "claim_unverified",
+          "quote": "I care about collaboration in review but I have no figures to point at.",
+          "segment_sequence": 10,
+          "start_ms": 61845
+        }
+      ],
+      "grounding": {
+        "checked": 5,
+        "grounded": 5
+      },
+      "profession": "engineering",
+      "schema": {
+        "problems": [],
+        "records": 5
+      },
+      "seniority": "senior",
+      "stability": [
+        {
+          "expect_same_judgement": true,
+          "kind": "verbosity",
+          "same_judgement": true,
+          "variant_id": "engineering-well-evidenced-01-verbose"
+        },
+        {
+          "expect_same_judgement": true,
+          "kind": "prompt_injection",
+          "same_judgement": true,
+          "variant_id": "engineering-well-evidenced-01-injection"
+        },
+        {
+          "expect_same_judgement": false,
+          "kind": "vocabulary",
+          "same_judgement": false,
+          "variant_id": "engineering-well-evidenced-01-synonym"
+        }
+      ],
+      "sufficiency": {
+        "code-review": "insufficient_evidence",
+        "incident-response": "sufficient",
+        "systems-design": "sufficient"
+      },
+      "unsupported_facts": {
+        "assertions": 9,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "insufficient_evidence",
+      "case_id": "engineering-insufficient-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.927,
+        "words": 76
+      },
+      "evidence_spans": [
+        {
+          "char_end": 101,
+          "char_start": 0,
+          "competency_id": "systems-design",
+          "end_ms": 12500,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I helped with the systems design for a reporting tool. It shipped 3 months late but we learned a lot.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 56,
+          "char_start": 0,
+          "competency_id": "incident-response",
+          "end_ms": 19914,
+          "extraction_version": "evidence-1",
+          "kind": "gap",
+          "quote": "Honestly I am not sure I have a strong incident example.",
+          "segment_sequence": 4,
+          "start_ms": 15220
+        }
+      ],
+      "grounding": {
+        "checked": 2,
+        "grounded": 2
+      },
+      "profession": "engineering",
+      "schema": {
+        "problems": [],
+        "records": 2
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "code-review": "not_discussed",
+        "incident-response": "insufficient_evidence",
+        "systems-design": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 6,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "contradiction",
+      "case_id": "engineering-contradiction-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [
+        {
+          "extraction_version": "evidence-1",
+          "side_a": {
+            "char_end": 56,
+            "char_start": 0,
+            "end_ms": 7540,
+            "quote": "The platform team had 4 engineers for the whole project.",
+            "segment_sequence": 2,
+            "start_ms": 3520
+          },
+          "side_b": {
+            "char_end": 55,
+            "char_start": 0,
+            "end_ms": 19980,
+            "quote": "There were 9 engineers on the platform team throughout.",
+            "segment_sequence": 4,
+            "start_ms": 16370
+          },
+          "topic": [
+            "engineers",
+            "platform",
+            "team"
+          ]
+        }
+      ],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 92
+      },
+      "evidence_spans": [
+        {
+          "char_end": 91,
+          "char_start": 0,
+          "competency_id": "systems-design",
+          "end_ms": 34330,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I owned the systems design for the ingest path, and it handled 30 thousand events a second.",
+          "segment_sequence": 6,
+          "start_ms": 27610
+        },
+        {
+          "char_end": 45,
+          "char_start": 0,
+          "competency_id": "code-review",
+          "end_ms": 44615,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The design review for it ran over 2 sessions.",
+          "segment_sequence": 8,
+          "start_ms": 41050
+        },
+        {
+          "char_end": 45,
+          "char_start": 0,
+          "competency_id": "systems-design",
+          "end_ms": 44615,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The design review for it ran over 2 sessions.",
+          "segment_sequence": 8,
+          "start_ms": 41050
+        }
+      ],
+      "grounding": {
+        "checked": 5,
+        "grounded": 5
+      },
+      "profession": "engineering",
+      "schema": {
+        "problems": [],
+        "records": 4
+      },
+      "seniority": "senior",
+      "stability": [],
+      "sufficiency": {
+        "code-review": "insufficient_evidence",
+        "incident-response": "not_discussed",
+        "systems-design": "sufficient"
+      },
+      "unsupported_facts": {
+        "assertions": 9,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "contradiction_false_positive",
+      "case_id": "engineering-contradiction-false-positive-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [
+        {
+          "extraction_version": "evidence-1",
+          "side_a": {
+            "char_end": 67,
+            "char_start": 0,
+            "end_ms": 7528,
+            "quote": "During the incident response we restored the service in 45 minutes.",
+            "segment_sequence": 2,
+            "start_ms": 3120
+          },
+          "side_b": {
+            "char_end": 73,
+            "char_start": 0,
+            "end_ms": 19152,
+            "quote": "The next incident response took 12 minutes because the runbook was ready.",
+            "segment_sequence": 4,
+            "start_ms": 14336
+          },
+          "topic": [
+            "incident",
+            "minutes",
+            "response"
+          ]
+        }
+      ],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 42
+      },
+      "evidence_spans": [
+        {
+          "char_end": 67,
+          "char_start": 0,
+          "competency_id": "incident-response",
+          "end_ms": 7528,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "During the incident response we restored the service in 45 minutes.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 73,
+          "char_start": 0,
+          "competency_id": "incident-response",
+          "end_ms": 19152,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The next incident response took 12 minutes because the runbook was ready.",
+          "segment_sequence": 4,
+          "start_ms": 14336
+        }
+      ],
+      "grounding": {
+        "checked": 4,
+        "grounded": 4
+      },
+      "profession": "engineering",
+      "schema": {
+        "problems": [],
+        "records": 3
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "code-review": "not_discussed",
+        "incident-response": "sufficient",
+        "systems-design": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 8,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "unassessable",
+      "case_id": "engineering-unassessable-01",
+      "coaching_shape": [],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [
+          "no_word_timing"
+        ],
+        "status": "not_assessable",
+        "transcript_confidence": 0.0,
+        "words": 0
+      },
+      "evidence_spans": [
+        {
+          "char_end": 102,
+          "char_start": 0,
+          "competency_id": "systems-design",
+          "end_ms": 11940,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I owned the systems design for the billing service and cut the nightly job from 4 hours to 40 minutes.",
+          "segment_sequence": 2,
+          "start_ms": 3920
+        }
+      ],
+      "grounding": {
+        "checked": 1,
+        "grounded": 1
+      },
+      "profession": "engineering",
+      "schema": {
+        "problems": [],
+        "records": 1
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "code-review": "not_discussed",
+        "incident-response": "not_discussed",
+        "systems-design": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 1,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "well_evidenced",
+      "case_id": "finance-well-evidenced-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 6,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 6,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 119
+      },
+      "evidence_spans": [
+        {
+          "char_end": 54,
+          "char_start": 0,
+          "competency_id": "financial-modelling",
+          "end_ms": 7120,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I rebuilt the financial modelling for the 3 year plan.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 53,
+          "char_start": 0,
+          "competency_id": "financial-modelling",
+          "end_ms": 19203,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The modelling pack now closes in 2 days instead of 9.",
+          "segment_sequence": 4,
+          "start_ms": 14828
+        },
+        {
+          "char_end": 92,
+          "char_start": 0,
+          "competency_id": "controls-reconciliation",
+          "end_ms": 32848,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I tightened the controls around reconciliation and unexplained variances fell by 80 percent.",
+          "segment_sequence": 6,
+          "start_ms": 27598
+        },
+        {
+          "char_end": 66,
+          "char_start": 0,
+          "competency_id": "controls-reconciliation",
+          "end_ms": 43266,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The reconciliation now catches 15 breaks a month before month end.",
+          "segment_sequence": 8,
+          "start_ms": 38858
+        },
+        {
+          "char_end": 84,
+          "char_start": 0,
+          "competency_id": "stakeholder-reporting",
+          "end_ms": 57002,
+          "extraction_version": "evidence-1",
+          "kind": "claim_unverified",
+          "quote": "I present stakeholder reporting to the board but I could not tell you how it landed.",
+          "segment_sequence": 10,
+          "start_ms": 50474
+        }
+      ],
+      "grounding": {
+        "checked": 5,
+        "grounded": 5
+      },
+      "profession": "finance",
+      "schema": {
+        "problems": [],
+        "records": 5
+      },
+      "seniority": "senior",
+      "stability": [
+        {
+          "expect_same_judgement": true,
+          "kind": "prompt_injection",
+          "same_judgement": true,
+          "variant_id": "finance-well-evidenced-01-injection"
+        }
+      ],
+      "sufficiency": {
+        "controls-reconciliation": "sufficient",
+        "financial-modelling": "sufficient",
+        "stakeholder-reporting": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 9,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "insufficient_evidence",
+      "case_id": "finance-insufficient-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.927,
+        "words": 74
+      },
+      "evidence_spans": [
+        {
+          "char_end": 59,
+          "char_start": 0,
+          "competency_id": "financial-modelling",
+          "end_ms": 7320,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I supported the financial modelling for one 4 week project.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 66,
+          "char_start": 0,
+          "competency_id": "controls-reconciliation",
+          "end_ms": 18637,
+          "extraction_version": "evidence-1",
+          "kind": "gap",
+          "quote": "I have no experience of controls and reconciliation at that scale.",
+          "segment_sequence": 4,
+          "start_ms": 13976
+        }
+      ],
+      "grounding": {
+        "checked": 2,
+        "grounded": 2
+      },
+      "profession": "finance",
+      "schema": {
+        "problems": [],
+        "records": 2
+      },
+      "seniority": "junior",
+      "stability": [],
+      "sufficiency": {
+        "controls-reconciliation": "insufficient_evidence",
+        "financial-modelling": "insufficient_evidence",
+        "stakeholder-reporting": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 6,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "contradiction",
+      "case_id": "finance-contradiction-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [
+        {
+          "extraction_version": "evidence-1",
+          "side_a": {
+            "char_end": 44,
+            "char_start": 0,
+            "end_ms": 6730,
+            "quote": "The book I covered was 40 million in assets.",
+            "segment_sequence": 2,
+            "start_ms": 3120
+          },
+          "side_b": {
+            "char_end": 50,
+            "char_start": 0,
+            "end_ms": 20850,
+            "quote": "It was 65 million in assets on the book I covered.",
+            "segment_sequence": 4,
+            "start_ms": 16420
+          },
+          "topic": [
+            "assets",
+            "book",
+            "covered",
+            "million"
+          ]
+        }
+      ],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 92
+      },
+      "evidence_spans": [
+        {
+          "char_end": 52,
+          "char_start": 0,
+          "competency_id": "financial-modelling",
+          "end_ms": 31660,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "My financial modelling for the book runs to 12 tabs.",
+          "segment_sequence": 6,
+          "start_ms": 27660
+        },
+        {
+          "char_end": 52,
+          "char_start": 0,
+          "competency_id": "financial-modelling",
+          "end_ms": 42890,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The modelling cycle is 5 days from open to sign off.",
+          "segment_sequence": 8,
+          "start_ms": 38460
+        }
+      ],
+      "grounding": {
+        "checked": 4,
+        "grounded": 4
+      },
+      "profession": "finance",
+      "schema": {
+        "problems": [],
+        "records": 3
+      },
+      "seniority": "senior",
+      "stability": [],
+      "sufficiency": {
+        "controls-reconciliation": "not_discussed",
+        "financial-modelling": "sufficient",
+        "stakeholder-reporting": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 8,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "contradiction_false_positive",
+      "case_id": "finance-contradiction-false-positive-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [
+        {
+          "extraction_version": "evidence-1",
+          "side_a": {
+            "char_end": 58,
+            "char_start": 0,
+            "end_ms": 7550,
+            "quote": "The reconciliation backlog was 30 items when I took it on.",
+            "segment_sequence": 2,
+            "start_ms": 3120
+          },
+          "side_b": {
+            "char_end": 42,
+            "char_start": 0,
+            "end_ms": 15550,
+            "quote": "The reconciliation backlog is 4 items now.",
+            "segment_sequence": 4,
+            "start_ms": 12760
+          },
+          "topic": [
+            "backlog",
+            "items",
+            "reconciliation"
+          ]
+        }
+      ],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 44
+      },
+      "evidence_spans": [
+        {
+          "char_end": 58,
+          "char_start": 0,
+          "competency_id": "controls-reconciliation",
+          "end_ms": 7550,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The reconciliation backlog was 30 items when I took it on.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 42,
+          "char_start": 0,
+          "competency_id": "controls-reconciliation",
+          "end_ms": 15550,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The reconciliation backlog is 4 items now.",
+          "segment_sequence": 4,
+          "start_ms": 12760
+        }
+      ],
+      "grounding": {
+        "checked": 4,
+        "grounded": 4
+      },
+      "profession": "finance",
+      "schema": {
+        "problems": [],
+        "records": 3
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "controls-reconciliation": "sufficient",
+        "financial-modelling": "not_discussed",
+        "stakeholder-reporting": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 8,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "unassessable",
+      "case_id": "finance-unassessable-01",
+      "coaching_shape": [],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [
+          "transcript_confidence_low"
+        ],
+        "status": "not_assessable",
+        "transcript_confidence": 0.0,
+        "words": 0
+      },
+      "evidence_spans": [
+        {
+          "char_end": 129,
+          "char_start": 0,
+          "competency_id": "financial-modelling",
+          "end_ms": 14056,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I rebuilt the financial modelling for the 3 year plan and the pack now closes in 2 days instead of 9 which saved the team a week.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        }
+      ],
+      "grounding": {
+        "checked": 1,
+        "grounded": 1
+      },
+      "profession": "finance",
+      "schema": {
+        "problems": [],
+        "records": 1
+      },
+      "seniority": "senior",
+      "stability": [],
+      "sufficiency": {
+        "controls-reconciliation": "not_discussed",
+        "financial-modelling": "insufficient_evidence",
+        "stakeholder-reporting": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 1,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "well_evidenced",
+      "case_id": "nursing-well-evidenced-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.948,
+        "words": 139
+      },
+      "evidence_spans": [
+        {
+          "char_end": 84,
+          "char_start": 0,
+          "competency_id": "patient-safety",
+          "end_ms": 11812,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "On a night shift I raised a patient safety concern when the ward was 2 nurses short.",
+          "segment_sequence": 2,
+          "start_ms": 3920
+        },
+        {
+          "char_end": 52,
+          "char_start": 0,
+          "competency_id": "patient-safety",
+          "end_ms": 24392,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The safety huddle I started now runs every 12 hours.",
+          "segment_sequence": 4,
+          "start_ms": 20372
+        },
+        {
+          "char_end": 94,
+          "char_start": 0,
+          "competency_id": "clinical-handover",
+          "end_ms": 39257,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I redesigned the clinical handover sheet and missed medication doses fell from 7 a month to 1.",
+          "segment_sequence": 6,
+          "start_ms": 32452
+        },
+        {
+          "char_end": 55,
+          "char_start": 0,
+          "competency_id": "clinical-handover",
+          "end_ms": 52112,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The handover audit covered 30 shifts and found no gaps.",
+          "segment_sequence": 8,
+          "start_ms": 48062
+        },
+        {
+          "char_end": 70,
+          "char_start": 0,
+          "competency_id": "escalation",
+          "end_ms": 67851,
+          "extraction_version": "evidence-1",
+          "kind": "claim_unverified",
+          "quote": "I follow the escalation ladder every time but I have not counted them.",
+          "segment_sequence": 10,
+          "start_ms": 62627
+        }
+      ],
+      "grounding": {
+        "checked": 5,
+        "grounded": 5
+      },
+      "profession": "nursing",
+      "schema": {
+        "problems": [],
+        "records": 5
+      },
+      "seniority": "mid",
+      "stability": [
+        {
+          "expect_same_judgement": true,
+          "kind": "verbosity",
+          "same_judgement": true,
+          "variant_id": "nursing-well-evidenced-01-verbose"
+        }
+      ],
+      "sufficiency": {
+        "clinical-handover": "sufficient",
+        "escalation": "insufficient_evidence",
+        "patient-safety": "sufficient"
+      },
+      "unsupported_facts": {
+        "assertions": 9,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "insufficient_evidence",
+      "case_id": "nursing-insufficient-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.927,
+        "words": 81
+      },
+      "evidence_spans": [
+        {
+          "char_end": 72,
+          "char_start": 0,
+          "competency_id": "patient-safety",
+          "end_ms": 9860,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I raised one patient safety concern about a 3 day gap in the drug chart.",
+          "segment_sequence": 2,
+          "start_ms": 3520
+        },
+        {
+          "char_end": 59,
+          "char_start": 0,
+          "competency_id": "clinical-handover",
+          "end_ms": 24472,
+          "extraction_version": "evidence-1",
+          "kind": "gap",
+          "quote": "I do not know that I have a good clinical handover example.",
+          "segment_sequence": 4,
+          "start_ms": 19344
+        }
+      ],
+      "grounding": {
+        "checked": 2,
+        "grounded": 2
+      },
+      "profession": "nursing",
+      "schema": {
+        "problems": [],
+        "records": 2
+      },
+      "seniority": "junior",
+      "stability": [],
+      "sufficiency": {
+        "clinical-handover": "insufficient_evidence",
+        "escalation": "not_discussed",
+        "patient-safety": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 6,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "contradiction",
+      "case_id": "nursing-contradiction-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [
+        {
+          "extraction_version": "evidence-1",
+          "side_a": {
+            "char_end": 43,
+            "char_start": 0,
+            "end_ms": 6357,
+            "quote": "I covered 24 beds on that ward every shift.",
+            "segment_sequence": 2,
+            "start_ms": 2720
+          },
+          "side_b": {
+            "char_end": 53,
+            "char_start": 0,
+            "end_ms": 20948,
+            "quote": "It was 30 beds on the ward and I covered all of them.",
+            "segment_sequence": 4,
+            "start_ms": 15659
+          },
+          "topic": [
+            "beds",
+            "covered",
+            "ward"
+          ]
+        }
+      ],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 93
+      },
+      "evidence_spans": [
+        {
+          "char_end": 96,
+          "char_start": 0,
+          "competency_id": "escalation",
+          "end_ms": 35403,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I called the escalation line twice in one night and both patients went to 4 hourly observations.",
+          "segment_sequence": 6,
+          "start_ms": 28598
+        },
+        {
+          "char_end": 96,
+          "char_start": 0,
+          "competency_id": "patient-safety",
+          "end_ms": 35403,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I called the escalation line twice in one night and both patients went to 4 hourly observations.",
+          "segment_sequence": 6,
+          "start_ms": 28598
+        },
+        {
+          "char_end": 57,
+          "char_start": 0,
+          "competency_id": "escalation",
+          "end_ms": 46576,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The escalation policy I wrote is now used across 3 wards.",
+          "segment_sequence": 8,
+          "start_ms": 42168
+        }
+      ],
+      "grounding": {
+        "checked": 5,
+        "grounded": 5
+      },
+      "profession": "nursing",
+      "schema": {
+        "problems": [],
+        "records": 4
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "clinical-handover": "not_discussed",
+        "escalation": "sufficient",
+        "patient-safety": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 9,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "unassessable",
+      "case_id": "nursing-unassessable-01",
+      "coaching_shape": [],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [
+          "no_candidate_speech"
+        ],
+        "status": "not_assessable",
+        "transcript_confidence": 0.0,
+        "words": 0
+      },
+      "evidence_spans": [],
+      "grounding": {
+        "checked": 0,
+        "grounded": 0
+      },
+      "profession": "nursing",
+      "schema": {
+        "problems": [],
+        "records": 0
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "clinical-handover": "not_discussed",
+        "escalation": "not_discussed",
+        "patient-safety": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 0,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "well_evidenced",
+      "case_id": "product-well-evidenced-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 115
+      },
+      "evidence_spans": [
+        {
+          "char_end": 75,
+          "char_start": 0,
+          "competency_id": "prioritisation",
+          "end_ms": 8668,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I rewrote our prioritisation model and cut the roadmap from 40 items to 12.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 47,
+          "char_start": 0,
+          "competency_id": "prioritisation",
+          "end_ms": 19026,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "Every prioritisation call now takes 30 minutes.",
+          "segment_sequence": 4,
+          "start_ms": 16306
+        },
+        {
+          "char_end": 79,
+          "char_start": 0,
+          "competency_id": "discovery-research",
+          "end_ms": 32521,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "Our discovery research covered 18 customer interviews before we built anything.",
+          "segment_sequence": 6,
+          "start_ms": 28146
+        },
+        {
+          "char_end": 38,
+          "char_start": 0,
+          "competency_id": "discovery-research",
+          "end_ms": 41659,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "That research killed 2 features early.",
+          "segment_sequence": 8,
+          "start_ms": 39291
+        },
+        {
+          "char_end": 88,
+          "char_start": 0,
+          "competency_id": "stakeholder-alignment",
+          "end_ms": 59013,
+          "extraction_version": "evidence-1",
+          "kind": "claim_unverified",
+          "quote": "I run stakeholder alignment sessions but I could not put a number on how well they work.",
+          "segment_sequence": 10,
+          "start_ms": 52123
+        }
+      ],
+      "grounding": {
+        "checked": 5,
+        "grounded": 5
+      },
+      "profession": "product",
+      "schema": {
+        "problems": [],
+        "records": 5
+      },
+      "seniority": "senior",
+      "stability": [],
+      "sufficiency": {
+        "discovery-research": "sufficient",
+        "prioritisation": "sufficient",
+        "stakeholder-alignment": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 9,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "insufficient_evidence",
+      "case_id": "product-insufficient-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.927,
+        "words": 69
+      },
+      "evidence_spans": [
+        {
+          "char_end": 49,
+          "char_start": 0,
+          "competency_id": "prioritisation",
+          "end_ms": 6440,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I owned prioritisation for one 6 week experiment.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 71,
+          "char_start": 0,
+          "competency_id": "discovery-research",
+          "end_ms": 21497,
+          "extraction_version": "evidence-1",
+          "kind": "gap",
+          "quote": "I do not know that I have a discovery research example that stands out.",
+          "segment_sequence": 4,
+          "start_ms": 15585
+        }
+      ],
+      "grounding": {
+        "checked": 2,
+        "grounded": 2
+      },
+      "profession": "product",
+      "schema": {
+        "problems": [],
+        "records": 2
+      },
+      "seniority": "junior",
+      "stability": [],
+      "sufficiency": {
+        "discovery-research": "insufficient_evidence",
+        "prioritisation": "insufficient_evidence",
+        "stakeholder-alignment": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 6,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "contradiction",
+      "case_id": "product-contradiction-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 4,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 4,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [
+        {
+          "extraction_version": "evidence-1",
+          "side_a": {
+            "char_end": 51,
+            "char_start": 0,
+            "end_ms": 5912,
+            "quote": "The team I supported shipped 14 releases that year.",
+            "segment_sequence": 2,
+            "start_ms": 2320
+          },
+          "side_b": {
+            "char_end": 50,
+            "char_start": 0,
+            "end_ms": 18752,
+            "quote": "That year the team I supported shipped 6 releases.",
+            "segment_sequence": 4,
+            "start_ms": 15160
+          },
+          "topic": [
+            "releases",
+            "shipped",
+            "supported",
+            "team",
+            "that",
+            "year"
+          ]
+        }
+      ],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 93
+      },
+      "evidence_spans": [
+        {
+          "char_end": 47,
+          "char_start": 0,
+          "competency_id": "prioritisation",
+          "end_ms": 29110,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "My prioritisation framework ranks 5 dimensions.",
+          "segment_sequence": 6,
+          "start_ms": 26760
+        },
+        {
+          "char_end": 60,
+          "char_start": 0,
+          "competency_id": "prioritisation",
+          "end_ms": 42680,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "We reviewed the prioritisation list with 3 teams each month.",
+          "segment_sequence": 8,
+          "start_ms": 38710
+        }
+      ],
+      "grounding": {
+        "checked": 4,
+        "grounded": 4
+      },
+      "profession": "product",
+      "schema": {
+        "problems": [],
+        "records": 3
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "discovery-research": "not_discussed",
+        "prioritisation": "sufficient",
+        "stakeholder-alignment": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 8,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "unassessable",
+      "case_id": "product-unassessable-01",
+      "coaching_shape": [],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [
+          "insufficient_speech"
+        ],
+        "status": "not_assessable",
+        "transcript_confidence": 0.0,
+        "words": 0
+      },
+      "evidence_spans": [],
+      "grounding": {
+        "checked": 0,
+        "grounded": 0
+      },
+      "profession": "product",
+      "schema": {
+        "problems": [],
+        "records": 0
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "discovery-research": "not_discussed",
+        "prioritisation": "not_discussed",
+        "stakeholder-alignment": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 0,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "well_evidenced",
+      "case_id": "sales-well-evidenced-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 8,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 8,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 122
+      },
+      "evidence_spans": [
+        {
+          "char_end": 72,
+          "char_start": 0,
+          "competency_id": "discovery-qualification",
+          "end_ms": 7374,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I rebuilt our discovery script and qualification improved to 60 percent.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 65,
+          "char_start": 0,
+          "competency_id": "discovery-qualification",
+          "end_ms": 20754,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "Deals that passed qualification closed in 21 days rather than 45.",
+          "segment_sequence": 4,
+          "start_ms": 16522
+        },
+        {
+          "char_end": 72,
+          "char_start": 0,
+          "competency_id": "negotiation",
+          "end_ms": 34453,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "In one negotiation I held the discount at 8 percent when the ask was 20.",
+          "segment_sequence": 6,
+          "start_ms": 28578
+        },
+        {
+          "char_end": 51,
+          "char_start": 0,
+          "competency_id": "negotiation",
+          "end_ms": 45460,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The negotiation playbook I wrote is used by 6 reps.",
+          "segment_sequence": 8,
+          "start_ms": 41540
+        },
+        {
+          "char_end": 86,
+          "char_start": 0,
+          "competency_id": "pipeline-management",
+          "end_ms": 60530,
+          "extraction_version": "evidence-1",
+          "kind": "claim_unverified",
+          "quote": "I keep pipeline management tidy every week but I have never counted the hygiene score.",
+          "segment_sequence": 10,
+          "start_ms": 54580
+        }
+      ],
+      "grounding": {
+        "checked": 5,
+        "grounded": 5
+      },
+      "profession": "sales",
+      "schema": {
+        "problems": [],
+        "records": 5
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "discovery-qualification": "sufficient",
+        "negotiation": "sufficient",
+        "pipeline-management": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 9,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "insufficient_evidence",
+      "case_id": "sales-insufficient-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.927,
+        "words": 66
+      },
+      "evidence_spans": [
+        {
+          "char_end": 50,
+          "char_start": 0,
+          "competency_id": "discovery-qualification",
+          "end_ms": 6890,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I ran discovery on 2 accounts in my first quarter.",
+          "segment_sequence": 2,
+          "start_ms": 2720
+        },
+        {
+          "char_end": 57,
+          "char_start": 0,
+          "competency_id": "negotiation",
+          "end_ms": 17716,
+          "extraction_version": "evidence-1",
+          "kind": "gap",
+          "quote": "I am not sure I have a negotiation example at that level.",
+          "segment_sequence": 4,
+          "start_ms": 12660
+        }
+      ],
+      "grounding": {
+        "checked": 2,
+        "grounded": 2
+      },
+      "profession": "sales",
+      "schema": {
+        "problems": [],
+        "records": 2
+      },
+      "seniority": "junior",
+      "stability": [],
+      "sufficiency": {
+        "discovery-qualification": "insufficient_evidence",
+        "negotiation": "insufficient_evidence",
+        "pipeline-management": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 6,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "contradiction",
+      "case_id": "sales-contradiction-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [
+        {
+          "extraction_version": "evidence-1",
+          "side_a": {
+            "char_end": 44,
+            "char_start": 0,
+            "end_ms": 5485,
+            "quote": "I carried a quota of 900 thousand last year.",
+            "segment_sequence": 2,
+            "start_ms": 1920
+          },
+          "side_b": {
+            "char_end": 37,
+            "char_start": 0,
+            "end_ms": 16215,
+            "quote": "My quota last year was 1200 thousand.",
+            "segment_sequence": 4,
+            "start_ms": 13460
+          },
+          "topic": [
+            "last",
+            "quota",
+            "thousand",
+            "year"
+          ]
+        }
+      ],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 88
+      },
+      "evidence_spans": [
+        {
+          "char_end": 50,
+          "char_start": 0,
+          "competency_id": "pipeline-management",
+          "end_ms": 29348,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "My pipeline management review runs 3 times a week.",
+          "segment_sequence": 6,
+          "start_ms": 25810
+        },
+        {
+          "char_end": 42,
+          "char_start": 0,
+          "competency_id": "pipeline-management",
+          "end_ms": 40046,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The pipeline covers 40 open opportunities.",
+          "segment_sequence": 8,
+          "start_ms": 37696
+        }
+      ],
+      "grounding": {
+        "checked": 4,
+        "grounded": 4
+      },
+      "profession": "sales",
+      "schema": {
+        "problems": [],
+        "records": 3
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "discovery-qualification": "not_discussed",
+        "negotiation": "not_discussed",
+        "pipeline-management": "sufficient"
+      },
+      "unsupported_facts": {
+        "assertions": 8,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "unassessable",
+      "case_id": "sales-unassessable-01",
+      "coaching_shape": [],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [
+          "insufficient_speech"
+        ],
+        "status": "not_assessable",
+        "transcript_confidence": 0.0,
+        "words": 0
+      },
+      "evidence_spans": [],
+      "grounding": {
+        "checked": 0,
+        "grounded": 0
+      },
+      "profession": "sales",
+      "schema": {
+        "problems": [],
+        "records": 0
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "discovery-qualification": "not_discussed",
+        "negotiation": "not_discussed",
+        "pipeline-management": "not_discussed"
+      },
+      "unsupported_facts": {
+        "assertions": 0,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "well_evidenced",
+      "case_id": "teaching-well-evidenced-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.948,
+        "words": 118
+      },
+      "evidence_spans": [
+        {
+          "char_end": 62,
+          "char_start": 0,
+          "competency_id": "differentiation",
+          "end_ms": 7950,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I planned differentiation into every lesson for a class of 31.",
+          "segment_sequence": 2,
+          "start_ms": 3520
+        },
+        {
+          "char_end": 81,
+          "char_start": 0,
+          "competency_id": "differentiation",
+          "end_ms": 22910,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "After a term of differentiation the bottom quartile moved up 2 grades on average.",
+          "segment_sequence": 4,
+          "start_ms": 17320
+        },
+        {
+          "char_end": 61,
+          "char_start": 0,
+          "competency_id": "behaviour-management",
+          "end_ms": 32881,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "My behaviour management plan cut removals from 9 a term to 2.",
+          "segment_sequence": 6,
+          "start_ms": 28065
+        },
+        {
+          "char_end": 56,
+          "char_start": 0,
+          "competency_id": "behaviour-management",
+          "end_ms": 44547,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I now coach 4 colleagues on the same behaviour routines.",
+          "segment_sequence": 8,
+          "start_ms": 40497
+        },
+        {
+          "char_end": 83,
+          "char_start": 0,
+          "competency_id": "assessment-feedback",
+          "end_ms": 56680,
+          "extraction_version": "evidence-1",
+          "kind": "claim_unverified",
+          "quote": "I use low stakes assessment and feedback weekly but I have not measured the effect.",
+          "segment_sequence": 10,
+          "start_ms": 50610
+        }
+      ],
+      "grounding": {
+        "checked": 5,
+        "grounded": 5
+      },
+      "profession": "teaching",
+      "schema": {
+        "problems": [],
+        "records": 5
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "assessment-feedback": "insufficient_evidence",
+        "behaviour-management": "sufficient",
+        "differentiation": "sufficient"
+      },
+      "unsupported_facts": {
+        "assertions": 9,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "insufficient_evidence",
+      "case_id": "teaching-insufficient-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.927,
+        "words": 72
+      },
+      "evidence_spans": [
+        {
+          "char_end": 58,
+          "char_start": 0,
+          "competency_id": "differentiation",
+          "end_ms": 7320,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I ran one differentiation project with 5 pupils last year.",
+          "segment_sequence": 2,
+          "start_ms": 3120
+        },
+        {
+          "char_end": 68,
+          "char_start": 0,
+          "competency_id": "behaviour-management",
+          "end_ms": 19499,
+          "extraction_version": "evidence-1",
+          "kind": "gap",
+          "quote": "I am not sure I have a behaviour management example that would help.",
+          "segment_sequence": 4,
+          "start_ms": 13976
+        }
+      ],
+      "grounding": {
+        "checked": 2,
+        "grounded": 2
+      },
+      "profession": "teaching",
+      "schema": {
+        "problems": [],
+        "records": 2
+      },
+      "seniority": "junior",
+      "stability": [],
+      "sufficiency": {
+        "assessment-feedback": "not_discussed",
+        "behaviour-management": "insufficient_evidence",
+        "differentiation": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 6,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "contradiction",
+      "case_id": "teaching-contradiction-01",
+      "coaching_shape": [
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "headline"
+        },
+        {
+          "kind": "quote",
+          "sequence": 2,
+          "slot": "context"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "reasoning"
+        },
+        {
+          "kind": "placeholder",
+          "sequence": null,
+          "slot": "result"
+        }
+      ],
+      "contradictions": [
+        {
+          "extraction_version": "evidence-1",
+          "side_a": {
+            "char_end": 41,
+            "char_start": 0,
+            "end_ms": 5957,
+            "quote": "I taught 5 classes a week in that school.",
+            "segment_sequence": 2,
+            "start_ms": 2320
+          },
+          "side_b": {
+            "char_end": 59,
+            "char_start": 0,
+            "end_ms": 18096,
+            "quote": "There were 8 classes a week on my timetable in that school.",
+            "segment_sequence": 4,
+            "start_ms": 13220
+          },
+          "topic": [
+            "classes",
+            "school",
+            "that",
+            "week"
+          ]
+        }
+      ],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [],
+        "status": "assessable",
+        "transcript_confidence": 0.95,
+        "words": 80
+      },
+      "evidence_spans": [
+        {
+          "char_end": 59,
+          "char_start": 0,
+          "competency_id": "differentiation",
+          "end_ms": 28512,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "My differentiation planning covers 3 tiers in every lesson.",
+          "segment_sequence": 6,
+          "start_ms": 24920
+        },
+        {
+          "char_end": 56,
+          "char_start": 0,
+          "competency_id": "differentiation",
+          "end_ms": 39730,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "The differentiation folder has 12 worked examples in it.",
+          "segment_sequence": 8,
+          "start_ms": 36120
+        }
+      ],
+      "grounding": {
+        "checked": 4,
+        "grounded": 4
+      },
+      "profession": "teaching",
+      "schema": {
+        "problems": [],
+        "records": 3
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "assessment-feedback": "not_discussed",
+        "behaviour-management": "not_discussed",
+        "differentiation": "sufficient"
+      },
+      "unsupported_facts": {
+        "assertions": 8,
+        "detail": [],
+        "unsupported": 0
+      }
+    },
+    {
+      "case_class": "unassessable",
+      "case_id": "teaching-unassessable-01",
+      "coaching_shape": [],
+      "contradictions": [],
+      "delivery": {
+        "coaching_withheld": "",
+        "reasons": [
+          "transcript_confidence_low"
+        ],
+        "status": "not_assessable",
+        "transcript_confidence": 0.0,
+        "words": 0
+      },
+      "evidence_spans": [
+        {
+          "char_end": 115,
+          "char_start": 0,
+          "competency_id": "differentiation",
+          "end_ms": 12050,
+          "extraction_version": "evidence-1",
+          "kind": "supporting",
+          "quote": "I planned differentiation into every lesson for a class of 31 and the bottom quartile moved up 2 grades on average.",
+          "segment_sequence": 2,
+          "start_ms": 3520
+        }
+      ],
+      "grounding": {
+        "checked": 1,
+        "grounded": 1
+      },
+      "profession": "teaching",
+      "schema": {
+        "problems": [],
+        "records": 1
+      },
+      "seniority": "mid",
+      "stability": [],
+      "sufficiency": {
+        "assessment-feedback": "not_discussed",
+        "behaviour-management": "not_discussed",
+        "differentiation": "insufficient_evidence"
+      },
+      "unsupported_facts": {
+        "assertions": 1,
+        "detail": [],
+        "unsupported": 0
+      }
+    }
+  ],
+  "failures": [],
+  "generated": "2026-08-31",
+  "governed_inputs": {
+    "articulation_policy_version": "articulation-practice-v1",
+    "calculation_version": "articulation-features-v2",
+    "coaching_version": "articulation-coaching-v1",
+    "dataset_manifest_sha256": "0dd4c99abd5241d35115d35839de20d2c9271d5d533ad2c5f3eb41d45caf38ad",
+    "digest": "3d3672657a45466f4fb61d329ab9010d699bdcf1f93cf24db60514734b5644d2",
+    "evaluation_schema_version": "0.1",
+    "extraction_version": "evidence-1",
+    "model_policy": "none: evidence-1 consults no model",
+    "policy": {
+      "reference": "policy/practice-default",
+      "sha256": "bf1a1e85ea26559eff567bf29994def119e88182fc0f1e72f3370d1bff95edbd",
+      "version": "1.0.0"
+    },
+    "profile_version": "articulation-profile-v1",
+    "rubric": {
+      "reference": "rubric/practice-default",
+      "sha256": "a436eb4bdb1416f67bb0bc0d11594a1bceb06909e5a0a20ab40b9d95effb42fd",
+      "version": "1.1.0"
+    }
+  },
+  "harness_version": "evals-harness-1",
+  "report_schema_version": "1.0",
+  "results_digest": "ce79b1b0b896c772f2396d1db4942dc526da8abfb53f020ae1bdd70f0bc15d6c",
+  "totals": {
+    "by_profession": {
+      "engineering": {
+        "cases": 5,
+        "contradictions": 2,
+        "spans": 13
+      },
+      "finance": {
+        "cases": 5,
+        "contradictions": 2,
+        "spans": 12
+      },
+      "nursing": {
+        "cases": 4,
+        "contradictions": 1,
+        "spans": 10
+      },
+      "product": {
+        "cases": 4,
+        "contradictions": 1,
+        "spans": 9
+      },
+      "sales": {
+        "cases": 4,
+        "contradictions": 1,
+        "spans": 9
+      },
+      "teaching": {
+        "cases": 4,
+        "contradictions": 1,
+        "spans": 10
+      }
+    },
+    "cases": 26,
+    "contradictions": {
+      "false_positive": 2,
+      "false_positive_rate": 0.25,
+      "genuine": 6,
+      "total": 8
+    },
+    "cost": {
+      "input_tokens": 0,
+      "network_connections": 0,
+      "note": "evidence-1 and the delivery calculator consult no provider. The connection count is measured, not assumed.",
+      "output_tokens": 0,
+      "provider_calls": 0
+    },
+    "expectations": {
+      "checked": 195,
+      "met": 195,
+      "rate": 1.0
+    },
+    "grounding": {
+      "checked": 79,
+      "grounded": 79,
+      "rate": 1.0
+    },
+    "professions": 6,
+    "schema_conformance": {
+      "conformant": 71,
+      "rate": 1.0,
+      "records": 71
+    },
+    "stability": {
+      "expected_stable": 4,
+      "known_sensitivities": 1,
+      "probes": 5,
+      "rate": 1.0,
+      "stable": 4
+    },
+    "unsupported_facts": {
+      "assertions": 159,
+      "rate": 0.0,
+      "unsupported": 0
+    }
+  }
+}

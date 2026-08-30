@@ -290,10 +290,11 @@ func main() {
 		log.Warn("no SMTP address is configured; enqueued email will wait in notification.emails unsent")
 	} else {
 		transport, err := email.New(email.Config{
-			Address:  cfg.SMTPAddress,
-			From:     cfg.EmailFrom,
-			Username: cfg.SMTPUsername,
-			Password: cfg.SMTPPassword,
+			Address:        cfg.SMTPAddress,
+			From:           cfg.EmailFrom,
+			Username:       cfg.SMTPUsername,
+			Password:       cfg.SMTPPassword,
+			AllowPlaintext: cfg.SMTPAllowPlaintext,
 		})
 		if err != nil {
 			log.Error("the email transport is not usable", slog.String("error", err.Error()))

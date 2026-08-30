@@ -29,6 +29,18 @@ type Config struct {
 	// both empty means unauthenticated, which only a local endpoint accepts.
 	Username string
 	Password string
+	// AllowPlaintext permits sending to an endpoint that offers no STARTTLS.
+	//
+	// The transport upgrades whenever the endpoint offers it, and used to send
+	// in the clear when it did not, refusing only if a password would have
+	// gone with it. That protected the relay's credential and not the message,
+	// and the message is a credential: it carries the magic link or the
+	// verification token that signs somebody in.
+	//
+	// Mailpit in the local stack offers no STARTTLS, so this exists rather
+	// than a flat refusal. It is a declaration, not a default, and it never
+	// covers a password: see Send.
+	AllowPlaintext bool
 }
 
 // SMTP sends mail over one configured endpoint.
@@ -90,14 +102,29 @@ func (s *SMTP) Send(ctx context.Context, recipient, subject, body string) error 
 	}
 	defer client.Close()
 
-	// STARTTLS when the server offers it; required when credentials will be
-	// sent, because a password over plaintext SMTP is a password published.
+	// STARTTLS whenever the endpoint offers it. When it does not, the send is
+	// refused unless the deployment declared plaintext acceptable, and it is
+	// refused regardless once a password would go with it: the declaration is
+	// about this message crossing a trusted network, and a relay credential
+	// crossing the same network is replayable by anyone who sees it.
+	upgraded := false
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		if err := client.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
 			return fmt.Errorf("email: starting TLS: %w", err)
 		}
-	} else if s.config.Username != "" {
-		return errors.New("email: the endpoint offers no STARTTLS and credentials are configured; refusing to send a password in the clear")
+		upgraded = true
+	}
+	if !upgraded {
+		if s.config.Username != "" {
+			return errors.New("email: the endpoint offers no STARTTLS and credentials are configured; " +
+				"refusing to send a password in the clear")
+		}
+		if !s.config.AllowPlaintext {
+			// The body carries a sign-in link often enough that this is a
+			// credential leak, not a privacy preference.
+			return errors.New("email: the endpoint offers no STARTTLS; refusing to send a message " +
+				"that may carry a sign-in link over an unencrypted connection")
+		}
 	}
 
 	if s.config.Username != "" {

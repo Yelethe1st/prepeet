@@ -86,12 +86,18 @@ type Config struct {
 	// silently not arriving.
 	SMTPAddress string
 	// SMTPUsername and SMTPPassword authenticate to the relay. Both empty is
-	// unauthenticated, which the transport accepts only alongside a relay that
-	// does not offer STARTTLS-with-credentials; see platform/email.
+	// unauthenticated. A password is never sent over a connection that could
+	// not be upgraded, whatever SMTPAllowPlaintext says; see platform/email.
 	SMTPUsername string
 	SMTPPassword string
 	// EmailFrom is the sender address on every message.
 	EmailFrom string
+	// SMTPAllowPlaintext permits sending to a relay that offers no STARTTLS.
+	// A message body carries magic links and verification tokens, so this
+	// follows the same rule as the intelligence hop: true by default in local
+	// and preview, where Mailpit offers no upgrade, and a declaration
+	// everywhere else. See platform/email.
+	SMTPAllowPlaintext bool
 	// IntelligenceAddress is the Python intelligence plane's gRPC endpoint, as
 	// host:port. Empty means this process runs no workflows that need it; the
 	// worker then skips registering the interview task queue and says so.
@@ -260,6 +266,7 @@ func Load(lookup Lookup) (Config, error) {
 		S3AccessKey:            value(lookup, "PREPEET_S3_ACCESS_KEY", ""),
 		S3SecretKey:            value(lookup, "PREPEET_S3_SECRET_KEY", ""),
 		S3UsePathStyle:         value(lookup, "PREPEET_S3_PATH_STYLE", "") == "true",
+		SMTPAllowPlaintext:     value(lookup, "PREPEET_SMTP_ALLOW_PLAINTEXT", "") == "true",
 		IntelligenceAddress:    value(lookup, "PREPEET_INTELLIGENCE_ADDRESS", ""),
 		IntelligenceTLS: grpcdial.Config{
 			CAFile:   value(lookup, "PREPEET_INTELLIGENCE_TLS_CA_FILE", ""),
@@ -298,6 +305,17 @@ func Load(lookup Lookup) (Config, error) {
 	if !strings.HasPrefix(cfg.TemporalNamespace, derived) {
 		return Config{}, fmt.Errorf("config: PREPEET_TEMPORAL_NAMESPACE is %q in the %s environment, "+
 			"want %q or that with an account suffix", cfg.TemporalNamespace, cfg.Environment, derived)
+	}
+
+	// The relay's. Not a startup refusal, because whether a relay offers
+	// STARTTLS is only knowable when the conversation happens; platform/email
+	// refuses the send, and this decides whether it may be waved through.
+	if !cfg.SMTPAllowPlaintext {
+		switch cfg.Environment {
+		case EnvironmentLocal, EnvironmentPreview:
+			cfg.SMTPAllowPlaintext = true
+		default:
+		}
 	}
 
 	// The intelligence hop's transport. Only a process that dials it needs a

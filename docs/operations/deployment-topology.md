@@ -42,6 +42,22 @@ Production, staging, and development use separate accounts/projects, networks, d
 - Restricted egress for Python/model calls and webhook dispatcher.
 - Region selection follows tenant residency and provider availability.
 
+### Outbound mail
+
+A message body carries the magic link or the verification token that signs
+somebody in, so it is a credential in transit. The transport upgrades with
+STARTTLS whenever the relay offers it; when the relay does not, the send used to
+go ahead in the clear, refusing only if a relay password would have gone with it.
+That protected the relay's credential and not the candidate's.
+
+Outside `local` and `preview`, an unupgradable relay is now refused at send time
+rather than at startup, because whether a relay offers STARTTLS is only knowable
+once the conversation happens. `PREPEET_SMTP_ALLOW_PLAINTEXT=true` declares a
+relay reached over a trusted network, which is how the local stack's Mailpit
+keeps working. The declaration never covers a password: credentials are refused
+over an unencrypted connection regardless, since a relay credential on an
+untrusted path is replayable by anyone who sees it.
+
 ### The control plane to intelligence plane hop
 
 This connection carries interview briefs outward and transcripts back, so it

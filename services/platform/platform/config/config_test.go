@@ -497,3 +497,58 @@ func TestNoIntelligenceAddressNeedsNoTransportDecision(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 }
+
+// A magic link in a message body is a credential, so the same environment rule
+// that governs the intelligence hop governs the relay: plaintext locally
+// without ceremony, plaintext in a deployment only when somebody said so.
+
+func TestTheLocalRelayMayBeUnencrypted(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_SMTP_ADDRESS": "localhost:1025",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.SMTPAllowPlaintext {
+		t.Fatal("Mailpit in the local stack offers no STARTTLS; make dev would stop sending")
+	}
+}
+
+func TestADeployedRelayMustBeEncryptedOrDeclared(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_ENVIRONMENT":        "production",
+		"PREPEET_TEMPORAL_NAMESPACE": "prepeet-production",
+		"PREPEET_SMTP_ADDRESS":       "smtp.provider.test:587",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// Not a startup refusal: whether the relay offers STARTTLS is only knowable
+	// at send time, and refusing to boot over something unknown would be
+	// guessing. The transport refuses the send instead, and this is the flag
+	// that stops it being waved through.
+	if cfg.SMTPAllowPlaintext {
+		t.Fatal("a deployed relay was allowed to fall back to plaintext")
+	}
+}
+
+func TestADeployedRelayMayDeclarePlaintext(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_ENVIRONMENT":          "production",
+		"PREPEET_TEMPORAL_NAMESPACE":   "prepeet-production",
+		"PREPEET_SMTP_ADDRESS":         "smtp.internal:25",
+		"PREPEET_SMTP_ALLOW_PLAINTEXT": "true",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.SMTPAllowPlaintext {
+		t.Fatal("the declaration was not read")
+	}
+}

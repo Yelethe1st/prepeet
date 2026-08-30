@@ -25,15 +25,15 @@ written; the rest arrive with the tickets that need them.
 - [x] The toolchain generates Go and TypeScript from one hand-authored document, and drift fails the build.
 - [x] Spectral lints the document, with rules for the error envelope and for undocumented operations.
 - [x] The server's responses are checked against the generated types, so a shape change is a test failure.
-- [ ] OpenAPI covers every route in [public-api.md](../../contracts/public-api.md) that the current phase ships. Health and authentication are done.
+- [x] OpenAPI covers every route in [public-api.md](../../contracts/public-api.md) that the current phase ships. Health and authentication are done.
 
 A limitation of the Go generator is recorded here rather than left to be rediscovered. A response header
 is generated as a single field written with `Header().Set`, so an operation setting two cookies cannot be
 served by the generated response type. IAM-01 writes those three responses by hand against the generated
 interfaces. The contract is not adjusted to suit the generator: it describes the wire, and the wire has
 two cookies.
-- [ ] `oasdiff` runs against the previous release once there is a previous release.
-- [ ] Every operation declares its required capability, which needs the capability catalogue published as a contract in IAM-04.
+- [x] `oasdiff` runs against the previous release once there is a previous release.
+- [x] Every operation declares its required capability, which needs the capability catalogue published as a contract in IAM-04.
 - [x] Every operation declares its cacheability, per the conventions added to ADR-0004: `no-store` for anything derived from a candidate's own data, `ETag` with a short `max-age` for the catalogue, and indefinite for anything addressed by an immutable version.
 
 Every response in the document declares `Cache-Control`, including the shared error responses, because a
@@ -51,6 +51,65 @@ implements, the document and the code cannot drift at all.
 
 The `ETag` half of the convention lands with the catalogue endpoints in CAT-03, which are the responses
 it describes. Nothing shipped so far is cacheable.
+
+**The last three boxes, and one of them was already true.**
+
+`oasdiff` had stopped needing this ticket. CTR-04 built the gate: `make check-api` compares the document
+against the previous release, refuses a breaking change, and runs in CI on every change. Proved by
+tagging a throwaway clone, removing `/me/memberships` and watching the target fail with "the path was
+removed, so a client still calling it gets a 404", then watching it pass against an unchanged document.
+It is inert until the first tagged release, which is what the criterion said it would be.
+
+One discrepancy is recorded rather than left to be rediscovered. The gate is `tools/apicompat`, a
+first-party checker, and ADR-0004 names `oasdiff` twice. Nothing is wrong with the checker, and its
+refusals name a remedy where oasdiff's do not, but the ADR is binding and currently describes a tool the
+repository does not use. Either the ADR is amended or the tool is swapped, and that decision belongs
+with CTR-04, which chose the checker.
+
+**The capability declaration was the work.** Every operation now carries `x-prepeet-capability`, naming
+an entry in the catalogue IAM-04 published or one of three reserved words for the operations no catalogue
+entry describes: `public`, `authenticated`, `service`. The blocker the criterion named is gone, because
+`packages/contracts/authz/capabilities.yaml` exists and is generated into Go.
+
+It is bound four ways, because a declaration nothing reads is a comment. Spectral fails the lint on an
+operation without one. `NewServer` reads the contract at startup and refuses to build if an operation
+omits one, so a missing declaration is a process that will not start rather than a request that is let
+through. A test refuses a value the capability catalogue does not define, which covers the operations no
+handler serves yet. And the two handlers decided through the policy path, member administration and the
+billing reads, now take the capability they enforce from the document rather than from a string literal
+of their own: the strict middleware knows which operation the router matched, and carries the
+declaration into the handler, so changing the contract changes what is enforced.
+
+Where the declaration is a statement rather than an enforcement is written down here. Own-data
+capabilities are not decided through `authz` at all. `Identity.Authorize` builds its request without an
+owner, so an own-data capability asked through it would be denied by construction, and those operations
+are owner-scoped structurally instead, by ports that take only the session's own user. What holds them
+is a test that every operation declaring anything but `public` answers 401 without a credential. Closing
+that gap means changing the identity port, which is IAM's and not this ticket's.
+
+`recordInsightFeedback` declares `session.read_own_practice` and is the one approximate declaration. It
+is a write, and the catalogue has no own-practice write capability short of
+`candidate.practice.delete_own`. The authority it needs really is "this practice session is mine", which
+is what that capability says, but a read capability gating a write deserves a reviewer's attention and
+IAM-04 may want an entry for it.
+
+**Logout was wrong in the document and is now right.** It declared a 401 the handler cannot produce:
+logout is idempotent by design and answers 204 whether or not a session was presented. The security
+block now says the session cookie is optional, which is OpenAPI's way of saying accepted rather than
+demanded, and the unreachable 401 is gone. The Spectral rule requiring an error response now also
+accepts a 2xx-only operation, which is what its existing exemption for the health probes already meant.
+
+**Coverage is checkable from the consumer's side now, not only asserted.** Nothing can be served that
+the document does not declare: the handler implements a generated interface, so an operation without a
+handler does not compile. The missing half was the browser, where the client took any string, so a call
+to a route the document never declared failed as a 404 on somebody's screen and no test of the client
+would have caught it. `apiFetch` now takes `ApiPath`, derived from the generated `paths`, so an unknown
+route is a compile error. Proved by removing `/catalog/personas` from the document and watching two call
+sites fail to build.
+
+Nothing the current phase serves over HTTP is missing from the document. Recruiting, progression and
+operations have landed as write paths and workers with no HTTP surface, so what public-api.md lists for
+them arrives with the tickets that expose them.
 
 **Spec** [public-api.md](../../contracts/public-api.md)
 

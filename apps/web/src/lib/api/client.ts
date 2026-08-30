@@ -1,4 +1,4 @@
-import type { components } from "@contracts";
+import type { components, paths } from "@contracts";
 
 /**
  * The browser's client for the Prepeet API.
@@ -88,6 +88,44 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Substituted turns one templated contract path into the shape a caller writes.
+ *
+ * `/interviews/{sessionId}/start` becomes `/interviews/${string}/start`, so a
+ * caller may substitute the identifier while the fixed segments still have to
+ * match. It recurses because several operations carry more than one parameter.
+ */
+type Substituted<Path extends string> =
+  Path extends `${infer Head}{${string}}${infer Tail}`
+    ? `${Head}${string}${Substituted<Tail>}`
+    : Path;
+
+/**
+ * ApiPath is every path the contract declares, and nothing else.
+ *
+ * The reason this is a type rather than a runtime check is that a path the
+ * server never agreed to serve fails as a 404 on somebody's screen, at the
+ * moment they needed it, and no test of this client would have caught it: the
+ * client is generic over the path. Deriving the type from the generated
+ * document makes an unknown route a compile error, which is what ADR-0004 means
+ * by generating the client from the contract rather than writing one that
+ * happens to agree.
+ *
+ * What it does not catch is written down rather than left to be discovered. A
+ * parameter matches any string, slashes included, so where a parameter is the
+ * last segment - `/interviews/{sessionId}`, `/me/documents/{documentId}`,
+ * `/tenant/members/{membershipId}` - anything under that prefix is accepted,
+ * which also shadows the longer operations in the same family. TypeScript
+ * cannot express "a segment containing no slash", and the alternative is a
+ * segment-by-segment recursive type that costs more to read than the mistakes
+ * it would catch.
+ *
+ * What it does catch is the drift this exists for: a route family the contract
+ * does not declare, and a mistyped fixed segment in a family with no
+ * trailing-parameter operation to shadow it.
+ */
+export type ApiPath = Substituted<keyof paths & string>;
+
 /** What a caller may pass. `body` is serialised; everything else is fetch's. */
 export interface ApiRequest extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -100,7 +138,7 @@ export interface ApiRequest extends Omit<RequestInit, "body"> {
  * happy path and handles failure in one place rather than branching on status.
  */
 export async function apiFetch<T = unknown>(
-  path: string,
+  path: ApiPath,
   request: ApiRequest = {},
 ): Promise<T> {
   const { body, headers, ...rest } = request;

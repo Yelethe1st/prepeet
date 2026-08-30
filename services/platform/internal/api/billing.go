@@ -35,13 +35,27 @@ type billingHandlers struct {
 	ledger         TenantBilling
 }
 
+// usage resolves the caller's authority and reads the ledger.
+//
+// The capability comes from the contract's declaration for the operation being
+// served rather than from a literal here, per ADR-0004: the document is the
+// source, and a handler that named its own would be a second place to change
+// when the answer changes.
 func (b *billingHandlers) usage(ctx context.Context) (TenantUsage, *failure) {
+	capability := requiredCapability(ctx)
+	if capability == "" {
+		// The contract says this operation needs no authority, which cannot be
+		// true of a billing read. Refuse rather than ask for nothing.
+		refused := b.authentication.rejectedSession(ctx)
+		return TenantUsage{}, &refused
+	}
+
 	presented := sessionTokenFromContext(ctx)
 	if presented == "" {
 		refused := b.authentication.rejectedSession(ctx)
 		return TenantUsage{}, &refused
 	}
-	principal, err := b.authentication.identity.Authorize(ctx, presented, "tenant.billing_read")
+	principal, err := b.authentication.identity.Authorize(ctx, presented, capability)
 	if err != nil {
 		refused := b.authentication.failed(ctx, err)
 		return TenantUsage{}, &refused

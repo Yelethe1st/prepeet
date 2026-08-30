@@ -12,6 +12,46 @@ import { ApiError, apiFetch } from "./client";
  * places to update and one that gets forgotten.
  */
 
+/**
+ * The paths the browser may name are the paths the contract declares.
+ *
+ * Checked by the compiler rather than at run time, because a path that does not
+ * exist fails as a 404 on somebody's screen, and the whole point of generating
+ * the client from the document is that the browser cannot ask for a route the
+ * server never agreed to serve. CTR-01 requires the contract to cover every
+ * route this phase ships; this is the half that proves the browser ships no
+ * route the contract is missing.
+ *
+ * `@ts-expect-error` is the assertion: if apiFetch ever went back to accepting
+ * any string, the directive would have nothing to suppress and `pnpm typecheck`
+ * would fail on the unused directive. The test that follows keeps this block
+ * from being deleted as dead code.
+ */
+function pathsAreCheckedAgainstTheContract() {
+  // Real operations, named exactly as the document names them.
+  void apiFetch("/me/profile");
+  void apiFetch("/catalog/disciplines");
+  // A parameterised operation, with the parameter substituted.
+  void apiFetch(`/interviews/${"a-session"}/start`, { method: "POST" });
+  // @ts-expect-error the contract declares no /me/nonexistent
+  void apiFetch("/me/nonexistent");
+  // @ts-expect-error a fixed segment after a parameter still has to match
+  void apiFetch(`/me/facts/${"a-fact"}/reviewed`, { method: "POST" });
+  // @ts-expect-error public-api.md lists campaigns; the contract does not
+  // declare them yet, so the browser cannot call them by accident
+  void apiFetch("/tenant/campaigns");
+}
+
+describe("the paths a caller may name", () => {
+  it("is settled by the compiler, not by this test", () => {
+    // The assertion really is the three directives above: `pnpm typecheck`
+    // fails on an unused `@ts-expect-error`, so widening apiFetch back to any
+    // string breaks the build. This names the block so that it is not removed
+    // as unused code, and so that a reader looking for the check finds it.
+    expect(pathsAreCheckedAgainstTheContract).toBeInstanceOf(Function);
+  });
+});
+
 const fetchMock = vi.fn();
 
 beforeEach(() => {

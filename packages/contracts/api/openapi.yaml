@@ -9,6 +9,25 @@
 # existence is sensitive, error codes that never change meaning, and idempotency
 # that cannot bill an interview twice. Those need to be readable by legal and
 # security in one artifact before a screening pilot.
+#
+# Every operation carries `x-prepeet-capability`, naming the authority a caller
+# needs. The value is an entry in packages/contracts/authz/capabilities.yaml, or
+# one of three reserved words for the operations no catalogue entry describes:
+#
+#   public         no credential at all - the probes, and the operations a
+#                  person uses before they have a session
+#   authenticated  a valid session and nothing further, because the answer is
+#                  the same for everyone who holds one
+#   service        the deployment's own service token, never a person's
+#                  session (ADR-0019)
+#
+# It is here rather than in the handlers because "which authority reaches a
+# candidate's practice history" is a question legal and security have to answer
+# from one artifact, and a Go string literal per operation is not that artifact.
+# The declaration is enforced three ways: Spectral requires it, a test refuses a
+# value the capability catalogue does not define, and the server takes the
+# capability it enforces from this document rather than from a literal of its
+# own.
 openapi: 3.1.0
 
 info:
@@ -49,6 +68,7 @@ paths:
     get:
       tags: [health]
       operationId: getLiveness
+      x-prepeet-capability: public
       summary: Report whether the process is running
       description: |
         Deliberately ignores dependencies. If a failing database made this fail,
@@ -70,6 +90,7 @@ paths:
     get:
       tags: [health]
       operationId: getReadiness
+      x-prepeet-capability: public
       summary: Report whether this process can serve traffic
       description: |
         503 tells a load balancer to route elsewhere without restarting
@@ -100,6 +121,7 @@ paths:
     post:
       tags: [authentication]
       operationId: register
+      x-prepeet-capability: public
       summary: Register a candidate or an organisation
       description: |
         Answers identically whether or not the address is already registered.
@@ -138,6 +160,7 @@ paths:
     post:
       tags: [authentication]
       operationId: login
+      x-prepeet-capability: public
       summary: Exchange credentials for a session
       description: |
         A wrong password and an unregistered address produce the same response
@@ -185,6 +208,7 @@ paths:
     get:
       tags: [authentication]
       operationId: listOAuthProviders
+      x-prepeet-capability: public
       summary: Which sign-in providers this deployment offers
       description: |
         The sign-in screen draws a button per provider returned here rather
@@ -207,6 +231,7 @@ paths:
     post:
       tags: [authentication]
       operationId: startOAuth
+      x-prepeet-capability: public
       summary: Begin signing in with a provider
       description: |
         Mints the anti-forgery state and the PKCE verifier, stores both
@@ -249,6 +274,7 @@ paths:
     post:
       tags: [authentication]
       operationId: completeOAuth
+      x-prepeet-capability: public
       summary: Finish signing in with a provider
       description: |
         Consumes the state, exchanges the authorisation code with the provider
@@ -313,10 +339,21 @@ paths:
     post:
       tags: [authentication]
       operationId: logout
+      x-prepeet-capability: public
       summary: End the current session
       description: |
         Revokes the session and its refresh family, so a stolen refresh token
         cannot outlive the logout. Idempotent: logging out twice is not an error.
+
+        The session cookie is optional rather than required, which is what the
+        security block says. Send it and the session is revoked; send nothing
+        and the cookies are still cleared. A request with no session is not a
+        failure, so this operation has no 401 to declare: a client told its
+        logout was unauthorised would reasonably conclude it was still signed
+        in, which would be the opposite of what happened.
+      security:
+        - {}
+        - sessionCookie: []
       responses:
         "204":
           description: The session is ended.
@@ -326,12 +363,12 @@ paths:
             Set-Cookie:
               description: Expired session and refresh cookies.
               schema: { type: string }
-        "401": { $ref: "#/components/responses/Unauthenticated" }
 
   /auth/refresh:
     post:
       tags: [authentication]
       operationId: refresh
+      x-prepeet-capability: public
       summary: Rotate the session using a refresh token
       description: |
         Each refresh issues a new pair and retires the old one. Presenting a
@@ -369,6 +406,7 @@ paths:
     post:
       tags: [authentication]
       operationId: requestTokenEmail
+      x-prepeet-capability: public
       summary: Send a verification, recovery, sign-in or code email
       description: |
         One request surface for the four token flows, distinguished by kind.
@@ -405,6 +443,7 @@ paths:
     post:
       tags: [authentication]
       operationId: confirmEmailVerification
+      x-prepeet-capability: public
       summary: Confirm an email address with a verification token
       description: |
         Consumes the single-use token from the verification email. Replaying a
@@ -430,6 +469,7 @@ paths:
     post:
       tags: [authentication]
       operationId: confirmPasswordReset
+      x-prepeet-capability: public
       summary: Set a new password with a recovery token
       description: |
         Consumes the single-use token from the recovery email and replaces the
@@ -456,6 +496,7 @@ paths:
     post:
       tags: [authentication]
       operationId: consumeMagicLink
+      x-prepeet-capability: public
       summary: Sign in with a magic link token
       description: |
         Consumes the single-use token and issues a session in the same cookies
@@ -488,6 +529,7 @@ paths:
     post:
       tags: [authentication]
       operationId: consumeOTP
+      x-prepeet-capability: public
       summary: Sign in with a one-time code
       description: |
         Exchanges the emailed six-digit code for a session. A wrong code and an
@@ -521,6 +563,7 @@ paths:
     get:
       tags: [candidate]
       operationId: getProfile
+      x-prepeet-capability: candidate.profile.read_own
       summary: Read the candidate's own profile
       description: |
         The profile is the candidate's alone; the session decides whose it is
@@ -541,6 +584,7 @@ paths:
     put:
       tags: [candidate]
       operationId: saveProfile
+      x-prepeet-capability: candidate.profile.write_own
       summary: Replace the candidate's own profile
       description: |
         Whole-record replace: the profile is one screen, the screen submits
@@ -570,6 +614,7 @@ paths:
     get:
       tags: [candidate]
       operationId: listDocuments
+      x-prepeet-capability: candidate.profile.read_own
       summary: List the candidate's own documents, every version and state
       description: |
         Newest first, states included: a stuck upload is visible beside the
@@ -589,6 +634,7 @@ paths:
     post:
       tags: [candidate]
       operationId: startDocumentUpload
+      x-prepeet-capability: candidate.profile.write_own
       summary: Start a CV upload
       description: |
         Allocates the next version and returns presigned URLs the browser
@@ -619,6 +665,7 @@ paths:
     post:
       tags: [candidate]
       operationId: completeDocumentUpload
+      x-prepeet-capability: candidate.profile.write_own
       summary: Finalise an upload
       description: |
         The stored size is verified against what actually landed; the digest
@@ -650,6 +697,7 @@ paths:
     post:
       tags: [candidate]
       operationId: abortDocumentUpload
+      x-prepeet-capability: candidate.profile.write_own
       summary: Abandon a stalled upload
       description: |
         The multipart upload is discarded and the version reads failed,
@@ -671,6 +719,7 @@ paths:
     delete:
       tags: [candidate]
       operationId: deleteDocument
+      x-prepeet-capability: candidate.profile.write_own
       summary: Delete a stored document
       description: |
         The bytes are destroyed; the version's record stands with its digest,
@@ -692,6 +741,7 @@ paths:
     get:
       tags: [candidate]
       operationId: listDocumentFacts
+      x-prepeet-capability: candidate.profile.read_own
       summary: List what extraction read from one document
       description: |
         Every fact carries the exact source span that produced it, its
@@ -716,6 +766,7 @@ paths:
     post:
       tags: [candidate]
       operationId: reviewFact
+      x-prepeet-capability: candidate.profile.write_own
       summary: Confirm, correct or reject one extracted fact
       description: |
         Correcting records the correction beside the original extraction,
@@ -748,6 +799,7 @@ paths:
     get:
       tags: [catalog]
       operationId: listDisciplines
+      x-prepeet-capability: authenticated
       summary: List the professions the product serves
       description: |
         The disciplines the catalogue currently offers, resolved from the
@@ -769,6 +821,7 @@ paths:
     get:
       tags: [catalog]
       operationId: listRoles
+      x-prepeet-capability: authenticated
       summary: List catalogued roles with their valid combinations
       description: |
         Each role names its discipline and the interview shapes it offers,
@@ -790,6 +843,7 @@ paths:
     get:
       tags: [catalog]
       operationId: listInterviewShapes
+      x-prepeet-capability: authenticated
       summary: List interview shapes with their runnable lengths
       description: |
         Each shape with the lengths it can actually be run at, from the
@@ -811,6 +865,7 @@ paths:
     get:
       tags: [catalog]
       operationId: listPersonas
+      x-prepeet-capability: authenticated
       summary: List interviewer personas
       description: |
         A persona is an interview style - pacing, follow-up pressure, silence
@@ -832,6 +887,7 @@ paths:
     get:
       tags: [interview]
       operationId: getPracticeConsent
+      x-prepeet-capability: authenticated
       summary: The current practice recording consent text, versioned
       description: |
         What the wizard shows beside the recording choice. The version is
@@ -855,6 +911,7 @@ paths:
     post:
       tags: [interview]
       operationId: createInterview
+      x-prepeet-capability: session.create_practice
       summary: Create a practice interview from a catalogue selection
       description: |
         The selection is validated against the catalogue server-side, field by
@@ -886,6 +943,7 @@ paths:
     get:
       tags: [interview]
       operationId: getInterview
+      x-prepeet-capability: session.read_own_practice
       summary: One practice session, as its owner sees it
       description: |
         The prepare screen's read: state, configuration and the recording
@@ -911,6 +969,7 @@ paths:
     get:
       tags: [tenant]
       operationId: listMembers
+      x-prepeet-capability: tenant.member_read
       summary: Everyone in the active workspace
       description: |
         Invited members are visible before they accept; revoked members keep
@@ -931,6 +990,7 @@ paths:
     post:
       tags: [tenant]
       operationId: inviteMember
+      x-prepeet-capability: tenant.member_manage
       summary: Invite an existing account to the workspace
       description: |
         The address must already have an account; the invitation is accepted
@@ -962,6 +1022,7 @@ paths:
     patch:
       tags: [tenant]
       operationId: changeMemberRole
+      x-prepeet-capability: tenant.member_manage
       summary: Move a member to another role
       description: |
         Version-guarded against concurrent administrators, audited with the
@@ -993,6 +1054,7 @@ paths:
     delete:
       tags: [tenant]
       operationId: revokeMember
+      x-prepeet-capability: tenant.member_manage
       summary: Revoke a member's access
       description: |
         Effective on their next request - nothing caches what a membership
@@ -1019,6 +1081,7 @@ paths:
     get:
       tags: [tenant]
       operationId: getTenantUsage
+      x-prepeet-capability: tenant.billing_read
       summary: What the workspace has used, in the invoice's own terms
       description: |
         Counts from the append-only ledger: started sessions, credits (early
@@ -1041,6 +1104,7 @@ paths:
     get:
       tags: [tenant]
       operationId: getTenantQuota
+      x-prepeet-capability: tenant.billing_read
       summary: The limit, what remains, and where the warning stands
       description: |
         Approaching and reaching the limit both warn here before anything is
@@ -1063,6 +1127,7 @@ paths:
     post:
       tags: [interview]
       operationId: startInterview
+      x-prepeet-capability: session.participate
       summary: Start a ready session and receive the room grant
       description: |
         Quota is reserved before anything spends (screening only; practice
@@ -1103,6 +1168,7 @@ paths:
     post:
       tags: [interview]
       operationId: ingestControlEvents
+      x-prepeet-capability: session.participate
       summary: Send a batch of control events for the current epoch
       description: |
         Ordered by sequence within the epoch, deduplicated by event id, and
@@ -1143,6 +1209,7 @@ paths:
     get:
       tags: [interview]
       operationId: replayControlEvents
+      x-prepeet-capability: session.participate
       summary: Replay the durable timeline after a cursor
       description: |
         Everything after (after_epoch, after_sequence), in the one
@@ -1175,6 +1242,7 @@ paths:
     get:
       tags: [interview]
       operationId: getTranscript
+      x-prepeet-capability: session.read_own_practice
       summary: The assembled transcript, provenance included
       description: |
         Every version stands: a correction supersedes a segment's effective
@@ -1201,6 +1269,7 @@ paths:
     get:
       tags: [interview]
       operationId: getResults
+      x-prepeet-capability: session.read_own_practice
       summary: The evaluation result, sufficiency and coverage included
       description: |
         One immutable result per session, judged by the rubric the session
@@ -1238,6 +1307,7 @@ paths:
     get:
       tags: [interview]
       operationId: getDelivery
+      x-prepeet-capability: session.read_own_practice
       summary: The delivery analysis, measured and gated
       description: |
         Deterministic measurements, the ten-dimension profile with its
@@ -1274,6 +1344,7 @@ paths:
     put:
       tags: [interview]
       operationId: recordInsightFeedback
+      x-prepeet-capability: session.read_own_practice
       summary: Say whether a generated insight described you
       description: |
         A thumbs up or down on one generated strength, priority or drill.
@@ -1321,6 +1392,7 @@ paths:
     post:
       tags: [interview]
       operationId: createRedo
+      x-prepeet-capability: session.create_practice
       summary: Retake one answer as a new, linked practice session
       description: |
         Creates a practice session composed from this session's own
@@ -1362,6 +1434,7 @@ paths:
     get:
       tags: [interview]
       operationId: getReview
+      x-prepeet-capability: session.read_own_practice
       summary: The coaching review, derived and fact-preserving
       description: |
         Per-answer strengths, gaps and a suggested rewrite assembled only
@@ -1398,6 +1471,7 @@ paths:
     post:
       tags: [internal]
       operationId: ingestServiceEvents
+      x-prepeet-capability: service
       summary: The agent writes conversation into the durable timeline
       description: |
         The voice agent is the transcript's source of truth (ADR-0019). It
@@ -1443,6 +1517,7 @@ paths:
     get:
       tags: [internal]
       operationId: getInterviewBrief
+      x-prepeet-capability: service
       summary: What the interviewer needs to run this session
       description: |
         The agent's brief, assembled from the session's own pins: the
@@ -1479,6 +1554,7 @@ paths:
     post:
       tags: [interview]
       operationId: completeInterview
+      x-prepeet-capability: session.participate
       summary: Seal the transcript and hand the session to evaluation
       description: |
         Idempotent to the receipt: completing twice with the same final
@@ -1520,6 +1596,7 @@ paths:
     get:
       tags: [interview]
       operationId: getDeliveryBaseline
+      x-prepeet-capability: candidate.practice.read_own
       summary: The caller's own delivery ranges, once there is enough history
       description: |
         A personal baseline: the middle half of the caller's own measured
@@ -1544,6 +1621,7 @@ paths:
     get:
       tags: [interview]
       operationId: listMySessions
+      x-prepeet-capability: candidate.practice.read_own
       summary: Every session the caller owns, every lifecycle state included
       description: |
         The whole history, newest first: a failed, expired or cancelled
@@ -1570,6 +1648,7 @@ paths:
     get:
       tags: [authentication]
       operationId: getCurrentUser
+      x-prepeet-capability: authenticated
       summary: Describe the authenticated user and their active tenant
       description: |
         Returns the user, whether their address is verified, their tenant
@@ -1595,6 +1674,7 @@ paths:
     get:
       tags: [authentication]
       operationId: listMemberships
+      x-prepeet-capability: authenticated
       summary: List the workspaces this person belongs to
       description: |
         The one question that cannot be scoped by tenant, because it is asked
@@ -1620,6 +1700,7 @@ paths:
     put:
       tags: [authentication]
       operationId: setActiveTenant
+      x-prepeet-capability: authenticated
       summary: Choose which workspace this session acts under
       description: |
         Every request operates under exactly one explicit active tenant, and it

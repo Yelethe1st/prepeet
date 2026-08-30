@@ -22,7 +22,10 @@ rules:
 
   # An operation with no declared error response is one whose failures are
   # undefined, and a client cannot handle what the contract does not mention.
-  # The health probes are exempt: they have no failure a client acts on.
+  # The exemption is for operations with no failure a client acts on: the health
+  # probes, and logout, which succeeds whether or not a session was presented.
+  # Those are recognised by having a success and nothing else, which is why 200
+  # and 204 satisfy the rule.
   prepeet-error-response:
     description: Every operation must declare at least one 4xx response.
     severity: error
@@ -38,6 +41,29 @@ rules:
             - required: ["403"]
             - required: ["404"]
             - required: ["200"]
+            - required: ["204"]
+
+  # Every operation says which authority a caller needs, in the vocabulary of
+  # the capability catalogue in packages/contracts/authz/capabilities.yaml, or
+  # in one of the three reserved words for the operations no catalogue entry
+  # describes: public, authenticated, service.
+  #
+  # Spectral checks that the declaration exists and is spelled like something
+  # that could be a capability. Whether it names a capability that actually
+  # exists is checked by a test, because a linter cannot read the other
+  # contract. Both are needed: the lint catches the operation added without a
+  # declaration, the test catches the declaration that names nothing.
+  prepeet-operation-capability:
+    description: Every operation must declare the capability it requires in x-prepeet-capability.
+    severity: error
+    given: $.paths[*][?(@property !== 'parameters')]
+    then:
+      - field: x-prepeet-capability
+        function: truthy
+      - field: x-prepeet-capability
+        function: pattern
+        functionOptions:
+          match: "^(public|authenticated|service|[a-z]+(\\.[a-z_]+)+)$"
 
   # Every response body carries a schema, or the generated client returns an
   # untyped blob and the contract stops constraining anything.

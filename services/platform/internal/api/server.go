@@ -117,8 +117,17 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		ledger:         cfg.Billing,
 	}
 
+	// What each operation requires, read from the contract rather than named
+	// in each handler. A document the server cannot read is a wiring failure
+	// worth refusing to start for: every authorization decision below depends
+	// on it, and starting without it would mean serving with the doors open.
+	required, err := requiredCapabilities()
+	if err != nil {
+		return nil, err
+	}
+
 	strict := prepeetapi.NewStrictHandlerWithOptions(handlers,
-		[]prepeetapi.StrictMiddlewareFunc{carryCredentials(cfg.TrustProxyHeaders)},
+		[]prepeetapi.StrictMiddlewareFunc{carryCredentials(cfg.TrustProxyHeaders, required)},
 		prepeetapi.StrictHTTPServerOptions{
 			// The generated defaults answer with http.Error, which is plain
 			// text. That would make a malformed body the one failure in this
@@ -155,17 +164,21 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	}), nil
 }
 
-// carryCredentials moves the session and refresh cookies into the context.
+// carryCredentials moves the session and refresh cookies, and the capability
+// the contract declares for this operation, into the context.
 //
 // A strict middleware rather than an ordinary one, because this is the layer
 // that still has both the raw request and the handler's context. An ordinary
 // middleware could read the cookies but would have to smuggle them through the
 // request context anyway, and would run before the generated router had decided
-// which operation this is.
-func carryCredentials(trustProxy bool) prepeetapi.StrictMiddlewareFunc {
-	return func(f prepeetapi.StrictHandlerFunc, _ string) prepeetapi.StrictHandlerFunc {
+// which operation this is. The capability needs exactly that decision: the
+// router has matched an operation by then, and its identifier is what indexes
+// the contract's declaration.
+func carryCredentials(trustProxy bool, required map[string]string) prepeetapi.StrictMiddlewareFunc {
+	return func(f prepeetapi.StrictHandlerFunc, operationID string) prepeetapi.StrictHandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error) {
-			return f(withCredentials(ctx, r, trustProxy), w, r, request)
+			ctx = withCredentials(ctx, r, trustProxy)
+			return f(withRequiredCapability(ctx, required[operationID]), w, r, request)
 		}
 	}
 }

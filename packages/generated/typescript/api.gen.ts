@@ -192,6 +192,13 @@ export interface paths {
          * End the current session
          * @description Revokes the session and its refresh family, so a stolen refresh token
          *     cannot outlive the logout. Idempotent: logging out twice is not an error.
+         *
+         *     The session cookie is optional rather than required, which is what the
+         *     security block says. Send it and the session is revoked; send nothing
+         *     and the cookies are still cleared. A request with no session is not a
+         *     failure, so this operation has no 401 to declare: a client told its
+         *     logout was unauthorised would reasonably conclude it was still signed
+         *     in, which would be the opposite of what happened.
          */
         post: operations["logout"];
         delete?: never;
@@ -2569,7 +2576,6 @@ export interface operations {
                 };
                 content?: never;
             };
-            401: components["responses"]["Unauthenticated"];
         };
     };
     refresh: {

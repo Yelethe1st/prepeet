@@ -13,7 +13,7 @@ import (
 
 // The member administration surface: TEN-02 at the HTTP boundary.
 //
-// Every operation is decided by the one policy path - the handler names the
+// Every operation is decided by the one policy path - the contract declares the
 // capability and the Identity port answers with the session's authority or a
 // refusal - and the active tenant and acting administrator come from the
 // session alone. The request never names a tenant, so administering somebody
@@ -54,8 +54,24 @@ type members struct {
 	flows          TenantMembers
 }
 
-// authorized resolves the session's authority for one capability.
-func (m *members) authorized(ctx context.Context, capability string) (Principal, *failure) {
+// authorized resolves the session's authority for the capability the contract
+// declares for the operation being served.
+//
+// The capability is not a parameter, because it is not this layer's to choose.
+// packages/contracts/api/openapi.yaml declares it per operation and the
+// middleware carries the declaration through; a handler naming its own would be
+// a second answer to a question the contract has already answered, and the two
+// would eventually differ.
+func (m *members) authorized(ctx context.Context) (Principal, *failure) {
+	capability := requiredCapability(ctx)
+	if capability == "" {
+		// Reached only if this handler is wired to an operation the contract
+		// says needs no authority. Refusing is the safe reading: asking the
+		// policy path for permission to do nothing would let it through.
+		refused := m.authentication.rejectedSession(ctx)
+		return Principal{}, &refused
+	}
+
 	presented := sessionTokenFromContext(ctx)
 	if presented == "" {
 		refused := m.authentication.rejectedSession(ctx)
@@ -71,7 +87,7 @@ func (m *members) authorized(ctx context.Context, capability string) (Principal,
 
 // ListMembers answers the workspace's people.
 func (m *members) ListMembers(ctx context.Context, _ prepeetapi.ListMembersRequestObject) (prepeetapi.ListMembersResponseObject, error) {
-	principal, refused := m.authorized(ctx, "tenant.member_read")
+	principal, refused := m.authorized(ctx)
 	if refused != nil {
 		return *refused, nil
 	}
@@ -96,7 +112,7 @@ func (m *members) ListMembers(ctx context.Context, _ prepeetapi.ListMembersReque
 
 // InviteMember adds an existing account as an invited member.
 func (m *members) InviteMember(ctx context.Context, request prepeetapi.InviteMemberRequestObject) (prepeetapi.InviteMemberResponseObject, error) {
-	principal, refused := m.authorized(ctx, "tenant.member_manage")
+	principal, refused := m.authorized(ctx)
 	if refused != nil {
 		return *refused, nil
 	}
@@ -118,7 +134,7 @@ func (m *members) InviteMember(ctx context.Context, request prepeetapi.InviteMem
 
 // ChangeMemberRole moves a membership to another assignable role.
 func (m *members) ChangeMemberRole(ctx context.Context, request prepeetapi.ChangeMemberRoleRequestObject) (prepeetapi.ChangeMemberRoleResponseObject, error) {
-	principal, refused := m.authorized(ctx, "tenant.member_manage")
+	principal, refused := m.authorized(ctx)
 	if refused != nil {
 		return *refused, nil
 	}
@@ -140,7 +156,7 @@ func (m *members) ChangeMemberRole(ctx context.Context, request prepeetapi.Chang
 
 // RevokeMember removes a member's access, effective on their next request.
 func (m *members) RevokeMember(ctx context.Context, request prepeetapi.RevokeMemberRequestObject) (prepeetapi.RevokeMemberResponseObject, error) {
-	principal, refused := m.authorized(ctx, "tenant.member_manage")
+	principal, refused := m.authorized(ctx)
 	if refused != nil {
 		return *refused, nil
 	}

@@ -115,6 +115,11 @@ type Effects struct {
 type Store struct {
 	pool   *pgxpool.Pool
 	events *outbox.Store
+	// claimStale overrides how long a media claim with no egress id may stand
+	// before another delivery may adopt it. Empty means the production window;
+	// only a test that must prove the takeover path sets it, because waiting
+	// out the real one would make that test useless to run.
+	claimStale string
 }
 
 // NewStore builds the store.

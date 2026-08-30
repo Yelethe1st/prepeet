@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 )
 
@@ -24,9 +26,22 @@ import (
 type fakeRecorder struct {
 	started []string
 	stopped []string
+	// attempted names every track this recorder was asked for, including the
+	// ones it failed, which is what identifies the abandoned claim.
+	attempted []string
+	// err makes StartTrack fail, which is how a provider outage is reproduced:
+	// the claim is already taken by then, so the row it leaves behind is the
+	// abandoned claim the takeover branch exists to adopt.
+	err error
 }
 
 func (f *fakeRecorder) StartTrack(_ context.Context, room, identity, key string) (string, error) {
+	if f.err != nil {
+		// Recorded even though it failed: the claim was taken before this call,
+		// so this names the track whose claim is now abandoned.
+		f.attempted = append(f.attempted, identity)
+		return "", f.err
+	}
 	f.started = append(f.started, identity)
 	return "eg-" + room[:8] + "-" + identity, nil
 }
@@ -377,5 +392,60 @@ func TestAFailedStartReleasesTheClaimSoARetryCanWork(t *testing.T) {
 		if track.EgressID == "" {
 			t.Fatalf("track %s has a claim and no egress", track.Track)
 		}
+	}
+}
+
+// The window protects a claim whose owner never came back.
+//
+// A delivery that fails releases its own claim, so the ordinary retry is
+// immediate and TestAFailedStartReleasesTheClaimSoARetryCanWork covers it. The
+// case left over is the one nobody can signal: a worker that took the claim and
+// died before it could either record an egress id or release. Only age
+// separates that from a delivery still mid-call, which is why the window exists
+// and why conditioning takeover on an empty egress id alone was a bug: it
+// adopted live claims and started a second recording of the same participant.
+func TestAClaimWhoseOwnerDiedIsAdoptedOnlyOnceItIsStale(t *testing.T) {
+	ctx := context.Background()
+	session := audioSession(t)
+
+	// A claim with no egress id and nobody coming back for it, written the way
+	// a crashed worker would leave it.
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if err := database.SetUser(ctx, tx, session.CandidateID); err != nil {
+		t.Fatalf("scope: %v", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO interview.media_tracks
+		 (id, session_id, mode, candidate_id, tenant_id, track, storage_key, egress_id)
+		 VALUES ($1, $2, 'practice', $3, NULL, 'candidate', 'k', '')`,
+		id.New().String(), session.ID, session.CandidateID); err != nil {
+		t.Fatalf("planting the abandoned claim: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+
+	// Inside the window it is indistinguishable from a delivery in flight.
+	live := &fakeRecorder{}
+	if err := interview.NewStore(pool).WithClaimStaleAfter("1 hour").
+		StartRecording(ctx, live, session); err != nil {
+		t.Fatalf("retry inside the window: %v", err)
+	}
+	if slices.Contains(live.started, session.CandidateID) {
+		t.Fatalf("a claim still inside its window was adopted: %v", live.started)
+	}
+
+	// Past it, the retry adopts and records.
+	adopting := &fakeRecorder{}
+	if err := interview.NewStore(pool).WithClaimStaleAfter("0 seconds").
+		StartRecording(ctx, adopting, session); err != nil {
+		t.Fatalf("retry past the window: %v", err)
+	}
+	if !slices.Contains(adopting.started, session.CandidateID) {
+		t.Fatalf("a dead owner's claim was never adopted, so that track can never record: %v",
+			adopting.started)
 	}
 }

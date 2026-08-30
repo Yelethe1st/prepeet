@@ -185,6 +185,20 @@ ON CONFLICT (session_id, track) DO NOTHING;
 -- started silently nothing at all. Claiming by update needs no new grant and
 -- has the same effect.
 --
+-- Age is what separates an abandoned claim from one still in flight, and
+-- leaving it out was a real bug rather than a detail. egress_id is empty for
+-- the whole window between taking the claim and recording the id, so a
+-- takeover conditioned on emptiness alone fires against a delivery that is
+-- mid-call: both callers claimed, both started egress, and two jobs recorded
+-- the same participant to the same key. That is exactly the duplicate this
+-- query exists to prevent, reintroduced by the branch meant to allow retries.
+--
+-- stale_after must therefore exceed the time a live attempt can hold an empty
+-- claim, which is bounded by the egress call's own 15 second timeout.
+-- Production passes minutes; a test passes something small so it can prove the
+-- takeover without waiting. created_at is reset on takeover so the new owner
+-- gets a full window rather than inheriting the dead one's.
+--
 -- Zero rows affected means somebody else owns this track and has an egress
 -- running. That is an answer, not an error, and the caller must not start one.
 INSERT INTO interview.media_tracks
@@ -193,8 +207,10 @@ VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(mode)::text,
         sqlc.arg(candidate_id)::uuid, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
         sqlc.arg(track)::text, sqlc.arg(storage_key)::text, '')
 ON CONFLICT (session_id, track) DO UPDATE
-    SET storage_key = excluded.storage_key
-    WHERE interview.media_tracks.egress_id = '';
+    SET storage_key = excluded.storage_key,
+        created_at  = now()
+    WHERE interview.media_tracks.egress_id = ''
+      AND interview.media_tracks.created_at < now() - sqlc.arg(stale_after)::interval;
 
 -- name: RecordTrackEgress :execrows
 -- Attach the egress id to a claim this caller owns.
@@ -251,3 +267,20 @@ SELECT sequence, redo_session_id::text AS redo_session_id, created_at
 FROM interview.redos
 WHERE parent_session_id = sqlc.arg(parent_session_id)::uuid
 ORDER BY sequence;
+
+-- name: ReleaseMediaClaim :execrows
+-- Give up a claim this caller took and could not use.
+--
+-- Ages the row out rather than deleting it, because this table grants no
+-- DELETE and under FORCE row-level security a delete with no matching policy
+-- removes nothing and raises nothing. The next attempt then sees a claim past
+-- any staleness window and adopts it immediately.
+--
+-- Only while the egress id is empty, so this can never orphan a running job:
+-- a caller that lost the race and is releasing what it thinks is its own claim
+-- cannot age out the winner's.
+UPDATE interview.media_tracks
+SET created_at = 'epoch'::timestamptz
+WHERE session_id = sqlc.arg(session_id)::uuid
+  AND track = sqlc.arg(track)::text
+  AND egress_id = '';

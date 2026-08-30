@@ -38,8 +38,10 @@ VALUES ($1::uuid, $2::uuid, $3::text,
         $4::uuid, nullif($5::text, '')::uuid,
         $6::text, $7::text, '')
 ON CONFLICT (session_id, track) DO UPDATE
-    SET storage_key = excluded.storage_key
+    SET storage_key = excluded.storage_key,
+        created_at  = now()
     WHERE interview.media_tracks.egress_id = ''
+      AND interview.media_tracks.created_at < now() - $8::interval
 `
 
 type ClaimMediaTrackParams struct {
@@ -50,6 +52,7 @@ type ClaimMediaTrackParams struct {
 	TenantID    string
 	Track       string
 	StorageKey  string
+	StaleAfter  string
 }
 
 // Take the (session, track) slot before any egress is started.
@@ -69,6 +72,20 @@ type ClaimMediaTrackParams struct {
 // started silently nothing at all. Claiming by update needs no new grant and
 // has the same effect.
 //
+// Age is what separates an abandoned claim from one still in flight, and
+// leaving it out was a real bug rather than a detail. egress_id is empty for
+// the whole window between taking the claim and recording the id, so a
+// takeover conditioned on emptiness alone fires against a delivery that is
+// mid-call: both callers claimed, both started egress, and two jobs recorded
+// the same participant to the same key. That is exactly the duplicate this
+// query exists to prevent, reintroduced by the branch meant to allow retries.
+//
+// stale_after must therefore exceed the time a live attempt can hold an empty
+// claim, which is bounded by the egress call's own 15 second timeout.
+// Production passes minutes; a test passes something small so it can prove the
+// takeover without waiting. created_at is reset on takeover so the new owner
+// gets a full window rather than inheriting the dead one's.
+//
 // Zero rows affected means somebody else owns this track and has an egress
 // running. That is an answer, not an error, and the caller must not start one.
 func (q *Queries) ClaimMediaTrack(ctx context.Context, arg ClaimMediaTrackParams) (int64, error) {
@@ -80,6 +97,7 @@ func (q *Queries) ClaimMediaTrack(ctx context.Context, arg ClaimMediaTrackParams
 		arg.TenantID,
 		arg.Track,
 		arg.StorageKey,
+		arg.StaleAfter,
 	)
 	if err != nil {
 		return 0, err
@@ -724,6 +742,37 @@ type RecordTrackEgressParams struct {
 // overwrite the winner's egress id and orphan its job.
 func (q *Queries) RecordTrackEgress(ctx context.Context, arg RecordTrackEgressParams) (int64, error) {
 	result, err := q.db.Exec(ctx, recordTrackEgress, arg.EgressID, arg.SessionID, arg.Track)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const releaseMediaClaim = `-- name: ReleaseMediaClaim :execrows
+UPDATE interview.media_tracks
+SET created_at = 'epoch'::timestamptz
+WHERE session_id = $1::uuid
+  AND track = $2::text
+  AND egress_id = ''
+`
+
+type ReleaseMediaClaimParams struct {
+	SessionID string
+	Track     string
+}
+
+// Give up a claim this caller took and could not use.
+//
+// Ages the row out rather than deleting it, because this table grants no
+// DELETE and under FORCE row-level security a delete with no matching policy
+// removes nothing and raises nothing. The next attempt then sees a claim past
+// any staleness window and adopts it immediately.
+//
+// Only while the egress id is empty, so this can never orphan a running job:
+// a caller that lost the race and is releasing what it thinks is its own claim
+// cannot age out the winner's.
+func (q *Queries) ReleaseMediaClaim(ctx context.Context, arg ReleaseMediaClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, releaseMediaClaim, arg.SessionID, arg.Track)
 	if err != nil {
 		return 0, err
 	}

@@ -11,6 +11,7 @@ package interview
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	db "github.com/Yelethe1st/prepeet/services/platform/internal/interview/db"
@@ -106,10 +107,20 @@ func (s *Store) StartRecording(ctx context.Context, recorder Recorder, session S
 		}
 		egressID, err := recorder.StartTrack(ctx, session.ID, identity, key.String())
 		if err != nil {
-			// The claim is left as it is, with no egress behind it. The
-			// next attempt takes it over, which is what the claim's
-			// conflict branch is for: releasing it by deleting cannot work
-			// on this table, which grants no DELETE.
+			// Release the claim this attempt took and could not use, so the
+			// retry adopts it at once rather than waiting out the staleness
+			// window. The window is what tells an abandoned claim from one
+			// still in flight, and only the owner of a failed attempt knows
+			// immediately which this is, so only the owner short-circuits it.
+			//
+			// A release that itself fails is not worth losing the real error
+			// over: the claim ages out on its own and the retry is delayed
+			// rather than lost.
+			if releaseErr := s.releaseClaim(ctx, session, track); releaseErr != nil {
+				return errors.Join(
+					fmt.Errorf("interview: starting %s egress: %w", track, err),
+					fmt.Errorf("interview: releasing the %s claim: %w", track, releaseErr))
+			}
 			return fmt.Errorf("interview: starting %s egress: %w", track, err)
 		}
 
@@ -152,7 +163,7 @@ func (s *Store) claimTrack(ctx context.Context, session Session, track, key stri
 	rows, err := db.New(tx).ClaimMediaTrack(ctx, db.ClaimMediaTrackParams{
 		ID: id.New().String(), SessionID: session.ID, Mode: session.Mode,
 		CandidateID: session.CandidateID, TenantID: session.TenantID,
-		Track: track, StorageKey: key,
+		Track: track, StorageKey: key, StaleAfter: s.claimStaleAfter(),
 	})
 	if err != nil {
 		return false, fmt.Errorf("interview: claiming %s: %w", track, err)
@@ -161,6 +172,44 @@ func (s *Store) claimTrack(ctx context.Context, session Session, track, key stri
 		return false, nil
 	}
 	return true, tx.Commit(ctx)
+}
+
+// defaultClaimStaleAfter is how long a claim with no egress id may stand
+// before another delivery may take it over.
+//
+// It has to exceed the longest a live attempt can hold an empty claim, which
+// the egress call's own 15 second timeout bounds, or a retry would race a
+// delivery that is merely slow and both would record the same participant.
+// Two minutes is that bound with room for a provider that is slow rather than
+// dead, and the cost of erring long is only that a genuinely abandoned track
+// waits before a retry can adopt it.
+const defaultClaimStaleAfter = "2 minutes"
+
+// claimStaleAfter answers the window, allowing a test to shorten it so the
+// takeover path can be proven without waiting two minutes for it.
+func (s *Store) claimStaleAfter() string {
+	if s.claimStale != "" {
+		return s.claimStale
+	}
+	return defaultClaimStaleAfter
+}
+
+// releaseClaim gives up a claim whose egress never started.
+func (s *Store) releaseClaim(ctx context.Context, session Session, track string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("interview: beginning claim release: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
+		return err
+	}
+	if _, err := db.New(tx).ReleaseMediaClaim(ctx, db.ReleaseMediaClaimParams{
+		SessionID: session.ID, Track: track,
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // recordableStates are the states a recording may begin in.
@@ -269,4 +318,16 @@ func (s *Store) resolveTrack(ctx context.Context, session Session, track, state,
 		return fmt.Errorf("interview: resolving the track: %w", err)
 	}
 	return tx.Commit(ctx)
+}
+
+// WithClaimStaleAfter returns a store whose abandoned-claim window is the given
+// PostgreSQL interval.
+//
+// Exported for tests only. The takeover path cannot be proven against the
+// production window without a two minute wait, and a guard nobody can afford to
+// test is a guard that stops being true without anybody noticing.
+func (s *Store) WithClaimStaleAfter(interval string) *Store {
+	clone := *s
+	clone.claimStale = interval
+	return &clone
 }

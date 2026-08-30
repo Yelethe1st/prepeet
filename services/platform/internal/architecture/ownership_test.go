@@ -43,6 +43,7 @@ var owns = map[string][]string{
 	"interview":    {"interview"},
 	"notification": {"notification"},
 	"progression":  {"progression"},
+	"recruiting":   {"recruiting"},
 }
 
 // auditSchema is everybody's, and by grant only to append to.

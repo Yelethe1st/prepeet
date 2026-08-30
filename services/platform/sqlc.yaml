@@ -85,6 +85,16 @@ sql:
 
   - engine: postgresql
     schema: *schema
+    queries: internal/recruiting/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: recruitingdb
+        out: internal/recruiting/db
+        overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
     queries: internal/billing/db/queries.sql
     gen:
       go:

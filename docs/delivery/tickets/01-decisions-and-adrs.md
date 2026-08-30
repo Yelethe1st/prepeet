@@ -252,8 +252,39 @@ and who owns the answer.
 **Done when**
 - [ ] Legal determination recorded per launch jurisdiction, with named approvers.
 - [ ] Disclosure text versioned and approved, and consent unbundled from optional processing.
-- [ ] Appeal status decided: right, tenant option, or platform policy.
-- [ ] Route guards and API policy requirements handed to SCR-02 and REV-06.
+- [x] Appeal status decided: right, tenant option, or platform policy.
+- [x] Route guards and API policy requirements handed to SCR-02 and REV-06.
+
+**Two of four, and the two that are open are open because they are not ours to close.**
+
+Accepted as [ADR-0020](../../architecture/decisions/0020-screening-disclosure-access-and-appeal.md),
+which answers the second half of this ticket and deliberately refuses the first. The first box asks
+for a legal determination with named approvers; counsel gives that and a named person signs it, and
+an ADR inventing one would make the most dangerous unanswered question in the product look answered.
+
+**Appeal status** is decided as a per-jurisdiction determination position with the three values this
+ticket names, defaulting to a right where no determination exists. Strictest of the three on purpose:
+loosening a right that was honoured is a product change, while discovering a right was owed and not
+offered is a compliance failure with candidates already affected.
+
+**Route guards and API policy** are handed over in the ADR's closing section, ticket by ticket:
+SCR-01 pins the determination version into the campaign, SCR-02 builds immutable disclosure versions
+with acceptance recording the version and required and optional consent kept separate, SCR-07
+enforces the result-disclosure position on every read path, and REV-06 reads the appeal position
+rather than assuming one. Enforcement is server-side and tested by requesting the resource directly,
+because hiding a link is not a control and a test that asserts a link is hidden proves nothing about
+the endpoint behind it.
+
+The determination is data read at run time, pinned into a campaign the way a rubric is, so no
+screening behaviour is compiled against one jurisdiction's answer. **A jurisdiction with no recorded
+determination cannot open a campaign at all**, which is what makes it safe to build the whole of SCR
+and REV before the legal work lands: the first box being open is now enforced by the code rather than
+noted in a document. That is also why this ticket unblocks its 17 dependants without closing.
+
+Consent unbundling is fixed uniformly rather than per jurisdiction, because it is stricter than any
+launch jurisdiction is expected to require and a looser rule elsewhere would otherwise become the
+shared code path. The second box still needs the approved disclosure text, which needs the same
+approver the determination does.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md) · [responsible-hiring.md](../../security/responsible-hiring.md)
 

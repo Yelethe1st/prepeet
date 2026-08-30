@@ -25,6 +25,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 | [0017](0017-candidate-comparison-is-deferred.md) | Candidate comparison is explicitly deferred with three reopen triggers: published calibration, closed DEC-11 in every jurisdiction, and a concrete tenant ask | 2026-08-26 |
 | [0019](0019-model-providers-routing-and-budgets.md) | Deepgram and Cartesia for speech; any language model per deployment and stage (Anthropic, OpenAI, Hugging Face, or local open weights) behind two adapters; cloud providers admissible only with zero-retention, no-training, UK/EU terms; fallback per stage only after measured equivalence; deterministic floors are the terminal fallback; exhaustion never degrades a required result silently | 2026-08-27 |
 | [0018](0018-one-brand-with-stated-isolation.md) | One brand across practice and screening; the structural isolation guarantee becomes required candidate-facing copy wherever the modes meet, validated with candidates in PRC-06 | 2026-08-26 |
+| [0020](0020-screening-disclosure-access-and-appeal.md) | Screening disclosure, candidate result access and appeal are a stored per-jurisdiction determination read at run time, pinned into a campaign like a rubric; a jurisdiction with no recorded determination cannot open a campaign at all; consent is unbundled and disclosure versions immutable in every jurisdiction; appeal defaults to a right. The legal determination itself stays open and the code enforces that it is open | 2026-08-30 |
 
 ## Required initial ADRs
 
@@ -38,7 +39,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 8. ~~REST, gRPC, event, and generated-contract conventions.~~ Accepted as [ADR-0004](0004-contract-conventions-and-code-generation.md).
 9. ~~Artifact registry, review, publication, and rollback.~~ Accepted as [ADR-0011](0011-artifact-registry-review-publication-and-rollback.md).
 10. ~~Model providers, routing, regional policy, fallback, and budgets.~~ Accepted as [ADR-0019](0019-model-providers-routing-and-budgets.md).
-11. Screening disclosure, appeals, and human-decision semantics.
+11. Screening disclosure, appeals, and human-decision semantics. The mechanism is accepted as [ADR-0020](0020-screening-disclosure-access-and-appeal.md); the per-jurisdiction legal determination it reads remains open under DEC-11.
 12. Next.js deployment and strict Go backend boundary.
 
 ## ADR template

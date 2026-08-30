@@ -54,3 +54,6 @@ tools/eventgen/eventgen
 
 # The pnpm store, if a containerised run puts one here.
 .pnpm-store/
+
+# Agent worktrees. Transient, and each is a git repository of its own.
+.claude/worktrees/

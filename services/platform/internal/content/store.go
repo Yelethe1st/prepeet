@@ -35,6 +35,9 @@ var (
 	// ErrNotPublished refuses pointing the catalogue at anything that never
 	// passed publication: rollback replays the past, it does not invent one.
 	ErrNotPublished = errors.New("content: ARTIFACT_NOT_PUBLISHED: that version was never published")
+	// ErrNotDraft refuses removing anything past validation. History is the
+	// audit answer, and a version that can be deleted cannot give it.
+	ErrNotDraft = errors.New("content: ARTIFACT_NOT_DRAFT: only a draft may be deleted")
 	// ErrDigestMismatch means the stored body no longer hashes to the stored
 	// digest, which is corruption and never business as usual.
 	ErrDigestMismatch = errors.New("content: ARTIFACT_DIGEST_MISMATCH: the body does not match its digest")
@@ -417,4 +420,90 @@ func fromRow(row artifactRow) Artifact {
 		TenantID: row.TenantID, CreatedBy: row.CreatedBy, CreatedAt: row.CreatedAt,
 		PublishedBy: row.PublishedBy, PublishedAt: row.PublishedAt,
 	}
+}
+
+// Versions returns every version of one reference, newest first.
+//
+// The registry is already the answer to "what versions of this exist, who
+// published each and when", so a surface over it - TEN-04's rubric library -
+// reads this rather than keeping its own history table. Two answers to what a
+// version is would be one too many, and the second would be the one that
+// drifts.
+func (s *Store) Versions(ctx context.Context, reference, tenantID string) ([]Artifact, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("content: beginning version read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := s.scope(ctx, tx, tenantID); err != nil {
+		return nil, err
+	}
+
+	rows, err := db.New(tx).ListArtifactVersions(ctx, db.ListArtifactVersionsParams{
+		Reference: reference, TenantID: tenantID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("content: listing versions of %q: %w", reference, err)
+	}
+	versions := make([]Artifact, 0, len(rows))
+	for _, row := range rows {
+		versions = append(versions, fromRow(artifactRow(row)))
+	}
+	return versions, nil
+}
+
+// ListByType returns every artifact of one type the caller may see.
+//
+// Which is the tenant's own and the platform catalogue's, because that is
+// what the visibility policy admits and this adds no filter of its own: a
+// library that hid the platform's templates would be hiding them from the
+// only people who can build on them.
+func (s *Store) ListByType(ctx context.Context, artifactType, tenantID string) ([]Artifact, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("content: beginning type read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := s.scope(ctx, tx, tenantID); err != nil {
+		return nil, err
+	}
+
+	rows, err := db.New(tx).ListArtifactsByType(ctx, artifactType)
+	if err != nil {
+		return nil, fmt.Errorf("content: listing %q artifacts: %w", artifactType, err)
+	}
+	artifacts := make([]Artifact, 0, len(rows))
+	for _, row := range rows {
+		artifacts = append(artifacts, fromRow(artifactRow(row)))
+	}
+	return artifacts, nil
+}
+
+// DeleteDraft removes a draft, and only a draft.
+//
+// Everything past validation is history and stays: a version somebody could
+// remove is a version that cannot answer "what was this session judged by".
+// A non-draft is refused as ErrNotDraft rather than as a trigger exception,
+// so a surface can tell the author why without reading a database message.
+func (s *Store) DeleteDraft(ctx context.Context, artifactID, tenantID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("content: beginning delete: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := s.scope(ctx, tx, tenantID); err != nil {
+		return err
+	}
+
+	removed, err := db.New(tx).DeleteDraftArtifact(ctx, artifactID)
+	if err != nil {
+		return fmt.Errorf("content: deleting draft: %w", err)
+	}
+	if removed == 0 {
+		// Absent, another tenant's, or past validation. The first two are
+		// indistinguishable by design; the third is the one worth naming, and
+		// a caller separates them by having read the artifact first.
+		return ErrNotDraft
+	}
+	return tx.Commit(ctx)
 }

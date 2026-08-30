@@ -10,6 +10,22 @@ import (
 	"time"
 )
 
+const deleteDraftArtifact = `-- name: DeleteDraftArtifact :execrows
+DELETE FROM content.artifacts
+WHERE id = $1::uuid AND status = 'draft'
+`
+
+// Only a draft, and the trigger in migration 0013 refuses anything else in
+// any case. The status predicate is here so the refusal is a row count the
+// caller can act on rather than an exception it has to parse.
+func (q *Queries) DeleteDraftArtifact(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDraftArtifact, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getArtifact = `-- name: GetArtifact :one
 SELECT id::text AS id, artifact_type, reference, version, schema_version, digest, body,
        status, coalesce(tenant_id::text, '')::text AS tenant_id,
@@ -226,6 +242,139 @@ func (q *Queries) InsertAuditEvent(ctx context.Context, arg InsertAuditEventPara
 		arg.Outcome,
 	)
 	return err
+}
+
+const listArtifactVersions = `-- name: ListArtifactVersions :many
+SELECT id::text AS id, artifact_type, reference, version, schema_version, digest, body,
+       status, coalesce(tenant_id::text, '')::text AS tenant_id,
+       created_by::text AS created_by, created_at,
+       coalesce(published_by::text, '')::text AS published_by, published_at
+FROM content.artifacts
+WHERE reference = $1::text
+  AND tenant_id IS NOT DISTINCT FROM nullif($2::text, '')::uuid
+ORDER BY created_at DESC
+`
+
+type ListArtifactVersionsParams struct {
+	Reference string
+	TenantID  string
+}
+
+type ListArtifactVersionsRow struct {
+	ID            string
+	ArtifactType  string
+	Reference     string
+	Version       string
+	SchemaVersion string
+	Digest        string
+	Body          []byte
+	Status        string
+	TenantID      string
+	CreatedBy     string
+	CreatedAt     time.Time
+	PublishedBy   string
+	PublishedAt   *time.Time
+}
+
+// Every version of one reference, newest first, with who published it and
+// when. The registry already holds this; nothing else needs to keep a second
+// copy of what a version is, which is what TEN-04's library is built on.
+func (q *Queries) ListArtifactVersions(ctx context.Context, arg ListArtifactVersionsParams) ([]ListArtifactVersionsRow, error) {
+	rows, err := q.db.Query(ctx, listArtifactVersions, arg.Reference, arg.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListArtifactVersionsRow{}
+	for rows.Next() {
+		var i ListArtifactVersionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ArtifactType,
+			&i.Reference,
+			&i.Version,
+			&i.SchemaVersion,
+			&i.Digest,
+			&i.Body,
+			&i.Status,
+			&i.TenantID,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.PublishedBy,
+			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArtifactsByType = `-- name: ListArtifactsByType :many
+SELECT id::text AS id, artifact_type, reference, version, schema_version, digest, body,
+       status, coalesce(tenant_id::text, '')::text AS tenant_id,
+       created_by::text AS created_by, created_at,
+       coalesce(published_by::text, '')::text AS published_by, published_at
+FROM content.artifacts
+WHERE artifact_type = $1::text
+ORDER BY (tenant_id IS NOT NULL) DESC, reference, created_at DESC
+`
+
+type ListArtifactsByTypeRow struct {
+	ID            string
+	ArtifactType  string
+	Reference     string
+	Version       string
+	SchemaVersion string
+	Digest        string
+	Body          []byte
+	Status        string
+	TenantID      string
+	CreatedBy     string
+	CreatedAt     time.Time
+	PublishedBy   string
+	PublishedAt   *time.Time
+}
+
+// Everything of one type this caller may see: the tenant's own and the
+// platform catalogue's, which row-level security has already narrowed to
+// exactly those two. The ordering puts a tenant's own first, because a
+// workspace's library is its own work with the platform's templates beneath.
+func (q *Queries) ListArtifactsByType(ctx context.Context, artifactType string) ([]ListArtifactsByTypeRow, error) {
+	rows, err := q.db.Query(ctx, listArtifactsByType, artifactType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListArtifactsByTypeRow{}
+	for rows.Next() {
+		var i ListArtifactsByTypeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ArtifactType,
+			&i.Reference,
+			&i.Version,
+			&i.SchemaVersion,
+			&i.Digest,
+			&i.Body,
+			&i.Status,
+			&i.TenantID,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.PublishedBy,
+			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markPublished = `-- name: MarkPublished :execrows

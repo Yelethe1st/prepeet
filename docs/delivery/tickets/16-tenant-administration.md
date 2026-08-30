@@ -16,9 +16,41 @@ Organisation identity, defaults, candidate-experience settings and notification 
 a tenant administrator.
 
 **Done when**
-- [ ] Settings changes are audited with actor and previous value.
-- [ ] Defaults apply to new campaigns only, never retroactively.
+- [x] Settings changes are audited with actor and previous value.
+- [x] Defaults apply to new campaigns only, never retroactively.
 - [ ] Read-only users see the settings without controls, not a broken form.
+
+**The two structural boxes are closed in the bounded context; the screen is not
+built.** `tenancy.tenant_configuration` stores a workspace's settings as versions
+rather than as a value, because both closed boxes need the same thing: the previous
+document has to stay readable, exactly, forever. A save is an insert, append-only by
+trigger and by grant, and both halves are proven by attacking them - the migrator
+that owns the table cannot rewrite or delete a version, and `prepeet_app` holds
+neither privilege.
+
+The audit row carries the actor and the names of the fields that moved, computed
+from the two documents rather than described by the caller; the previous values
+themselves are the previous version, which is still there. That split is deliberate:
+`audit.events` is exported to tenants and is not a place for candidate-facing
+invitation copy, and "what was it before" is answered by reading version n-1.
+
+"Never retroactively" is a property rather than a promise. A campaign pins the
+settings version it was created under and `AtVersion` re-reads that document however
+many times the workspace has saved since, which is tested by pinning, changing, and
+re-reading. The pin's other half - recruiting actually recording the version on a
+campaign - is not wired, because `internal/recruiting` was another agent's this
+session.
+
+Concurrency is the primary key: two administrators saving the same version collide
+and the second is refused, so neither silently undoes the other. Validation runs
+before storage, because a table that cannot delete anything past a draft is a bad
+place to put a document nobody can use.
+
+The third box is not started and cannot be from here. It needs a settings screen and
+a `tenant.settings_read` capability distinct from `tenant.settings_manage`; the
+capability catalogue lives under `packages/contracts/`, which this session was told
+not to touch, so a read-only member currently has no capability that would reveal the
+settings at all.
 
 **Spec** [product-requirements.md](../../product/product-requirements.md)
 
@@ -92,8 +124,44 @@ Who has access to candidate evidence, when it was last reviewed, and a prompt to
 
 **Done when**
 - [ ] Access review is a scheduled prompt with a recorded outcome, not a report nobody opens.
-- [ ] Dormant access is surfaced automatically.
-- [ ] Review completion is auditable.
+- [x] Dormant access is surfaced automatically.
+- [x] Review completion is auditable.
+
+**The review exists as a thing that has to be answered; nothing schedules it yet.**
+The ticket's first line decided the design. A report is a query somebody could run; a
+review is a row that exists, is due on a date, names every person who can reach
+candidate evidence, and cannot be closed while one of them is unanswered for. That
+last clause is enforced rather than encouraged: `Complete` refuses with
+`ErrReviewIncomplete` while any item is pending, a unique partial index allows one
+open review per workspace, and neither table grants DELETE to the application role,
+because a review somebody can remove answers "has access been reviewed" with whatever
+the last person to look wanted it to say.
+
+The items are a snapshot taken at open time, not a live view, so a completed review
+still shows what was confirmed and against which role. Revoking through the review
+removes the access before the row is written and leaves the item pending if the
+removal fails, because "revoked" written beside access that still works is a lie
+somebody will act on.
+
+Dormancy is computed at open time against a standard recorded on the review itself,
+since "nobody was dormant" means different things read against 30 days and against
+180. The signal is `audit.events`, which is the only tenant-scoped record of what a
+person did in a workspace: a session belongs to a person across every workspace they
+belong to and cannot answer "dormant here". The honest cost is stated in the package
+README - somebody who only ever read pages has no audited act and reads as dormant.
+That is a false positive in the conservative direction, prompting a confirmation
+rather than hiding anybody, and the fix is the sensitive-read auditing the
+authorization model already calls for.
+
+Completion is audited with the actor, the review, and the counts confirmed and
+revoked. The first box is open on its first word: `Due` answers per workspace and
+`Open` is idempotent behind the unique index, but nothing drives them. A scheduler
+would have to enumerate tenants, and nothing can do that today without a role holding
+BYPASSRLS, which would bypass every other policy in the database. That is a decision
+somebody should make deliberately rather than something to slip in here.
+
+The roster and the revocation both arrive through ports (ADR-0005) and are wired in
+neither `cmd/api` nor `cmd/worker` yet, because there is no endpoint to wire them to.
 
 **Spec** [user-journeys.md](../../product/user-journeys.md)
 
@@ -106,9 +174,41 @@ Who has access to candidate evidence, when it was last reviewed, and a prompt to
 Draft, validate, approve, publish, and a version history that cannot be rewritten.
 
 **Done when**
-- [ ] A published rubric is immutable; editing produces a new version.
-- [ ] Version history shows who published what and when.
+- [x] A published rubric is immutable; editing produces a new version.
+- [x] Version history shows who published what and when.
 - [ ] A rubric in use by a running campaign cannot be deleted.
+
+**Built as a surface over the artifact registry, and that is the whole ticket.**
+`content.artifacts` already stores versioned, digest-identified, published artifacts
+with a lifecycle, a separation of duties on publication, an immutability trigger and a
+rollback path, and a rubric is one of its types. A second version history here would
+have been a second answer to "what is version 1.1.0 of this rubric", and the second
+answer is the one that drifts. So this ticket added no migration at all: the library
+decides what a workspace may do with a rubric and the registry decides what a version
+is.
+
+The first box is the registry's trigger from migration 0013, and the library holds up
+its end by offering no edit: a revision is a fresh draft of the same reference at a
+new version, which is the only shape either side accepts. The second is the registry's
+too - `Versions` returns every version with its drafter, its publisher and its
+publication time, proven against real PostgreSQL, including that one workspace cannot
+read another's history for a reference that genuinely exists.
+
+The third box is half done and honestly so. The refusal is built, named
+(`ErrRubricInUse`), carries the campaigns that are blocking so an administrator has
+something to act on, and guards both discarding a draft and retiring a published
+version - retiring deprecates rather than removes, because "what was this candidate
+judged by" has to stay answerable. What is missing is the answer: `RubricUsage` is a
+consumer-defined port and campaigns live in `internal/recruiting`, which was another
+agent's this session, so nothing implements it yet. Until cmd wires it the guard is
+tested against a fake and cannot be claimed.
+
+Two refusals are the library's own rather than the registry's: a platform template is
+readable by every workspace and is nobody's to change, and validation runs before
+anything is drafted. Whether a body is a usable rubric is decided by the context that
+reads rubric bodies, injected as a `RubricValidator` for the reason the artifact
+loader injects its catalogue parser - writing a rubric schema here would have been the
+same mistake as writing a second version history.
 
 **Spec** [domain-model.md](../../architecture/domain-model.md)
 

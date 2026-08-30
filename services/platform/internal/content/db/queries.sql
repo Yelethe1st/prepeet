@@ -93,3 +93,36 @@ INSERT INTO audit.events
 VALUES (sqlc.arg(id)::uuid, nullif(sqlc.arg(tenant_id)::text, '')::uuid,
         sqlc.arg(actor_id)::uuid, 'user', sqlc.arg(action)::text,
         'artifact', sqlc.arg(subject_id)::text, sqlc.arg(outcome)::text);
+
+-- name: ListArtifactVersions :many
+-- Every version of one reference, newest first, with who published it and
+-- when. The registry already holds this; nothing else needs to keep a second
+-- copy of what a version is, which is what TEN-04's library is built on.
+SELECT id::text AS id, artifact_type, reference, version, schema_version, digest, body,
+       status, coalesce(tenant_id::text, '')::text AS tenant_id,
+       created_by::text AS created_by, created_at,
+       coalesce(published_by::text, '')::text AS published_by, published_at
+FROM content.artifacts
+WHERE reference = sqlc.arg(reference)::text
+  AND tenant_id IS NOT DISTINCT FROM nullif(sqlc.arg(tenant_id)::text, '')::uuid
+ORDER BY created_at DESC;
+
+-- name: ListArtifactsByType :many
+-- Everything of one type this caller may see: the tenant's own and the
+-- platform catalogue's, which row-level security has already narrowed to
+-- exactly those two. The ordering puts a tenant's own first, because a
+-- workspace's library is its own work with the platform's templates beneath.
+SELECT id::text AS id, artifact_type, reference, version, schema_version, digest, body,
+       status, coalesce(tenant_id::text, '')::text AS tenant_id,
+       created_by::text AS created_by, created_at,
+       coalesce(published_by::text, '')::text AS published_by, published_at
+FROM content.artifacts
+WHERE artifact_type = sqlc.arg(artifact_type)::text
+ORDER BY (tenant_id IS NOT NULL) DESC, reference, created_at DESC;
+
+-- name: DeleteDraftArtifact :execrows
+-- Only a draft, and the trigger in migration 0013 refuses anything else in
+-- any case. The status predicate is here so the refusal is a row count the
+-- caller can act on rather than an exception it has to parse.
+DELETE FROM content.artifacts
+WHERE id = sqlc.arg(id)::uuid AND status = 'draft';

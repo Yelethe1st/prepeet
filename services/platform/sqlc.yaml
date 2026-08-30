@@ -162,3 +162,13 @@ sql:
         package: operationsdb
         out: internal/operations/db
         overrides: *overrides
+
+  - engine: postgresql
+    schema: *schema
+    queries: internal/tenantadmin/db/queries.sql
+    gen:
+      go:
+        <<: *go
+        package: tenantadmindb
+        out: internal/tenantadmin/db
+        overrides: *overrides

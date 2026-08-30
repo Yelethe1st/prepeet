@@ -52,6 +52,33 @@ var owns = map[string][]string{
 	// next person to add a query here should have to think about which schema
 	// it belongs to.
 	"operations": {},
+	// Tenant administration owns no whole schema either. Its tables live in
+	// tenancy, which is identity's, so they are declared table by table in
+	// ownsTables below, and the empty list here is what says it may name
+	// nothing else there: not memberships, not tenants.
+	"tenantadmin": {},
+}
+
+// ownsTables declares individual tables a module owns inside a schema that
+// belongs to another module.
+//
+// It exists because the schema list in ADR-0002 is fixed and tenant
+// administration is a bounded context whose tables are unarguably about the
+// workspace: settings and the periodic access review both belong in tenancy,
+// which identity owns because memberships and the people holding them are one
+// subject. Giving a second module the whole schema would make the rule vacuous
+// for both of them, so ownership is stated at the table instead.
+//
+// The exclusion runs both ways and is checked: a table named here is a
+// crossing for every module except the one that owns it, the schema's owner
+// included. That is what stops this from becoming a way to widen a claim
+// rather than to narrow one.
+var ownsTables = map[string][]string{
+	"tenantadmin": {
+		"tenancy.tenant_configuration",
+		"tenancy.access_reviews",
+		"tenancy.access_review_items",
+	},
 }
 
 // auditSchema is everybody's, and by grant only to append to.
@@ -82,6 +109,19 @@ var knownSchemas = map[string]bool{
 func TestAModuleNamesOnlyItsOwnSchemas(t *testing.T) {
 	crossings := []string{}
 
+	// Every table claimed by name, and by whom. Read once, so the loop below
+	// can tell "that table is somebody else's" from "that schema is somebody
+	// else's": different failures wearing the same shape.
+	claimedBy := map[string]string{}
+	for module, tables := range ownsTables {
+		for _, table := range tables {
+			if first, taken := claimedBy[table]; taken {
+				t.Fatalf("%s is claimed by both internal/%s and internal/%s", table, first, module)
+			}
+			claimedBy[table] = module
+		}
+	}
+
 	for module, allowed := range owns {
 		permitted := map[string]bool{auditSchema: true}
 		for _, schema := range allowed {
@@ -95,12 +135,25 @@ func TestAModuleNamesOnlyItsOwnSchemas(t *testing.T) {
 		}
 
 		for _, match := range schemaReference.FindAllStringSubmatch(string(queries), -1) {
-			schema := match[1]
-			if !knownSchemas[schema] || permitted[schema] {
+			schema, table := match[1], match[0]
+			if !knownSchemas[schema] {
+				continue
+			}
+			// A table claimed by name overrides the schema claim in both
+			// directions: its owner may name it wherever it lives, and the
+			// schema's owner may not.
+			if owner, claimed := claimedBy[table]; claimed {
+				if owner != module {
+					crossings = append(crossings, fmt.Sprintf(
+						"internal/%s reads %s, which internal/%s owns", module, table, owner))
+				}
+				continue
+			}
+			if permitted[schema] {
 				continue
 			}
 			crossings = append(crossings,
-				fmt.Sprintf("internal/%s reads %s", module, match[0]))
+				fmt.Sprintf("internal/%s reads %s", module, table))
 		}
 	}
 

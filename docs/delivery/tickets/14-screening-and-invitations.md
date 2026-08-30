@@ -42,12 +42,24 @@ future query walks around and a rule only in the database produces an error nobo
 service guards were each proven by breaking them, and four direct SQL probes confirmed each database
 refusal fires for its own reason rather than incidentally.
 
-**The third box is open because there is no server path yet.** `recruiting.campaign_recruiter` exists
-with its own row-level security policy, and the queries are generated, but nothing wires the store to
-the service and no HTTP handler calls it, so there is nothing server-side to enforce. Tenant
-membership admits somebody to the workspace and a campaign is narrower than that; the table is the
-scope, and the box closes when a request actually passes through it and an integration test proves a
-recruiter on one campaign cannot read another.
+**The third box stays open, though it is closer than it was.** The store now enforces the scope and
+an integration test proves a recruiter on one campaign cannot read another in the same tenant, nor a
+campaign in another tenant. The access check and the read are one query rather than two steps,
+because two steps is where the check gets skipped: a later caller reaching for the plain read is not
+doing anything that looks wrong. A refusal is worded identically to a campaign that does not exist,
+since a recruiter who can tell "not yours" from "no such thing" can enumerate a tenant's campaigns by
+asking.
+
+It stays open because the bar set when it was written was that a request actually passes through it,
+and there is still no HTTP handler. The enforcement exists and is proven; nothing calls it yet. That
+arrives with SCR-04 and SCR-05.
+
+**An attack on this found a real gap in the first version of these tests.** Making
+`recruiting.campaign`'s own policy permissive left every test green, because the recruiter read goes
+through a join with `campaign_recruiter` and was defended by that table's policy instead. The tests
+were real but proved something narrower than they claimed. Two tests now read `campaign` and
+`campaign_pin` directly, so nothing but each table's own policy stands in the way, and weakening
+either one fails a named test that reports what leaked.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md) · [authorization-model.md](../../architecture/authorization-model.md)
 
@@ -62,9 +74,9 @@ disclosure and human decision ownership — versioned, approved, and never bundl
 processing.
 
 **Done when**
-- [ ] The exact disclosure version a candidate accepted is recorded with the acceptance.
+- [x] The exact disclosure version a candidate accepted is recorded with the acceptance.
 - [x] Consent is unbundled: declining optional processing does not block the interview.
-- [ ] A disclosure change creates a new version and never rewrites what someone already accepted.
+- [x] A disclosure change creates a new version and never rewrites what someone already accepted.
 
 **One of three, and the two open ones are open for the same reason as SCR-01's third.**
 
@@ -90,11 +102,20 @@ Five guards proven by breaking them, including one that catches the opposite mis
 consent block the interview fails a named test too, so the rule cannot be tightened by accident any
 more than it can be loosened.
 
-**The first and third boxes need the write path.** `recruiting.disclosure_acceptance` and
-`recruiting.consent_decision` exist, both append-only by trigger and both refusing a digest that is
-not one, and `NewAcceptance` refuses an acceptance that cannot say what was accepted. But nothing
-writes either table yet, so no acceptance has been recorded and the append-only guarantee has not
-been attacked from Go. Both close with the store and its integration tests.
+**The write path landed, and the first and third boxes closed with it.** An acceptance and its
+consent decisions are written in one transaction, because an acceptance without its decisions would
+read as consent to everything and decisions without their acceptance would be answers to a document
+nobody is recorded as having seen.
+
+Both are proven against real PostgreSQL. A disclosure republished from 1.0.0 to 2.0.0 leaves the
+earlier acceptance standing with its own digest, which is the third criterion happening rather than
+being asserted, and the row itself refuses UPDATE and DELETE, so no code path can quietly restate
+what somebody agreed to. Making the table editable fails that test by name. The database refuses
+model improvement as a required consent even when a caller skips `ValidatePurposes` entirely, which
+is what a future caller that forgot would do.
+
+The standing decision is the latest row per purpose, so SEC-04's withdrawal is already expressible:
+a change of mind is a new row and nothing is edited.
 
 **Spec** [responsible-hiring.md](../../security/responsible-hiring.md)
 

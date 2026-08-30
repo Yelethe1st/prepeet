@@ -10,6 +10,57 @@ import (
 	"time"
 )
 
+const acceptancesFor = `-- name: AcceptancesFor :many
+SELECT id, campaign_id, candidate_id, disclosure_digest, disclosure_version, accepted_at
+FROM recruiting.disclosure_acceptance
+WHERE campaign_id = $1 AND candidate_id = $2
+ORDER BY accepted_at DESC
+`
+
+type AcceptancesForParams struct {
+	CampaignID  string
+	CandidateID string
+}
+
+type AcceptancesForRow struct {
+	ID                string
+	CampaignID        string
+	CandidateID       string
+	DisclosureDigest  string
+	DisclosureVersion string
+	AcceptedAt        time.Time
+}
+
+// Every acceptance, newest first. All of them rather than the latest, because
+// "what had this person been told when they sat the interview" is a question
+// about a moment, and answering it needs the history.
+func (q *Queries) AcceptancesFor(ctx context.Context, arg AcceptancesForParams) ([]AcceptancesForRow, error) {
+	rows, err := q.db.Query(ctx, acceptancesFor, arg.CampaignID, arg.CandidateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AcceptancesForRow{}
+	for rows.Next() {
+		var i AcceptancesForRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.CandidateID,
+			&i.DisclosureDigest,
+			&i.DisclosureVersion,
+			&i.AcceptedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const campaignByID = `-- name: CampaignByID :one
 SELECT id, tenant_id, name, status, role_reference, jurisdiction,
        determination_id, opened_at, closed_at, created_at, created_by
@@ -348,6 +399,64 @@ func (q *Queries) PinsForCampaign(ctx context.Context, campaignID string) ([]Pin
 	return items, nil
 }
 
+const recordAcceptance = `-- name: RecordAcceptance :exec
+INSERT INTO recruiting.disclosure_acceptance
+    (id, tenant_id, campaign_id, candidate_id, disclosure_digest, disclosure_version)
+VALUES ($1, $2, $3, $4, $5, $6)
+`
+
+type RecordAcceptanceParams struct {
+	ID                string
+	TenantID          string
+	CampaignID        string
+	CandidateID       string
+	DisclosureDigest  string
+	DisclosureVersion string
+}
+
+func (q *Queries) RecordAcceptance(ctx context.Context, arg RecordAcceptanceParams) error {
+	_, err := q.db.Exec(ctx, recordAcceptance,
+		arg.ID,
+		arg.TenantID,
+		arg.CampaignID,
+		arg.CandidateID,
+		arg.DisclosureDigest,
+		arg.DisclosureVersion,
+	)
+	return err
+}
+
+const recordConsentDecision = `-- name: RecordConsentDecision :exec
+INSERT INTO recruiting.consent_decision
+    (id, tenant_id, campaign_id, candidate_id, purpose, required, granted, disclosure_digest)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type RecordConsentDecisionParams struct {
+	ID               string
+	TenantID         string
+	CampaignID       string
+	CandidateID      string
+	Purpose          string
+	Required         bool
+	Granted          bool
+	DisclosureDigest string
+}
+
+func (q *Queries) RecordConsentDecision(ctx context.Context, arg RecordConsentDecisionParams) error {
+	_, err := q.db.Exec(ctx, recordConsentDecision,
+		arg.ID,
+		arg.TenantID,
+		arg.CampaignID,
+		arg.CandidateID,
+		arg.Purpose,
+		arg.Required,
+		arg.Granted,
+		arg.DisclosureDigest,
+	)
+	return err
+}
+
 const recruiterMayAccess = `-- name: RecruiterMayAccess :one
 SELECT EXISTS (
     SELECT 1 FROM recruiting.campaign_recruiter
@@ -379,4 +488,54 @@ type RevokeCampaignAccessParams struct {
 func (q *Queries) RevokeCampaignAccess(ctx context.Context, arg RevokeCampaignAccessParams) error {
 	_, err := q.db.Exec(ctx, revokeCampaignAccess, arg.CampaignID, arg.UserID)
 	return err
+}
+
+const standingConsent = `-- name: StandingConsent :many
+SELECT DISTINCT ON (purpose)
+       purpose, required, granted, disclosure_digest, decided_at
+FROM recruiting.consent_decision
+WHERE campaign_id = $1 AND candidate_id = $2
+ORDER BY purpose, decided_at DESC
+`
+
+type StandingConsentParams struct {
+	CampaignID  string
+	CandidateID string
+}
+
+type StandingConsentRow struct {
+	Purpose          string
+	Required         bool
+	Granted          bool
+	DisclosureDigest string
+	DecidedAt        time.Time
+}
+
+// The latest decision per purpose. DISTINCT ON rather than a join on max, so
+// one index scan answers it and a withdrawal recorded later automatically
+// becomes the standing answer without any row being edited.
+func (q *Queries) StandingConsent(ctx context.Context, arg StandingConsentParams) ([]StandingConsentRow, error) {
+	rows, err := q.db.Query(ctx, standingConsent, arg.CampaignID, arg.CandidateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StandingConsentRow{}
+	for rows.Next() {
+		var i StandingConsentRow
+		if err := rows.Scan(
+			&i.Purpose,
+			&i.Required,
+			&i.Granted,
+			&i.DisclosureDigest,
+			&i.DecidedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -77,3 +77,32 @@ FROM recruiting.campaign c
 JOIN recruiting.campaign_recruiter r ON r.campaign_id = c.id
 WHERE r.user_id = $1
 ORDER BY c.created_at DESC;
+
+-- name: RecordAcceptance :exec
+INSERT INTO recruiting.disclosure_acceptance
+    (id, tenant_id, campaign_id, candidate_id, disclosure_digest, disclosure_version)
+VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: AcceptancesFor :many
+-- Every acceptance, newest first. All of them rather than the latest, because
+-- "what had this person been told when they sat the interview" is a question
+-- about a moment, and answering it needs the history.
+SELECT id, campaign_id, candidate_id, disclosure_digest, disclosure_version, accepted_at
+FROM recruiting.disclosure_acceptance
+WHERE campaign_id = $1 AND candidate_id = $2
+ORDER BY accepted_at DESC;
+
+-- name: RecordConsentDecision :exec
+INSERT INTO recruiting.consent_decision
+    (id, tenant_id, campaign_id, candidate_id, purpose, required, granted, disclosure_digest)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: StandingConsent :many
+-- The latest decision per purpose. DISTINCT ON rather than a join on max, so
+-- one index scan answers it and a withdrawal recorded later automatically
+-- becomes the standing answer without any row being edited.
+SELECT DISTINCT ON (purpose)
+       purpose, required, granted, disclosure_digest, decided_at
+FROM recruiting.consent_decision
+WHERE campaign_id = $1 AND candidate_id = $2
+ORDER BY purpose, decided_at DESC;

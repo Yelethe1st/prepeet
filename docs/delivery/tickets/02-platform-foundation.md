@@ -66,10 +66,54 @@ not apply takes the build down before a single test runs.
 The compatibility gates joined them with CTR-04: events, RPC and now the HTTP contract each refuse
 a change that would break a deployed consumer.
 
+**Two of those three failures now have their own name, and every one of them can be run on a
+laptop.** A forbidden import failed inside a ten minute suite among container logs, and a broken
+migration failed as whichever integration test happened to run first. `make check-boundaries` and
+`make check-migrations` are named steps ahead of and beside the suite: the first answers in under
+two seconds and needs nothing running, the second in about eight against a real PostgreSQL in a
+container. Both were verified by planting the violation. An import of `internal/identity` into
+`internal/candidate` fails `TestNoContextImportsAnother` by name, and a migration referencing a
+table that does not exist fails with the version and the name of the migration that broke.
+
+**The dependency audit from this ticket's description exists now; the container scan still does
+not.** `make audit` gates all three languages against what deploys: govulncheck over the Go module,
+pip-audit over the resolved Python runtime set, and `pnpm audit --prod` over the web production
+dependencies. Each was proved by feeding it something vulnerable rather than by watching it pass:
+a rewritten govulncheck report with a reachable advisory in pgx, a requirements file pinning a
+known-bad `requests`, and the development dependency set, which fails today. The Go half needed a
+policy, so `tools/vulncheck` reads govulncheck's JSON and decides. It refuses an empty report,
+because a scanner that could not reach the vulnerability database prints nothing and nothing reads
+as clean. Writing it found a fault in itself before it found one in the repository: govulncheck
+reports each advisory first as a fact about the dependency graph and then once per traced call, so
+taking the first report classified all 24 reachable advisories as unreachable. A gate that passes
+what it exists to catch is worse than no gate, which is why the count is now checked against
+govulncheck's own.
+
+**The Go coverage floor was not the only number written twice.** The Python job carried its own
+`--cov-fail-under=80` beside `PY_COVERAGE_MIN`, and the Makefile carried a `WEB_COVERAGE_MIN` that
+no recipe read and that said 80 against the 95 Vitest actually enforces: a copy that was not merely
+free to drift but already wrong, and would have been believed by whoever read it first. Both are
+gone, and so are the last hand written commands in the workflow, which now names a make target for
+every build, suite and check. The one exception is the browser job, and it is on the line: the
+Playwright container ships no `make`, which was found by running the image rather than by pushing.
+
+**What this pipeline does not check.** No container image is built, published or scanned, so
+nothing is digest addressed and there is no image to scan. Standard library advisories are reported
+and not gated: 24 are reachable today, cleared by Go 1.26.6 against the 1.26.0 pinned in
+`services/platform/go.mod`, and gating a toolchain bump this ticket cannot make would only teach
+people to skip the gate. Development toolchains are not audited either, and there are findings
+there now: one critical in vitest and one high in vite, neither reachable from anything a user
+talks to. `cmd/` remains outside the coverage measurement, and measuring it separately puts it at
+11.0% without the integration tag, so the 81.3% the floor reads is a statement about `platform/` and
+`internal/` and not about the wiring that starts them. And documentation link checking, which was written out inside
+the workflow file and could only be run by pushing, is `make check-docs`, which is the same fix as
+the coverage floor for the same reason.
+
 The two remaining boxes are genuinely undone rather than unticked. Nothing builds a container at
 all, so there is no artifact to address by digest, and that arrives with PLT-09's deployment work.
-Pipeline duration has never been measured against a stated budget, and a box that says "fast
-enough" without a number is one nobody can close.
+Pipeline duration still has no number that came from a hosted runner: the gates were timed on a
+laptop, the jobs are parallel and the longest is the Go suite, but a box that says "fast enough"
+closes on a measurement rather than on an argument.
 
 **Spec** [release-criteria.md](../release-criteria.md)
 

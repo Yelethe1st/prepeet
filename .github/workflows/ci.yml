@@ -7,13 +7,27 @@
 # The three deployables run as separate jobs so a failure names which one broke,
 # and so they run in parallel.
 #
-# Lint and format steps invoke the make targets an engineer runs locally rather
-# than reimplementing the commands. That is not tidiness. This file previously
-# spelled out its own equivalents, and the web job's version omitted `pnpm lint`
+# Every step invokes the make target an engineer runs locally rather than
+# reimplementing the command. That is not tidiness. This file previously spelled
+# out its own equivalents, and the web job's version omitted `pnpm lint`
 # entirely, so ESLint never ran here. It had also never run locally, because the
 # script called `next lint`, which Next 16 removed and no configuration existed
 # for. Two copies of a check are two chances for one of them to stop being run,
 # and the copy that is not run is the one nobody notices.
+#
+# The Go coverage floor was the second instance and is fixed below. The Python
+# floor was the third: this file carried its own --cov-fail-under=80 next to
+# PY_COVERAGE_MIN in the Makefile. Both now come from the Makefile alone, and so
+# do the builds and the documentation link check. Setting up a runner aside,
+# a step here that spells out its own command instead of naming a target is a
+# bug rather than a shortcut, and `make ci` runs the lot. The browser job is the
+# single exception and says why on the line itself.
+#
+# What this pipeline does not check is written into PLT-02's note rather than
+# left to be discovered. The short version: no container image is built,
+# published or scanned, so nothing here is digest-addressed; the audit gates
+# what deploys and not the development toolchains; and cmd/ is outside the
+# coverage measurement.
 name: CI
 
 on:
@@ -29,9 +43,8 @@ jobs:
   go:
     name: Go control plane
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/platform
+    # No working-directory default any more: every step is a make target invoked
+    # from the root, which is how an engineer invokes them.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -40,9 +53,15 @@ jobs:
           cache-dependency-path: services/platform/go.sum
       - name: Lint, format and vet
         run: make lint-go
-        working-directory: .
+      # Ahead of the suite rather than inside it. The boundary rules need no
+      # database and take two seconds, so a forbidden import is named here
+      # instead of arriving ten minutes later among container output. It runs in
+      # the suite too, which is the point: this step is for the name, not for
+      # the coverage.
+      - name: Module boundaries and forbidden imports
+        run: make check-boundaries
       - name: Build every binary
-        run: go build ./...
+        run: make build-go
       # One step, and it is the make target an engineer runs locally: the suite
       # with the race detector and the integration tag, then the coverage floor
       # over the handwritten packages.
@@ -58,13 +77,29 @@ jobs:
       # PostgreSQL and LocalStack, which the runner has Docker for.
       - name: Test with the race detector and enforce the coverage floor
         run: make cover-go
-        working-directory: .
       # Their own modules, so the step above does not reach them. Uncached,
       # because their inputs are the contracts and the documentation and the
       # cache cannot see those change.
       - name: Test the generators
         run: make test-tools
-        working-directory: .
+
+  # Its own job rather than a step in the Go one. Every other integration suite
+  # reads a schema these migrations produced, so a migration that does not apply
+  # fails the Go job somewhere in the middle of an unrelated test; this job says
+  # which of the two it was. It runs beside the Go job rather than before it, so
+  # naming the failure costs no wall clock, and it answers in well under a
+  # minute against a real PostgreSQL.
+  migrations:
+    name: Migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/platform/go.mod
+          cache-dependency-path: services/platform/go.sum
+      - name: Apply every migration to an empty database
+        run: make check-migrations
 
   contracts:
     name: Contracts
@@ -109,17 +144,12 @@ jobs:
       # broke a client at run time instead.
       - name: Refuse a breaking change to the HTTP contract
         run: make check-api
-      # Nothing imports the RPC stubs yet, so building the module is the only
-      # thing proving they compile, which is CTR-02's first criterion.
       - name: Build the generated Go stubs
-        run: cd packages/generated/go && go build ./...
+        run: make build-generated
 
   python:
     name: Python intelligence
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/intelligence
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -127,18 +157,18 @@ jobs:
           enable-cache: true
       - name: Install
         run: uv sync --all-extras
+        working-directory: services/intelligence
       - name: Lint, format and type check
         run: make lint-py
-        working-directory: .
+      # PY_COVERAGE_MIN is in the Makefile. This step used to carry its own
+      # --cov-fail-under=80 beside it, which is the Go floor's fault repeated in
+      # another language.
       - name: Test and enforce the coverage floor
-        run: uv run pytest --cov=prepeet_ai --cov-report=term-missing --cov-fail-under=80
+        run: make cover-py
 
   web:
     name: Web application
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -148,14 +178,16 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
-        working-directory: .
       - name: Lint and type check
         run: make lint-web
-        working-directory: .
+      # The web thresholds are Vitest's own, in apps/web/vitest.config.ts, and
+      # they are not repeated in the Makefile either. A variable there claimed
+      # to be the web floor, said 80 against Vitest's 95, and was read by
+      # nothing.
       - name: Test and enforce the coverage floor
-        run: pnpm test:coverage
+        run: make cover-web
       - name: Build
-        run: pnpm build
+        run: make build-web
 
   browser:
     name: Web application in a browser
@@ -166,17 +198,20 @@ jobs:
     # would fail for a reason that has nothing to do with the change.
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
-    defaults:
-      run:
-        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - name: Install
         run: pnpm install --frozen-lockfile
-        working-directory: .
+      # The one step in this file that does not go through make, and the reason
+      # is the container: the Playwright image ships no make, so `make
+      # test-browser` here fails with "command not found" rather than running
+      # anything. Checked by running the image. The make target exists and is
+      # the same command; if this line and `make test-browser` ever disagree,
+      # this line is the one that is wrong.
       - name: Accessibility, layout and appearance
         run: pnpm test:browser
+        working-directory: apps/web
       # The report is what makes a failure diagnosable without rerunning it
       # locally: it carries the diff image for an appearance failure and a trace
       # for anything else.
@@ -188,24 +223,42 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
+  # The dependency audit. Its own job because it needs all three toolchains and
+  # nothing else needs all three, and because it is the one gate whose answer
+  # can change without the repository changing: an advisory published this
+  # morning fails a commit that passed last night, which is the point of it.
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/platform/go.mod
+          cache-dependency-path: services/platform/go.sum
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      # pnpm audit reads the lockfile rather than node_modules, but the
+      # workspace still has to resolve for it to find one.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Vulnerabilities in what we ship
+        run: make audit
+
   docs:
     name: Documentation links
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # The check is tools/docs/links.sh. It was written out in this file, so
+      # the only way to run it was to push and read a log, and a broken citation
+      # in the documentation this project treats as binding was found by CI
+      # rather than before it.
       - name: Every internal documentation link resolves
-        run: |
-          broken=0
-          while IFS= read -r file; do
-            dir=$(dirname "$file")
-            while IFS= read -r link; do
-              case "$link" in http*|\#*) continue;; esac
-              target="${link%%#*}"
-              [ -z "$target" ] && continue
-              if [ ! -e "$dir/$target" ]; then
-                echo "broken: $file -> $link"
-                broken=1
-              fi
-            done < <(grep -o ']([^)]*)' "$file" | sed 's/](//;s/)$//')
-          done < <(find docs screens/docs -name '*.md')
-          exit $broken
+        run: make check-docs

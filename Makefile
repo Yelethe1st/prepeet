@@ -20,7 +20,10 @@ WEB_DIR := apps/web
 # mature, and never lower one to make a build pass.
 GO_COVERAGE_MIN  := 80
 PY_COVERAGE_MIN  := 80
-WEB_COVERAGE_MIN := 80
+# There is no web floor here. Vitest enforces its own thresholds in
+# apps/web/vitest.config.ts, and a second number in this file would be a copy
+# free to drift from the one that runs. It already had: this variable said 80,
+# was read by no recipe, and described a gate that is set at 95.
 
 # cmd packages are process wiring: a main that reads configuration, builds
 # dependencies and starts a server. They are deliberately kept thin and are
@@ -50,6 +53,30 @@ bootstrap-py:
 bootstrap-web:
 	cd $(WEB_DIR) && pnpm install --frozen-lockfile
 
+# ---------------------------------------------------------------------- build
+
+.PHONY: build
+build: build-go build-generated build-web ## Build every deployable
+
+.PHONY: build-go
+build-go: ## Compile every Go binary
+	cd $(GO_DIR) && go build ./...
+
+.PHONY: build-generated
+build-generated: ## Compile the generated Go stubs, which no deployable imports yet
+	@# Nothing imports the RPC stubs, so building the module is the only thing
+	@# proving they compile, which is CTR-02's first criterion. Its own module,
+	@# so build-go does not reach it.
+	cd packages/generated/go && go build ./...
+
+.PHONY: build-web
+build-web: ## Build the Next.js production bundle
+	cd $(WEB_DIR) && pnpm build
+
+# The Python service has no build step of its own: `uv sync` resolves the
+# environment and the service runs from source, so `make bootstrap-py` is the
+# equivalent and there is nothing here to compile.
+
 # ----------------------------------------------------------------------- test
 
 .PHONY: test
@@ -67,7 +94,7 @@ test-go: ## Run the Go suite with the race detector
 # files under the package being tested and cannot see those change, so a cached
 # run reports a pass after the very drift the test exists to catch. Verified by
 # deleting a schema and watching a cached run say ok.
-TOOL_MODULES := tools/authzgen tools/eventgen tools/apicompat
+TOOL_MODULES := tools/authzgen tools/eventgen tools/apicompat tools/vulncheck
 
 .PHONY: test-tools
 test-tools: ## Run the generators' tests, uncached
@@ -160,6 +187,34 @@ cover-py:
 .PHONY: cover-web
 cover-web:
 	cd $(WEB_DIR) && pnpm test:coverage
+
+# ---------------------------------------------------------------------- gates
+
+# The gates PLT-02 requires that are not lint, coverage or contract drift. Each
+# one is a target rather than a step in the workflow file, so the pipeline and
+# an engineer run the same check and a change to it changes both.
+
+.PHONY: check-boundaries
+check-boundaries: ## Fail on a forbidden import or a crossed module boundary
+	@# -count=1 is load bearing. The check reads the whole module's import graph
+	@# through `go list`, and Go's test cache tracks only the files of the
+	@# package under test, so a cached run reports a pass over an import graph it
+	@# never looked at. The same trap the generators' tests hit.
+	cd $(GO_DIR) && go test -count=1 ./internal/architecture/...
+
+.PHONY: check-migrations
+check-migrations: ## Apply every migration to an empty database and check what it promised
+	@# Real PostgreSQL in a container, from empty. This is the only check that
+	@# proves a migration applies at all: the schema the rest of the suite reads
+	@# is the one these migrations produced, so a migration that fails to apply
+	@# fails here first and by name rather than as an unexplained suite failure
+	@# ten minutes later. It also holds the idempotency, edited-migration and
+	@# row-level security tests from PLT-03, which are the same run.
+	cd $(GO_DIR) && go test -tags integration -count=1 -timeout 10m ./platform/database/...
+
+.PHONY: check-docs
+check-docs: ## Fail if an internal documentation link does not resolve
+	./tools/docs/links.sh
 
 # ------------------------------------------------------------------ contracts
 
@@ -314,6 +369,63 @@ fmt: ## Format everything in place
 	cd $(GO_DIR) && gofmt -w .
 	cd $(PY_DIR) && uv run ruff format .
 	cd $(WEB_DIR) && pnpm format
+
+# ---------------------------------------------------------------- dependencies
+
+# The dependency audit PLT-02 asks for. Each language is audited against what it
+# would deploy: the Go module, the Python runtime resolution, and the web
+# production dependency set.
+#
+# Development tooling is deliberately not gated. A test runner's advisory is
+# real but it is not reachable by anything a user talks to, and holding every
+# change hostage to it is how a team learns to pass --no-audit. `make
+# audit-dev-web` shows those separately, and there are findings there today.
+
+.PHONY: audit
+audit: audit-go audit-py audit-web ## Fail on a known vulnerability in what we ship
+
+.PHONY: tools-audit
+tools-audit:
+	@mkdir -p $(TOOLS_BIN)
+	@# Pinned through tools/vulncheck/go.mod rather than installed at @latest, so
+	@# a finding cannot appear or vanish with whichever scanner a runner fetched.
+	cd tools/vulncheck && GOBIN=$(TOOLS_BIN) go install golang.org/x/vuln/cmd/govulncheck
+	cd tools/vulncheck && go build -o $(TOOLS_BIN)/vulncheck .
+
+.PHONY: audit-go
+audit-go: tools-audit ## Fail on a Go vulnerability this code actually calls
+	@# govulncheck exits zero when it is asked for JSON, so on its own it reports
+	@# rather than gates. tools/vulncheck applies the policy and says why.
+	cd $(GO_DIR) && $(TOOLS_BIN)/govulncheck -format json ./... | $(TOOLS_BIN)/vulncheck
+
+.PHONY: audit-go-verbose
+audit-go-verbose: tools-audit ## Show every Go advisory with its call traces
+	@# For reading rather than gating, so its exit status is ignored: govulncheck
+	@# exits non-zero on the standard library findings audit-go deliberately does
+	@# not gate, and this target exists to look at exactly those.
+	-cd $(GO_DIR) && $(TOOLS_BIN)/govulncheck ./...
+
+.PHONY: audit-py
+# --no-deps because uv's lock has already resolved the whole graph: letting
+# pip-audit resolve it again would audit a different set from the one that
+# deploys. The empty-export guard is there because an export that failed quietly
+# would otherwise hand pip-audit nothing, and nothing audits clean.
+audit-py: ## Fail on a known vulnerability in the Python runtime dependencies
+	@set -e; \
+	requirements=$$(mktemp); \
+	trap 'rm -f "$$requirements"' EXIT; \
+	cd $(PY_DIR) && uv export --format requirements-txt --no-dev --no-emit-project \
+		--no-emit-workspace --no-hashes | grep -v '^-e ' > "$$requirements"; \
+	test -s "$$requirements" || { echo "the dependency export was empty, so nothing was audited"; exit 1; }; \
+	uvx pip-audit@2.10.1 --disable-pip --no-deps -r "$$requirements"
+
+.PHONY: audit-web
+audit-web: ## Fail on a known vulnerability in the web production dependencies
+	cd $(WEB_DIR) && pnpm audit --prod --audit-level moderate
+
+.PHONY: audit-dev-web
+audit-dev-web: ## Show advisories in the web development toolchain, which are not gated
+	-cd $(WEB_DIR) && pnpm audit --audit-level moderate
 
 # --------------------------------------------------------------- local stack
 
@@ -529,4 +641,13 @@ publish-content: ## Publish git-authored artifacts into the local registry (idem
 # ------------------------------------------------------------------------- ci
 
 .PHONY: ci
-ci: lint check-generated cover ## Everything CI runs, in the order CI runs it
+# Cheapest first, so a run that is going to fail says so before it has spent ten
+# minutes in containers. The order is the pipeline's own reasoning, not a
+# preference: lint and boundaries need no services, the contract and migration
+# gates need a toolchain and a database, and coverage runs the whole suite.
+#
+# What this does not include is the browser job. Its appearance baselines are
+# per operating system, so running it on a laptop compares macOS rendering
+# against images generated on Linux and fails for a reason that has nothing to
+# do with the change. `make test-browser` runs it deliberately.
+ci: lint check-docs check-boundaries check-generated check-events check-rpc check-api build test-tools check-migrations cover audit ## Everything CI runs, in the order CI runs it

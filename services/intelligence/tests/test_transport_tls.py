@@ -43,15 +43,16 @@ def _files(tmp_path, authority: trustme.CA, name: str):
 def _probe(channel: grpc.Channel) -> None:
     """Make one call, so the handshake actually happens."""
     stub = intelligence_pb2_grpc.IntelligenceServiceStub(channel)
-    stub.ComposeSessionBundle(
-        intelligence_pb2.ComposeSessionBundleRequest(), timeout=10
-    )
+    stub.ComposeSessionBundle(intelligence_pb2.ComposeSessionBundleRequest(), timeout=10)
 
 
 class TestServing:
+    """What the server binds, and who it lets complete a handshake."""
+
     def test_a_client_holding_the_authority_completes_the_handshake(
         self, tmp_path, authority
     ) -> None:
+        """The ordinary case: a trusted client reaches the service."""
         certificate, key, root = _files(tmp_path, authority, "localhost")
         served, port = transport.serve(
             port=0, tls=TLSConfig(cert_file=str(certificate), key_file=str(key))
@@ -68,9 +69,7 @@ class TestServing:
         finally:
             served.stop(0)
 
-    def test_a_plaintext_client_is_refused_by_a_tls_server(
-        self, tmp_path, authority
-    ) -> None:
+    def test_a_plaintext_client_is_refused_by_a_tls_server(self, tmp_path, authority) -> None:
         """The downgrade this whole change exists to prevent."""
         certificate, key, _ = _files(tmp_path, authority, "localhost")
         served, port = transport.serve(
@@ -84,9 +83,8 @@ class TestServing:
         finally:
             served.stop(0)
 
-    def test_a_client_not_holding_the_authority_is_refused(
-        self, tmp_path, authority
-    ) -> None:
+    def test_a_client_not_holding_the_authority_is_refused(self, tmp_path, authority) -> None:
+        """A stranger's certificate does not become a trusted one."""
         certificate, key, _ = _files(tmp_path, authority, "localhost")
         served, port = transport.serve(
             port=0, tls=TLSConfig(cert_file=str(certificate), key_file=str(key))
@@ -116,9 +114,10 @@ class TestServing:
 
 
 class TestMutualTLS:
-    def test_a_client_presenting_its_certificate_is_admitted(
-        self, tmp_path, authority
-    ) -> None:
+    """Client certificates are required, not merely accepted."""
+
+    def test_a_client_presenting_its_certificate_is_admitted(self, tmp_path, authority) -> None:
+        """The worker's own certificate is what gets it in."""
         certificate, key, root = _files(tmp_path, authority, "localhost")
         client = authority.issue_cert("worker.prepeet.internal")
         served, port = transport.serve(
@@ -142,9 +141,7 @@ class TestMutualTLS:
         finally:
             served.stop(0)
 
-    def test_a_client_presenting_nothing_is_refused(
-        self, tmp_path, authority
-    ) -> None:
+    def test_a_client_presenting_nothing_is_refused(self, tmp_path, authority) -> None:
         """Client authentication is required, not merely requested."""
         certificate, key, root = _files(tmp_path, authority, "localhost")
         served, port = transport.serve(
@@ -166,26 +163,33 @@ class TestMutualTLS:
 
 
 class TestConfiguration:
+    """A configuration that cannot serve what it claims is refused."""
+
     def test_half_a_pair_is_refused(self, tmp_path, authority) -> None:
+        """Half a pair would otherwise bind plaintext and say nothing."""
         certificate, _, _ = _files(tmp_path, authority, "localhost")
         with pytest.raises(TLSConfigError, match="together"):
             TLSConfig(cert_file=str(certificate), key_file="").validate()
 
     def test_a_client_authority_without_a_server_pair_is_refused(self) -> None:
-        with pytest.raises(TLSConfigError, match="server certificate"):
+        """Client authentication cannot be required over plaintext."""
+        with pytest.raises(TLSConfigError, match=r"server certificate"):
             TLSConfig(client_ca_file="/nonexistent/ca.pem").validate()
 
     def test_a_missing_file_is_named(self, tmp_path) -> None:
-        with pytest.raises(TLSConfigError, match="missing.pem"):
+        """The path is named; the material never reaches the message."""
+        with pytest.raises(TLSConfigError, match=r"missing\.pem"):
             TLSConfig(
                 cert_file=str(tmp_path / "missing.pem"),
                 key_file=str(tmp_path / "missing.key"),
             ).read()
 
     def test_from_env_reads_nothing_when_unset(self) -> None:
+        """The local stack configures nothing and stays plaintext."""
         assert TLSConfig.from_env({}).enabled is False
 
     def test_from_env_reads_the_pair(self) -> None:
+        """A full mutual configuration is read from the environment."""
         config = TLSConfig.from_env(
             {
                 "PREPEET_RPC_TLS_CERT_FILE": "/tls/server.pem",

@@ -109,6 +109,27 @@ func contextOf(importPath string) (string, bool) {
 	return name, name != ""
 }
 
+// crossCuttingSuites are the packages permitted to import more than one
+// context, with the reason each is.
+//
+// There is one, and adding a second should be hard. internal/isolation is
+// SEC-02's adversarial suite: its subject is a single request as it crosses the
+// HTTP handler, the bounded context and the database, and a suite that could
+// see only one of those could test only one of them. It is the same argument
+// cmd gets, for the same reason, and it holds only while the package is
+// nothing but tests.
+//
+// Worth knowing while reading this: the import graph above is read untagged, so
+// imports that exist only under a build tag - which this suite's do - are
+// invisible to it. The entry is therefore a declaration of the crossing rather
+// than the thing that permits it today, and it starts enforcing the moment the
+// graph is read with tags.
+var crossCuttingSuites = map[string]string{
+	modulePath + "/internal/isolation": "SEC-02's adversarial tenant-isolation suite, " +
+		"which attacks one request path through every layer at once and must see each of " +
+		"them. Ships no production code, which is asserted rather than assumed.",
+}
+
 // The boundary this ADR exists for. A context that reaches into another has
 // made the two one thing, whatever the directory layout says, and extraction
 // later means finding every call site.
@@ -116,12 +137,29 @@ func contextOf(importPath string) (string, bool) {
 // When a context needs something another one owns, it declares the narrow
 // interface it needs in its own package and cmd wires the two together. See
 // ADR-0005.
+//
+// One kind of package is allowed across, and only one: a suite whose subject is
+// a whole request path rather than a module. See crossCuttingSuites.
 func TestNoContextImportsAnother(t *testing.T) {
 	t.Parallel()
 
 	for _, p := range packages(t) {
 		importer, isContext := contextOf(p.ImportPath)
 		if !isContext {
+			continue
+		}
+		if _, exempt := crossCuttingSuites[p.ImportPath]; exempt {
+			// The exemption is conditional on the package shipping no
+			// production code, and that condition is checked rather than
+			// trusted: the day somebody adds a .go file here, this package
+			// becomes a context that imports two others and the rule applies
+			// to it again.
+			if len(p.GoFiles) > 0 {
+				t.Errorf("%s is exempt from the boundary rule because it is only tests, "+
+					"and it now ships production code: %v\n"+
+					"    Move that code into the context it belongs to, or remove the exemption.",
+					p.ImportPath, p.GoFiles)
+			}
 			continue
 		}
 

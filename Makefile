@@ -128,7 +128,7 @@ test-browser-baselines: ## Regenerate Linux baselines in the container CI uses
 
 .PHONY: test-integration
 test-integration: ## Run the integration suites against real dependencies in containers
-	cd $(GO_DIR) && go test -tags integration -timeout 15m ./...
+	cd $(GO_DIR) && go test -tags integration -timeout 20m ./...
 
 .PHONY: watch-go
 watch-go: ## Re-run the Go suite on change, for the red-green loop
@@ -144,8 +144,12 @@ cover: cover-go cover-py cover-web ## Run every suite and enforce the coverage f
 # the tests that actually exercise it. Without the tag the adapter reads as
 # untested, which is both wrong and the kind of number that invites lowering the
 # floor. This needs Docker; `make test-go` stays fast for the red-green loop.
+#
+# 20 minutes rather than 15. Each package with an integration suite starts its
+# own container, SEC-02's adversarial suite in internal/isolation added another,
+# and a timeout that trips is a build failure that looks like a broken test.
 cover-go:
-	cd $(GO_DIR) && go test -tags integration -race -timeout 15m -coverprofile=coverage.out -covermode=atomic $(GO_COVER_PKGS)
+	cd $(GO_DIR) && go test -tags integration -race -timeout 20m -coverprofile=coverage.out -covermode=atomic $(GO_COVER_PKGS)
 	@cd $(GO_DIR) && total=$$(../../tools/coverage/handwritten.sh coverage.out) \
 		&& ../../tools/coverage/check.sh go "$$total" $(GO_COVERAGE_MIN)
 

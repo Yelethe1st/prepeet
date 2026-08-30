@@ -43,29 +43,28 @@ jobs:
         working-directory: .
       - name: Build every binary
         run: go build ./...
-      # Coverage runs with the integration tag so the storage adapter is
-      # measured by the tests that exercise it. Without the tag it reads as
-      # untested, which is both wrong and the kind of number that invites
-      # lowering the floor. Testcontainers starts LocalStack, which the runner
-      # has Docker for.
-      - name: Test with the race detector and coverage
-        run: go test -tags integration -race -timeout 15m -covermode=atomic -coverprofile=coverage.out ./platform/... ./internal/...
+      # One step, and it is the make target an engineer runs locally: the suite
+      # with the race detector and the integration tag, then the coverage floor
+      # over the handwritten packages.
+      #
+      # This used to be two steps that spelled out their own go test invocation
+      # and their own floor, which is the arrangement the header of this file
+      # warns about: the floor was written here as a literal 80 and again in the
+      # Makefile as GO_COVERAGE_MIN, so lowering one lowered nothing visible.
+      # There is now one of each. The integration tag is not optional here.
+      # Without it the storage adapter reads as untested, and so does SEC-02's
+      # adversarial suite in internal/isolation, whose attacks are the whole
+      # evidence for the tenant isolation claim. Testcontainers starts
+      # PostgreSQL and LocalStack, which the runner has Docker for.
+      - name: Test with the race detector and enforce the coverage floor
+        run: make cover-go
+        working-directory: .
       # Their own modules, so the step above does not reach them. Uncached,
       # because their inputs are the contracts and the documentation and the
       # cache cannot see those change.
       - name: Test the generators
         run: make test-tools
         working-directory: .
-      # Generated packages are stripped first: none of them can hold a test
-      # of their own, so they read 0% however well the stores above them are
-      # exercised. The script says the rest, and both this job and `make
-      # cover-go` call it rather than each spelling out its own filter.
-      - name: Enforce the coverage floor
-        run: |
-          total=$("$GITHUB_WORKSPACE/tools/coverage/handwritten.sh" coverage.out)
-          # Absolute path: this step runs from services/platform, and a relative
-          # path here failed once when the script was not in the checkout at all.
-          "$GITHUB_WORKSPACE/tools/coverage/check.sh" go "$total" 80
 
   contracts:
     name: Contracts

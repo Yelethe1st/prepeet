@@ -31,9 +31,80 @@ Not a unit test that passes — a deliberate attempt to cross a tenant boundary 
 API, SQL, objects, workflows, caches, analytics and telemetry.
 
 **Done when**
-- [ ] Each layer has an explicit cross-tenant attempt that fails.
-- [ ] The suite runs in CI and a new table without RLS breaks the build.
-- [ ] An independent tester repeats the exercise before screening pilot.
+- [ ] Each layer has an explicit cross-tenant attempt that fails. The HTTP handler, the bounded
+  context and the database are attacked. Objects, workflows, caches, analytics and telemetry are not.
+- [x] The suite runs in CI and a new table without RLS breaks the build.
+- [ ] An independent tester repeats the exercise before screening pilot. Nobody but the author has run
+  it, and the author cannot tick this one.
+
+**In progress.** The suite is `services/platform/internal/isolation`, and what it does not cover
+matters as much as what it does.
+
+Three layers are attacked. The HTTP handler, given another workspace's membership identifier in the
+path and another workspace's identifier in the body of the one endpoint that accepts one. The bounded
+context, called with a tenant and a membership that do not belong together. The database, sent
+statements that name a foreign row by primary key. The ticket also names objects, workflows, caches,
+analytics and telemetry, and none of those is attacked at all, which is why the first box is not
+ticked.
+
+Every attack obeys three rules, because one that breaks any of them passes whether or not the guard
+exists. It names a row that exists under the other tenant at that moment. It is otherwise valid: the
+version guard satisfied, the capability held, the session live, and the target deliberately not an
+owner, since member administration refuses to touch an owner row for reasons that have nothing to do
+with tenancy. And each has a control, the same operation on the same row with the same arguments from
+the tenant that owns it, which succeeds. Without the control, a refusal is indistinguishable from an
+attack that missed, and an attack that misses is the mistake this repository has already made once.
+
+**Proven by removing each guard and watching a named test fail.** Replacing the memberships tenant
+policy with `USING (true)` failed the three database-layer attacks by name. It did not fail the
+handler or the context attacks, which is the honest finding rather than a gap: those are defended
+twice, by the policy and by the tenant predicate in the query, and removing the predicate as well is
+what fails them. Opening `audit.events` the same way fails the audit-trail attack, and making the
+membership check in tenant selection always answer yes fails the tenant-selection attack. Each edit
+asserted that it had changed the file, and the tree was checked clean again afterwards.
+
+That exercise also found a hole in the gate itself. The first version of the policy rule asked whether
+a table had at least one policy keyed to the caller, and the memberships table stayed green with its
+tenant policy replaced by `USING (true)`, because two other policies on it still named `app.user_id`.
+PostgreSQL ORs permissive policies together, so one that admits everyone re-opens the table however
+well the others are written. The rule now demands that every policy on a table be keyed.
+
+**The structural half is the more valuable one.** Every table the migrations create is in exactly one
+of three states, and each has to be arrived at on purpose: row-level security keyed to the caller,
+row-level security whose policy deliberately admits everyone, or none at all. The last two are
+declared in `registry_test.go` with a reason each and a cap on how many there may be, because a list
+that grows one justified entry at a time becomes a list of everything. A table carrying a `tenant_id`
+can be declared away only through a field that says so in the open, which exactly one table uses:
+`integration.outbox`, whose dispatcher acts for no tenant.
+
+A policy counts as keyed when it names `app.tenant_id` or `app.user_id`, or when it delegates to a
+table that does, which is how `interview.session_bundles` is scoped through the session it belongs to
+without carrying a tenant of its own. Demanding `app.tenant_id` in every policy would have been
+simpler and wrong: it would have failed correct tables and taught whoever hit it to write the
+predicate the gate wanted rather than the one the data needed.
+
+The gate is static, so it needs no Docker and fails in the ordinary `go test` rather than four minutes
+into CI, and it is checked against the live database in the integration run. The two must see exactly
+the same set of tables. That equality is not tidiness: the scanner is a parser, and a parser that
+stops recognising a statement reports a clean bill of health forever. It had already happened once,
+against migration 0005's unqualified `CREATE UNLOGGED TABLE`.
+
+Verified by adding a scratch migration and watching the build break by name, then removing it. A
+tenant-scoped table with no policy fails `TestEveryTableIsIsolatedOrDeclaredNotToBe`. A table whose
+policy admits everyone fails the same test with a different message and passes once declared, which is
+how migration 0043's jurisdiction determination is handled. A table carrying `tenant_id` added to the
+declaration without the field that admits it fails
+`TestATableCarryingTenantIDCannotBeDeclaredAwayQuietly`, and the cap fails alongside it.
+
+**What this does not cover.** Object storage, Temporal workflows, caches, analytics and telemetry are
+not attacked, and neither is any export, webhook or signed URL: the suite exercises one instance's own
+request path and says nothing about a leak through something it hands out. Only member administration
+and tenant selection are attacked at the handler and context layers, so the interview, evaluation,
+billing, candidate, content, progression and recruiting contexts have their tables checked by the
+structural gate and no request-level attack of their own. The practice and screening separation is
+proven separately in `platform/database/practice_isolation_integration_test.go`. Identity's own tables
+carry no row-level security by design, which is declared rather than defended: nothing in this suite
+protects them, and what does is the query predicate and the policy layer.
 
 **Spec** [threat-model.md](../../security/threat-model.md) · [release-criteria.md](../release-criteria.md)
 

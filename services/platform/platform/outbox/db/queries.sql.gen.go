@@ -86,6 +86,49 @@ func (q *Queries) Claim(ctx context.Context, limit int32) ([]ClaimRow, error) {
 	return items, nil
 }
 
+const discardFailed = `-- name: DiscardFailed :one
+UPDATE integration.outbox
+SET discarded_at = now(),
+    discard_reason = $1::text
+WHERE id = $2::uuid
+  AND published_at IS NULL
+  AND dead_at IS NOT NULL
+  AND discarded_at IS NULL
+RETURNING id::text AS id
+`
+
+type DiscardFailedParams struct {
+	Reason string
+	ID     string
+}
+
+// The other transition: this event must never be delivered.
+//
+// A state change rather than a DELETE, for the reason migration 0047 states at
+// length: a delete that matches nothing is silent, and the row is the only
+// remaining answer to what happened to that notification.
+func (q *Queries) DiscardFailed(ctx context.Context, arg DiscardFailedParams) (string, error) {
+	row := q.db.QueryRow(ctx, discardFailed, arg.Reason, arg.ID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const failedBacklog = `-- name: FailedBacklog :one
+SELECT count(*)::bigint AS depth
+FROM integration.outbox
+WHERE published_at IS NULL AND dead_at IS NOT NULL AND discarded_at IS NULL
+`
+
+// Work that has exhausted its attempts and has not been discarded: the queue of
+// decisions waiting for a person.
+func (q *Queries) FailedBacklog(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, failedBacklog)
+	var depth int64
+	err := row.Scan(&depth)
+	return depth, err
+}
+
 const hideClaimed = `-- name: HideClaimed :exec
 UPDATE integration.outbox
 SET next_attempt_at = now() + $1::interval
@@ -154,6 +197,58 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) error 
 	return err
 }
 
+const listFailed = `-- name: ListFailed :many
+SELECT id::text AS id, event_type,
+       coalesce(tenant_id::text, '')::text AS tenant_id,
+       occurred_at, attempts,
+       coalesce(last_error, '')::text AS last_error,
+       dead_at
+FROM integration.outbox
+WHERE published_at IS NULL AND dead_at IS NOT NULL AND discarded_at IS NULL
+ORDER BY dead_at DESC, id
+LIMIT $1
+`
+
+type ListFailedRow struct {
+	ID         string
+	EventType  string
+	TenantID   string
+	OccurredAt time.Time
+	Attempts   int32
+	LastError  string
+	DeadAt     *time.Time
+}
+
+// Newest failure first, because an operator working an incident is looking for
+// what just broke rather than for the oldest thing in the table.
+func (q *Queries) ListFailed(ctx context.Context, limit int32) ([]ListFailedRow, error) {
+	rows, err := q.db.Query(ctx, listFailed, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFailedRow{}
+	for rows.Next() {
+		var i ListFailedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.TenantID,
+			&i.OccurredAt,
+			&i.Attempts,
+			&i.LastError,
+			&i.DeadAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockAttempts = `-- name: LockAttempts :one
 SELECT attempts FROM integration.outbox WHERE id = $1 FOR UPDATE
 `
@@ -175,6 +270,43 @@ UPDATE integration.outbox SET published_at = now() WHERE id = $1 AND published_a
 func (q *Queries) MarkDelivered(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, markDelivered, id)
 	return err
+}
+
+const pendingBacklog = `-- name: PendingBacklog :one
+
+SELECT count(*)::bigint AS depth,
+       greatest(coalesce(extract(epoch FROM now() - min(occurred_at)), 0), 0)::double precision AS oldest_seconds
+FROM integration.outbox
+WHERE published_at IS NULL AND dead_at IS NULL AND discarded_at IS NULL
+`
+
+type PendingBacklogRow struct {
+	Depth         int64
+	OldestSeconds float64
+}
+
+// ── OPS-03: what an operator sees, and the two transitions they may make.
+// Depth and age together, because depth alone cannot be alerted on: a large
+// backlog draining in a second is throughput, and three items that have waited
+// ten minutes is a candidate still looking at a spinner.
+//
+// The age is measured from occurred_at rather than from the last attempt. That
+// is the wait the candidate experiences, and it is the only version of the
+// number that can be compared against a completion-to-review objective.
+//
+// The predicates match outbox_backlog_age_idx from migration 0047 exactly, so
+// this stays an index scan as delivered rows accumulate.
+//
+// Clamped at zero because occurred_at is the publisher's clock and now() is the
+// database's. A publisher a few milliseconds ahead would otherwise produce a
+// negative age, and a negative age is not a harmless oddity here: it is smaller
+// than every threshold, so the one number the alert depends on would quietly
+// read healthy.
+func (q *Queries) PendingBacklog(ctx context.Context) (PendingBacklogRow, error) {
+	row := q.db.QueryRow(ctx, pendingBacklog)
+	var i PendingBacklogRow
+	err := row.Scan(&i.Depth, &i.OldestSeconds)
+	return i, err
 }
 
 const recordFailure = `-- name: RecordFailure :exec
@@ -206,4 +338,34 @@ func (q *Queries) RecordFailure(ctx context.Context, arg RecordFailureParams) er
 		arg.ID,
 	)
 	return err
+}
+
+const recoverFailed = `-- name: RecoverFailed :one
+UPDATE integration.outbox
+SET dead_at = NULL,
+    attempts = 0,
+    next_attempt_at = now()
+WHERE id = $1::uuid
+  AND published_at IS NULL
+  AND dead_at IS NOT NULL
+  AND discarded_at IS NULL
+RETURNING id::text AS id
+`
+
+// The retry transition: dead work goes back to pending with a fresh budget.
+//
+// RETURNING is the whole point. The WHERE clause is the guard, since only work
+// that is still failed, still undelivered and not discarded may be revived, and
+// the returned row is how the caller learns the guard held. An UPDATE that
+// matched nothing returns no row, so a second operator retrying the same item
+// cannot revive it twice, and no caller can mistake the no-op for success.
+//
+// attempts resets because an operator retrying means "try this properly again",
+// not "make one more attempt before dying". last_error is deliberately left
+// alone: until it fails again, why it needed a person is still the useful fact.
+func (q *Queries) RecoverFailed(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, recoverFailed, id)
+	var id_2 string
+	err := row.Scan(&id_2)
+	return id_2, err
 }

@@ -24,11 +24,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	sdkworker "go.temporal.io/sdk/worker"
 
+	"github.com/Yelethe1st/prepeet/services/platform/cmd/wiring"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/operations"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/progression"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
@@ -280,21 +282,34 @@ func main() {
 		slog.String("environment", string(cfg.Environment)),
 		slog.Int("outbox_routes", len(router.Routes())))
 
+	// The backlog monitor runs beside the dispatcher rather than inside it, on
+	// purpose. The dispatcher's job is to drain the queue; noticing that it is
+	// not draining fast enough is a different question, and one that has to
+	// keep being asked while the dispatcher is stuck. Measured here rather than
+	// in the api because this is the process that owns the queue, and because a
+	// worker that has stopped draining is exactly the process whose silence
+	// would otherwise be the only symptom. See OPS-03.
+	var group sync.WaitGroup
+	backlog := operations.NewMonitor(wiring.NewBacklog(outbox.New(pool)), log)
+	group.Add(1)
+	go func() {
+		defer group.Done()
+		backlog.Run(ctx)
+	}()
+
 	// The email sender drains notification.emails beside the dispatcher. Not
 	// starting is loud rather than fatal: a worker that refused to run would
 	// also stop draining the outbox, but a worker silently without mail is
 	// verification emails silently not arriving, so the warning names exactly
 	// what is off.
-	var group sync.WaitGroup
 	if cfg.SMTPAddress == "" {
 		log.Warn("no SMTP address is configured; enqueued email will wait in notification.emails unsent")
 	} else {
 		transport, err := email.New(email.Config{
-			Address:        cfg.SMTPAddress,
-			From:           cfg.EmailFrom,
-			Username:       cfg.SMTPUsername,
-			Password:       cfg.SMTPPassword,
-			AllowPlaintext: cfg.SMTPAllowPlaintext,
+			Address:  cfg.SMTPAddress,
+			From:     cfg.EmailFrom,
+			Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword,
 		})
 		if err != nil {
 			log.Error("the email transport is not usable", slog.String("error", err.Error()))

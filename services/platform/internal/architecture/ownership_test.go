@@ -44,6 +44,14 @@ var owns = map[string][]string{
 	"notification": {"notification"},
 	"progression":  {"progression"},
 	"recruiting":   {"recruiting"},
+	// Operations owns no schema, and the empty list is the declaration rather
+	// than an omission. It appends to the shared audit schema, which is
+	// everybody's, and reaches the queue through platform/outbox's port rather
+	// than by naming integration.outbox itself. A module that reads everything
+	// and owns nothing is exactly the one worth stating outright, because the
+	// next person to add a query here should have to think about which schema
+	// it belongs to.
+	"operations": {},
 }
 
 // auditSchema is everybody's, and by grant only to append to.

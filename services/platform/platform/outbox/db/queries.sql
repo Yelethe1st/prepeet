@@ -65,3 +65,84 @@ SET attempts = sqlc.arg(attempts)::integer,
     next_attempt_at = now() + make_interval(secs => sqlc.arg(backoff_seconds)::double precision),
     dead_at = sqlc.narg(dead_at)::timestamptz
 WHERE id = sqlc.arg(id)::uuid;
+
+-- ── OPS-03: what an operator sees, and the two transitions they may make.
+
+-- name: PendingBacklog :one
+-- Depth and age together, because depth alone cannot be alerted on: a large
+-- backlog draining in a second is throughput, and three items that have waited
+-- ten minutes is a candidate still looking at a spinner.
+--
+-- The age is measured from occurred_at rather than from the last attempt. That
+-- is the wait the candidate experiences, and it is the only version of the
+-- number that can be compared against a completion-to-review objective.
+--
+-- The predicates match outbox_backlog_age_idx from migration 0047 exactly, so
+-- this stays an index scan as delivered rows accumulate.
+--
+-- Clamped at zero because occurred_at is the publisher's clock and now() is the
+-- database's. A publisher a few milliseconds ahead would otherwise produce a
+-- negative age, and a negative age is not a harmless oddity here: it is smaller
+-- than every threshold, so the one number the alert depends on would quietly
+-- read healthy.
+SELECT count(*)::bigint AS depth,
+       greatest(coalesce(extract(epoch FROM now() - min(occurred_at)), 0), 0)::double precision AS oldest_seconds
+FROM integration.outbox
+WHERE published_at IS NULL AND dead_at IS NULL AND discarded_at IS NULL;
+
+-- name: FailedBacklog :one
+-- Work that has exhausted its attempts and has not been discarded: the queue of
+-- decisions waiting for a person.
+SELECT count(*)::bigint AS depth
+FROM integration.outbox
+WHERE published_at IS NULL AND dead_at IS NOT NULL AND discarded_at IS NULL;
+
+-- name: ListFailed :many
+-- Newest failure first, because an operator working an incident is looking for
+-- what just broke rather than for the oldest thing in the table.
+SELECT id::text AS id, event_type,
+       coalesce(tenant_id::text, '')::text AS tenant_id,
+       occurred_at, attempts,
+       coalesce(last_error, '')::text AS last_error,
+       dead_at
+FROM integration.outbox
+WHERE published_at IS NULL AND dead_at IS NOT NULL AND discarded_at IS NULL
+ORDER BY dead_at DESC, id
+LIMIT $1;
+
+-- name: RecoverFailed :one
+-- The retry transition: dead work goes back to pending with a fresh budget.
+--
+-- RETURNING is the whole point. The WHERE clause is the guard, since only work
+-- that is still failed, still undelivered and not discarded may be revived, and
+-- the returned row is how the caller learns the guard held. An UPDATE that
+-- matched nothing returns no row, so a second operator retrying the same item
+-- cannot revive it twice, and no caller can mistake the no-op for success.
+--
+-- attempts resets because an operator retrying means "try this properly again",
+-- not "make one more attempt before dying". last_error is deliberately left
+-- alone: until it fails again, why it needed a person is still the useful fact.
+UPDATE integration.outbox
+SET dead_at = NULL,
+    attempts = 0,
+    next_attempt_at = now()
+WHERE id = sqlc.arg(id)::uuid
+  AND published_at IS NULL
+  AND dead_at IS NOT NULL
+  AND discarded_at IS NULL
+RETURNING id::text AS id;
+
+-- name: DiscardFailed :one
+-- The other transition: this event must never be delivered.
+--
+-- A state change rather than a DELETE, for the reason migration 0047 states at
+-- length: a delete that matches nothing is silent, and the row is the only
+-- remaining answer to what happened to that notification.
+UPDATE integration.outbox
+SET discarded_at = now(),
+    discard_reason = sqlc.arg(reason)::text
+WHERE id = sqlc.arg(id)::uuid
+  AND published_at IS NULL
+  AND dead_at IS NOT NULL
+  AND discarded_at IS NULL
+RETURNING id::text AS id;

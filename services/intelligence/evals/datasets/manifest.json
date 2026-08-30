@@ -1,0 +1,181 @@
+{
+  "access": {
+    "classification": "public_within_repository",
+    "who": "Anyone with repository access.",
+    "why": "There is nothing here to protect. Recording that as a decision rather than an oversight is the point of the field."
+  },
+  "consent": {
+    "basis": "not_applicable",
+    "real_candidate_data": "prohibited",
+    "real_candidate_data_note": "No real candidate transcript may be added to this directory. A dataset drawn from real sessions needs an approved lawful basis, its own retention rule and its own access control, and it does not belong in a git repository at all.",
+    "why": "There is no data subject. Nobody was recorded, so there was nobody to ask. This field says not applicable rather than obtained, because obtained would be a false claim about a consent process that never happened."
+  },
+  "created": "2026-08-30",
+  "datasets": [
+    {
+      "case_classes": [
+        "contradiction",
+        "contradiction_false_positive",
+        "insufficient_evidence",
+        "unassessable",
+        "well_evidenced"
+      ],
+      "cases": 5,
+      "competencies": 3,
+      "dataset_version": "1.0.0",
+      "file": "engineering.json",
+      "profession": "engineering",
+      "role_shape": "behavioural",
+      "sha256": "d5177ae878d4af2aa4dcd919563049bb45628b8a66e1ed5ce8f2b4b7726070e4",
+      "variants": 3
+    },
+    {
+      "case_classes": [
+        "contradiction",
+        "contradiction_false_positive",
+        "insufficient_evidence",
+        "unassessable",
+        "well_evidenced"
+      ],
+      "cases": 5,
+      "competencies": 3,
+      "dataset_version": "1.0.0",
+      "file": "finance.json",
+      "profession": "finance",
+      "role_shape": "behavioural",
+      "sha256": "83ec83fcc64f98746f6ee860029f556f9d13a6a821dfb81faf58f9e49e898ec7",
+      "variants": 1
+    },
+    {
+      "case_classes": [
+        "contradiction",
+        "insufficient_evidence",
+        "unassessable",
+        "well_evidenced"
+      ],
+      "cases": 4,
+      "competencies": 3,
+      "dataset_version": "1.0.0",
+      "file": "nursing.json",
+      "profession": "nursing",
+      "role_shape": "behavioural",
+      "sha256": "14b5d54f1ba75d177a6677a536a4f86e5787186899349ea7056999105e3ab618",
+      "variants": 1
+    },
+    {
+      "case_classes": [
+        "contradiction",
+        "insufficient_evidence",
+        "unassessable",
+        "well_evidenced"
+      ],
+      "cases": 4,
+      "competencies": 3,
+      "dataset_version": "1.0.0",
+      "file": "product.json",
+      "profession": "product",
+      "role_shape": "behavioural",
+      "sha256": "defecbb64cc4ae056463135146ccb1e596e51202a285a2daaab77cf81ed0585a",
+      "variants": 0
+    },
+    {
+      "case_classes": [
+        "contradiction",
+        "insufficient_evidence",
+        "unassessable",
+        "well_evidenced"
+      ],
+      "cases": 4,
+      "competencies": 3,
+      "dataset_version": "1.0.0",
+      "file": "sales.json",
+      "profession": "sales",
+      "role_shape": "behavioural",
+      "sha256": "d0f1dc9cc4d5a7d2a7c90ffa8e6fca35ede3d1414fb3ce31abbcf6e4900e81a1",
+      "variants": 0
+    },
+    {
+      "case_classes": [
+        "contradiction",
+        "insufficient_evidence",
+        "unassessable",
+        "well_evidenced"
+      ],
+      "cases": 4,
+      "competencies": 3,
+      "dataset_version": "1.0.0",
+      "file": "teaching.json",
+      "profession": "teaching",
+      "role_shape": "behavioural",
+      "sha256": "a296d9001c41bb0be1851de41931f95f7972063a81f4599c868009480fb2ebed",
+      "variants": 0
+    }
+  ],
+  "de_identification": {
+    "method": "not_applicable_synthetic",
+    "why": "De-identification removes identifiers from real data. There are none to remove. Names of people and employers were avoided entirely rather than pseudonymised, so there is no re-identification surface even in principle."
+  },
+  "expected_behaviour": {
+    "declared_per_case": true,
+    "genuine_and_false_contradictions": "Contradictions are declared genuine or not. A case marked genuine false is a known false positive of evidence-1 and the harness counts it as one rather than scoring it as a success.",
+    "hard_floors": "Evidence grounding and schema conformance must be perfect and the unsupported-fact rate must be zero. Those are absolutes the specification already requires, not calibrated thresholds. Every calibrated threshold belongs to QUA-03.",
+    "where": "Each case's expected block: sufficiency per competency, required evidence spans, silent competencies, contradictions and delivery assessability."
+  },
+  "known_limitations": [
+    "Synthetic examples cover edges but cannot establish production validity. The specification says so and this manifest repeats it: a green report here is evidence that a known behaviour has not regressed, not evidence that the product works on real candidates.",
+    "Speech timing is materialised from a declared words-per-minute, a per-turn confidence and explicit long-pause positions. Word timings are therefore evenly spaced within a turn, so pace and pausing are exercised as arithmetic rather than as real speech rhythm.",
+    "Audio is not represented at all. Clipping, noise, volume and device differences have no fixtures here, so the fairness monitoring QUA-05 needs cannot be built on this dataset alone.",
+    "No accent, dialect or second-language speech is represented. Writing such fixtures by imitation would encode a stereotype rather than test one, so this dataset abstains and the gap is recorded instead of quietly filled.",
+    "Every case is British English. Supported languages are an open decision in the specification, and inventing coverage before that decision is made would fake an answer to it.",
+    "A partially assessable session, where one answer is measurable and another is not, has no fixture. Each case is deliberately assessable or deliberately not, so a failure names one cause.",
+    "The transcripts are short by interview standards, tens of seconds rather than tens of minutes. Latency and cost figures from this dataset therefore describe the harness, not a production session.",
+    "Accommodations, document prompt injection and mode leakage are named by the specification's dataset list and are not covered here. They belong to the tickets that build those surfaces.",
+    "Only one rubric is exercised: rubric/practice-default at 1.1.0. Sufficiency thresholds from other rubrics are untested."
+  ],
+  "legal_basis": {
+    "processing": "not_applicable",
+    "why": "No personal data is processed. These are invented sentences about invented work."
+  },
+  "licensing": {
+    "authored_by": "Prepeet, for this repository",
+    "licence": "Same licence as the Prepeet repository",
+    "third_party_content": "none",
+    "why": "Nothing here is copied from a corpus, a job board, a textbook or a model's training set in any form that would carry a separate licence. Recording that explicitly is what makes the fixtures safe to publish inside a release report."
+  },
+  "manifest_version": "1.0.0",
+  "name": "prepeet-evaluation-fixtures",
+  "owners": [
+    {
+      "role": "Dataset owner",
+      "team": "AI and data quality workstream"
+    },
+    {
+      "role": "Technical owner",
+      "team": "Python intelligence"
+    }
+  ],
+  "retention": {
+    "policy": "retained_with_the_repository",
+    "why": "Fixtures are source code and live and die with the code they test. No deletion schedule applies because no personal data is held. A dataset built from real sessions would need the opposite answer and must not reuse this one."
+  },
+  "review": {
+    "date": "2027-02-28",
+    "owner": "AI and data quality workstream",
+    "why": "Fixtures decay against the extractor they were written for. A review date forces somebody to ask whether these still represent the disciplines, rather than whether they still pass."
+  },
+  "serves": [
+    "QUA-01",
+    "QUA-02"
+  ],
+  "source_status": "synthetic",
+  "source_status_note": "Every transcript here was written for this repository. No sentence is transcribed from a real interview, and no person, employer, ward, school or account named or implied in these files exists. Synthetic is the right choice for this purpose and not merely the convenient one: the dataset's job is to cover deliberate edges, including a candidate who contradicts themselves, a candidate who says almost nothing and a candidate who speaks an instruction at the pipeline. Collecting those from real interviews would mean recording people at their least flattering and keeping it, which is a bad trade for a regression test. Synthetic fixtures also cannot leak a real candidate through a report artifact committed to git.",
+  "splits": {
+    "policy": "single_regression_split",
+    "why": "All 26 cases are one regression split. Nothing here is trained on, so a train and test division would be theatre. When a model-backed extractor arrives, its calibration set must be a separate dataset with its own manifest, and this one stays the held-out regression suite."
+  },
+  "totals": {
+    "cases": 26,
+    "professions": 6,
+    "variants": 5
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "dataset_version": "1.0.0",
+  "profession": "nursing",
+  "role_shape": "behavioural",
+  "competencies": [
+    { "id": "patient-safety", "name": "Patient safety" },
+    { "id": "clinical-handover", "name": "Clinical handover" },
+    { "id": "escalation", "name": "Escalation and deterioration" }
+  ],
+  "cases": [
+    {
+      "id": "nursing-well-evidenced-01",
+      "case_class": "well_evidenced",
+      "seniority": "mid",
+      "notes": "Two competencies carried by measured outcomes on a ward, and a third claimed without a figure. Nursing evidence is counted in doses, shifts and audits, not in deploys.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "Tell me about a time you protected patient safety.", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "On a night shift I raised a patient safety concern when the ward was 2 nurses short. The charge nurse backed me and we moved two admissions to the bay next door.", "words_per_minute": 144, "confidence": 0.95, "long_pause_after": [12] },
+        { "sequence": 3, "speaker": "interviewer", "text": "What happened after that?", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "The safety huddle I started now runs every 12 hours. It takes ten minutes and everyone on the bay is expected to be there.", "words_per_minute": 146, "confidence": 0.94 },
+        { "sequence": 5, "speaker": "interviewer", "text": "Tell me about handover.", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "I redesigned the clinical handover sheet and missed medication doses fell from 7 a month to 1. The new sheet is one side of paper and nobody has to remember what goes on it.", "words_per_minute": 148, "confidence": 0.95 },
+        { "sequence": 7, "speaker": "interviewer", "text": "Was that checked?", "words_per_minute": 150 },
+        { "sequence": 8, "speaker": "candidate", "text": "The handover audit covered 30 shifts and found no gaps. We ran it over a full rota so it was not just the quiet nights.", "words_per_minute": 145, "confidence": 0.95 },
+        { "sequence": 9, "speaker": "interviewer", "text": "How do you handle a patient who is deteriorating?", "words_per_minute": 150 },
+        { "sequence": 10, "speaker": "candidate", "text": "I follow the escalation ladder every time but I have not counted them. It is second nature now rather than something I think about.", "words_per_minute": 147, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "patient-safety": "sufficient",
+          "clinical-handover": "sufficient",
+          "escalation": "insufficient_evidence"
+        },
+        "evidence": [
+          { "competency_id": "patient-safety", "kind": "supporting", "quote_contains": "I raised a patient safety concern when the ward was 2 nurses short" },
+          { "competency_id": "patient-safety", "kind": "supporting", "quote_contains": "The safety huddle I started now runs every 12 hours" },
+          { "competency_id": "clinical-handover", "kind": "supporting", "quote_contains": "I redesigned the clinical handover sheet" },
+          { "competency_id": "clinical-handover", "kind": "supporting", "quote_contains": "The handover audit covered 30 shifts" },
+          { "competency_id": "escalation", "kind": "claim_unverified", "quote_contains": "I follow the escalation ladder every time" }
+        ],
+        "contradictions": []
+      },
+      "known_limitations": [],
+      "variants": [
+        {
+          "id": "nursing-well-evidenced-01-verbose",
+          "kind": "verbosity",
+          "why": "The same shift described by somebody who thinks aloud. Nothing about the evidence changed, so nothing about the judgement may.",
+          "expect_same_judgement": true,
+          "turns": [
+            { "sequence": 1, "speaker": "interviewer", "text": "Tell me about a time you protected patient safety.", "words_per_minute": 150 },
+            { "sequence": 2, "speaker": "candidate", "text": "Um so on a night shift I, I raised a patient safety concern when the ward was 2 nurses short. The charge nurse backed me and we moved two admissions to the bay next door.", "words_per_minute": 144, "confidence": 0.95 },
+            { "sequence": 3, "speaker": "interviewer", "text": "What happened after that?", "words_per_minute": 150 },
+            { "sequence": 4, "speaker": "candidate", "text": "The safety huddle I started now runs, uh, every 12 hours. It takes ten minutes and everyone on the bay is expected to be there.", "words_per_minute": 146, "confidence": 0.94 },
+            { "sequence": 5, "speaker": "interviewer", "text": "Tell me about handover.", "words_per_minute": 150 },
+            { "sequence": 6, "speaker": "candidate", "text": "I redesigned the clinical handover sheet and missed medication doses fell from 7 a month to 1. The new sheet is, um, one side of paper and nobody has to remember what goes on it.", "words_per_minute": 148, "confidence": 0.95 },
+            { "sequence": 7, "speaker": "interviewer", "text": "Was that checked?", "words_per_minute": 150 },
+            { "sequence": 8, "speaker": "candidate", "text": "The handover audit covered 30 shifts and found no gaps. We ran it over a full rota so it was not just the quiet nights.", "words_per_minute": 145, "confidence": 0.95 },
+            { "sequence": 9, "speaker": "interviewer", "text": "How do you handle a patient who is deteriorating?", "words_per_minute": 150 },
+            { "sequence": 10, "speaker": "candidate", "text": "I follow the escalation ladder every time but I have, you know, not counted them. It is second nature now rather than something I think about.", "words_per_minute": 147, "confidence": 0.95 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nursing-insufficient-01",
+      "case_class": "insufficient_evidence",
+      "seniority": "junior",
+      "notes": "A newly qualified nurse with one real example, one honest gap and one topic never reached. Thin evidence from a short career must read as thin evidence, never as a weak nurse.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "Tell me about patient safety in your practice.", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I raised one patient safety concern about a 3 day gap in the drug chart. My mentor took it from there and I did not follow it up.", "words_per_minute": 140, "confidence": 0.93 },
+        { "sequence": 3, "speaker": "interviewer", "text": "Tell me about a clinical handover you led.", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "I do not know that I have a good clinical handover example. Most of mine were routine and I would rather not stretch one into something it was not.", "words_per_minute": 138, "confidence": 0.92 },
+        { "sequence": 5, "speaker": "interviewer", "text": "And escalation?", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "That did not come up in my last role. I was on a short rotation and the ward was quiet for most of it.", "words_per_minute": 141, "confidence": 0.93 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "patient-safety": "insufficient_evidence",
+          "clinical-handover": "insufficient_evidence",
+          "escalation": "not_discussed"
+        },
+        "evidence": [
+          { "competency_id": "patient-safety", "kind": "supporting", "quote_contains": "I raised one patient safety concern about a 3 day gap" },
+          { "competency_id": "clinical-handover", "kind": "gap", "quote_contains": "I do not know that I have a good clinical handover example" }
+        ],
+        "silent_competencies": ["escalation"],
+        "contradictions": []
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "nursing-contradiction-01",
+      "case_class": "contradiction",
+      "seniority": "mid",
+      "notes": "A genuine conflict about the same caseload, plus escalation evidence alongside it, so the contradiction is not the only thing in the transcript.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "How many beds did you cover?", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I covered 24 beds on that ward every shift. It was the busiest place I have worked and I would go back tomorrow.", "words_per_minute": 145, "confidence": 0.95 },
+        { "sequence": 3, "speaker": "interviewer", "text": "Say a bit more about the ward.", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "It was 30 beds on the ward and I covered all of them. Nobody else was allocated to that side of the corridor.", "words_per_minute": 145, "confidence": 0.95 },
+        { "sequence": 5, "speaker": "interviewer", "text": "Tell me about escalating a deteriorating patient.", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "I called the escalation line twice in one night and both patients went to 4 hourly observations. The registrar came down inside ten minutes each time.", "words_per_minute": 148, "confidence": 0.95 },
+        { "sequence": 7, "speaker": "interviewer", "text": "Did anything change because of that?", "words_per_minute": 150 },
+        { "sequence": 8, "speaker": "candidate", "text": "The escalation policy I wrote is now used across 3 wards. It went through the practice educator before it was adopted.", "words_per_minute": 147, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "patient-safety": "insufficient_evidence",
+          "clinical-handover": "not_discussed",
+          "escalation": "sufficient"
+        },
+        "evidence": [
+          { "competency_id": "escalation", "kind": "supporting", "quote_contains": "I called the escalation line twice in one night" },
+          { "competency_id": "escalation", "kind": "supporting", "quote_contains": "The escalation policy I wrote is now used across 3 wards" },
+          { "competency_id": "patient-safety", "kind": "supporting", "quote_contains": "both patients went to 4 hourly observations" }
+        ],
+        "silent_competencies": ["clinical-handover"],
+        "contradictions": [
+          {
+            "topic_includes": ["beds", "covered", "ward"],
+            "genuine": true,
+            "why": "Twenty four beds every shift and thirty beds covered in full cannot both describe the same allocation."
+          }
+        ]
+      },
+      "known_limitations": [
+        "The escalation sentence also earns a patient safety span, because evidence-1 matches competency tokens as substrings and patients contains patient. The link is coarse but the quote is honest, and a reviewer can see exactly which words produced it."
+      ]
+    },
+    {
+      "id": "nursing-unassessable-01",
+      "case_class": "unassessable",
+      "seniority": "mid",
+      "notes": "The candidate never spoke. Nothing here is a judgement about them: there is no answer to read, which is a fact about the session and not about the nurse.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "Tell me about a time you protected patient safety.", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "interviewer", "text": "Take your time, there is no rush at all.", "words_per_minute": 150 }
+      ],
+      "expected": {
+        "assessability": "not_assessable",
+        "unassessable_reason": "no_candidate_speech",
+        "sufficiency": {
+          "patient-safety": "not_discussed",
+          "clinical-handover": "not_discussed",
+          "escalation": "not_discussed"
+        },
+        "evidence": [],
+        "silent_competencies": ["patient-safety", "clinical-handover", "escalation"],
+        "contradictions": []
+      },
+      "known_limitations": []
+    }
+  ]
+}

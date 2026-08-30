@@ -1,0 +1,136 @@
+{
+  "dataset_version": "1.0.0",
+  "profession": "product",
+  "role_shape": "behavioural",
+  "competencies": [
+    { "id": "prioritisation", "name": "Prioritisation" },
+    { "id": "discovery-research", "name": "Discovery research" },
+    { "id": "stakeholder-alignment", "name": "Stakeholder alignment" }
+  ],
+  "cases": [
+    {
+      "id": "product-well-evidenced-01",
+      "case_class": "well_evidenced",
+      "seniority": "senior",
+      "notes": "Roadmap and research outcomes with figures, and alignment claimed without one. Alignment is the competency most often asserted and least often measured, and the fixture keeps that asymmetry.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "How do you decide what to build?", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I rewrote our prioritisation model and cut the roadmap from 40 items to 12. What survived was the work we could actually staff.", "words_per_minute": 149, "confidence": 0.95, "long_pause_after": [13] },
+        { "sequence": 3, "speaker": "interviewer", "text": "Did that change how you work?", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "Every prioritisation call now takes 30 minutes. The arguments happen before the meeting rather than in it, which is where they used to happen.", "words_per_minute": 150, "confidence": 0.95 },
+        { "sequence": 5, "speaker": "interviewer", "text": "Tell me about research.", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "Our discovery research covered 18 customer interviews before we built anything. Half of them were with people who had already churned.", "words_per_minute": 148, "confidence": 0.95 },
+        { "sequence": 7, "speaker": "interviewer", "text": "Did it change a decision?", "words_per_minute": 150 },
+        { "sequence": 8, "speaker": "candidate", "text": "That research killed 2 features early. Nobody wrote a line of code for either of them, which saved a whole quarter of build time.", "words_per_minute": 147, "confidence": 0.95 },
+        { "sequence": 9, "speaker": "interviewer", "text": "How do you keep stakeholders together?", "words_per_minute": 150 },
+        { "sequence": 10, "speaker": "candidate", "text": "I run stakeholder alignment sessions but I could not put a number on how well they work. People turn up, which is something.", "words_per_minute": 146, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "prioritisation": "sufficient",
+          "discovery-research": "sufficient",
+          "stakeholder-alignment": "insufficient_evidence"
+        },
+        "evidence": [
+          { "competency_id": "prioritisation", "kind": "supporting", "quote_contains": "I rewrote our prioritisation model and cut the roadmap from 40 items to 12" },
+          { "competency_id": "prioritisation", "kind": "supporting", "quote_contains": "Every prioritisation call now takes 30 minutes" },
+          { "competency_id": "discovery-research", "kind": "supporting", "quote_contains": "Our discovery research covered 18 customer interviews" },
+          { "competency_id": "discovery-research", "kind": "supporting", "quote_contains": "That research killed 2 features early" },
+          { "competency_id": "stakeholder-alignment", "kind": "claim_unverified", "quote_contains": "I run stakeholder alignment sessions" }
+        ],
+        "contradictions": []
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "product-insufficient-01",
+      "case_class": "insufficient_evidence",
+      "seniority": "junior",
+      "notes": "One example under the floor, one admitted gap, one topic that never reached the candidate at all because it was handled above them.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "Tell me about prioritisation you have owned.", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I owned prioritisation for one 6 week experiment. It was a side bet rather than the main roadmap, and nobody senior was watching it closely.", "words_per_minute": 141, "confidence": 0.93 },
+        { "sequence": 3, "speaker": "interviewer", "text": "And customer research?", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "I do not know that I have a discovery research example that stands out. We mostly took the requirements as given.", "words_per_minute": 140, "confidence": 0.92 },
+        { "sequence": 5, "speaker": "interviewer", "text": "How about stakeholders?", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "That was handled above me. I saw the outcome rather than the conversation that produced it, and I was not in the room.", "words_per_minute": 142, "confidence": 0.93 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "prioritisation": "insufficient_evidence",
+          "discovery-research": "insufficient_evidence",
+          "stakeholder-alignment": "not_discussed"
+        },
+        "evidence": [
+          { "competency_id": "prioritisation", "kind": "supporting", "quote_contains": "I owned prioritisation for one 6 week experiment" },
+          { "competency_id": "discovery-research", "kind": "gap", "quote_contains": "I do not know that I have a discovery research example" }
+        ],
+        "silent_competencies": ["stakeholder-alignment"],
+        "contradictions": []
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "product-contradiction-01",
+      "case_class": "contradiction",
+      "seniority": "mid",
+      "notes": "A genuine conflict about release count in one named year, with prioritisation evidence beside it.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "How often did you ship?", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "The team I supported shipped 14 releases that year. We were on a weekly train for most of it and the cadence almost never slipped.", "words_per_minute": 147, "confidence": 0.95 },
+        { "sequence": 3, "speaker": "interviewer", "text": "Say that again for me.", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "That year the team I supported shipped 6 releases. Each one was a big bundle rather than a small change.", "words_per_minute": 147, "confidence": 0.95 },
+        { "sequence": 5, "speaker": "interviewer", "text": "How did you choose what went in?", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "My prioritisation framework ranks 5 dimensions. Reach and confidence are the two people argue about, and effort is the one nobody trusts.", "words_per_minute": 148, "confidence": 0.95 },
+        { "sequence": 7, "speaker": "interviewer", "text": "Who else is in that conversation?", "words_per_minute": 150 },
+        { "sequence": 8, "speaker": "candidate", "text": "We reviewed the prioritisation list with 3 teams each month. Anything nobody would staff came off it, which made the list shorter and much more honest.", "words_per_minute": 148, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "prioritisation": "sufficient",
+          "discovery-research": "not_discussed",
+          "stakeholder-alignment": "not_discussed"
+        },
+        "evidence": [
+          { "competency_id": "prioritisation", "kind": "supporting", "quote_contains": "My prioritisation framework ranks 5 dimensions" },
+          { "competency_id": "prioritisation", "kind": "supporting", "quote_contains": "We reviewed the prioritisation list with 3 teams each month" }
+        ],
+        "silent_competencies": ["discovery-research", "stakeholder-alignment"],
+        "contradictions": [
+          {
+            "topic_includes": ["releases", "shipped", "supported", "team"],
+            "genuine": true,
+            "why": "Fourteen releases and six releases, the same team and the same year."
+          }
+        ]
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "product-unassessable-01",
+      "case_class": "unassessable",
+      "seniority": "mid",
+      "notes": "A four word answer. There is nothing to measure and the right response is another question, not a low band.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "Tell me about a prioritisation call you made.", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I made a few.", "words_per_minute": 130, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "not_assessable",
+        "unassessable_reason": "insufficient_speech",
+        "sufficiency": {
+          "prioritisation": "not_discussed",
+          "discovery-research": "not_discussed",
+          "stakeholder-alignment": "not_discussed"
+        },
+        "evidence": [],
+        "silent_competencies": ["prioritisation", "discovery-research", "stakeholder-alignment"],
+        "contradictions": []
+      },
+      "known_limitations": []
+    }
+  ]
+}

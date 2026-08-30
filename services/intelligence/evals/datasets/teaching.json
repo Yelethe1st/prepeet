@@ -1,0 +1,140 @@
+{
+  "dataset_version": "1.0.0",
+  "profession": "teaching",
+  "role_shape": "behavioural",
+  "competencies": [
+    { "id": "differentiation", "name": "Differentiation" },
+    { "id": "behaviour-management", "name": "Behaviour management" },
+    { "id": "assessment-feedback", "name": "Assessment and feedback" }
+  ],
+  "cases": [
+    {
+      "id": "teaching-well-evidenced-01",
+      "case_class": "well_evidenced",
+      "seniority": "mid",
+      "notes": "Classroom evidence measured in grades, removals and colleagues coached. A third competency is claimed honestly without a figure behind it.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "How do you handle a mixed ability class?", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I planned differentiation into every lesson for a class of 31. Three tiers of task, and the middle tier is the one most pupils start on.", "words_per_minute": 146, "confidence": 0.95, "long_pause_after": [11] },
+        { "sequence": 3, "speaker": "interviewer", "text": "Did it change anything?", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "After a term of differentiation the bottom quartile moved up 2 grades on average. Their books changed before their marks did.", "words_per_minute": 148, "confidence": 0.95 },
+        { "sequence": 5, "speaker": "interviewer", "text": "Tell me about behaviour.", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "My behaviour management plan cut removals from 9 a term to 2. The plan is on one page and every pupil has seen it.", "words_per_minute": 147, "confidence": 0.95 },
+        { "sequence": 7, "speaker": "interviewer", "text": "Has that spread at all?", "words_per_minute": 150 },
+        { "sequence": 8, "speaker": "candidate", "text": "I now coach 4 colleagues on the same behaviour routines. Two of them have taken it into their own year group.", "words_per_minute": 145, "confidence": 0.94 },
+        { "sequence": 9, "speaker": "interviewer", "text": "And assessment?", "words_per_minute": 150 },
+        { "sequence": 10, "speaker": "candidate", "text": "I use low stakes assessment and feedback weekly but I have not measured the effect. It feels right rather than proven, and I know the difference.", "words_per_minute": 146, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "differentiation": "sufficient",
+          "behaviour-management": "sufficient",
+          "assessment-feedback": "insufficient_evidence"
+        },
+        "evidence": [
+          { "competency_id": "differentiation", "kind": "supporting", "quote_contains": "I planned differentiation into every lesson for a class of 31" },
+          { "competency_id": "differentiation", "kind": "supporting", "quote_contains": "the bottom quartile moved up 2 grades" },
+          { "competency_id": "behaviour-management", "kind": "supporting", "quote_contains": "My behaviour management plan cut removals from 9 a term to 2" },
+          { "competency_id": "behaviour-management", "kind": "supporting", "quote_contains": "I now coach 4 colleagues on the same behaviour routines" },
+          { "competency_id": "assessment-feedback", "kind": "claim_unverified", "quote_contains": "I use low stakes assessment and feedback weekly" }
+        ],
+        "contradictions": []
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "teaching-insufficient-01",
+      "case_class": "insufficient_evidence",
+      "seniority": "junior",
+      "notes": "A trainee year. One example below the rubric's floor, one honest gap, one topic never reached. The remedies differ: ask a better question, or accept there is nothing to ask about.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "Tell me about differentiation in your practice.", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I ran one differentiation project with 5 pupils last year. It was a small group and the school did not repeat it.", "words_per_minute": 140, "confidence": 0.93 },
+        { "sequence": 3, "speaker": "interviewer", "text": "And behaviour?", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "I am not sure I have a behaviour management example that would help. My placements were in calm classes and I was rarely the one holding the line.", "words_per_minute": 139, "confidence": 0.92 },
+        { "sequence": 5, "speaker": "interviewer", "text": "Assessment and feedback?", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "We did not cover that in my training year. The mentor handled it and I watched from the back of the room.", "words_per_minute": 141, "confidence": 0.93 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "differentiation": "insufficient_evidence",
+          "behaviour-management": "insufficient_evidence",
+          "assessment-feedback": "not_discussed"
+        },
+        "evidence": [
+          { "competency_id": "differentiation", "kind": "supporting", "quote_contains": "I ran one differentiation project with 5 pupils" },
+          { "competency_id": "behaviour-management", "kind": "gap", "quote_contains": "not sure I have a behaviour management example" }
+        ],
+        "silent_competencies": ["assessment-feedback"],
+        "contradictions": []
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "teaching-contradiction-01",
+      "case_class": "contradiction",
+      "seniority": "mid",
+      "notes": "A genuine conflict about one timetable, with differentiation evidence beside it so the contradiction is not the whole transcript.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "What was your teaching load?", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I taught 5 classes a week in that school. Each one was a different year group which made planning slow.", "words_per_minute": 145, "confidence": 0.95 },
+        { "sequence": 3, "speaker": "interviewer", "text": "Remind me of the timetable.", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "There were 8 classes a week on my timetable in that school. That was the load for the whole year.", "words_per_minute": 145, "confidence": 0.95 },
+        { "sequence": 5, "speaker": "interviewer", "text": "How do you plan for mixed ability?", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "My differentiation planning covers 3 tiers in every lesson. The tiers are named on the board so pupils choose openly.", "words_per_minute": 147, "confidence": 0.95 },
+        { "sequence": 7, "speaker": "interviewer", "text": "Can somebody else pick that up?", "words_per_minute": 150 },
+        { "sequence": 8, "speaker": "candidate", "text": "The differentiation folder has 12 worked examples in it. Anyone covering my class can pick one up and run it.", "words_per_minute": 146, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "differentiation": "sufficient",
+          "behaviour-management": "not_discussed",
+          "assessment-feedback": "not_discussed"
+        },
+        "evidence": [
+          { "competency_id": "differentiation", "kind": "supporting", "quote_contains": "My differentiation planning covers 3 tiers in every lesson" },
+          { "competency_id": "differentiation", "kind": "supporting", "quote_contains": "The differentiation folder has 12 worked examples" }
+        ],
+        "silent_competencies": ["behaviour-management", "assessment-feedback"],
+        "contradictions": [
+          {
+            "topic_includes": ["classes", "school", "that", "week"],
+            "genuine": true,
+            "why": "Five classes a week and eight classes a week at the same school over the same year cannot both be the timetable."
+          }
+        ]
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "teaching-unassessable-01",
+      "case_class": "unassessable",
+      "seniority": "mid",
+      "notes": "The transcript itself is unreliable: mean word confidence well under the floor. Delivery cannot be measured through a bad transcript, and saying so is not a low result.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "How do you handle a mixed ability class?", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I planned differentiation into every lesson for a class of 31 and the bottom quartile moved up 2 grades on average.", "words_per_minute": 146, "confidence": 0.35 }
+      ],
+      "expected": {
+        "assessability": "not_assessable",
+        "unassessable_reason": "transcript_confidence_low",
+        "sufficiency": {
+          "differentiation": "insufficient_evidence",
+          "behaviour-management": "not_discussed",
+          "assessment-feedback": "not_discussed"
+        },
+        "evidence": [
+          { "competency_id": "differentiation", "kind": "supporting", "quote_contains": "I planned differentiation into every lesson" }
+        ],
+        "silent_competencies": ["behaviour-management", "assessment-feedback"],
+        "contradictions": []
+      },
+      "known_limitations": [
+        "Content extraction still reads a low confidence transcript, because the words are what was transcribed. Whether a span from an unreliable transcript should be published at all is a policy question this dataset raises and does not answer."
+      ]
+    }
+  ]
+}

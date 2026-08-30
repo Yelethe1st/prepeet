@@ -1,0 +1,138 @@
+{
+  "dataset_version": "1.0.0",
+  "profession": "sales",
+  "role_shape": "behavioural",
+  "competencies": [
+    { "id": "discovery-qualification", "name": "Discovery and qualification" },
+    { "id": "negotiation", "name": "Negotiation" },
+    { "id": "pipeline-management", "name": "Pipeline management" }
+  ],
+  "cases": [
+    {
+      "id": "sales-well-evidenced-01",
+      "case_class": "well_evidenced",
+      "seniority": "mid",
+      "notes": "Sales answers arrive pre-loaded with numbers, which makes this the discipline where a supporting span is easiest to earn and hardest to trust. The dataset carries it as the happy path anyway, because that is what the extractor will meet.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "How do you open a new account?", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I rebuilt our discovery script and qualification improved to 60 percent. The questions are shorter and the buyer does most of the talking.", "words_per_minute": 152, "confidence": 0.95, "long_pause_after": [10] },
+        { "sequence": 3, "speaker": "interviewer", "text": "Did that show up in the numbers?", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "Deals that passed qualification closed in 21 days rather than 45. The ones that did not pass were dropped early instead of lingering.", "words_per_minute": 153, "confidence": 0.95 },
+        { "sequence": 5, "speaker": "interviewer", "text": "Tell me about a hard negotiation.", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "In one negotiation I held the discount at 8 percent when the ask was 20. We traded a longer term for it rather than just conceding.", "words_per_minute": 151, "confidence": 0.95 },
+        { "sequence": 7, "speaker": "interviewer", "text": "Has anyone else used that?", "words_per_minute": 150 },
+        { "sequence": 8, "speaker": "candidate", "text": "The negotiation playbook I wrote is used by 6 reps. It is two pages and mostly examples that anyone can copy on their next call.", "words_per_minute": 150, "confidence": 0.95 },
+        { "sequence": 9, "speaker": "interviewer", "text": "How do you run your pipeline?", "words_per_minute": 150 },
+        { "sequence": 10, "speaker": "candidate", "text": "I keep pipeline management tidy every week but I have never counted the hygiene score. It is a habit rather than a metric for me.", "words_per_minute": 149, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "discovery-qualification": "sufficient",
+          "negotiation": "sufficient",
+          "pipeline-management": "insufficient_evidence"
+        },
+        "evidence": [
+          { "competency_id": "discovery-qualification", "kind": "supporting", "quote_contains": "I rebuilt our discovery script and qualification improved to 60 percent" },
+          { "competency_id": "discovery-qualification", "kind": "supporting", "quote_contains": "Deals that passed qualification closed in 21 days" },
+          { "competency_id": "negotiation", "kind": "supporting", "quote_contains": "In one negotiation I held the discount at 8 percent" },
+          { "competency_id": "negotiation", "kind": "supporting", "quote_contains": "The negotiation playbook I wrote is used by 6 reps" },
+          { "competency_id": "pipeline-management", "kind": "claim_unverified", "quote_contains": "I keep pipeline management tidy every week" }
+        ],
+        "contradictions": []
+      },
+      "known_limitations": [
+        "A stated number makes a span supporting. It does not make the number true: claim verification is a separate concern and this fixture deliberately does not pretend otherwise."
+      ]
+    },
+    {
+      "id": "sales-insufficient-01",
+      "case_class": "insufficient_evidence",
+      "seniority": "junior",
+      "notes": "A first year in the seat: one thin example, one honest gap, one topic never reached.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "Tell me about your discovery process.", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I ran discovery on 2 accounts in my first quarter. Both were inbound so the hard part was already done.", "words_per_minute": 141, "confidence": 0.93 },
+        { "sequence": 3, "speaker": "interviewer", "text": "And negotiating?", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "I am not sure I have a negotiation example at that level. My deals were small enough that price was rarely argued.", "words_per_minute": 140, "confidence": 0.92 },
+        { "sequence": 5, "speaker": "interviewer", "text": "How about your pipeline?", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "My last role did not really go near that. The territory was handed to me fully built and I never had to prune it.", "words_per_minute": 142, "confidence": 0.93 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "discovery-qualification": "insufficient_evidence",
+          "negotiation": "insufficient_evidence",
+          "pipeline-management": "not_discussed"
+        },
+        "evidence": [
+          { "competency_id": "discovery-qualification", "kind": "supporting", "quote_contains": "I ran discovery on 2 accounts in my first quarter" },
+          { "competency_id": "negotiation", "kind": "gap", "quote_contains": "not sure I have a negotiation example at that level" }
+        ],
+        "silent_competencies": ["pipeline-management"],
+        "contradictions": []
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "sales-contradiction-01",
+      "case_class": "contradiction",
+      "seniority": "mid",
+      "notes": "A genuine conflict about one quota in one year, with pipeline evidence beside it.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "What was your number?", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "I carried a quota of 900 thousand last year. It was the first time I had a number that size.", "words_per_minute": 148, "confidence": 0.95 },
+        { "sequence": 3, "speaker": "interviewer", "text": "Remind me what was on the plan.", "words_per_minute": 150 },
+        { "sequence": 4, "speaker": "candidate", "text": "My quota last year was 1200 thousand. That was the figure on the plan I signed at the start of the year.", "words_per_minute": 148, "confidence": 0.95 },
+        { "sequence": 5, "speaker": "interviewer", "text": "How do you keep the pipeline honest?", "words_per_minute": 150 },
+        { "sequence": 6, "speaker": "candidate", "text": "My pipeline management review runs 3 times a week. Anything stale gets closed rather than carried into the following month for no reason.", "words_per_minute": 149, "confidence": 0.95 },
+        { "sequence": 7, "speaker": "interviewer", "text": "How much is in it?", "words_per_minute": 150 },
+        { "sequence": 8, "speaker": "candidate", "text": "The pipeline covers 40 open opportunities. Each one has a next step with a date on it, and nothing sits without an owner.", "words_per_minute": 148, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "assessable",
+        "sufficiency": {
+          "discovery-qualification": "not_discussed",
+          "negotiation": "not_discussed",
+          "pipeline-management": "sufficient"
+        },
+        "evidence": [
+          { "competency_id": "pipeline-management", "kind": "supporting", "quote_contains": "My pipeline management review runs 3 times a week" },
+          { "competency_id": "pipeline-management", "kind": "supporting", "quote_contains": "The pipeline covers 40 open opportunities" }
+        ],
+        "silent_competencies": ["discovery-qualification", "negotiation"],
+        "contradictions": [
+          {
+            "topic_includes": ["last", "quota", "thousand", "year"],
+            "genuine": true,
+            "why": "Nine hundred thousand and one thousand two hundred thousand cannot both be last year's quota."
+          }
+        ]
+      },
+      "known_limitations": []
+    },
+    {
+      "id": "sales-unassessable-01",
+      "case_class": "unassessable",
+      "seniority": "mid",
+      "notes": "Three words is not an answer to measure. Too little speech is its own state with its own remedy, which is to ask again rather than to score what is there.",
+      "turns": [
+        { "sequence": 1, "speaker": "interviewer", "text": "Tell me about a negotiation you led.", "words_per_minute": 150 },
+        { "sequence": 2, "speaker": "candidate", "text": "It went fine.", "words_per_minute": 130, "confidence": 0.95 }
+      ],
+      "expected": {
+        "assessability": "not_assessable",
+        "unassessable_reason": "insufficient_speech",
+        "sufficiency": {
+          "discovery-qualification": "not_discussed",
+          "negotiation": "not_discussed",
+          "pipeline-management": "not_discussed"
+        },
+        "evidence": [],
+        "silent_competencies": ["discovery-qualification", "negotiation", "pipeline-management"],
+        "contradictions": []
+      },
+      "known_limitations": []
+    }
+  ]
+}

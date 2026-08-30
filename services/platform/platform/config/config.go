@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Yelethe1st/prepeet/services/platform/platform/grpcdial"
 )
 
 // Lookup reads one configuration value. os.LookupEnv satisfies it.
@@ -94,6 +96,12 @@ type Config struct {
 	// host:port. Empty means this process runs no workflows that need it; the
 	// worker then skips registering the interview task queue and says so.
 	IntelligenceAddress string
+	// IntelligenceTLS secures that hop. It carries interview briefs out and
+	// transcripts back, so it carries candidate speech. Deployed environments
+	// must either configure certificate material or declare plaintext in as
+	// many words; local and preview default to plaintext so that `make dev`
+	// needs no certificate authority. See platform/grpcdial.
+	IntelligenceTLS grpcdial.Config
 	// The object store. Empty endpoint means real S3; the local stack points
 	// it at LocalStack. Empty bucket disables the document surface loudly at
 	// startup rather than at the first upload.
@@ -253,8 +261,14 @@ func Load(lookup Lookup) (Config, error) {
 		S3SecretKey:            value(lookup, "PREPEET_S3_SECRET_KEY", ""),
 		S3UsePathStyle:         value(lookup, "PREPEET_S3_PATH_STYLE", "") == "true",
 		IntelligenceAddress:    value(lookup, "PREPEET_INTELLIGENCE_ADDRESS", ""),
-		TemporalTLSCertFile:    value(lookup, "PREPEET_TEMPORAL_TLS_CERT_FILE", ""),
-		TemporalTLSKeyFile:     value(lookup, "PREPEET_TEMPORAL_TLS_KEY_FILE", ""),
+		IntelligenceTLS: grpcdial.Config{
+			CAFile:   value(lookup, "PREPEET_INTELLIGENCE_TLS_CA_FILE", ""),
+			CertFile: value(lookup, "PREPEET_INTELLIGENCE_TLS_CERT_FILE", ""),
+			KeyFile:  value(lookup, "PREPEET_INTELLIGENCE_TLS_KEY_FILE", ""),
+			Insecure: value(lookup, "PREPEET_INTELLIGENCE_TLS_INSECURE", "") == "true",
+		},
+		TemporalTLSCertFile: value(lookup, "PREPEET_TEMPORAL_TLS_CERT_FILE", ""),
+		TemporalTLSKeyFile:  value(lookup, "PREPEET_TEMPORAL_TLS_KEY_FILE", ""),
 
 		// No defaults. See the field comments.
 		DatabaseURL:         value(lookup, "PREPEET_DATABASE_URL", ""),
@@ -284,6 +298,33 @@ func Load(lookup Lookup) (Config, error) {
 	if !strings.HasPrefix(cfg.TemporalNamespace, derived) {
 		return Config{}, fmt.Errorf("config: PREPEET_TEMPORAL_NAMESPACE is %q in the %s environment, "+
 			"want %q or that with an account suffix", cfg.TemporalNamespace, cfg.Environment, derived)
+	}
+
+	// The intelligence hop's transport. Only a process that dials it needs a
+	// decision, and the decision differs by environment, which is why it is
+	// made here rather than in grpcdial: that package cannot tell whether the
+	// plaintext it was handed is a laptop or an oversight, and this can.
+	if cfg.IntelligenceAddress != "" {
+		if !cfg.IntelligenceTLS.Insecure && cfg.IntelligenceTLS.CAFile == "" &&
+			cfg.IntelligenceTLS.CertFile == "" {
+			switch cfg.Environment {
+			case EnvironmentLocal, EnvironmentPreview:
+				// The local stack serves plaintext, so say so explicitly here
+				// rather than leaving grpcdial to infer it from emptiness.
+				cfg.IntelligenceTLS.Insecure = true
+			default:
+				return Config{}, fmt.Errorf("config: the %s environment dials the intelligence "+
+					"plane over plaintext; set PREPEET_INTELLIGENCE_TLS_CA_FILE, or "+
+					"PREPEET_INTELLIGENCE_TLS_INSECURE=true if a service mesh encrypts it",
+					cfg.Environment)
+			}
+		}
+		// Shape checked here so half a pair fails at startup with its cause
+		// named, rather than at the first dial with a TLS error nobody can
+		// read. The material itself is read when the connection is made.
+		if err := cfg.IntelligenceTLS.Validate(); err != nil {
+			return Config{}, fmt.Errorf("config: the intelligence plane transport: %w", err)
+		}
 	}
 
 	// Half a certificate pair fails at dial time with a TLS error nobody can

@@ -25,6 +25,11 @@ dev = [
     # Generates the Python gRPC service stub in make generate. A build-time
     # dependency only: the service imports the generated code, not the tool.
     "grpcio-tools>=1.68",
+    # Issues throwaway certificate authorities so the transport's TLS can be
+    # tested by actually completing a handshake. Asserting on the arguments
+    # passed to grpc would prove only that the call was made with the shape
+    # the test expected, which is the thing already believed.
+    "trustme>=1.1",
 ]
 voice = [
     "livekit-plugins-cartesia>=1.0",

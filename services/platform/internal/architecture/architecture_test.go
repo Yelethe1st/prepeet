@@ -402,3 +402,34 @@ func truncate(s string) string {
 	}
 	return s[:limit] + "..."
 }
+
+// The worker dialled the intelligence plane with insecure credentials chosen at
+// the call site, under a comment claiming the deployed path had TLS. Nothing
+// provided that path, so the claim was false and nothing in the build could
+// notice. That hop carries interview briefs out and transcripts back.
+//
+// Centralising the choice in platform/grpcdial is what makes the environment
+// rule in platform/config enforceable: a second call site picking its own
+// credentials would route around the rule while looking entirely ordinary. This
+// is the check that would otherwise have been "we will remember".
+func TestPlaintextGRPCIsChosenInOnePlace(t *testing.T) {
+	t.Parallel()
+
+	const insecureCredentials = "google.golang.org/grpc/credentials/insecure"
+	const allowed = modulePath + "/platform/grpcdial"
+
+	for _, p := range packages(t) {
+		if p.ImportPath == allowed {
+			continue
+		}
+		for _, imported := range allImports(p) {
+			if imported == insecureCredentials {
+				t.Errorf("%s imports %s\n"+
+					"    Plaintext gRPC is configuration, not a call-site decision: build the\n"+
+					"    dial option from a grpcdial.Config so platform/config's rule about\n"+
+					"    which environments may run unencrypted still applies.",
+					p.ImportPath, imported)
+			}
+		}
+	}
+}

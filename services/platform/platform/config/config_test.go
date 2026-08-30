@@ -390,3 +390,110 @@ func TestAProvidersEndpointsCanBeOverridden(t *testing.T) {
 		t.Fatalf("redirect = %q", cfg.OAuthGoogle.RedirectURI)
 	}
 }
+
+// The intelligence hop carries briefs out and transcripts back, and both ends
+// of it were plaintext with no way to change that. The environment is the only
+// place that knows whether plaintext is a laptop or a mistake, so the rule
+// lives here rather than in platform/grpcdial.
+
+func TestTheIntelligenceHopIsPlaintextLocallyWithoutSayingSo(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_INTELLIGENCE_ADDRESS": "localhost:50051",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	// `make dev` must not need a certificate authority; requiring one would
+	// push contributors towards a shared certificate, which is worse than none.
+	if !cfg.IntelligenceTLS.Insecure {
+		t.Fatal("the local stack was not allowed plaintext")
+	}
+}
+
+func TestADeployedIntelligenceHopRefusesUndeclaredPlaintext(t *testing.T) {
+	t.Parallel()
+
+	for _, environment := range []string{"staging", "production"} {
+		_, err := config.Load(lookupFrom(map[string]string{
+			"PREPEET_ENVIRONMENT":          environment,
+			"PREPEET_TEMPORAL_NAMESPACE":   "prepeet-" + environment,
+			"PREPEET_INTELLIGENCE_ADDRESS": "intelligence.internal:50051",
+		}))
+		if err == nil {
+			t.Fatalf("%s accepted an unencrypted intelligence hop", environment)
+		}
+		if !strings.Contains(err.Error(), "PREPEET_INTELLIGENCE_TLS_CA_FILE") {
+			t.Fatalf("the error does not name the way to fix it: %v", err)
+		}
+	}
+}
+
+func TestADeployedIntelligenceHopAcceptsDeclaredPlaintext(t *testing.T) {
+	t.Parallel()
+
+	// A service mesh terminating TLS in a sidecar is a real deployment, and
+	// this is how it says so: in configuration, where it can be reviewed,
+	// rather than by leaving a field unset.
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_ENVIRONMENT":               "production",
+		"PREPEET_TEMPORAL_NAMESPACE":        "prepeet-production",
+		"PREPEET_INTELLIGENCE_ADDRESS":      "intelligence.internal:50051",
+		"PREPEET_INTELLIGENCE_TLS_INSECURE": "true",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.IntelligenceTLS.Insecure {
+		t.Fatal("the declaration was not read")
+	}
+}
+
+func TestADeployedIntelligenceHopWithAnAuthorityIsAccepted(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_ENVIRONMENT":                "production",
+		"PREPEET_TEMPORAL_NAMESPACE":         "prepeet-production",
+		"PREPEET_INTELLIGENCE_ADDRESS":       "intelligence.internal:50051",
+		"PREPEET_INTELLIGENCE_TLS_CA_FILE":   "/tls/ca.pem",
+		"PREPEET_INTELLIGENCE_TLS_CERT_FILE": "/tls/worker.pem",
+		"PREPEET_INTELLIGENCE_TLS_KEY_FILE":  "/tls/worker.key",
+	}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.IntelligenceTLS.Insecure {
+		t.Fatal("configured material was overridden by the plaintext default")
+	}
+	if cfg.IntelligenceTLS.CAFile != "/tls/ca.pem" {
+		t.Fatalf("the authority was not read: %q", cfg.IntelligenceTLS.CAFile)
+	}
+}
+
+func TestHalfAnIntelligenceClientPairIsRefused(t *testing.T) {
+	t.Parallel()
+
+	for _, env := range []map[string]string{
+		{"PREPEET_INTELLIGENCE_ADDRESS": "i:50051", "PREPEET_INTELLIGENCE_TLS_CERT_FILE": "/tls/c.pem"},
+		{"PREPEET_INTELLIGENCE_ADDRESS": "i:50051", "PREPEET_INTELLIGENCE_TLS_KEY_FILE": "/tls/c.key"},
+	} {
+		if _, err := config.Load(lookupFrom(env)); err == nil {
+			t.Errorf("half a client certificate was accepted: %v", env)
+		}
+	}
+}
+
+func TestNoIntelligenceAddressNeedsNoTransportDecision(t *testing.T) {
+	t.Parallel()
+
+	// A process running no workflow that needs the intelligence plane never
+	// dials it, so demanding a certificate from it would be theatre.
+	if _, err := config.Load(lookupFrom(map[string]string{
+		"PREPEET_ENVIRONMENT":        "production",
+		"PREPEET_TEMPORAL_NAMESPACE": "prepeet-production",
+	})); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+}

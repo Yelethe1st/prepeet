@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/grpcdial"
 )
 
 // grpcComposer presents the intelligence plane as the Composer interview
@@ -31,11 +31,18 @@ type grpcComposer struct {
 
 // newComposer dials the intelligence plane.
 //
-// Insecure transport is a local-stack allowance, exactly like the Temporal
-// client's: the deployed path gets TLS with PLT-07's workload identity, and
-// refusing to start without it would make `make dev` need a CA.
-func newComposer(address string, registry *content.Store) (*grpcComposer, *grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+// The transport comes from configuration rather than being fixed here. It used
+// to be insecure unconditionally, under a comment claiming the deployed path
+// got TLS; nothing on either end provided that, and this hop carries briefs out
+// and transcripts back. platform/config refuses undeclared plaintext outside
+// local and preview, and the Python server binds a secure port when its own
+// certificate is configured.
+func newComposer(address string, transport grpcdial.Config, registry *content.Store) (*grpcComposer, *grpc.ClientConn, error) {
+	option, err := transport.DialOption()
+	if err != nil {
+		return nil, nil, fmt.Errorf("the intelligence plane transport: %w", err)
+	}
+	conn, err := grpc.NewClient(address, option)
 	if err != nil {
 		return nil, nil, fmt.Errorf("dialling the intelligence plane: %w", err)
 	}

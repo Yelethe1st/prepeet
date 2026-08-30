@@ -19,7 +19,10 @@ import argparse
 import dataclasses
 import json
 import logging
+import os
+from collections.abc import Mapping
 from concurrent import futures
+from pathlib import Path
 
 import grpc
 from google.rpc import code_pb2, status_pb2
@@ -289,18 +292,126 @@ class IntelligenceService(intelligence_pb2_grpc.IntelligenceServiceServicer):  #
         )
 
 
-def serve(port: int) -> tuple[grpc.Server, int]:
+class TLSConfigError(Exception):
+    """Configuration that cannot produce the transport it claims to."""
+
+
+@dataclasses.dataclass(frozen=True)
+class TLSConfig:
+    """The server half of this hop's transport security.
+
+    The control plane sends interview briefs over this connection and receives
+    transcripts back, so it carries candidate speech. Both ends were plaintext
+    with no way to change that, while a comment on the Go dial said the
+    deployed path had TLS. This is that path, on the serving side.
+
+    Empty is plaintext, deliberately: `make dev` must not need a certificate
+    authority, and refusing to start without one would push every contributor
+    towards a shared certificate, which is worse than none. The environments
+    where plaintext is not acceptable refuse it in the *client's*
+    configuration, where the environment name is known; a server cannot tell
+    whether the plaintext it was asked for is a laptop or a mistake.
+    """
+
+    cert_file: str = ""
+    key_file: str = ""
+    # Present means client certificates are required, not merely accepted. A
+    # mutual configuration that only requests them authenticates nobody while
+    # reading as though it does.
+    client_ca_file: str = ""
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str]) -> TLSConfig:
+        """Read the configuration without consulting the real environment."""
+        return cls(
+            cert_file=env.get("PREPEET_RPC_TLS_CERT_FILE", "").strip(),
+            key_file=env.get("PREPEET_RPC_TLS_KEY_FILE", "").strip(),
+            client_ca_file=env.get("PREPEET_RPC_TLS_CLIENT_CA_FILE", "").strip(),
+        )
+
+    @property
+    def enabled(self) -> bool:
+        """Whether a server certificate was configured at all."""
+        return bool(self.cert_file and self.key_file)
+
+    @property
+    def mutual(self) -> bool:
+        """Whether the client must present a certificate this server trusts."""
+        return self.enabled and bool(self.client_ca_file)
+
+    def validate(self) -> None:
+        """Refuse a configuration that would serve less than it appears to.
+
+        Half a pair and a lone client authority both fail here rather than at
+        bind time, because at bind time the only symptom is a server that came
+        up plaintext and said nothing.
+        """
+        if bool(self.cert_file) != bool(self.key_file):
+            raise TLSConfigError(
+                "PREPEET_RPC_TLS_CERT_FILE and PREPEET_RPC_TLS_KEY_FILE "
+                "must be set together or not at all"
+            )
+        if self.client_ca_file and not self.enabled:
+            raise TLSConfigError(
+                "PREPEET_RPC_TLS_CLIENT_CA_FILE needs a server certificate: "
+                "client authentication cannot be required over plaintext"
+            )
+
+    def read(self) -> grpc.ServerCredentials:
+        """Load the material and build the credentials.
+
+        A path that does not resolve names itself. The material never reaches
+        an error message: a key file that failed to parse must not have its
+        contents quoted into a log line.
+        """
+        self.validate()
+        certificate = _read_file(self.cert_file)
+        key = _read_file(self.key_file)
+        root = _read_file(self.client_ca_file) if self.client_ca_file else None
+        return grpc.ssl_server_credentials(
+            [(key, certificate)],
+            root_certificates=root,
+            require_client_auth=root is not None,
+        )
+
+
+def _read_file(path: str) -> bytes:
+    try:
+        return Path(path).read_bytes()
+    except OSError as error:
+        raise TLSConfigError(f"reading {path}: {error.strerror}") from None
+
+
+def serve(port: int, tls: TLSConfig | None = None) -> tuple[grpc.Server, int]:
     """Start the server; the caller owns its lifetime.
 
     Returns the bound port as well as the server, because port 0 asks the
     operating system to choose and a caller - a test most of all - needs to
     know what it chose.
+
+    `tls` defaults to plaintext so the local stack and the tests that call this
+    directly need no certificate. What is served is logged either way, because
+    the failure worth catching is a deployment that meant to be encrypted and
+    silently was not.
     """
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
     intelligence_pb2_grpc.add_IntelligenceServiceServicer_to_server(IntelligenceService(), server)
-    bound = server.add_insecure_port(f"[::]:{port}")
+    if tls is not None and tls.enabled:
+        bound = server.add_secure_port(f"[::]:{port}", tls.read())
+        transport_name = "mutual-tls" if tls.mutual else "tls"
+    else:
+        if tls is not None:
+            # A half-configured pair would otherwise land here as plaintext.
+            tls.validate()
+        bound = server.add_insecure_port(f"[::]:{port}")
+        transport_name = "plaintext"
+    if bound == 0:
+        raise RuntimeError(f"the server could not bind port {port}")
     server.start()
-    logger.info("intelligence serving", extra={"bound_port": bound})
+    logger.info(
+        "intelligence serving",
+        extra={"bound_port": bound, "transport": transport_name},
+    )
     return server, bound
 
 
@@ -311,7 +422,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=50051)
     arguments = parser.parse_args()
 
-    server, _ = serve(arguments.port)
+    server, _ = serve(arguments.port, TLSConfig.from_env(os.environ))
     server.wait_for_termination()
 
 

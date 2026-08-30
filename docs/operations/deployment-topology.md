@@ -2,7 +2,7 @@
 
 **Status:** Proposed  
 **Owner:** Platform engineering  
-**Last updated:** 2026-08-23
+**Last updated:** 2026-08-30
 
 ## Initial topology
 
@@ -41,6 +41,29 @@ Production, staging, and development use separate accounts/projects, networks, d
 - Workload identity and short-lived credentials.
 - Restricted egress for Python/model calls and webhook dispatcher.
 - Region selection follows tenant residency and provider availability.
+
+### The control plane to intelligence plane hop
+
+This connection carries interview briefs outward and transcripts back, so it
+carries candidate speech and is in scope for the data classification. It ran as
+plaintext gRPC in both directions, with a source comment asserting that deployed
+environments got TLS; no code on either end offered a way to do so.
+
+Outside `local` and `preview`, a process configured with
+`PREPEET_INTELLIGENCE_ADDRESS` now refuses to start unless the transport is
+settled one way or the other:
+
+| Variable | Meaning |
+| --- | --- |
+| `PREPEET_INTELLIGENCE_TLS_CA_FILE` | Authority the intelligence plane's certificate is verified against. Set this for an internal endpoint; leaving it empty verifies against the public roots, which an internal name will not satisfy. |
+| `PREPEET_INTELLIGENCE_TLS_CERT_FILE`, `PREPEET_INTELLIGENCE_TLS_KEY_FILE` | The worker's own certificate, when the intelligence plane requires one. Set together or not at all. |
+| `PREPEET_INTELLIGENCE_TLS_INSECURE` | `true` declares plaintext deliberately, for a mesh that encrypts the hop in a sidecar. It is a declaration rather than a default so that forgetting to configure the transport is not the same as choosing to go without it. |
+
+The serving half reads `PREPEET_RPC_TLS_CERT_FILE` and
+`PREPEET_RPC_TLS_KEY_FILE`; adding `PREPEET_RPC_TLS_CLIENT_CA_FILE` requires a
+client certificate rather than merely accepting one. The server logs which of
+plaintext, TLS, or mutual TLS it bound, because the failure worth catching is a
+deployment that intended to be encrypted and silently was not.
 
 ## Release
 

@@ -141,7 +141,7 @@ func main() {
 		if cfg.IntelligenceAddress == "" {
 			log.Warn("no intelligence address is configured; the interview task queue is not being served")
 		} else {
-			composer, conn, err := newComposer(cfg.IntelligenceAddress, content.NewStore(pool))
+			composer, conn, err := newComposer(cfg.IntelligenceAddress, cfg.IntelligenceTLS, content.NewStore(pool))
 			if err != nil {
 				log.Error("the intelligence plane is not usable", slog.String("error", err.Error()))
 				os.Exit(1)

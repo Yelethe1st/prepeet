@@ -18,9 +18,36 @@ A campaign fixes one role, one published rubric and calibration, one disclosure 
 policy. Invitations are issued under a campaign, never standalone.
 
 **Done when**
-- [ ] A campaign cannot be opened against a draft or unpublished configuration.
-- [ ] Publishing a new rubric version does not alter a running campaign or re-score completed interviews.
+- [x] A campaign cannot be opened against a draft or unpublished configuration.
+- [x] Publishing a new rubric version does not alter a running campaign or re-score completed interviews.
 - [ ] Recruiter access is scoped per campaign, enforced server-side.
+
+**Two of three. The domain and the schema, not yet the server path.**
+
+Unblocked by [ADR-0020](../../architecture/decisions/0020-screening-disclosure-access-and-appeal.md),
+which lets SCR be built while DEC-11's legal determination stays open, because a jurisdiction with no
+recorded determination cannot open a campaign at all.
+
+A campaign is assembled by reference and opened by digest. That distinction is the whole of the
+second criterion: a recruiter chooses "the backend rubric", and opening resolves it to one specific
+published artifact, so republishing that rubric afterwards writes a new row with a new digest and the
+running campaign keeps pointing at what it chose. Nothing re-scores because nothing re-resolves.
+
+Opening checks the determination first, then completeness, then publication. That order is
+deliberate: the determination is the one failure nobody in the product can fix, so reporting it ahead
+of a list of unpublished artifacts saves a recruiter fixing things that will not help.
+
+Both rules are enforced twice, in the service and in the schema, because a rule only in Go is one a
+future query walks around and a rule only in the database produces an error nobody can act on. Five
+service guards were each proven by breaking them, and four direct SQL probes confirmed each database
+refusal fires for its own reason rather than incidentally.
+
+**The third box is open because there is no server path yet.** `recruiting.campaign_recruiter` exists
+with its own row-level security policy, and the queries are generated, but nothing wires the store to
+the service and no HTTP handler calls it, so there is nothing server-side to enforce. Tenant
+membership admits somebody to the workspace and a campaign is narrower than that; the table is the
+scope, and the box closes when a request actually passes through it and an integration test proves a
+recruiter on one campaign cannot read another.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md) · [authorization-model.md](../../architecture/authorization-model.md)
 
@@ -36,8 +63,38 @@ processing.
 
 **Done when**
 - [ ] The exact disclosure version a candidate accepted is recorded with the acceptance.
-- [ ] Consent is unbundled: declining optional processing does not block the interview.
+- [x] Consent is unbundled: declining optional processing does not block the interview.
 - [ ] A disclosure change creates a new version and never rewrites what someone already accepted.
+
+**One of three, and the two open ones are open for the same reason as SCR-01's third.**
+
+The disclosure is a registry artifact rather than a table of its own, for the reason migration 0024
+gave for consent texts: the words a person agreed to must resolve to identical words forever, and the
+registry already keeps that promise. A campaign pins its disclosure by digest exactly as it pins its
+rubric.
+
+**Unbundling is done and proven.** It is a row per processing purpose rather than a boolean on the
+acceptance, because that is what unbundling means structurally: a single "I agree" covering both the
+interview and model improvement cannot be declined by half, and a schema able to record only one
+answer would make the requirement impossible to satisfy however carefully the screen was written.
+`MayProceed` looks only at required purposes, so an optional one may be granted, refused or never
+answered and the interview is unaffected. An unanswered required purpose is its own outcome, distinct
+from a refusal, because reading silence as agreement is the failure the separation exists to prevent.
+
+Model improvement can never be marked required, refused in Go and again by a CHECK constraint, since
+bundling by another name is still bundling. A disclosure must cover all ten areas screen-mode.md and
+responsible-hiring.md list, and a section present but blank counts as absent, which is how that guard
+would most plausibly be defeated by accident.
+
+Five guards proven by breaking them, including one that catches the opposite mistake: making optional
+consent block the interview fails a named test too, so the rule cannot be tightened by accident any
+more than it can be loosened.
+
+**The first and third boxes need the write path.** `recruiting.disclosure_acceptance` and
+`recruiting.consent_decision` exist, both append-only by trigger and both refusing a digest that is
+not one, and `NewAcceptance` refuses an acceptance that cannot say what was accepted. But nothing
+writes either table yet, so no acceptance has been recorded and the append-only guarantee has not
+been attacked from Go. Both close with the store and its integration tests.
 
 **Spec** [responsible-hiring.md](../../security/responsible-hiring.md)
 

@@ -83,6 +83,13 @@ func TestAMessageArrivesAsComposed(t *testing.T) {
 	transport, err := email.New(email.Config{
 		Address: smtpAddress,
 		From:    "noreply@prepeet.test",
+		// Mailpit offers no STARTTLS, and the transport refuses an
+		// unupgradable relay because a message body carries the magic link
+		// that signs somebody in. This is the declared-plaintext case the
+		// flag exists for, and saying so here is the point: the exemption
+		// has to be stated, including by a test, or the refusal would be
+		// something tests quietly route around.
+		AllowPlaintext: true,
 	})
 	if err != nil {
 		t.Fatalf("building the transport: %v", err)

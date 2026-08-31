@@ -10,6 +10,98 @@ import (
 	"time"
 )
 
+const deleteRequirement = `-- name: DeleteRequirement :execrows
+DELETE FROM progression.personal_requirements WHERE id = $1::uuid
+`
+
+// The candidate erasing their own requirement. Criteria and outcomes
+// cascade, which is the point: erasure that left the results behind would
+// not be erasure.
+func (q *Queries) DeleteRequirement(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteRequirement, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertGoal = `-- name: InsertGoal :exec
+INSERT INTO progression.goals
+    (id, candidate_id, origin, origin_reference, competency_id, target_band,
+     rubric_reference, bands, status)
+VALUES ($1::uuid, $2::uuid,
+        $3::text, $4::text,
+        $5::text, $6::text,
+        $7::text, $8::text[],
+        $9::text)
+ON CONFLICT (id) DO NOTHING
+`
+
+type InsertGoalParams struct {
+	ID              string
+	CandidateID     string
+	Origin          string
+	OriginReference string
+	CompetencyID    string
+	TargetBand      string
+	RubricReference string
+	Bands           []string
+	Status          string
+}
+
+// A goal the candidate set. Idempotent on the identifier so a retried
+// create converges rather than raising a second target for one decision.
+func (q *Queries) InsertGoal(ctx context.Context, arg InsertGoalParams) error {
+	_, err := q.db.Exec(ctx, insertGoal,
+		arg.ID,
+		arg.CandidateID,
+		arg.Origin,
+		arg.OriginReference,
+		arg.CompetencyID,
+		arg.TargetBand,
+		arg.RubricReference,
+		arg.Bands,
+		arg.Status,
+	)
+	return err
+}
+
+const insertMilestone = `-- name: InsertMilestone :exec
+INSERT INTO progression.goal_milestones
+    (goal_id, candidate_id, band, rubric_reference, rubric_version,
+     observation_id, reached_at)
+VALUES ($1::uuid, $2::uuid,
+        $3::text, $4::text,
+        $5::text, $6::uuid,
+        $7::timestamptz)
+ON CONFLICT (goal_id, band) DO NOTHING
+`
+
+type InsertMilestoneParams struct {
+	GoalID          string
+	CandidateID     string
+	Band            string
+	RubricReference string
+	RubricVersion   string
+	ObservationID   string
+	ReachedAt       time.Time
+}
+
+// One band reached, once. The conflict clause is what makes recomputing a
+// goal's progress safe to run as often as anybody likes.
+func (q *Queries) InsertMilestone(ctx context.Context, arg InsertMilestoneParams) error {
+	_, err := q.db.Exec(ctx, insertMilestone,
+		arg.GoalID,
+		arg.CandidateID,
+		arg.Band,
+		arg.RubricReference,
+		arg.RubricVersion,
+		arg.ObservationID,
+		arg.ReachedAt,
+	)
+	return err
+}
+
 const insertObservation = `-- name: InsertObservation :execrows
 
 INSERT INTO progression.observations
@@ -98,6 +190,40 @@ func (q *Queries) InsertObservation(ctx context.Context, arg InsertObservationPa
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const insertPersonalRequirement = `-- name: InsertPersonalRequirement :exec
+INSERT INTO progression.personal_requirements
+    (id, candidate_id, intent, status, version, reframing, prohibited)
+VALUES ($1::uuid, $2::uuid,
+        $3::text, $4::text,
+        $5::integer, $6::text,
+        $7::text)
+ON CONFLICT (id) DO NOTHING
+`
+
+type InsertPersonalRequirementParams struct {
+	ID          string
+	CandidateID string
+	Intent      string
+	Status      string
+	Version     int32
+	Reframing   string
+	Prohibited  string
+}
+
+// Version 1 of a requirement the candidate wrote.
+func (q *Queries) InsertPersonalRequirement(ctx context.Context, arg InsertPersonalRequirementParams) error {
+	_, err := q.db.Exec(ctx, insertPersonalRequirement,
+		arg.ID,
+		arg.CandidateID,
+		arg.Intent,
+		arg.Status,
+		arg.Version,
+		arg.Reframing,
+		arg.Prohibited,
+	)
+	return err
 }
 
 const insertReadinessCompetency = `-- name: InsertReadinessCompetency :exec
@@ -202,6 +328,220 @@ func (q *Queries) InsertReadinessSnapshot(ctx context.Context, arg InsertReadine
 	return result.RowsAffected(), nil
 }
 
+const insertRequirementCriterion = `-- name: InsertRequirementCriterion :exec
+INSERT INTO progression.requirement_criteria
+    (requirement_id, candidate_id, version, criterion_id, position, statement, observable)
+VALUES ($1::uuid, $2::uuid,
+        $3::integer, $4::text,
+        $5::integer, $6::text,
+        $7::text)
+ON CONFLICT (requirement_id, version, criterion_id) DO NOTHING
+`
+
+type InsertRequirementCriterionParams struct {
+	RequirementID string
+	CandidateID   string
+	Version       int32
+	CriterionID   string
+	Position      int32
+	Statement     string
+	Observable    string
+}
+
+// One criterion of one version. Immutable once written, so a redelivery
+// converges on what is already there.
+func (q *Queries) InsertRequirementCriterion(ctx context.Context, arg InsertRequirementCriterionParams) error {
+	_, err := q.db.Exec(ctx, insertRequirementCriterion,
+		arg.RequirementID,
+		arg.CandidateID,
+		arg.Version,
+		arg.CriterionID,
+		arg.Position,
+		arg.Statement,
+		arg.Observable,
+	)
+	return err
+}
+
+const insertRequirementOutcome = `-- name: InsertRequirementOutcome :exec
+INSERT INTO progression.requirement_outcomes
+    (id, requirement_id, candidate_id, criterion_version, session_id,
+     role_id, shape_id, outcome, reason,
+     demonstrated, missing, evidence, next_actions, observed_at)
+VALUES ($1::uuid, $2::uuid,
+        $3::uuid, $4::integer,
+        $5::uuid, $6::text,
+        $7::text, $8::text,
+        $9::text, $10::text[],
+        $11::text[], $12::text[],
+        $13::text[], $14::timestamptz)
+ON CONFLICT (session_id, requirement_id) DO NOTHING
+`
+
+type InsertRequirementOutcomeParams struct {
+	ID               string
+	RequirementID    string
+	CandidateID      string
+	CriterionVersion int32
+	SessionID        string
+	RoleID           string
+	ShapeID          string
+	Outcome          string
+	Reason           string
+	Demonstrated     []string
+	Missing          []string
+	Evidence         []string
+	NextActions      []string
+	ObservedAt       time.Time
+}
+
+// One session's answer. Idempotent per (session, requirement), so a
+// redelivered projection cannot count one session twice in a metric.
+func (q *Queries) InsertRequirementOutcome(ctx context.Context, arg InsertRequirementOutcomeParams) error {
+	_, err := q.db.Exec(ctx, insertRequirementOutcome,
+		arg.ID,
+		arg.RequirementID,
+		arg.CandidateID,
+		arg.CriterionVersion,
+		arg.SessionID,
+		arg.RoleID,
+		arg.ShapeID,
+		arg.Outcome,
+		arg.Reason,
+		arg.Demonstrated,
+		arg.Missing,
+		arg.Evidence,
+		arg.NextActions,
+		arg.ObservedAt,
+	)
+	return err
+}
+
+const insertSelfReport = `-- name: InsertSelfReport :exec
+INSERT INTO progression.confidence_self_reports
+    (candidate_id, session_id, phase, rating, reported_at)
+VALUES ($1::uuid, $2::uuid,
+        $3::text, $4::smallint,
+        $5::timestamptz)
+ON CONFLICT (candidate_id, session_id, phase) DO NOTHING
+`
+
+type InsertSelfReportParams struct {
+	CandidateID string
+	SessionID   string
+	Phase       string
+	Rating      int16
+	ReportedAt  time.Time
+}
+
+// The candidate's own rating. Replacing an earlier one for the same phase
+// is a correction of their own answer, which is theirs to make.
+func (q *Queries) InsertSelfReport(ctx context.Context, arg InsertSelfReportParams) error {
+	_, err := q.db.Exec(ctx, insertSelfReport,
+		arg.CandidateID,
+		arg.SessionID,
+		arg.Phase,
+		arg.Rating,
+		arg.ReportedAt,
+	)
+	return err
+}
+
+const listGoals = `-- name: ListGoals :many
+SELECT id::text AS id, origin, origin_reference, competency_id, target_band,
+       rubric_reference, bands, status, created_at
+FROM progression.goals
+ORDER BY created_at, id
+`
+
+type ListGoalsRow struct {
+	ID              string
+	Origin          string
+	OriginReference string
+	CompetencyID    string
+	TargetBand      string
+	RubricReference string
+	Bands           []string
+	Status          string
+	CreatedAt       time.Time
+}
+
+// Every goal this candidate has, retired ones included: a retired goal is
+// part of the record of what they worked on, not a row to hide.
+func (q *Queries) ListGoals(ctx context.Context) ([]ListGoalsRow, error) {
+	rows, err := q.db.Query(ctx, listGoals)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListGoalsRow{}
+	for rows.Next() {
+		var i ListGoalsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Origin,
+			&i.OriginReference,
+			&i.CompetencyID,
+			&i.TargetBand,
+			&i.RubricReference,
+			&i.Bands,
+			&i.Status,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMilestones = `-- name: ListMilestones :many
+SELECT goal_id::text AS goal_id, band, rubric_reference, rubric_version,
+       observation_id::text AS observation_id, reached_at
+FROM progression.goal_milestones
+ORDER BY reached_at, goal_id, band
+`
+
+type ListMilestonesRow struct {
+	GoalID          string
+	Band            string
+	RubricReference string
+	RubricVersion   string
+	ObservationID   string
+	ReachedAt       time.Time
+}
+
+// Everything earned, oldest first, across every goal.
+func (q *Queries) ListMilestones(ctx context.Context) ([]ListMilestonesRow, error) {
+	rows, err := q.db.Query(ctx, listMilestones)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMilestonesRow{}
+	for rows.Next() {
+		var i ListMilestonesRow
+		if err := rows.Scan(
+			&i.GoalID,
+			&i.Band,
+			&i.RubricReference,
+			&i.RubricVersion,
+			&i.ObservationID,
+			&i.ReachedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listObservations = `-- name: ListObservations :many
 SELECT id::text AS id, session_id::text AS session_id,
        evaluation_id::text AS evaluation_id, competency_id,
@@ -273,6 +613,51 @@ func (q *Queries) ListObservations(ctx context.Context) ([]ListObservationsRow, 
 			&i.PolicyVersion,
 			&i.Supersedes,
 			&i.ObservedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPersonalRequirements = `-- name: ListPersonalRequirements :many
+SELECT id::text AS id, intent, status, version, reframing, prohibited, created_at
+FROM progression.personal_requirements
+ORDER BY created_at, id
+`
+
+type ListPersonalRequirementsRow struct {
+	ID         string
+	Intent     string
+	Status     string
+	Version    int32
+	Reframing  string
+	Prohibited string
+	CreatedAt  time.Time
+}
+
+// Every requirement this candidate has written, retired ones included.
+func (q *Queries) ListPersonalRequirements(ctx context.Context) ([]ListPersonalRequirementsRow, error) {
+	rows, err := q.db.Query(ctx, listPersonalRequirements)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPersonalRequirementsRow{}
+	for rows.Next() {
+		var i ListPersonalRequirementsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Intent,
+			&i.Status,
+			&i.Version,
+			&i.Reframing,
+			&i.Prohibited,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -366,4 +751,251 @@ func (q *Queries) ListReadiness(ctx context.Context) ([]ListReadinessRow, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+const listRequirementCriteria = `-- name: ListRequirementCriteria :many
+SELECT requirement_id::text AS requirement_id, version, criterion_id,
+       position, statement, observable
+FROM progression.requirement_criteria
+ORDER BY requirement_id, version, position, criterion_id
+`
+
+type ListRequirementCriteriaRow struct {
+	RequirementID string
+	Version       int32
+	CriterionID   string
+	Position      int32
+	Statement     string
+	Observable    string
+}
+
+// Every version's criteria, so an outcome from March can be read against
+// exactly what judged it.
+func (q *Queries) ListRequirementCriteria(ctx context.Context) ([]ListRequirementCriteriaRow, error) {
+	rows, err := q.db.Query(ctx, listRequirementCriteria)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRequirementCriteriaRow{}
+	for rows.Next() {
+		var i ListRequirementCriteriaRow
+		if err := rows.Scan(
+			&i.RequirementID,
+			&i.Version,
+			&i.CriterionID,
+			&i.Position,
+			&i.Statement,
+			&i.Observable,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequirementOutcomes = `-- name: ListRequirementOutcomes :many
+SELECT id::text AS id, requirement_id::text AS requirement_id, criterion_version,
+       session_id::text AS session_id, role_id, shape_id, outcome, reason,
+       demonstrated, missing, evidence, next_actions, observed_at
+FROM progression.requirement_outcomes
+ORDER BY observed_at, requirement_id, session_id
+`
+
+type ListRequirementOutcomesRow struct {
+	ID               string
+	RequirementID    string
+	CriterionVersion int32
+	SessionID        string
+	RoleID           string
+	ShapeID          string
+	Outcome          string
+	Reason           string
+	Demonstrated     []string
+	Missing          []string
+	Evidence         []string
+	NextActions      []string
+	ObservedAt       time.Time
+}
+
+// Everything every session said, oldest first.
+func (q *Queries) ListRequirementOutcomes(ctx context.Context) ([]ListRequirementOutcomesRow, error) {
+	rows, err := q.db.Query(ctx, listRequirementOutcomes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRequirementOutcomesRow{}
+	for rows.Next() {
+		var i ListRequirementOutcomesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RequirementID,
+			&i.CriterionVersion,
+			&i.SessionID,
+			&i.RoleID,
+			&i.ShapeID,
+			&i.Outcome,
+			&i.Reason,
+			&i.Demonstrated,
+			&i.Missing,
+			&i.Evidence,
+			&i.NextActions,
+			&i.ObservedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSelfReports = `-- name: ListSelfReports :many
+SELECT session_id::text AS session_id, phase, rating, reported_at
+FROM progression.confidence_self_reports
+ORDER BY reported_at, session_id, phase
+`
+
+type ListSelfReportsRow struct {
+	SessionID  string
+	Phase      string
+	Rating     int16
+	ReportedAt time.Time
+}
+
+// Read on its own, never joined to an observation.
+func (q *Queries) ListSelfReports(ctx context.Context) ([]ListSelfReportsRow, error) {
+	rows, err := q.db.Query(ctx, listSelfReports)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSelfReportsRow{}
+	for rows.Next() {
+		var i ListSelfReportsRow
+		if err := rows.Scan(
+			&i.SessionID,
+			&i.Phase,
+			&i.Rating,
+			&i.ReportedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const personalisationEnabled = `-- name: PersonalisationEnabled :one
+SELECT coalesce(bool_and(enabled), true)::boolean AS enabled
+FROM progression.personalisation
+`
+
+// Defaults to on when the candidate has never expressed a preference.
+func (q *Queries) PersonalisationEnabled(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, personalisationEnabled)
+	var enabled bool
+	err := row.Scan(&enabled)
+	return enabled, err
+}
+
+const reviseRequirement = `-- name: ReviseRequirement :execrows
+UPDATE progression.personal_requirements
+SET intent = $1::text,
+    version = $2::integer,
+    reframing = $3::text,
+    prohibited = $4::text
+WHERE id = $5::uuid
+`
+
+type ReviseRequirementParams struct {
+	Intent     string
+	Version    int32
+	Reframing  string
+	Prohibited string
+	ID         string
+}
+
+// The next version in use. The trigger refuses a version that falls and a
+// retired requirement coming back.
+func (q *Queries) ReviseRequirement(ctx context.Context, arg ReviseRequirementParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reviseRequirement,
+		arg.Intent,
+		arg.Version,
+		arg.Reframing,
+		arg.Prohibited,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setGoalStatus = `-- name: SetGoalStatus :execrows
+UPDATE progression.goals
+SET status = $1::text
+WHERE id = $2::uuid
+`
+
+type SetGoalStatusParams struct {
+	Status string
+	ID     string
+}
+
+// Pause, resume or retire. The trigger refuses everything else about a
+// goal changing, and refuses a retired goal coming back.
+func (q *Queries) SetGoalStatus(ctx context.Context, arg SetGoalStatusParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setGoalStatus, arg.Status, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setPersonalisation = `-- name: SetPersonalisation :exec
+INSERT INTO progression.personalisation (candidate_id, enabled)
+VALUES ($1::uuid, $2::boolean)
+ON CONFLICT (candidate_id) DO UPDATE
+SET enabled = EXCLUDED.enabled, updated_at = now()
+`
+
+type SetPersonalisationParams struct {
+	CandidateID string
+	Enabled     bool
+}
+
+// The candidate's switch. Absent means the default, which is on.
+func (q *Queries) SetPersonalisation(ctx context.Context, arg SetPersonalisationParams) error {
+	_, err := q.db.Exec(ctx, setPersonalisation, arg.CandidateID, arg.Enabled)
+	return err
+}
+
+const setRequirementStatus = `-- name: SetRequirementStatus :execrows
+UPDATE progression.personal_requirements
+SET status = $1::text
+WHERE id = $2::uuid
+`
+
+type SetRequirementStatusParams struct {
+	Status string
+	ID     string
+}
+
+func (q *Queries) SetRequirementStatus(ctx context.Context, arg SetRequirementStatusParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setRequirementStatus, arg.Status, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

@@ -133,27 +133,8 @@ func (s *Store) History(ctx context.Context, owner Owner) ([]Observation, error)
 	if err := scope(ctx, tx, owner); err != nil {
 		return nil, err
 	}
-	rows, err := db.New(tx).ListObservations(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("progression: listing history: %w", err)
-	}
-	observations := make([]Observation, 0, len(rows))
-	for _, row := range rows {
-		observations = append(observations, Observation{
-			ID: row.ID, SessionID: row.SessionID, EvaluationID: row.EvaluationID,
-			CompetencyID: row.CompetencyID,
-			Status:       row.Status, Band: row.Band, Confidence: row.Confidence,
-			EvidenceCount: int(row.EvidenceCount),
-			Supporting:    int(row.Supporting), Contradictory: int(row.Contradictory),
-			Unverified: int(row.Unverified), Gaps: int(row.Gaps),
-			RubricReference: row.RubricReference, RubricVersion: row.RubricVersion,
-			RubricDigest:       row.RubricDigest,
-			AggregationVersion: row.AggregationVersion,
-			ExtractionVersion:  row.ExtractionVersion,
-			ModelVersion:       row.ModelVersion, PolicyVersion: row.PolicyVersion,
-			Supersedes: row.Supersedes,
-			ObservedAt: row.ObservedAt,
-		})
-	}
-	return observations, nil
+	// Shared with goal tracking and cadence, which read the same history
+	// inside their own transaction: two readers of one table should not be
+	// two mappings of one row.
+	return historyOf(ctx, db.New(tx))
 }

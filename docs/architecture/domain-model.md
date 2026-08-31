@@ -10,13 +10,13 @@
 |---|---|---|
 | Identity | User, LoginSession, ServiceIdentity | Go identity |
 | Tenancy | Tenant, Membership, RoleBinding, TenantPolicy | Go tenancy |
-| Candidate | CandidateProfile, Document, Consent, Goal, PersonalRequirement | Go candidate |
+| Candidate | CandidateProfile, Document, Consent | Go candidate |
 | Content | Artifact, Publication, Calibration | Go publication control; Python validates content |
 | Interview | Invitation, Session, SessionBundle, Transcript | Go interview |
 | Media | Upload, MediaManifest | Go media |
 | Evaluation | Evaluation, TurnEvaluation, ArticulationResult, Observation, RequirementObservation | Go persistence; Python produces result |
 | Recruiting | Campaign, ReviewCase, Decision, Appeal | Go recruiting |
-| Progression | CompetencyHistory, ReadinessSnapshot | Go projection |
+| Progression | CompetencyHistory, ReadinessSnapshot, Goal, PersonalRequirement | Go projection |
 | Billing | Entitlement, UsageEntry, Quota | Go billing |
 | Integration | Endpoint, DeliveryAttempt, Credential | Go integration |
 | Audit | AuditEvent, PrivilegedGrant | Go audit |
@@ -68,11 +68,14 @@ Membership connects one identity to a tenant. Role bindings attach capabilities 
 - Extracted facts retain source, confidence, extractor version, and correction history.
 - Tenant screening references a candidate without absorbing private practice data.
 
-Child records include documents, extracted facts, target roles, goals, personal requirements,
-accessibility preferences voluntarily stored, private evidence, and purpose-partitioned
-competency/articulation projections. A personal requirement is candidate-owned, has lifecycle state, and
-resolves candidate-authored intent into immutable versioned observable criteria. Prohibited inference
-requests cannot become criteria.
+Child records include documents, extracted facts, target roles, accessibility preferences voluntarily
+stored, and private evidence.
+
+Goals and personal requirements are candidate-owned and live in Progression rather than here, per
+[ADR-0021](decisions/0021-goals-and-personal-requirements-live-in-progression.md): both are computed
+from the observation history and neither can be read without it. A personal requirement is
+candidate-owned, has lifecycle state, and resolves candidate-authored intent into immutable versioned
+observable criteria. Prohibited inference requests cannot become criteria.
 
 ### Consent
 
@@ -130,6 +133,13 @@ pinned standard. Unknown is not zero; incomparable roles, formats, rubrics, or c
 Personalized recommendations cite the observations that caused them and are removable with the
 candidate's private practice history. Self-reported confidence is stored separately from evaluated
 observations and is never inferred.
+
+Goals and personal requirements are aggregate roots here, per
+[ADR-0021](decisions/0021-goals-and-personal-requirements-live-in-progression.md). A goal pins the band
+scale and rubric reference it is measured against, and its milestones are append-only and name the
+observation and rubric version that earned them, so a rubric change does not reset a goal or take away
+what a candidate already did. Practice cadence is derived from the observation history rather than
+stored: there is no streak column and no missed count, because streaks must not become punitive.
 
 ### Usage, integration, and audit
 

@@ -35,6 +35,29 @@ on:
     branches: [main]
   pull_request:
 
+# Duration budgets, per job, enforced rather than aspirational.
+#
+# PLT-02's third criterion is that the pipeline is fast enough that nobody
+# routes around it. Today it is: the jobs run in parallel, so wall clock is the
+# slowest of them, and across four consecutive green runs that was the Go job at
+# 238 seconds. The whole pipeline answers in about four minutes.
+#
+# A measurement decays the moment it is written down, so each job carries a
+# ceiling at roughly three times its worst observed run. Wide enough that runner
+# variance does not fail a good change, tight enough that a job which has
+# quietly tripled fails instead of costing everyone the difference in silence.
+# Raising one of these numbers should take an argument, which is the point.
+#
+# Worst of four green runs, in seconds: Go 238, Contracts 178, browser 156,
+# web 124, audit 71, migrations 55, Python 42, docs 8.
+#
+# The Go job's ceiling sits deliberately above `go test`'s own timeout, which
+# make cover-go sets to ten minutes. Whichever fires first decides what a hang
+# looks like, and Go's own timeout prints every goroutine's stack while the
+# runner's kills the job with nothing to read. The ceiling is the backstop for a
+# hang outside the test binary, such as a dependency download that never
+# returns.
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -43,6 +66,7 @@ jobs:
   go:
     name: Go control plane
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     # No working-directory default any more: every step is a make target invoked
     # from the root, which is how an engineer invokes them.
     steps:
@@ -92,6 +116,7 @@ jobs:
   migrations:
     name: Migrations
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -104,6 +129,7 @@ jobs:
   contracts:
     name: Contracts
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -150,6 +176,7 @@ jobs:
   python:
     name: Python intelligence
     runs-on: ubuntu-latest
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -169,6 +196,7 @@ jobs:
   web:
     name: Web application
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -192,6 +220,7 @@ jobs:
   browser:
     name: Web application in a browser
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # The image Playwright's own baselines were generated in. Running the
     # browser from the runner's own packages instead would render text
     # differently from the committed screenshots, and every appearance test
@@ -230,6 +259,7 @@ jobs:
   security:
     name: Dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -251,9 +281,49 @@ jobs:
       - name: Vulnerabilities in what we ship
         run: make audit
 
+  images:
+    name: Container images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # Inputs first, because a build that succeeds from a moving tag has
+      # proved nothing about what it will produce tomorrow.
+      - name: Every base image is pinned by digest
+        run: make check-images
+      # Then that the Dockerfiles actually build. They were written against
+      # three real builds rather than from memory, and this is what keeps them
+      # true: a change to go.mod or uv.lock that breaks the image otherwise
+      # surfaces at deploy time.
+      - name: Build every deployable image
+        run: make build-images
+      # The compiled binary is byte-identical across independent builds, which
+      # is what makes its digest mean anything. Proven rather than asserted:
+      # built twice with no cache and compared. The image id still differs
+      # between runs because the image config carries a build timestamp, so
+      # this checks the artifact rather than the wrapper, and says so.
+      - name: The Go binary is reproducible
+        run: |
+          set -eu
+          for run in 1 2; do
+            docker build -q -f services/platform/Dockerfile --build-arg COMMAND=api \
+              --no-cache -t prepeet-repro:$run . >/dev/null
+            container=$(docker create prepeet-repro:$run)
+            docker cp "$container:/service" "/tmp/service-$run" >/dev/null
+            docker rm "$container" >/dev/null
+          done
+          first=$(sha256sum /tmp/service-1 | cut -d' ' -f1)
+          second=$(sha256sum /tmp/service-2 | cut -d' ' -f1)
+          if [ "$first" != "$second" ]; then
+            echo "the same source produced two different binaries: $first and $second" >&2
+            exit 1
+          fi
+          echo "PASS the binary is reproducible: $first"
+
   docs:
     name: Documentation links
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       # The check is tools/docs/links.sh. It was written out in this file, so

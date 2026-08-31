@@ -52,7 +52,42 @@ check, dependency audit and container scan, on every change.
 **Done when**
 - [x] Pipeline fails on contract drift, forbidden imports, or a failing migration.
 - [ ] Build artifacts are immutable and digest-addressed.
-- [ ] Pipeline duration is fast enough that engineers do not route around it.
+- [x] Pipeline duration is fast enough that engineers do not route around it.
+
+**Duration is ticked on a measurement that is now enforced.** The jobs run in parallel, so wall clock
+is the slowest of them, and across four consecutive green runs that was the Go job at 238 seconds. The
+whole pipeline answers in about four minutes, which nobody routes around.
+
+A measurement decays the moment it is written down, so every job carries a `timeout-minutes` at
+roughly three times its worst observed run: wide enough that runner variance does not fail a good
+change, tight enough that a job which has quietly tripled fails instead of costing everyone the
+difference in silence. Raising one should take an argument, which is the point of writing the observed
+numbers into the file beside them.
+
+`make cover-go`'s own `go test` timeout was lowered from twenty minutes to ten so it fires before the
+job ceiling. Whichever fires first decides what a hang looks like, and Go's timeout prints every
+goroutine's stack while the runner's kills the job with nothing to read. That distinction cost real
+time earlier in this work.
+
+**Artifacts are not ticked, and the gap is specific.** There were no Dockerfiles at all. There are
+three deployables now, built from two files, and all three were built and run rather than written from
+memory: the Go binaries answer and refuse on missing configuration, and the Python image logs
+`intelligence serving`.
+
+Immutability starts at the inputs, and that part is done and gated. Every base image is pinned by
+digest, `make check-images` fails on a tag, and it fails when it checked nothing, for the reason the
+documentation link checker does. Writing that gate immediately found one image pinned to a version but
+not a digest, which is exactly the line that gets edited in a hurry.
+
+The compiled Go binary is reproducible: two independent no-cache builds produce byte-identical output,
+which CI now proves rather than assumes. That is what makes a digest mean anything.
+
+What is missing is the rest of the phrase. The **image** is not bit-reproducible, because the image
+config carries a build timestamp, and making it so needs buildx's timestamp rewriting rather than an
+environment variable. And nothing is **promoted by digest**, because that needs a registry: ADR-0001
+settles ECS on Fargate and deployment-topology.md asks for images promoted by digest with provenance,
+and neither the registry nor its credentials exist yet. Building an image and pushing one are different
+problems, and this ticket has only solved the first.
 
 **One of three, and the first was already true.** Contract drift fails in the contracts job:
 `make check-generated` regenerates everything from the contracts and fails on a diff, which is what

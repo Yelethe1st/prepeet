@@ -176,7 +176,7 @@ cover: cover-go cover-py cover-web ## Run every suite and enforce the coverage f
 # own container, SEC-02's adversarial suite in internal/isolation added another,
 # and a timeout that trips is a build failure that looks like a broken test.
 cover-go:
-	cd $(GO_DIR) && go test -tags integration -race -timeout 20m -coverprofile=coverage.out -covermode=atomic $(GO_COVER_PKGS)
+	cd $(GO_DIR) && go test -tags integration -race -timeout 10m -coverprofile=coverage.out -covermode=atomic $(GO_COVER_PKGS)
 	@cd $(GO_DIR) && total=$$(../../tools/coverage/handwritten.sh coverage.out) \
 		&& ../../tools/coverage/check.sh go "$$total" $(GO_COVERAGE_MIN)
 
@@ -211,6 +211,23 @@ check-migrations: ## Apply every migration to an empty database and check what i
 	@# ten minutes later. It also holds the idempotency, edited-migration and
 	@# row-level security tests from PLT-03, which are the same run.
 	cd $(GO_DIR) && go test -tags integration -count=1 -timeout 10m ./platform/database/...
+
+.PHONY: check-images
+check-images: ## Every container base image is pinned by digest
+	./tools/images/pinned.sh
+
+.PHONY: build-images
+build-images: ## Build every deployable image, reporting each digest
+	@set -eu; \
+	for target in api worker; do \
+		printf 'building %s\n' "$$target"; \
+		docker build -q -f services/platform/Dockerfile \
+			--build-arg COMMAND="$$target" -t prepeet-$$target:local . ; \
+	done; \
+	printf 'building intelligence\n'; \
+	docker build -q -f services/intelligence/Dockerfile -t prepeet-intelligence:local . ; \
+	docker images --no-trunc --format '{{.Repository}}:{{.Tag}} {{.ID}}' \
+		| grep -E '^prepeet-(api|worker|intelligence):local '
 
 .PHONY: check-docs
 check-docs: ## Fail if an internal documentation link does not resolve

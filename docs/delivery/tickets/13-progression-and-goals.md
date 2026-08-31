@@ -173,11 +173,22 @@ straight into a session that targets it.
 - [ ] Stale evidence is visibly stale rather than silently counted as current.
 - [ ] Charts carry text summaries and table alternatives.
 
-**Not started, and deliberately not half started.** All three boxes are about screens, and no screen
-was built. The web app types every feature from `@contracts`, and the OpenAPI document declares no
-progression endpoint at all: not readiness, not goals, not skills. Adding one means editing
-`packages/contracts`, which was outside this change. Building the screens against locally declared
-types instead would break ADR-0004's rule that the contract is the source, and would leave three
+**Still not started, but no longer blocked.** All three boxes are about screens and no screen exists
+yet. What has changed is the reason: the contract now declares `GET /me/progression/skills` and
+`GET /me/progression/readiness`, both served, so the screens can be typed from `@contracts` as
+ADR-0004 requires rather than against locally invented types.
+
+The endpoints were shaped around these three criteria rather than around the store. `skills` returns
+every reading behind a competency with its date and rubric version, which is what box one means by
+expandable. Freshness is served rather than computed in the browser, because a screen that works out
+staleness itself is a screen that can stop working it out, and box two is precisely that a stale
+reading must not be silently counted as current. A never-observed competency comes back with standing
+`none` and no band field at all, so it cannot be rendered as a poor answer.
+
+Box three, charts with text summaries and table alternatives, is untouched and is A11Y work as much
+as progression work.
+
+What the original note said, and which stands as the reason this waited:
 ticked boxes above a screen with nothing behind it.
 
 What exists is the reading the screens would render. `progression.Freshness` classifies a reading as

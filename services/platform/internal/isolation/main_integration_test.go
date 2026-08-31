@@ -216,6 +216,7 @@ func newServer() (http.Handler, error) {
 		Catalog:     undriven{},
 		Interviews:  undriven{},
 		Billing:     undriven{},
+		Progression: undriven{},
 		Environment: config.EnvironmentLocal,
 	})
 }
@@ -232,6 +233,13 @@ type undriven struct {
 	api.Catalog
 	api.Interviews
 	api.TenantBilling
+	// Embedded rather than driven, like the rest: these attacks travel through
+	// session resolution and capability decision, and a nil method here would
+	// only be reached by a request that had already got past both. The
+	// progression read paths are owner-scoped and belong in a candidate-facing
+	// attack the way the practice tables already are, which this suite does not
+	// yet have and its note says so.
+	api.Progression
 }
 
 // liveIdentity presents the identity context as the port the API declared,

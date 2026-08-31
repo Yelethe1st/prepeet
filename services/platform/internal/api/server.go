@@ -33,7 +33,9 @@ type ServerConfig struct {
 	// Members serves workspace member administration.
 	Members TenantMembers
 	// Billing serves the usage and quota reads.
-	Billing     TenantBilling
+	Billing TenantBilling
+	// Progression serves the candidate's own competency history.
+	Progression Progression
 	Environment config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
@@ -79,6 +81,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Billing == nil {
 		return nil, errors.New("api: a TenantBilling is required")
 	}
+	if cfg.Progression == nil {
+		return nil, errors.New("api: a Progression is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -115,6 +120,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	handlers.billingHandlers = billingHandlers{
 		authentication: &handlers.authentication,
 		ledger:         cfg.Billing,
+	}
+	handlers.progression = progression{
+		authentication: &handlers.authentication,
+		history:        cfg.Progression,
 	}
 
 	// What each operation requires, read from the contract rather than named
@@ -196,6 +205,7 @@ type server struct {
 	interviews
 	members
 	billingHandlers
+	progression
 	health *health.Registry
 }
 

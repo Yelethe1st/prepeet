@@ -28,6 +28,7 @@ func serveDocuments(t *testing.T, documents *fakeDocuments) http.Handler {
 		Interviews:  &fakeInterviews{},
 		Members:     &fakeMembers{},
 		Billing:     &fakeBilling{},
+		Progression: &stubProgression{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

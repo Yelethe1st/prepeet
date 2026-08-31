@@ -60,6 +60,8 @@ tags:
     description: Interview sessions - creation from a validated catalogue selection; the lifecycle endpoints arrive with the session tickets.
   - name: tenant
     description: Workspace administration - members and roles. Every operation is decided by the capability catalogue, tenant-scoped, and audited.
+  - name: progression
+    description: A candidate's own competency history over time - readiness against a pinned role standard, and how current the evidence behind each reading is. Owner-scoped, like the practice data it is derived from.
   - name: internal
     description: The platform's own automation speaking to itself - the voice agent writing the transcript it is the source of. A deployment service token, never a person's session (ADR-0019).
 
@@ -1592,6 +1594,63 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /me/progression/skills:
+    get:
+      tags: [progression]
+      operationId: getMySkills
+      x-prepeet-capability: candidate.practice.read_own
+      summary: The caller's competencies, each with the evidence and its age
+      description: |
+        Every competency the caller has been observed on, with the readings
+        behind it and how current each one is. Freshness is served rather
+        than left to the browser to work out, because "solid" from six
+        months ago and "solid" from last week are different claims and a
+        screen that computes the difference itself is a screen that can stop
+        computing it.
+
+        A competency never observed is returned with standing `none` rather
+        than omitted or scored zero. Never measured and measured badly are
+        different facts about a candidate, and collapsing them would make an
+        unasked question look like a failed one.
+      responses:
+        "200":
+          description: One entry per competency, ordered by discipline then role.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillHistory"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /me/progression/readiness:
+    get:
+      tags: [progression]
+      operationId: getMyReadiness
+      x-prepeet-capability: candidate.practice.read_own
+      summary: Readiness per role, each against the standard that judged it
+      description: |
+        One readiness per role, and never a figure across roles. Each names
+        the role standard, its version and its digest, because a readiness
+        that cannot say what judged it cannot be audited or reproduced.
+
+        Roles are returned as a list rather than reduced to a number on
+        purpose: a backend engineer's readiness and a nurse's are not
+        comparable quantities, and there is deliberately no field anywhere
+        in this response that could hold an average of them.
+      responses:
+        "200":
+          description: One entry per role, ordered by discipline then role.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessByRole"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
   /me/delivery-baseline:
     get:
       tags: [interview]
@@ -2364,6 +2423,111 @@ components:
           type: array
           items: { type: string }
         created_at: { type: string, format: date-time }
+
+    SkillHistory:
+      type: object
+      required: [competencies]
+      properties:
+        competencies:
+          type: array
+          items: { $ref: "#/components/schemas/SkillStanding" }
+
+    SkillStanding:
+      type: object
+      required: [competency_id, name, discipline, role, standing, evidence]
+      properties:
+        competency_id: { type: string }
+        name: { type: string }
+        discipline: { type: string }
+        role: { type: string }
+        standing:
+          $ref: "#/components/schemas/EvidenceStanding"
+        band:
+          type: string
+          description: |
+            Absent when the standing is `none`. A competency with no observation
+            has no band rather than a low one, and the field is omitted rather
+            than empty so a screen cannot render an unasked question as a poor
+            answer.
+        evidence:
+          type: array
+          description: |
+            The readings behind the standing, newest first. Empty when the
+            standing is `none`.
+          items: { $ref: "#/components/schemas/SkillEvidence" }
+
+    SkillEvidence:
+      type: object
+      required: [observed_at, age_days, standing, band, rubric_reference, rubric_version]
+      properties:
+        observed_at: { type: string, format: date-time }
+        age_days: { type: integer }
+        standing:
+          $ref: "#/components/schemas/EvidenceStanding"
+        band: { type: string }
+        rubric_reference: { type: string }
+        rubric_version: { type: string }
+
+    EvidenceStanding:
+      type: string
+      enum: [fresh, aging, stale, none]
+      description: |
+        How current a reading is. `none` means never observed, kept distinct
+        from `stale` because never measured and measured long ago are
+        different facts about a candidate.
+
+    ReadinessByRole:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          description: |
+            A list, never reduced. Two roles are two answers, and nothing in
+            this schema can hold a figure spanning them.
+          items: { $ref: "#/components/schemas/RoleReadiness" }
+
+    RoleReadiness:
+      type: object
+      required:
+        [role, discipline, standard_reference, standard_version,
+         standard_digest, computed_at, assessed, unassessed]
+      properties:
+        role: { type: string }
+        discipline: { type: string }
+        standard_reference: { type: string }
+        standard_version: { type: string }
+        standard_digest: { type: string }
+        computed_at: { type: string, format: date-time }
+        assessed:
+          type: array
+          description: Competencies with an observation behind them.
+          items: { $ref: "#/components/schemas/AssessedCompetency" }
+        unassessed:
+          type: array
+          description: |
+            Competencies the standard names that have never been observed. A
+            separate list rather than a band of zero, and its item type has no
+            band field at all, so a later change cannot start reporting an
+            unasked question as a scored answer.
+          items: { $ref: "#/components/schemas/UnassessedCompetency" }
+
+    AssessedCompetency:
+      type: object
+      required: [competency_id, name, band, standing]
+      properties:
+        competency_id: { type: string }
+        name: { type: string }
+        band: { type: string }
+        standing:
+          $ref: "#/components/schemas/EvidenceStanding"
+
+    UnassessedCompetency:
+      type: object
+      required: [competency_id, name]
+      properties:
+        competency_id: { type: string }
+        name: { type: string }
 
     DeliveryBaseline:
       type: object

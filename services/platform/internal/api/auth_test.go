@@ -260,6 +260,7 @@ func serveWith(t *testing.T, identity api.Identity, candidates api.CandidateProf
 		Interviews:  &fakeInterviews{},
 		Members:     &fakeMembers{},
 		Billing:     &fakeBilling{},
+		Progression: &stubProgression{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -278,6 +279,7 @@ func serveWithLimiter(t *testing.T, identity api.Identity, limiter api.Limiter) 
 		Interviews:         &fakeInterviews{},
 		Members:            &fakeMembers{},
 		Billing:            &fakeBilling{},
+		Progression:        &stubProgression{},
 		AttemptsPerAddress: limiter,
 		AttemptsPerNetwork: limiter,
 		Environment:        config.EnvironmentLocal,
@@ -299,6 +301,7 @@ func serveIn(t *testing.T, identity api.Identity, environment config.Environment
 		Interviews:  &fakeInterviews{},
 		Members:     &fakeMembers{},
 		Billing:     &fakeBilling{},
+		Progression: &stubProgression{},
 		Environment: environment,
 	})
 	if err != nil {

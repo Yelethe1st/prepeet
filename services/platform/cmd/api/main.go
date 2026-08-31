@@ -28,6 +28,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/progression"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
@@ -151,11 +152,12 @@ func main() {
 			// empty and the sign-in screen shows email and password alone,
 			// which is what a deployment without OAuth should look like.
 			WithOAuth(identity.NewRepository(pool), oauthProviders(cfg))},
-		Candidates: candidates,
-		Documents:  candidates,
-		Catalog:    newCatalogAdapter(content.NewStore(pool)),
-		Members:    membersAdapter{members: identity.NewMembers(identity.NewRepository(pool))},
-		Billing:    billingAdapter{ledger: billing.NewLedger(pool)},
+		Candidates:  candidates,
+		Documents:   candidates,
+		Catalog:     newCatalogAdapter(content.NewStore(pool)),
+		Members:     membersAdapter{members: identity.NewMembers(identity.NewRepository(pool))},
+		Billing:     billingAdapter{ledger: billing.NewLedger(pool)},
+		Progression: newProgressionAdapter(progression.NewStore(pool)),
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

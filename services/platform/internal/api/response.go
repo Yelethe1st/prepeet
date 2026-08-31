@@ -194,6 +194,8 @@ func (f failure) VisitConfirmEmailVerificationResponse(w http.ResponseWriter) er
 func (f failure) VisitConfirmPasswordResetResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitConsumeMagicLinkResponse(w http.ResponseWriter) error     { return f.write(w) }
 func (f failure) VisitConsumeOTPResponse(w http.ResponseWriter) error           { return f.write(w) }
+func (f failure) VisitGetMySkillsResponse(w http.ResponseWriter) error          { return f.write(w) }
+func (f failure) VisitGetMyReadinessResponse(w http.ResponseWriter) error       { return f.write(w) }
 
 // Compile-time proof that the hand-written responses satisfy the generated
 // interfaces. Without these, a contract change that altered a Visit signature

@@ -1069,6 +1069,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/progression/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's competencies, each with the evidence and its age
+         * @description Every competency the caller has been observed on, with the readings
+         *     behind it and how current each one is. Freshness is served rather
+         *     than left to the browser to work out, because "solid" from six
+         *     months ago and "solid" from last week are different claims and a
+         *     screen that computes the difference itself is a screen that can stop
+         *     computing it.
+         *
+         *     A competency never observed is returned with standing `none` rather
+         *     than omitted or scored zero. Never measured and measured badly are
+         *     different facts about a candidate, and collapsing them would make an
+         *     unasked question look like a failed one.
+         */
+        get: operations["getMySkills"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/progression/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness per role, each against the standard that judged it
+         * @description One readiness per role, and never a figure across roles. Each names
+         *     the role standard, its version and its digest, because a readiness
+         *     that cannot say what judged it cannot be audited or reproduced.
+         *
+         *     Roles are returned as a list rather than reduced to a number on
+         *     purpose: a backend engineer's readiness and a nurse's are not
+         *     comparable quantities, and there is deliberately no field anywhere
+         *     in this response that could hold an average of them.
+         */
+        get: operations["getMyReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/delivery-baseline": {
         parameters: {
             query?: never;
@@ -1474,6 +1531,79 @@ export interface components {
             warnings: string[];
             /** Format: date-time */
             created_at: string;
+        };
+        SkillHistory: {
+            competencies: components["schemas"]["SkillStanding"][];
+        };
+        SkillStanding: {
+            competency_id: string;
+            name: string;
+            discipline: string;
+            role: string;
+            standing: components["schemas"]["EvidenceStanding"];
+            /**
+             * @description Absent when the standing is `none`. A competency with no observation
+             *     has no band rather than a low one, and the field is omitted rather
+             *     than empty so a screen cannot render an unasked question as a poor
+             *     answer.
+             */
+            band?: string;
+            /**
+             * @description The readings behind the standing, newest first. Empty when the
+             *     standing is `none`.
+             */
+            evidence: components["schemas"]["SkillEvidence"][];
+        };
+        SkillEvidence: {
+            /** Format: date-time */
+            observed_at: string;
+            age_days: number;
+            standing: components["schemas"]["EvidenceStanding"];
+            band: string;
+            rubric_reference: string;
+            rubric_version: string;
+        };
+        /**
+         * @description How current a reading is. `none` means never observed, kept distinct
+         *     from `stale` because never measured and measured long ago are
+         *     different facts about a candidate.
+         * @enum {string}
+         */
+        EvidenceStanding: "fresh" | "aging" | "stale" | "none";
+        ReadinessByRole: {
+            /**
+             * @description A list, never reduced. Two roles are two answers, and nothing in
+             *     this schema can hold a figure spanning them.
+             */
+            roles: components["schemas"]["RoleReadiness"][];
+        };
+        RoleReadiness: {
+            role: string;
+            discipline: string;
+            standard_reference: string;
+            standard_version: string;
+            standard_digest: string;
+            /** Format: date-time */
+            computed_at: string;
+            /** @description Competencies with an observation behind them. */
+            assessed: components["schemas"]["AssessedCompetency"][];
+            /**
+             * @description Competencies the standard names that have never been observed. A
+             *     separate list rather than a band of zero, and its item type has no
+             *     band field at all, so a later change cannot start reporting an
+             *     unasked question as a scored answer.
+             */
+            unassessed: components["schemas"]["UnassessedCompetency"][];
+        };
+        AssessedCompetency: {
+            competency_id: string;
+            name: string;
+            band: string;
+            standing: components["schemas"]["EvidenceStanding"];
+        };
+        UnassessedCompetency: {
+            competency_id: string;
+            name: string;
         };
         DeliveryBaseline: {
             baseline_version: string;
@@ -3717,6 +3847,50 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    getMySkills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One entry per competency, ordered by discipline then role. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillHistory"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    getMyReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One entry per role, ordered by discipline then role. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessByRole"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
         };
     };
     getDeliveryBaseline: {

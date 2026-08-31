@@ -35,6 +35,7 @@ from prepeet_ai.composition import composer
 from prepeet_ai.evaluation import service as evidence
 from prepeet_ai.extraction import service as extraction
 from prepeet_ai.transport.envelope import Failure, FailureCode, FailureError
+from prepeet_ai.transport.tracing import tracing_interceptor
 
 logger = logging.getLogger(__name__)
 
@@ -394,7 +395,13 @@ def serve(port: int, tls: TLSConfig | None = None) -> tuple[grpc.Server, int]:
     the failure worth catching is a deployment that meant to be encrypted and
     silently was not.
     """
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
+    # The interceptor joins each call to the trace the Go worker sent, so the
+    # work this plane does appears under the request that caused it rather than
+    # as an unattached island. PLT-08.
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=8),
+        interceptors=[tracing_interceptor()],
+    )
     intelligence_pb2_grpc.add_IntelligenceServiceServicer_to_server(IntelligenceService(), server)
     if tls is not None and tls.enabled:
         bound = server.add_secure_port(f"[::]:{port}", tls.read())

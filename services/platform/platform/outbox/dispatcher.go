@@ -233,6 +233,13 @@ func (d *Dispatcher) drain(ctx context.Context) (int, error) {
 func (d *Dispatcher) deliver(ctx context.Context, event Pending) {
 	log := d.opts.Logger
 
+	// Rejoin the trace the event was published in, before the span is started,
+	// so the delivery is a child of the request that caused it rather than the
+	// root of a second trace nobody can connect to the first. An event with no
+	// carried context starts its own trace, which is the honest answer for
+	// work that had no request behind it.
+	ctx = ContextFromTrace(ctx, event.Trace)
+
 	ctx, span := telemetry.Tracer("platform/outbox").Start(ctx, "outbox.deliver")
 	defer span.End()
 	span.SetAttributes(

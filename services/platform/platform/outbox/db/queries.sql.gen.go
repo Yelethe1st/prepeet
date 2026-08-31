@@ -17,6 +17,8 @@ SELECT id::text AS id, event_type, schema_version,
        coalesce(purpose, '')::text AS purpose,
        coalesce(correlation_id, '')::text AS correlation_id,
        coalesce(causation_id, '')::text AS causation_id,
+       coalesce(trace_parent, '')::text AS trace_parent,
+       coalesce(trace_state, '')::text AS trace_state,
        payload, attempts
 FROM integration.outbox
 WHERE published_at IS NULL
@@ -39,6 +41,8 @@ type ClaimRow struct {
 	Purpose       string
 	CorrelationID string
 	CausationID   string
+	TraceParent   string
+	TraceState    string
 	Payload       []byte
 	Attempts      int32
 }
@@ -73,6 +77,8 @@ func (q *Queries) Claim(ctx context.Context, limit int32) ([]ClaimRow, error) {
 			&i.Purpose,
 			&i.CorrelationID,
 			&i.CausationID,
+			&i.TraceParent,
+			&i.TraceState,
 			&i.Payload,
 			&i.Attempts,
 		); err != nil {
@@ -151,12 +157,16 @@ const insertEvent = `-- name: InsertEvent :exec
 
 INSERT INTO integration.outbox
     (id, event_type, schema_version, tenant_id, occurred_at, producer,
-     actor_type, actor_id, purpose, correlation_id, causation_id, payload)
+     actor_type, actor_id, purpose, correlation_id, causation_id, payload,
+     trace_parent, trace_state)
 VALUES ($1::uuid, $2::text, $3::text,
         nullif($4::text, '')::uuid, $5::timestamptz,
         $6::text, $7::text, $8::text,
         nullif($9::text, ''), nullif($10::text, ''),
-        nullif($11::text, ''), $12::jsonb)
+        nullif($11::text, ''), $12::jsonb,
+        -- Null rather than empty: published outside a trace is a real state,
+        -- and a zero-valued traceparent would point at a trace nobody can find.
+        nullif($13::text, ''), nullif($14::text, ''))
 `
 
 type InsertEventParams struct {
@@ -172,6 +182,8 @@ type InsertEventParams struct {
 	CorrelationID string
 	CausationID   string
 	Payload       []byte
+	TraceParent   string
+	TraceState    string
 }
 
 // The outbox's queries. sqlc generates the Go in this directory from this file;
@@ -193,6 +205,8 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) error 
 		arg.CorrelationID,
 		arg.CausationID,
 		arg.Payload,
+		arg.TraceParent,
+		arg.TraceState,
 	)
 	return err
 }

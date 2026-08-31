@@ -7,12 +7,16 @@
 -- neither does.
 INSERT INTO integration.outbox
     (id, event_type, schema_version, tenant_id, occurred_at, producer,
-     actor_type, actor_id, purpose, correlation_id, causation_id, payload)
+     actor_type, actor_id, purpose, correlation_id, causation_id, payload,
+     trace_parent, trace_state)
 VALUES (sqlc.arg(id)::uuid, sqlc.arg(event_type)::text, sqlc.arg(schema_version)::text,
         nullif(sqlc.arg(tenant_id)::text, '')::uuid, sqlc.arg(occurred_at)::timestamptz,
         sqlc.arg(producer)::text, sqlc.arg(actor_type)::text, sqlc.arg(actor_id)::text,
         nullif(sqlc.arg(purpose)::text, ''), nullif(sqlc.arg(correlation_id)::text, ''),
-        nullif(sqlc.arg(causation_id)::text, ''), sqlc.arg(payload)::jsonb);
+        nullif(sqlc.arg(causation_id)::text, ''), sqlc.arg(payload)::jsonb,
+        -- Null rather than empty: published outside a trace is a real state,
+        -- and a zero-valued traceparent would point at a trace nobody can find.
+        nullif(sqlc.arg(trace_parent)::text, ''), nullif(sqlc.arg(trace_state)::text, ''));
 
 -- name: Claim :many
 -- FOR UPDATE SKIP LOCKED is what makes more than one dispatcher safe. Without
@@ -30,6 +34,8 @@ SELECT id::text AS id, event_type, schema_version,
        coalesce(purpose, '')::text AS purpose,
        coalesce(correlation_id, '')::text AS correlation_id,
        coalesce(causation_id, '')::text AS causation_id,
+       coalesce(trace_parent, '')::text AS trace_parent,
+       coalesce(trace_state, '')::text AS trace_state,
        payload, attempts
 FROM integration.outbox
 WHERE published_at IS NULL

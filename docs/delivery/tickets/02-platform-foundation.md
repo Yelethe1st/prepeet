@@ -290,6 +290,45 @@ carry correlation without carrying transcript content.
 - [x] Telemetry conventions are documented and shared across the three languages.
 - [x] SEC-08's restricted-content scanner passes against real telemetry output.
 
+**Three of the four breaks are closed. The box stays open because the browser is still one of them.**
+
+The journey broke in four places, and three were where the work actually happens.
+
+The **queue** was the first. A request that publishes an event and the worker that later delivers it
+are one piece of work to everybody except the tracing system, which saw two: the trace ended at the
+HTTP response and an unrelated one began when the dispatcher picked the row up. Migration 0054 carries
+W3C trace context on the row, captured from the publisher's context rather than passed as a parameter,
+so a caller cannot forget it. Delivery rejoins before its span starts, so it is a child of the request
+rather than the root of a second trace.
+
+The **language boundary** was the widest. The gRPC client sent no trace context at all, so extraction,
+evidence and articulation, which are the slowest work in the product, could not be connected to the
+request that caused them. The client injects it now and the Python server continues it.
+
+The **Python plane** had no OpenTelemetry at all, so even once the context arrived there was nothing
+to receive it.
+
+Both rules that hold at every hop exist because the failure they prevent is invisible. Absent context
+starts a fresh trace and is never invented, because a zero traceparent produces spans pointing at a
+trace nobody can find. Malformed context is ignored rather than trusted, because a span attached to a
+parent that cannot exist looks joined and leads nowhere.
+
+Each propagator is named where it is used rather than read from the process-wide default, which is a
+noop until something installs one. An attack proved that is not theoretical: switching the gRPC client
+to the global propagator makes it propagate nothing while every other test still passes.
+
+Nine guards proven by breaking them across Go and Python. One of them found a defect in my own test:
+removing the interceptor from the Python server left all 347 tests green, because the test asserted
+only that the call raised, which it does either way. It now reads the recorded spans and fails when
+the interceptor is gone.
+
+**What is left is the browser.** `apps/web` sends no `traceparent`, so a trace begins at the Go edge
+rather than at the click. Everything server-side is joined; the first hop is not, and the criterion
+says the full journey. Also unjoined: database spans, since pgx carries no tracer, and outbound
+provider calls to LiveKit, the OIDC providers and the SMTP relay, none of which use an instrumented
+transport. Those are visible as their caller's span rather than their own, which is a thinner trace
+rather than a broken one.
+
 **In progress.** The Go half is built: `platform/telemetry` with the attribute allowlist and scrubber, a
 span and a latency histogram per request, panic recovery, trace-correlated structured logging, and the
 scanner running against real recorded spans and real log output. Conventions are written down in

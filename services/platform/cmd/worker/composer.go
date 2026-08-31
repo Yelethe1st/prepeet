@@ -42,7 +42,10 @@ func newComposer(address string, transport grpcdial.Config, registry *content.St
 	if err != nil {
 		return nil, nil, fmt.Errorf("the intelligence plane transport: %w", err)
 	}
-	conn, err := grpc.NewClient(address, option)
+	// The trace goes with it. Without this the intelligence plane does the
+	// slowest work in the product and none of it can be connected to the
+	// request that caused it, which is PLT-08's broken link at its widest.
+	conn, err := grpc.NewClient(address, option, grpcdial.TraceOption())
 	if err != nil {
 		return nil, nil, fmt.Errorf("dialling the intelligence plane: %w", err)
 	}

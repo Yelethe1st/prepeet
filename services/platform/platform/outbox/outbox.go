@@ -241,7 +241,11 @@ func (s *Store) Publish(ctx context.Context, tx pgx.Tx, event Event) (string, er
 		Purpose:       event.Purpose,
 		CorrelationID: event.CorrelationID,
 		CausationID:   event.CausationID,
-		Payload:       payload,
+		// Captured from the caller's context rather than taken as a parameter,
+		// so a publisher cannot forget to pass it and quietly break the trace.
+		TraceParent: TraceContextOf(ctx).Parent,
+		TraceState:  TraceContextOf(ctx).State,
+		Payload:     payload,
 	}); err != nil {
 		return "", fmt.Errorf("outbox: inserting event: %w", err)
 	}
@@ -285,8 +289,12 @@ type Pending struct {
 	Purpose       string
 	CorrelationID string
 	CausationID   string
-	Payload       json.RawMessage
-	Attempts      int
+	// Trace is the W3C trace context this event was published in, so delivery
+	// continues one trace rather than starting a second. Empty for anything
+	// published outside a trace, which is a real state.
+	Trace    TraceContext
+	Payload  json.RawMessage
+	Attempts int
 }
 
 // Claim takes up to limit events for delivery.
@@ -327,6 +335,7 @@ func (s *Store) Claim(ctx context.Context, limit int) ([]Pending, error) {
 			Purpose:       row.Purpose,
 			CorrelationID: row.CorrelationID,
 			CausationID:   row.CausationID,
+			Trace:         TraceContext{Parent: row.TraceParent, State: row.TraceState},
 			Payload:       row.Payload,
 			Attempts:      int(row.Attempts),
 		})

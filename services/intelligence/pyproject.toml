@@ -14,6 +14,14 @@ dependencies = [
     "openai>=1.50",
     "prepeet-contracts-generated",
     "protobuf>=5.28",
+    # Tracing. PLT-08 needs one trace across the whole journey, and this plane
+    # was the widest gap in it: the Go worker sends W3C trace context on every
+    # call and nothing here could read it, so the slowest work in the product
+    # was invisible from the request that caused it.
+    "opentelemetry-api>=1.29",
+    "opentelemetry-sdk>=1.29",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.29",
+    "opentelemetry-instrumentation-grpc>=0.50b0",
 ]
 
 [project.optional-dependencies]

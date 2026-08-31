@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -116,3 +118,41 @@ func loadPool(path string) (*x509.CertPool, error) {
 	}
 	return pool, nil
 }
+
+// TraceOption instruments a connection so a call carries the caller's trace.
+//
+// Separate from DialOption because it answers a different question. DialOption
+// decides who may be talked to; this decides whether the conversation is
+// visible. Keeping them apart means a caller cannot accidentally get tracing
+// and lose the transport rule, or the reverse, by picking one constructor.
+//
+// PLT-08's criterion is one trace with no broken links, and this hop was the
+// most obvious break: the intelligence plane did the slowest work in the
+// product and nothing it did could be connected to the request that caused it.
+// The stats handler injects W3C trace context into the call's metadata, which
+// is the same format the outbox stores and the same one the Python side reads,
+// so no part of the journey needs a private agreement with another part.
+func TraceOption() grpc.DialOption {
+	return grpc.WithStatsHandler(otelgrpc.NewClientHandler(
+		otelgrpc.WithPropagators(tracePropagator)))
+}
+
+// TraceServerOption is the serving half, for a Go gRPC server.
+//
+// Unused today because the only gRPC server is Python's. It is here so that the
+// two halves are written and read together: a future Go server that forgot to
+// continue the trace would be a break nobody notices, and finding the client
+// half alone invites exactly that.
+func TraceServerOption() grpc.ServerOption {
+	return grpc.StatsHandler(otelgrpc.NewServerHandler(
+		otelgrpc.WithPropagators(tracePropagator)))
+}
+
+// tracePropagator is named here rather than taken from otel's global, which
+// defaults to a noop until telemetry.Setup installs one. Depending on the
+// global would mean a process that traced correctly and a test that silently
+// propagated nothing, and the difference would only show up as a broken link in
+// production. It matches what telemetry.Setup installs and what the outbox
+// stores, deliberately: one format across every hop is the whole point.
+var tracePropagator = propagation.NewCompositeTextMapPropagator(
+	propagation.TraceContext{}, propagation.Baggage{})

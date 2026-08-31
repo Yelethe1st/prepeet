@@ -17,11 +17,14 @@ import (
 	"testing"
 	"time"
 
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/Yelethe1st/prepeet/services/platform/platform/grpcdial"
@@ -296,4 +299,76 @@ func TestAnUnparseableAuthorityIsRefused(t *testing.T) {
 	if _, err := (grpcdial.Config{CAFile: path}).DialOption(); err == nil {
 		t.Fatal("an unparseable authority was accepted")
 	}
+}
+
+// PLT-08: the Go to Python hop is where a trace most obviously broke. The
+// client sent no trace context at all, so everything the intelligence plane did
+// was invisible from the request that caused it, and the Python side had
+// nothing to continue even once it wanted to.
+func TestTheDialCarriesTraceContextToTheServer(t *testing.T) {
+	t.Parallel()
+	a := newAuthority(t)
+
+	// A server that records whatever traceparent arrives in the metadata.
+	arrived := make(chan string, 1)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listening: %v", err)
+	}
+	server := grpc.NewServer(grpc.UnaryInterceptor(
+		func(ctx context.Context, req any, _ *grpc.UnaryServerInfo,
+			handler grpc.UnaryHandler) (any, error) {
+			md, _ := metadata.FromIncomingContext(ctx)
+			values := md.Get("traceparent")
+			select {
+			case arrived <- firstOrEmpty(values):
+			default:
+			}
+			return handler(ctx, req)
+		}))
+	healthpb.RegisterHealthServer(server, health.NewServer())
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+
+	spans := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans))
+	t.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
+	ctx, span := provider.Tracer("test").Start(context.Background(), "caller")
+	defer span.End()
+
+	option, err := grpcdial.Config{Insecure: true}.DialOption()
+	if err != nil {
+		t.Fatalf("dial option: %v", err)
+	}
+	conn, err := grpc.NewClient(listener.Addr().String(), option,
+		grpcdial.TraceOption())
+	if err != nil {
+		t.Fatalf("dialling: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	timeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	_, _ = healthpb.NewHealthClient(conn).Check(timeout, &healthpb.HealthCheckRequest{})
+
+	select {
+	case carried := <-arrived:
+		if carried == "" {
+			t.Fatal("the call arrived with no traceparent, so the trace ends at the language boundary")
+		}
+		if !strings.Contains(carried, span.SpanContext().TraceID().String()) {
+			t.Fatalf("traceparent %q does not name the calling trace %s",
+				carried, span.SpanContext().TraceID())
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the call never reached the server")
+	}
+	_ = a
+}
+
+func firstOrEmpty(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }

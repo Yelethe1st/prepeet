@@ -16,6 +16,10 @@ import (
 	"testing"
 	"time"
 
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	oteltrace "go.opentelemetry.io/otel/trace"
+
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 )
@@ -308,5 +312,68 @@ func TestABacklogPublishedBeforeStartupIsDrained(t *testing.T) {
 			t.Fatalf("%d of %d backlogged events were never delivered", remaining, backlog)
 		}
 		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// PLT-08 end to end through the real table: the trace a request published in
+// reaches the handler that delivers it.
+//
+// The unit tests prove the carrier round-trips. This proves the column exists,
+// that the value survives an insert and a claim, and that the dispatcher joins
+// it back up, which is the part a refactor is most likely to drop silently.
+func TestTheTraceSurvivesTheQueue(t *testing.T) {
+	ctx := context.Background()
+
+	spans := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans))
+	defer func() { _ = provider.Shutdown(ctx) }()
+
+	// Publish inside a span, the way a request does.
+	publishing, span := provider.Tracer("test").Start(ctx, "request")
+	traceID := span.SpanContext().TraceID()
+	tx, err := pool.Begin(publishing)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	published, err := outbox.New(pool).Publish(publishing, tx, event(t, string(probeE)))
+	if err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if err := tx.Commit(publishing); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	span.End()
+
+	// Deliver it from a context that knows nothing, the way a worker does.
+	delivered := make(chan oteltrace.TraceID, 1)
+	handler := outbox.HandlerFunc(func(ctx context.Context, pending outbox.Pending) error {
+		if pending.ID == published {
+			select {
+			case delivered <- oteltrace.SpanContextFromContext(ctx).TraceID():
+			default:
+			}
+		}
+		return nil
+	})
+
+	run, stop := context.WithCancel(context.Background())
+	defer stop()
+	go func() {
+		_ = outbox.NewDispatcher(outbox.New(pool), handler, nil, outbox.DispatcherOptions{
+			Logger: loud(), Batch: 10, PollInterval: 20 * time.Millisecond,
+			DeliveryTimeout: 5 * time.Second,
+		}).Run(run)
+	}()
+
+	select {
+	case seen := <-delivered:
+		if !seen.IsValid() {
+			t.Fatal("the handler ran outside any trace")
+		}
+		if seen != traceID {
+			t.Fatalf("the trace broke across the queue: published %s, delivered %s", traceID, seen)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the event was never delivered")
 	}
 }

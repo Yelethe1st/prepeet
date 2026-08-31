@@ -14,6 +14,42 @@ same way. This document is what they agree on.
 Implemented for Go in [`platform/telemetry`](../../services/platform/platform/telemetry). The web and
 intelligence implementations follow the same rules and are checked by the same assertions.
 
+## How the trace crosses a boundary
+
+W3C trace context at every hop, in the standard header names, with no encoding of our own anywhere.
+That is the whole reason a standard is worth using: no part of this journey needs a private agreement
+with another part in order to be joined to it.
+
+| Boundary | Carried in | Rejoined by |
+| --- | --- | --- |
+| Browser to Go | `traceparent` request header | `platform/httpserver` extracts on every request |
+| Go request to Go worker | `integration.outbox.trace_parent`, written in the publishing transaction | `platform/outbox` rejoins before the delivery span starts |
+| Go to Temporal | the SDK's tracing interceptor | the same interceptor on the worker |
+| Go to Python | gRPC metadata, via `grpcdial.TraceOption` | `prepeet_ai.transport.tracing` on the serving side |
+
+Two rules hold at all four, and both exist because the failure they prevent is invisible:
+
+**Absent context starts a fresh trace; it is never invented.** Work published by a backfill or a
+migration has no request behind it, and that is a real state rather than a missing value. A
+syntactically valid traceparent with a zero trace id would produce spans pointing at a trace nobody
+can find, which reads as a broken system rather than as an honest root.
+
+**Malformed context is ignored rather than trusted.** A header and a database column are both data,
+and data arrives wrong. A span attached to a parent that cannot exist looks joined and leads nowhere,
+which is worse than a span with no parent at all.
+
+Each propagator is named where it is used rather than read from the process-wide default. The global
+propagator is a noop until something installs one, so depending on it yields a process that traces
+correctly and a test that silently propagates nothing, and the difference shows up only as a broken
+link in production. Both Go hops and the Python side name theirs, and the gRPC test fails if the
+global is used instead.
+
+The queue hop continues the publisher's trace as a parent rather than recording a link. The messaging
+conventions allow either, and a link is the better choice when producer and consumer are genuinely
+independent. Here they are one piece of work that happens to cross a queue, and the question asked of
+these traces is "what happened to that request", which two traces cannot answer without being joined
+by hand.
+
 ## The rule that outranks the rest
 
 **No restricted content reaches telemetry, ever.**

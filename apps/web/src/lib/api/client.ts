@@ -1,5 +1,7 @@
 import type { components, paths } from "@contracts";
 
+import { traceHeaders } from "./tracing";
+
 /**
  * The browser's client for the Prepeet API.
  *
@@ -156,6 +158,15 @@ export async function apiFetch<T = unknown>(
   if (body !== undefined) {
     (init.headers as Headers).set("content-type", "application/json");
     init.body = JSON.stringify(body);
+  }
+
+  // The trace, when this browser is recording one. Added here rather than at
+  // each call site because this is the only place every request passes
+  // through, and a header that some callers remember is a trace with holes in
+  // it. Empty when tracing is off, which sends nothing at all rather than a
+  // traceparent naming a span nobody exported.
+  for (const [name, value] of Object.entries(traceHeaders())) {
+    (init.headers as Headers).set(name, value);
   }
 
   let response: Response;

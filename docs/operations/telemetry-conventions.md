@@ -22,7 +22,7 @@ with another part in order to be joined to it.
 
 | Boundary | Carried in | Rejoined by |
 | --- | --- | --- |
-| Browser to Go | `traceparent` request header | `platform/httpserver` extracts on every request |
+| Browser to Go | `traceparent` request header, one trace per navigation, added in `apiFetch` | `platform/httpserver` extracts on every request |
 | Go request to Go worker | `integration.outbox.trace_parent`, written in the publishing transaction | `platform/outbox` rejoins before the delivery span starts |
 | Go to Temporal | the SDK's tracing interceptor | the same interceptor on the worker |
 | Go to Python | gRPC metadata, via `grpcdial.TraceOption` | `prepeet_ai.transport.tracing` on the serving side |
@@ -37,6 +37,11 @@ can find, which reads as a broken system rather than as an honest root.
 **Malformed context is ignored rather than trusted.** A header and a database column are both data,
 and data arrives wrong. A span attached to a parent that cannot exist looks joined and leads nowhere,
 which is worse than a span with no parent at all.
+
+The browser propagates but does not yet export. Server spans share an id that originated at the
+click, which is correlation; the browser's own timing is not recorded, so a trace still begins with
+the first server span. `NEXT_PUBLIC_TRACING` turns propagation on, and off means no header at all
+rather than one nobody reads.
 
 Each propagator is named where it is used rather than read from the process-wide default. The global
 propagator is a noop until something installs one, so depending on it yields a process that traces

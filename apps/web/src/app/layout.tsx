@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import "@/shared/styles/theme.css";
 
 import { DEFAULT_THEME, themeScript } from "@/shared/themePreference";
+import { ClientTracing } from "@/lib/api/ClientTracing";
 import { QueryProvider } from "@/lib/api/QueryProvider";
 
 /*
@@ -90,6 +91,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           two caches and the same request made twice, which is the problem the
           library is there to solve.
         */}
+        <ClientTracing />
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>

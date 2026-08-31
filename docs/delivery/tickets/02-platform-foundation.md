@@ -322,12 +322,27 @@ removing the interceptor from the Python server left all 347 tests green, becaus
 only that the call raised, which it does either way. It now reads the recorded spans and fails when
 the interceptor is gone.
 
-**What is left is the browser.** `apps/web` sends no `traceparent`, so a trace begins at the Go edge
-rather than at the click. Everything server-side is joined; the first hop is not, and the criterion
-says the full journey. Also unjoined: database spans, since pgx carries no tracer, and outbound
-provider calls to LiveKit, the OIDC providers and the SMTP relay, none of which use an instrumented
-transport. Those are visible as their caller's span rather than their own, which is a thinner trace
-rather than a broken one.
+**The browser now carries the correlation, and still records nothing.** `apiFetch` adds a
+`traceparent` to every call, generated per navigation rather than per request, because a screen that
+loads a profile and a session list made one gesture and two traces would describe neither. It is
+added at the one place every request passes through, so no call site has to remember; a header some
+callers remember is a trace with holes in it, and it looks exactly like a working one until somebody
+needs it.
+
+It is off unless `NEXT_PUBLIC_TRACING` is `true`, and off means no header rather than a header nobody
+reads.
+
+**The box stays open, and the reason is worth being exact about.** The criterion is that one trace
+spans the full journey, and the browser still exports no span of its own. What ships here is
+correlation: server spans now share an id that originated at the click, so a request can be followed
+from the browser that made it. What is missing is the browser's own timing, which is the part that
+would show a candidate's wait rather than the server's work. That needs spans exported from the
+browser to a collector reachable from it, which is a deployment decision as much as a code one.
+
+Also unjoined, and unchanged: database spans, since pgx carries no tracer, and outbound provider calls
+to LiveKit, the OIDC providers and the SMTP relay, none of which use an instrumented transport. Those
+appear as their caller's span rather than their own, which is a thinner trace rather than a broken
+one.
 
 **In progress.** The Go half is built: `platform/telemetry` with the attribute allowlist and scrubber, a
 span and a latency histogram per request, panic recovery, trace-correlated structured logging, and the

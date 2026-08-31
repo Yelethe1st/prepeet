@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, apiFetch } from "./client";
+import { resetTracingForTests, startClientTrace } from "./tracing";
 
 /**
  * The browser's side of the contract.
@@ -245,5 +246,41 @@ describe("apiFetch", () => {
     const error = (await apiFetch("/me").catch((e: unknown) => e)) as ApiError;
 
     expect(error.offline).toBe(false);
+  });
+});
+
+describe("trace propagation on the wire", () => {
+  afterEach(() => {
+    resetTracingForTests();
+  });
+
+  it("sends no traceparent when the browser is not recording", async () => {
+    resetTracingForTests({ enabled: false });
+    fetchMock.mockResolvedValue(jsonResponse(200, {}));
+
+    await apiFetch("/me");
+
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.has("traceparent")).toBe(false);
+  });
+
+  it("sends the traceparent on every call once recording", async () => {
+    // Added at the one place every request passes through, so this is really
+    // asserting that no call site has to remember. A trace with holes in it is
+    // the failure, and it looks exactly like a working one until you need it.
+    resetTracingForTests({ enabled: true });
+    startClientTrace();
+    fetchMock.mockResolvedValue(jsonResponse(200, {}));
+
+    await apiFetch("/me");
+    await apiFetch("/me/sessions");
+
+    const first = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    const second = new Headers(fetchMock.mock.calls[1]?.[1]?.headers);
+    expect(first.get("traceparent")).toBeTruthy();
+    expect(second.get("traceparent")).toBeTruthy();
+    expect(first.get("traceparent")?.split("-")[1]).toBe(
+      second.get("traceparent")?.split("-")[1],
+    );
   });
 });

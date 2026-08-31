@@ -49,7 +49,9 @@ on:
 # Raising one of these numbers should take an argument, which is the point.
 #
 # Worst of four green runs, in seconds: Go 238, Contracts 178, browser 156,
-# web 124, audit 71, migrations 55, Python 42, docs 8.
+# web 124, audit 71, migrations 55, Python 42, docs 8. The image job was added
+# afterwards and measured at 296, which makes it the slowest and puts wall clock
+# at about five minutes rather than four.
 #
 # The Go job's ceiling sits deliberately above `go test`'s own timeout, which
 # make cover-go sets to ten minutes. Whichever fires first decides what a hang

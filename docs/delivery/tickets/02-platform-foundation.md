@@ -55,8 +55,10 @@ check, dependency audit and container scan, on every change.
 - [x] Pipeline duration is fast enough that engineers do not route around it.
 
 **Duration is ticked on a measurement that is now enforced.** The jobs run in parallel, so wall clock
-is the slowest of them, and across four consecutive green runs that was the Go job at 238 seconds. The
-whole pipeline answers in about four minutes, which nobody routes around.
+is the slowest of them. Across four consecutive green runs before this change that was the Go job at
+238 seconds; the image job added here is slower still at 296, so the pipeline answers in about five
+minutes. Nobody routes around five minutes, and the number is recorded rather than rounded down
+because the next person to add a job should see what it costs.
 
 A measurement decays the moment it is written down, so every job carries a `timeout-minutes` at
 roughly three times its worst observed run: wide enough that runner variance does not fail a good

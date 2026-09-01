@@ -82,7 +82,14 @@ export function OAuthButtons({ redirectTo }: { redirectTo?: string }) {
     },
   });
 
-  if (providers.isPending) {
+  // Placeholders only until the first attempt has failed, not for as long as
+  // the query is pending. react-query keeps retrying, so isPending alone stays
+  // true through every retry and a person whose API is unreachable would watch
+  // skeleton buttons for as long as they cared to look.
+  //
+  // A provider list that is not answering is one we should stop promising. The
+  // form beneath is fully usable, and no buttons is the honest state.
+  if (providers.isPending && providers.failureCount === 0) {
     return (
       <div className="mb-6" aria-busy="true">
         <p className="sr-only">Checking which sign-in options are available…</p>

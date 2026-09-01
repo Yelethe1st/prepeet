@@ -179,3 +179,17 @@ describe("the provider buttons as the prototype draws them", () => {
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 });
+
+describe("when the provider list will not load", () => {
+  it("stops showing placeholders once the first attempt has failed", async () => {
+    // react-query retries, so "still pending" is true long after the first
+    // failure. A person whose API is unreachable would otherwise watch
+    // skeleton buttons for as long as they cared to look, and the form
+    // beneath works perfectly.
+    vi.mocked(api.listOAuthProviders).mockRejectedValue(new Error("offline"));
+
+    const { container } = renderButtons();
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+});

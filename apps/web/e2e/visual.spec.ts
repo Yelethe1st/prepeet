@@ -106,6 +106,7 @@ test.describe("appearance", () => {
     // and fails on strict mode rather than on anything about the page.
     await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
+    await settled(page);
 
     await expect(page).toHaveScreenshot("login-rejected.png", {
       fullPage: true,
@@ -147,6 +148,11 @@ test.describe("appearance", () => {
       "true",
     );
     await page.evaluate(() => document.fonts.ready);
+    // Register draws no provider buttons today, so this waits on nothing. It
+    // is here because the rule is every screenshot, not every screenshot
+    // somebody remembered: the last commit added the wait to the route loop
+    // and missed its two siblings in the same file, and CI found it.
+    await settled(page);
 
     await expect(page).toHaveScreenshot("register-field-error.png", {
       fullPage: true,

@@ -363,7 +363,31 @@ revocable.
 - [x] A provider that is unreachable, slow, or returns an error leaves the person on a screen that names what happened and offers email and password, without a half-created account behind it.
 - [x] Every provider is configured rather than compiled in, so adding one is configuration and a test.
 - [x] The callback screen is ported from `screens/oauth-callback.html` with its four states: processing, slow, invalid state and expired code.
-- [ ] Registration through a provider creates the same account a form does, including account type, and never silently creates a tenant.
+- [x] Registration through a provider creates the same account a form does, including account type, and never silently creates a tenant.
+
+**Closed on evidence rather than on a decision, because the decision turned out to be narrower than
+it looked.** The question read as "may a recruiter sign up with Google", and the answer is that
+account type is not a property anybody holds. There is no `account_type` column and nothing reads
+one: it is a fork in registration, where the organisation path additionally creates a workspace and
+an owning membership and the candidate path does not. A person is a recruiter by holding a
+membership.
+
+So the criterion is about which fork a provider sign-up takes, and it has to be the narrow one for a
+concrete reason rather than a cautious one. An organisation registration requires an organisation
+name, and no provider returns one. Asking for it afterwards would turn "Continue with Google" into a
+form and leave a half-registered account in between, which is exactly what
+`CreateOrganisationAccount`'s single transaction exists to prevent.
+
+Nobody is shut out. An account created through a provider is an ordinary account, so `Members.Invite`
+admits it to a workspace exactly as it admits one created with a password, and a test proves that
+rather than assuming it. What a provider cannot do is conjure a workspace nobody named.
+
+**The first version of the test was vacuous and a probe caught it.** It counted memberships through
+the application pool, which carries no tenant context, so row-level security hid every row and the
+count was zero whatever had been created: it would have passed if a provider sign-up created a whole
+workspace. Planting a real membership through the invitation path exposed it, because the probe
+succeeded and the assertion still saw nothing. It reads as the migrator now, and the same probe makes
+it fail with "a provider sign-up created 1 membership(s)".
 
 **Since the boxes above were ticked: providers are offered when they answer, not merely when they are
 configured.** The list endpoint reported whatever had credentials, so a deployment with a correct

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/token"
@@ -487,5 +489,125 @@ func TestTheSweepLeavesLiveStatesAlone(t *testing.T) {
 
 	if _, _, err := service.CompleteOAuth(ctx, "google", inFlight.State, "auth-code"); err != nil {
 		t.Fatalf("a sign-in in flight was swept away: %v", err)
+	}
+}
+
+// IAM-08's last criterion, in two halves.
+//
+// "Creates the same account a form does, including account type, and never
+// silently creates a tenant." Account type is not a stored property: there is
+// no account_type column, and nothing reads one. It is a fork in the
+// registration path, where an organisation registration additionally creates a
+// workspace and an owning membership and a candidate registration does not. So
+// the criterion is really about which fork a provider sign-up takes, and the
+// answer has to be the narrow one.
+//
+// It has to be the narrow one for a reason more concrete than caution: an
+// organisation registration requires an organisation name, and no provider
+// returns one. Asking for it afterwards would turn "Continue with Google" into
+// a form and leave a half-registered account in between, which is exactly what
+// CreateOrganisationAccount's single transaction exists to prevent.
+
+func TestAProviderSignUpCreatesNoTenant(t *testing.T) {
+	ctx := context.Background()
+	address := newAddress()
+	provider := &stubProvider{identity: identity.ProviderIdentity{
+		Subject: "google-" + id.New().String(), Email: address, EmailVerified: true,
+	}}
+	service := oauthService(t, provider)
+
+	begun, err := service.BeginOAuth(ctx, "google", "/practice")
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	session, _, err := service.CompleteOAuth(ctx, "google", begun.State, "auth-code")
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	// No workspace, and no membership pointing at one. A person practising
+	// alone must not own an employer tenant they never asked for: it would sit
+	// in the billing and retention inventories for no reason, and it would be a
+	// tenant nobody named.
+	// Counted as the migrator, not through the application pool.
+	//
+	// The first version of this asked the pool, which has no tenant context, so
+	// row-level security hid every membership and the count was zero whatever
+	// had been created. It would have passed if a provider sign-up created a
+	// whole workspace. A probe that planted a real membership through the
+	// invitation path is what exposed it: the probe succeeded and the assertion
+	// still saw nothing.
+	admin, err := pgx.Connect(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("admin connect: %v", err)
+	}
+	defer func() { _ = admin.Close(ctx) }()
+
+	var memberships int
+	if err := admin.QueryRow(ctx,
+		`SELECT count(*) FROM tenancy.memberships WHERE user_id = $1`,
+		session.UserID).Scan(&memberships); err != nil {
+		t.Fatalf("counting memberships: %v", err)
+	}
+	if memberships != 0 {
+		t.Fatalf("a provider sign-up created %d membership(s)", memberships)
+	}
+
+	// The membership count is the whole check, and it is enough. A tenant is
+	// only reachable through a membership, and CreateOrganisationAccount makes
+	// the workspace and the owning membership in one transaction, so no
+	// membership means no workspace was created for this person. tenancy.tenants
+	// records no creator, which is why this asks the question that has an
+	// answer rather than the one that reads more directly.
+}
+
+// The other half, and the reason the first is not a restriction.
+//
+// A recruiter is somebody holding a membership, not somebody with a flag. An
+// account created through a provider is an ordinary account, so the invitation
+// path admits it to a workspace exactly as it admits one created with a
+// password. Nobody is shut out of recruiting by signing in with Google; what
+// they cannot do is conjure a workspace nobody named.
+func TestAProviderAccountCanBeInvitedIntoAWorkspace(t *testing.T) {
+	ctx := context.Background()
+	address := newAddress()
+	provider := &stubProvider{identity: identity.ProviderIdentity{
+		Subject: "google-" + id.New().String(), Email: address, EmailVerified: true,
+	}}
+	service := oauthService(t, provider)
+
+	begun, err := service.BeginOAuth(ctx, "google", "/practice")
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	session, _, err := service.CompleteOAuth(ctx, "google", begun.State, "auth-code")
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+
+	// A workspace that already exists, registered the way the form registers
+	// one, with a name somebody supplied. That name is the field no provider
+	// returns, which is why this path stays a form.
+	ownerEmail := newAddress()
+	outcome, err := service.Register(ctx, identity.RegisterInput{
+		Email: ownerEmail, Password: goodPassword,
+		AccountType: identity.AccountOrganisation, OrganisationName: "Northwind Health",
+	})
+	if err != nil {
+		t.Fatalf("registering the organisation: %v", err)
+	}
+	ownerSession, err := service.Authenticate(ctx, ownerEmail, goodPassword)
+	if err != nil {
+		t.Fatalf("authenticating the owner: %v", err)
+	}
+
+	members := identity.NewMembers(identity.NewRepository(pool))
+	invited, err := members.Invite(ctx, outcome.TenantID, ownerSession.UserID, address, "recruiter")
+	if err != nil {
+		t.Fatalf("inviting the provider account: %v", err)
+	}
+	if invited.UserID != session.UserID {
+		t.Fatalf("the invitation reached %s rather than the provider account %s",
+			invited.UserID, session.UserID)
 	}
 }

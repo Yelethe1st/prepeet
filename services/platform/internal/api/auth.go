@@ -538,8 +538,8 @@ var oauthLabels = map[string]string{
 }
 
 // ListOAuthProviders answers which providers this deployment offers.
-func (a *authentication) ListOAuthProviders(_ context.Context, _ prepeetapi.ListOAuthProvidersRequestObject) (prepeetapi.ListOAuthProvidersResponseObject, error) {
-	configured := a.identity.ConfiguredOAuthProviders()
+func (a *authentication) ListOAuthProviders(ctx context.Context, _ prepeetapi.ListOAuthProvidersRequestObject) (prepeetapi.ListOAuthProvidersResponseObject, error) {
+	configured := a.identity.AvailableOAuthProviders(ctx)
 	providers := make([]struct {
 		ID    string `json:"id"`
 		Label string `json:"label"`

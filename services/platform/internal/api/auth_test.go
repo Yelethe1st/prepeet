@@ -902,7 +902,9 @@ func TestTheServerRefusesToStartWithoutAnIdentity(t *testing.T) {
 	}
 }
 
-func (f *fakeIdentity) ConfiguredOAuthProviders() []string { return f.oauthProviders }
+func (f *fakeIdentity) AvailableOAuthProviders(_ context.Context) []string {
+	return f.oauthProviders
+}
 
 func (f *fakeIdentity) BeginOAuth(_ context.Context, provider, redirectTo string) (api.OAuthStart, error) {
 	f.oauthBegun = append(f.oauthBegun, provider+":"+redirectTo)

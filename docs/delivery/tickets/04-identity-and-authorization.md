@@ -365,6 +365,37 @@ revocable.
 - [x] The callback screen is ported from `screens/oauth-callback.html` with its four states: processing, slow, invalid state and expired code.
 - [ ] Registration through a provider creates the same account a form does, including account type, and never silently creates a tenant.
 
+**Since the boxes above were ticked: providers are offered when they answer, not merely when they are
+configured.** The list endpoint reported whatever had credentials, so a deployment with a correct
+client id and an unreachable provider drew a button that failed at the far end. The sign-in screen is
+the one place a person cannot recover from that: they have no way to tell whether their account
+exists, whether they are now signed in, or what to try instead.
+
+`platform/oidc` probes the authorization endpoint and caches the answer for five minutes. Cached
+because the sign-in screen is the busiest unauthenticated page in the product, and probing Google on
+every render would add their latency to ours and look like exactly the traffic they are entitled to
+rate limit. Any answer counts, including a refusal: an authorization endpoint asked without
+parameters replies 400 or redirects, and treating a 4xx as unhealthy would hide every provider, which
+is the opposite of the point.
+
+Configuration is identity's answer and reachability is not, so the filter lives in `cmd` where the
+network does. A deployment with no checker wired offers on configuration alone, which is the honest
+default for one that has not asked for probing.
+
+Google and Microsoft need only a client id, secret and redirect URI. Their authorize, token and
+userinfo endpoints already default to the published ones, so the class of misconfiguration where a
+mistyped URL passes every check and fails at the provider does not arise for the two providers this
+ticket names.
+
+The buttons now match `login.html`: a brand mark in each provider's colours, hidden from assistive
+technology because the button already says "Continue with Google" and announcing "G Continue with
+Google" is worse rather than more informative. A provider this build has never heard of still gets a
+mark from the first letter of its label, because a hardcoded list that silently omitted one would
+contradict drawing the buttons from the server's answer at all. While the list loads the screen draws
+placeholders rather than nothing: a row of buttons appearing after somebody has started typing their
+password moves the form under their hands, and a person who never saw the options cannot know they
+were offered.
+
 **Watch for**
 
 An OAuth identity meeting an existing password account is the whole risk of this ticket, and the

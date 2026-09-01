@@ -62,9 +62,18 @@ type Identity interface {
 
 	// The OAuth half, for IAM-08.
 	//
-	// ConfiguredOAuthProviders is what the sign-in screen draws buttons from,
+	// AvailableOAuthProviders is what the sign-in screen draws buttons from,
 	// so a deployment with none configured shows email and password alone.
-	ConfiguredOAuthProviders() []string
+	//
+	// Available rather than configured, and the difference is the point. A
+	// provider whose endpoint does not answer is not offered, because the
+	// sign-in screen is the one place a person has no way to recover: a button
+	// that fails at the provider looks like the product is broken, and they
+	// have no idea whether their account exists or whether they are signed in.
+	//
+	// It takes a context because answering may involve the network. The
+	// implementation caches, so this is not a request to Google per page load.
+	AvailableOAuthProviders(ctx context.Context) []string
 	// BeginOAuth mints the state and the PKCE verifier and answers where to
 	// send the browser. ErrOAuthProviderUnknown for one not configured.
 	BeginOAuth(ctx context.Context, provider, redirectTo string) (OAuthStart, error)

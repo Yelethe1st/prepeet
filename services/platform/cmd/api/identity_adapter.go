@@ -26,6 +26,13 @@ import (
 // remembers.
 type identityAdapter struct {
 	service *identity.Service
+	// health decides whether a configured provider is worth offering. Nil
+	// means offer on configuration alone.
+	health *oidc.Health
+	// authorizeEndpoints is what health probes, by provider name. The
+	// authorization endpoint rather than the token endpoint, because it is the
+	// one the browser is about to be sent to.
+	authorizeEndpoints map[string]string
 }
 
 func (a identityAdapter) Register(ctx context.Context, input api.Registration) error {
@@ -278,9 +285,28 @@ func (a identityAdapter) DescribeSession(ctx context.Context, sessionToken, user
 
 var _ api.Identity = identityAdapter{}
 
-// ConfiguredOAuthProviders names what this deployment offers.
-func (a identityAdapter) ConfiguredOAuthProviders() []string {
-	return a.service.ConfiguredProviders()
+// AvailableOAuthProviders names what this deployment offers and can reach.
+//
+// Configuration is identity's answer and reachability is not: identity knows
+// which providers have credentials, and only cmd knows how to make an HTTP
+// request. The filter lives here for the same reason every other adapter does.
+//
+// A provider with no health checker wired is offered on its configuration
+// alone. That is the honest default for a deployment that has not asked for
+// probing, and it is what the tests of every other behaviour rely on.
+func (a identityAdapter) AvailableOAuthProviders(ctx context.Context) []string {
+	configured := a.service.ConfiguredProviders()
+	if a.health == nil {
+		return configured
+	}
+
+	available := make([]string, 0, len(configured))
+	for _, name := range configured {
+		if a.health.Healthy(ctx, a.authorizeEndpoints[name]) {
+			available = append(available, name)
+		}
+	}
+	return available
 }
 
 // BeginOAuth mints the state and answers where to send the browser.
@@ -339,12 +365,41 @@ func (a identityAdapter) translateOAuth(err error) error {
 // Adding a third is a map entry and its configuration. There is no Google
 // type and no Microsoft type: platform/oidc is one client and the endpoints
 // are config, which is IAM-08's sixth criterion.
-func oauthProviders(cfg config.Config) map[string]identity.Provider {
-	providers := map[string]identity.Provider{}
-	for name, settings := range map[string]config.OAuthProvider{
+// oauthAuthorizeEndpoints names what to probe for each configured provider.
+//
+// Built from the same configuration the clients are, so a deployment that
+// overrides an endpoint is probed at the endpoint it actually uses rather than
+// at the one this file would otherwise have assumed.
+func oauthAuthorizeEndpoints(cfg config.Config) map[string]string {
+	endpoints := map[string]string{}
+	for name, settings := range oauthSettings(cfg) {
+		client := oidc.Config{
+			AuthorizeURL: settings.AuthorizeURL, TokenURL: settings.TokenURL,
+			UserInfoURL: settings.UserInfoURL, ClientID: settings.ClientID,
+			ClientSecret: settings.ClientSecret, RedirectURI: settings.RedirectURI,
+		}
+		if client.Configured() {
+			endpoints[name] = settings.AuthorizeURL
+		}
+	}
+	return endpoints
+}
+
+// oauthSettings is the one list of providers this deployment knows about.
+//
+// Named once so the clients and the health probes cannot disagree about which
+// providers exist, which is the sort of drift that shows up as a button that
+// is offered and never checked.
+func oauthSettings(cfg config.Config) map[string]config.OAuthProvider {
+	return map[string]config.OAuthProvider{
 		"google":    cfg.OAuthGoogle,
 		"microsoft": cfg.OAuthMicrosoft,
-	} {
+	}
+}
+
+func oauthProviders(cfg config.Config) map[string]identity.Provider {
+	providers := map[string]identity.Provider{}
+	for name, settings := range oauthSettings(cfg) {
 		client := oidc.Config{
 			AuthorizeURL: settings.AuthorizeURL, TokenURL: settings.TokenURL,
 			UserInfoURL: settings.UserInfoURL, ClientID: settings.ClientID,

@@ -16,10 +16,54 @@ import { Button } from "@/shared/components";
  * heading or a divider with nothing above it. The prototype's "or sign in with
  * email" rule only exists when there is something to be an alternative to.
  *
- * While the list is loading it renders nothing either. A row of buttons that
- * appears a beat after the form has already been read is worse than one that
- * was never offered, and the form beneath is fully usable in the meantime.
+ * While the list is loading it draws placeholders, as login.html does. A row of
+ * buttons that appears a beat after somebody has started typing their password
+ * moves the form under their hands, and a person who never saw the options
+ * cannot know they were offered. The placeholders reserve the space and say
+ * what is being waited for.
  */
+
+/**
+ * The brand mark beside each label, as the prototype draws it.
+ *
+ * Colours are the providers' own, which is what makes a row of sign-in buttons
+ * scannable at a glance rather than three identical rectangles. Google's mark
+ * carries a ring because its brand white would otherwise vanish into the
+ * button beneath it.
+ *
+ * A provider this build has never heard of still gets a mark, from the first
+ * letter of its label. A hardcoded list that silently omitted one would be the
+ * opposite of drawing the buttons from the server's answer.
+ */
+const BRAND_MARKS: Record<
+  string,
+  { letter: string; style: React.CSSProperties }
+> = {
+  google: {
+    letter: "G",
+    style: {
+      background: "#FFFFFF",
+      color: "#3C4043",
+      boxShadow: "inset 0 0 0 1px #DADCE0",
+    },
+  },
+  microsoft: {
+    letter: "M",
+    style: { background: "#0067B8", color: "#FFFFFF" },
+  },
+};
+
+function markFor(provider: { id: string; label: string }) {
+  return (
+    BRAND_MARKS[provider.id] ?? {
+      letter: (provider.label.trim()[0] ?? "?").toUpperCase(),
+      style: {
+        background: "var(--color-surface-2)",
+        color: "var(--color-fg-2)",
+      },
+    }
+  );
+}
 export function OAuthButtons({ redirectTo }: { redirectTo?: string }) {
   const providers = useQuery({
     queryKey: ["oauth-providers"],
@@ -38,7 +82,26 @@ export function OAuthButtons({ redirectTo }: { redirectTo?: string }) {
     },
   });
 
+  if (providers.isPending) {
+    return (
+      <div className="mb-6" aria-busy="true">
+        <p className="sr-only">Checking which sign-in options are available…</p>
+        <div className="flex flex-col gap-2">
+          {[0, 1].map((slot) => (
+            <div
+              key={slot}
+              className="h-10 rounded-md bg-surface-2"
+              aria-hidden="true"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const configured = providers.data?.providers ?? [];
+  // Once the answer is known and empty, the placeholders go entirely. Leaving
+  // them up would be a promise of something that is not coming.
   if (configured.length === 0) return null;
 
   return (
@@ -53,7 +116,15 @@ export function OAuthButtons({ redirectTo }: { redirectTo?: string }) {
             busyLabel={`Opening ${provider.label}…`}
             onClick={() => begin.mutate(provider.id)}
           >
-            Continue with {provider.label}
+            <span
+              data-provider-mark
+              aria-hidden="true"
+              className="grid h-[18px] w-[18px] place-items-center rounded-[4px] text-[10px] font-extrabold"
+              style={markFor(provider).style}
+            >
+              {markFor(provider).letter}
+            </span>
+            <span>Continue with {provider.label}</span>
           </Button>
         ))}
       </div>

@@ -32,6 +32,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/oidc"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/outbox"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/ratelimit"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/realtime"
@@ -157,7 +158,14 @@ func main() {
 		WithOAuth(identity.NewRepository(pool), oauthProviders(cfg))
 
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity:       identityAdapter{service: identityService},
+		Identity: identityAdapter{
+			service: identityService,
+			// Five minutes: long enough that the sign-in screen never waits on
+			// a provider, short enough that an outage stops being offered
+			// within one. A provider's availability is not a per-request fact.
+			health:             oidc.NewHealth(5 * time.Minute),
+			authorizeEndpoints: oauthAuthorizeEndpoints(cfg),
+		},
 		Candidates:     candidates,
 		Documents:      candidates,
 		Catalog:        newCatalogAdapter(content.NewStore(pool)),

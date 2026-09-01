@@ -57,8 +57,10 @@ describe("the sign-in provider buttons", () => {
 
     const { container } = renderButtons();
 
-    await waitFor(() => expect(api.listOAuthProviders).toHaveBeenCalled());
-    expect(container).toBeEmptyDOMElement();
+    // Waits for the empty container rather than for the call. The component
+    // draws placeholders while it asks, so "has been called" is no longer the
+    // moment the answer is known; the guarantee is what is left afterwards.
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
     expect(
       screen.queryByText(/or sign in with email/i),
     ).not.toBeInTheDocument();
@@ -108,5 +110,72 @@ describe("the sign-in provider buttons", () => {
     expect(
       screen.getByRole("button", { name: /Continue with Google/ }),
     ).toBeEnabled();
+  });
+});
+
+describe("the provider buttons as the prototype draws them", () => {
+  it("gives each provider its brand mark", async () => {
+    // login.html renders a letter badge in the provider's own colours beside
+    // the label. It is decorative, so it is hidden from assistive technology:
+    // the button already says "Continue with Google", and a screen reader
+    // announcing "G Continue with Google" is worse, not more informative.
+    vi.mocked(api.listOAuthProviders).mockResolvedValue({
+      providers: [
+        { id: "google", label: "Google" },
+        { id: "microsoft", label: "Microsoft" },
+      ],
+    });
+
+    renderButtons();
+
+    const google = await screen.findByRole("button", {
+      name: "Continue with Google",
+    });
+    const mark = google.querySelector("[data-provider-mark]");
+    expect(mark).not.toBeNull();
+    expect(mark).toHaveAttribute("aria-hidden", "true");
+    expect(mark).toHaveTextContent("G");
+  });
+
+  it("marks an unknown provider with its own initial", async () => {
+    // A deployment may configure a provider this build has never heard of.
+    // Falling back to the first letter of its label is better than no mark and
+    // far better than a hardcoded list that silently omits it.
+    vi.mocked(api.listOAuthProviders).mockResolvedValue({
+      providers: [{ id: "okta", label: "Okta (Northwind Health)" }],
+    });
+
+    renderButtons();
+
+    const button = await screen.findByRole("button", {
+      name: /Continue with Okta/,
+    });
+    expect(button.querySelector("[data-provider-mark]")).toHaveTextContent("O");
+  });
+
+  it("shows placeholders while the list is loading", async () => {
+    // The prototype draws skeletons rather than nothing. A row of buttons that
+    // appears a beat after somebody has already started typing their password
+    // moves the form under their hands, and a person who never saw the options
+    // cannot know they were offered.
+    vi.mocked(api.listOAuthProviders).mockImplementation(
+      () => new Promise(() => {}),
+    );
+
+    renderButtons();
+
+    expect(
+      await screen.findByText(/checking which sign-in options are available/i),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing at all once it knows there are none", async () => {
+    // The placeholders are a promise that something is coming. Leaving them up
+    // when the answer is "none" would be a lie told in skeleton form.
+    vi.mocked(api.listOAuthProviders).mockResolvedValue({ providers: [] });
+
+    const { container } = renderButtons();
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 });

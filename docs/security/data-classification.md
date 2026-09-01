@@ -22,6 +22,22 @@ Derived data inherits the highest source classification unless a documented anon
 - Never place in ordinary logs, traces, metrics, crash reports, URLs, event names, or generic webhooks.
 - Use private encrypted storage and short-lived scoped access.
 - Access requires resource scope and purpose; sensitive reads may be audited.
+
+Transcript reads are audited today, and the obligation is declared in the API contract rather than
+decided in code: an operation carrying `x-prepeet-sensitive-read` is recorded before its response is
+written, and a failure to record refuses the read. Widening it to another operation is a line in the
+document that a reviewer sees.
+
+What is recorded is an actor who read or was refused. A request carrying no resolvable session is not
+recorded here: it never reached the content, the request log and the rate limiter already describe it,
+and a row naming no actor could not be admitted by any policy on `audit.events` without one that
+decides nothing about who is asking. PostgreSQL ORs permissive policies, so such a policy would
+re-open the table however well the others are written, which `internal/isolation` refuses.
+
+Note that the wording across this file and
+[authorization-model.md](../architecture/authorization-model.md) is inconsistent, saying variously
+"audited where required", "separately auditable", "independently authorized and audited" and "may be
+audited"; what is built covers the one unambiguous requirement and claims nothing wider.
 - Production copies do not enter lower environments.
 - AI provider transfer requires approved purpose, region, retention/training policy, and minimization.
 

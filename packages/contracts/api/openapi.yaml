@@ -1245,6 +1245,12 @@ paths:
       tags: [interview]
       operationId: getTranscript
       x-prepeet-capability: session.read_own_practice
+      # authorization-model.md: "Reading transcript/audio is independently
+      # authorized and audited." Declared here rather than decided in the
+      # handler, so a new read path is audited by saying so rather than by its
+      # author remembering, and so the obligation is reviewable in the document
+      # that states it.
+      x-prepeet-sensitive-read: true
       summary: The assembled transcript, provenance included
       description: |
         Every version stands: a correction supersedes a segment's effective

@@ -147,6 +147,12 @@ type Repository interface {
 	ListActiveElevations(ctx context.Context) ([]Elevation, error)
 	ActiveElevationFor(ctx context.Context, userID string) (Elevation, error)
 	AuditElevatedRequest(ctx context.Context, userID, grantID string) error
+	// RecordSensitiveRead writes one access to restricted content.
+	//
+	// Not part of any caller's transaction: the read it describes is not part
+	// of a write, and joining it to one would let a rolled back request erase
+	// the record of an access that had already been served.
+	RecordSensitiveRead(ctx context.Context, read SensitiveRead) error
 
 	// The action-token half, for IAM-02's flows. Each Consume method pairs
 	// the single-use mark with the effect it grants in one transaction, which

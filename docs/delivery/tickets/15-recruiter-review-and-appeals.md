@@ -64,9 +64,39 @@ Every open of a transcript, recording or evaluation is recorded against a named 
 the tenant.
 
 **Done when**
-- [ ] Reads are audited even when nothing is changed.
+- [x] Reads are audited even when nothing is changed.
 - [ ] The tenant can see who accessed a candidate's evidence and when.
 - [ ] Unusual access volume raises an alert rather than sitting in a log nobody reads.
+
+**One of three, built ahead of the epic because the mechanism is easier to add now than to retrofit
+under the screens that will depend on it.**
+
+Reading a transcript is an event rather than a query. The obligation is declared in the API contract,
+`x-prepeet-sensitive-read` on the operation, rather than decided in a handler: a handler choosing for
+itself would be a second source of truth, and the copy that drifts is the one nobody re-reads. When
+REV-02's evidence screen and the audio endpoint arrive they are audited by declaring themselves,
+which is the whole reason this landed early.
+
+The recording sits between the handler and the response, deliberately. Recording first would log
+reads that never happened and could not say how they ended; recording after the response would let
+restricted content reach somebody with no record of it, which is the one outcome the obligation
+exists to prevent. In between, the handler has an answer and nothing has been sent, so **a failure to
+record refuses the read** rather than serving it unrecorded. An advisory audit is missing exactly when
+somebody is doing something they should not.
+
+A refusal is recorded as such. Somebody signed in reaching for a transcript that is not theirs is the
+attempt a reviewer searches this table for, and recording only successes would hide it.
+
+**A request with no resolvable session is deliberately not recorded here.** It never reached the
+content, the request log and the rate limiter already describe it, and a row naming no actor cannot be
+admitted by any policy on `audit.events` without one that decides nothing about who is asking.
+PostgreSQL ORs permissive policies, so such a policy re-opens the table however well the others are
+written. The first attempt at this added exactly that policy and `internal/isolation` refused it,
+which is the gate SEC-02 built doing its job on work written after it.
+
+The remaining two boxes are somebody else's. Tenant visibility is OPS-06's audit viewer, which does
+not exist, and the alert on unusual volume needs the monitoring OPS-02 has not built. The rows are
+being written and nothing reads them yet, which is worth saying plainly.
 
 **Spec** [observability.md](../../operations/observability.md)
 

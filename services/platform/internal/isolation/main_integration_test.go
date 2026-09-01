@@ -217,7 +217,10 @@ func newServer() (http.Handler, error) {
 		Interviews:  undriven{},
 		Billing:     undriven{},
 		Progression: undriven{},
-		Environment: config.EnvironmentLocal,
+		// The real recorder, not a stub. This suite attacks real paths, and a
+		// sensitive read that wrote no row would be a hole it exists to find.
+		SensitiveReads: liveIdentity{service: service},
+		Environment:    config.EnvironmentLocal,
 	})
 }
 
@@ -246,6 +249,16 @@ type undriven struct {
 // the way cmd/api's adapter does, for the operations these attacks travel
 // through: resolving a session, deciding a capability, and choosing a
 // workspace.
+// RecordSensitiveRead writes the access record through the real service, so an
+// attack that reaches a transcript leaves the row a reviewer would look for.
+func (l liveIdentity) RecordSensitiveRead(ctx context.Context, read api.SensitiveRead) error {
+	return l.service.RecordSensitiveRead(ctx, identity.SensitiveRead{
+		ActorID: read.ActorID, TenantID: read.TenantID, Action: read.Action,
+		SubjectType: read.SubjectType, SubjectID: read.SubjectID,
+		Outcome: read.Outcome, RequestID: read.RequestID,
+	})
+}
+
 type liveIdentity struct {
 	// The remaining operations of the port are deliberately absent. A nil
 	// interface panics; an embedded fake would answer.

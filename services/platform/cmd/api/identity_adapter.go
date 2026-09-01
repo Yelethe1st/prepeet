@@ -378,3 +378,17 @@ func (p oauthProvider) Exchange(ctx context.Context, code, codeVerifier string) 
 		Subject: got.Subject, Email: got.Email, EmailVerified: got.EmailVerified,
 	}, nil
 }
+
+// RecordSensitiveRead presents the identity service as the audit port the API
+// declared.
+//
+// The translation is a rename and nothing else, which is the point: internal/api
+// knows what a sensitive read is and identity knows how to record one, and
+// neither needs to know the other exists.
+func (a identityAdapter) RecordSensitiveRead(ctx context.Context, read api.SensitiveRead) error {
+	return a.service.RecordSensitiveRead(ctx, identity.SensitiveRead{
+		ActorID: read.ActorID, TenantID: read.TenantID,
+		Action: read.Action, SubjectType: read.SubjectType, SubjectID: read.SubjectID,
+		Outcome: read.Outcome, RequestID: read.RequestID,
+	})
+}

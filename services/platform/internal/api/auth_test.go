@@ -253,15 +253,16 @@ func serve(t *testing.T, identity api.Identity) http.Handler {
 func serveWith(t *testing.T, identity api.Identity, candidates api.CandidateProfiles) http.Handler {
 	t.Helper()
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity:    identity,
-		Candidates:  candidates,
-		Documents:   &fakeDocuments{},
-		Catalog:     &fakeCatalog{},
-		Interviews:  &fakeInterviews{},
-		Members:     &fakeMembers{},
-		Billing:     &fakeBilling{},
-		Progression: &stubProgression{},
-		Environment: config.EnvironmentLocal,
+		Identity:       identity,
+		Candidates:     candidates,
+		Documents:      &fakeDocuments{},
+		Catalog:        &fakeCatalog{},
+		Interviews:     &fakeInterviews{},
+		Members:        &fakeMembers{},
+		Billing:        &fakeBilling{},
+		SensitiveReads: &recordingAuditor{},
+		Progression:    &stubProgression{},
+		Environment:    config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -279,6 +280,7 @@ func serveWithLimiter(t *testing.T, identity api.Identity, limiter api.Limiter) 
 		Interviews:         &fakeInterviews{},
 		Members:            &fakeMembers{},
 		Billing:            &fakeBilling{},
+		SensitiveReads:     &recordingAuditor{},
 		Progression:        &stubProgression{},
 		AttemptsPerAddress: limiter,
 		AttemptsPerNetwork: limiter,
@@ -294,15 +296,16 @@ func serveIn(t *testing.T, identity api.Identity, environment config.Environment
 	t.Helper()
 
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity:    identity,
-		Candidates:  &fakeCandidates{},
-		Documents:   &fakeDocuments{},
-		Catalog:     &fakeCatalog{},
-		Interviews:  &fakeInterviews{},
-		Members:     &fakeMembers{},
-		Billing:     &fakeBilling{},
-		Progression: &stubProgression{},
-		Environment: environment,
+		Identity:       identity,
+		Candidates:     &fakeCandidates{},
+		Documents:      &fakeDocuments{},
+		Catalog:        &fakeCatalog{},
+		Interviews:     &fakeInterviews{},
+		Members:        &fakeMembers{},
+		Billing:        &fakeBilling{},
+		SensitiveReads: &recordingAuditor{},
+		Progression:    &stubProgression{},
+		Environment:    environment,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

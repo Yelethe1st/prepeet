@@ -53,14 +53,15 @@ func serveCatalog(t *testing.T, catalog *fakeCatalog) http.Handler {
 		Identity: &fakeIdentity{principal: api.Principal{
 			UserID: "00000000-0000-7000-8000-0000000000f9", ActiveTenantID: "tn_1",
 		}},
-		Candidates:  &fakeCandidates{},
-		Documents:   &fakeDocuments{},
-		Catalog:     catalog,
-		Interviews:  &fakeInterviews{},
-		Members:     &fakeMembers{},
-		Billing:     &fakeBilling{},
-		Progression: &stubProgression{},
-		Environment: config.EnvironmentLocal,
+		Candidates:     &fakeCandidates{},
+		Documents:      &fakeDocuments{},
+		Catalog:        catalog,
+		Interviews:     &fakeInterviews{},
+		Members:        &fakeMembers{},
+		Billing:        &fakeBilling{},
+		SensitiveReads: &recordingAuditor{},
+		Progression:    &stubProgression{},
+		Environment:    config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

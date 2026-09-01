@@ -33,15 +33,16 @@ func serveFacts(t *testing.T, documents *fakeDocuments) http.Handler {
 	t.Helper()
 	identity := &fakeIdentity{principal: api.Principal{UserID: "00000000-0000-7000-8000-0000000000f9"}}
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity:    identity,
-		Candidates:  &fakeCandidates{},
-		Documents:   documents,
-		Catalog:     &fakeCatalog{},
-		Interviews:  &fakeInterviews{},
-		Members:     &fakeMembers{},
-		Billing:     &fakeBilling{},
-		Progression: &stubProgression{},
-		Environment: config.EnvironmentLocal,
+		Identity:       identity,
+		Candidates:     &fakeCandidates{},
+		Documents:      documents,
+		Catalog:        &fakeCatalog{},
+		Interviews:     &fakeInterviews{},
+		Members:        &fakeMembers{},
+		Billing:        &fakeBilling{},
+		SensitiveReads: &recordingAuditor{},
+		Progression:    &stubProgression{},
+		Environment:    config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

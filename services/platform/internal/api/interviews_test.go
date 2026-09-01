@@ -162,16 +162,17 @@ func (f *fakeInterviews) CompleteInterview(_ context.Context, userID, sessionID 
 func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
 	t.Helper()
 	handler, err := api.NewServer(api.ServerConfig{
-		AgentToken:  "agent-secret-agent-secret",
-		Identity:    &fakeIdentity{principal: api.Principal{UserID: "00000000-0000-7000-8000-0000000000f9"}},
-		Candidates:  &fakeCandidates{},
-		Documents:   &fakeDocuments{},
-		Catalog:     &fakeCatalog{},
-		Interviews:  interviews,
-		Members:     &fakeMembers{},
-		Billing:     &fakeBilling{},
-		Progression: &stubProgression{},
-		Environment: config.EnvironmentLocal,
+		AgentToken:     "agent-secret-agent-secret",
+		Identity:       &fakeIdentity{principal: api.Principal{UserID: "00000000-0000-7000-8000-0000000000f9"}},
+		Candidates:     &fakeCandidates{},
+		Documents:      &fakeDocuments{},
+		Catalog:        &fakeCatalog{},
+		Interviews:     interviews,
+		Members:        &fakeMembers{},
+		Billing:        &fakeBilling{},
+		SensitiveReads: &recordingAuditor{},
+		Progression:    &stubProgression{},
+		Environment:    config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

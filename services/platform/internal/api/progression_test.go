@@ -205,7 +205,8 @@ func progressionRequest(t *testing.T, path string, stub *stubProgression, token 
 	handler, err := api.NewServer(api.ServerConfig{
 		Identity: identity, Candidates: &fakeCandidates{}, Documents: &fakeDocuments{},
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
-		Billing: &fakeBilling{}, Progression: stub, Environment: config.EnvironmentLocal,
+		Billing: &fakeBilling{}, Progression: stub,
+		SensitiveReads: &recordingAuditor{}, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

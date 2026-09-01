@@ -64,6 +64,7 @@ func serveLimited(t *testing.T, perAddress, perNetwork api.Limiter) http.Handler
 		Interviews:         &fakeInterviews{},
 		Members:            &fakeMembers{},
 		Billing:            &fakeBilling{},
+		SensitiveReads:     &recordingAuditor{},
 		Progression:        &stubProgression{},
 		AttemptsPerAddress: perAddress,
 		AttemptsPerNetwork: perNetwork,

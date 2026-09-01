@@ -70,15 +70,16 @@ func (f *authorizingIdentity) Authorize(_ context.Context, _ string, capability 
 func serveMembers(t *testing.T, identity *authorizingIdentity, members *fakeMembers) http.Handler {
 	t.Helper()
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity:    identity,
-		Candidates:  &fakeCandidates{},
-		Documents:   &fakeDocuments{},
-		Catalog:     &fakeCatalog{},
-		Interviews:  &fakeInterviews{},
-		Members:     members,
-		Billing:     &fakeBilling{},
-		Progression: &stubProgression{},
-		Environment: config.EnvironmentLocal,
+		Identity:       identity,
+		Candidates:     &fakeCandidates{},
+		Documents:      &fakeDocuments{},
+		Catalog:        &fakeCatalog{},
+		Interviews:     &fakeInterviews{},
+		Members:        members,
+		Billing:        &fakeBilling{},
+		SensitiveReads: &recordingAuditor{},
+		Progression:    &stubProgression{},
+		Environment:    config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -276,15 +277,16 @@ func TestUsageAndQuotaAskForBillingRead(t *testing.T) {
 func serveBilling(t *testing.T, identity *authorizingIdentity, billing *fakeBilling) (http.Handler, *fakeBilling) {
 	t.Helper()
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity:    identity,
-		Candidates:  &fakeCandidates{},
-		Documents:   &fakeDocuments{},
-		Catalog:     &fakeCatalog{},
-		Interviews:  &fakeInterviews{},
-		Members:     &fakeMembers{},
-		Billing:     billing,
-		Progression: &stubProgression{},
-		Environment: config.EnvironmentLocal,
+		Identity:       identity,
+		Candidates:     &fakeCandidates{},
+		Documents:      &fakeDocuments{},
+		Catalog:        &fakeCatalog{},
+		Interviews:     &fakeInterviews{},
+		Members:        &fakeMembers{},
+		Billing:        billing,
+		Progression:    &stubProgression{},
+		SensitiveReads: &recordingAuditor{},
+		Environment:    config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

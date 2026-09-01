@@ -136,28 +136,35 @@ func main() {
 		documents: candidate.NewDocuments(candidateStore, uploads, outbox.New(pool)),
 	}
 
+	// One identity service, shared by the two ports that need it: the one
+	// that resolves a session and the one that records a read of restricted
+	// content. Two constructions would be two services with two token flows,
+	// which is not wrong so much as quietly wasteful and easy to let drift.
+	identityService := identity.NewService(identity.NewRepository(pool), time.Now).
+		WithTokenFlows(identity.TokenFlows{
+			Mailer: queueMailer{queue: notification.NewQueue(pool)},
+			// One email per address per flow per minute. The Postgres
+			// counter, so every task shares the count and the cooldown a
+			// person sees is the cooldown that holds.
+			Resend:  ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 1, Window: time.Minute}, time.Now),
+			BaseURL: cfg.WebBaseURL,
+		}).
+		// The storage is wired whether or not a provider is configured, so
+		// adding one is a client and a map entry rather than a change here.
+		// With none configured the endpoints still answer: the list is
+		// empty and the sign-in screen shows email and password alone,
+		// which is what a deployment without OAuth should look like.
+		WithOAuth(identity.NewRepository(pool), oauthProviders(cfg))
+
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity: identityAdapter{service: identity.NewService(identity.NewRepository(pool), time.Now).
-			WithTokenFlows(identity.TokenFlows{
-				Mailer: queueMailer{queue: notification.NewQueue(pool)},
-				// One email per address per flow per minute. The Postgres
-				// counter, so every task shares the count and the cooldown a
-				// person sees is the cooldown that holds.
-				Resend:  ratelimit.NewPostgres(pool, ratelimit.Rule{Limit: 1, Window: time.Minute}, time.Now),
-				BaseURL: cfg.WebBaseURL,
-			}).
-			// The storage is wired whether or not a provider is configured, so
-			// adding one is a client and a map entry rather than a change here.
-			// With none configured the endpoints still answer: the list is
-			// empty and the sign-in screen shows email and password alone,
-			// which is what a deployment without OAuth should look like.
-			WithOAuth(identity.NewRepository(pool), oauthProviders(cfg))},
-		Candidates:  candidates,
-		Documents:   candidates,
-		Catalog:     newCatalogAdapter(content.NewStore(pool)),
-		Members:     membersAdapter{members: identity.NewMembers(identity.NewRepository(pool))},
-		Billing:     billingAdapter{ledger: billing.NewLedger(pool)},
-		Progression: newProgressionAdapter(progression.NewStore(pool)),
+		Identity:       identityAdapter{service: identityService},
+		Candidates:     candidates,
+		Documents:      candidates,
+		Catalog:        newCatalogAdapter(content.NewStore(pool)),
+		Members:        membersAdapter{members: identity.NewMembers(identity.NewRepository(pool))},
+		Billing:        billingAdapter{ledger: billing.NewLedger(pool)},
+		Progression:    newProgressionAdapter(progression.NewStore(pool)),
+		SensitiveReads: identityAdapter{service: identityService},
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

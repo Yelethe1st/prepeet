@@ -704,6 +704,53 @@ func (q *Queries) InsertOwningMembership(ctx context.Context, arg InsertOwningMe
 	return err
 }
 
+const insertSensitiveReadEvent = `-- name: InsertSensitiveReadEvent :exec
+INSERT INTO audit.events
+    (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, request_id)
+VALUES ($1::uuid,
+        nullif($2::text, '')::uuid,
+        nullif($3::text, '')::uuid,
+        'user',
+        $4::text,
+        nullif($5::text, ''),
+        nullif($6::text, ''),
+        $7::text,
+        nullif($8::text, ''))
+`
+
+type InsertSensitiveReadEventParams struct {
+	ID          string
+	TenantID    string
+	ActorID     string
+	Action      string
+	SubjectType string
+	SubjectID   string
+	Outcome     string
+	RequestID   string
+}
+
+// One row per access to restricted content, written before the content is
+// served.
+//
+// Separate from InsertAuditEvent because that one hardcodes a NULL tenant for
+// the sign-in path, and a sensitive read may happen inside a workspace. The
+// actor is nullable here for the case that one is: a request with no usable
+// session still made an attempt, and an attempt nobody can attribute is more
+// worth recording than less.
+func (q *Queries) InsertSensitiveReadEvent(ctx context.Context, arg InsertSensitiveReadEventParams) error {
+	_, err := q.db.Exec(ctx, insertSensitiveReadEvent,
+		arg.ID,
+		arg.TenantID,
+		arg.ActorID,
+		arg.Action,
+		arg.SubjectType,
+		arg.SubjectID,
+		arg.Outcome,
+		arg.RequestID,
+	)
+	return err
+}
+
 const insertSession = `-- name: InsertSession :exec
 INSERT INTO identity.sessions
     (id, user_id, family_id, session_token_hash, refresh_token_hash,

@@ -26,6 +26,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/authz"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/password"
 )
 
@@ -1423,5 +1424,60 @@ func TestARevokedSessionHoldsNothing(t *testing.T) {
 
 	if _, err := service.Capabilities(ctx, session.SessionToken); !errors.Is(err, identity.ErrSessionInvalid) {
 		t.Errorf("Capabilities on a revoked session returned %v, want ErrSessionInvalid", err)
+	}
+}
+
+// A sensitive read reaches the audit table, which is the half a stub cannot
+// show. internal/api proves the middleware records; this proves the row lands
+// with the actor, subject and outcome a person would search for.
+func TestASensitiveReadIsRecordedInTheAuditTable(t *testing.T) {
+	ctx := context.Background()
+	repo := identity.NewRepository(pool)
+	service := identity.NewService(repo, time.Now)
+
+	userID := register(t, service, "audit-probe-"+id.New().String()+"@prepeet.test").UserID
+	subject := id.New().String()
+
+	if err := service.RecordSensitiveRead(ctx, identity.SensitiveRead{
+		ActorID: userID, Action: "GetTranscript",
+		SubjectType: "session", SubjectID: subject, Outcome: "allowed",
+		RequestID: "req-audit-probe",
+	}); err != nil {
+		t.Fatalf("RecordSensitiveRead: %v", err)
+	}
+
+	// Read as the migrator. The application role writes these rows and cannot
+	// read them back untenanted: the select policy admits an untenanted row
+	// only to its own actor, and reading the audit trail belongs to the
+	// privileged viewer OPS-06 will build rather than to the request path.
+	admin, err := pgx.Connect(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("admin connect: %v", err)
+	}
+	defer func() { _ = admin.Close(ctx) }()
+
+	var action, outcome, recordedSubject string
+	err = admin.QueryRow(ctx,
+		`SELECT action, outcome, subject_id FROM audit.events
+		 WHERE actor_id = $1 AND subject_id = $2`, userID, subject).
+		Scan(&action, &outcome, &recordedSubject)
+	if err != nil {
+		t.Fatalf("no audit row was written for the read: %v", err)
+	}
+	if action != "GetTranscript" || outcome != "allowed" || recordedSubject != subject {
+		t.Fatalf("the row says %s/%s/%s", action, outcome, recordedSubject)
+	}
+}
+
+// A row that cannot say what happened occupies the space where the answer
+// should be, so it is refused rather than written empty.
+func TestARecordWithNoActionIsRefused(t *testing.T) {
+	err := identity.NewService(identity.NewRepository(pool), time.Now).
+		RecordSensitiveRead(context.Background(), identity.SensitiveRead{
+			SubjectType: "session", SubjectID: id.New().String(), Outcome: "allowed",
+		})
+
+	if err == nil {
+		t.Fatal("a sensitive read with no action was accepted")
 	}
 }

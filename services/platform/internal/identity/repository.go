@@ -609,3 +609,45 @@ func (r *PostgresRepository) DeleteExpiredOAuthStates(ctx context.Context, befor
 	}
 	return nil
 }
+
+// RecordSensitiveRead writes one access to restricted content.
+//
+// Its own connection rather than a caller's transaction, for the reason the
+// port states: an access that was served must stay recorded even if the request
+// that served it rolled back.
+func (r *PostgresRepository) RecordSensitiveRead(ctx context.Context, read SensitiveRead) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("identity: beginning the audit write: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// The policies on audit.events read the connection, so the acting identity
+	// has to be set on the same connection the insert runs on. An attempt with
+	// no session sets neither and is admitted by the unattributed policy from
+	// migration 0055, which can write a row with no actor and nothing else.
+	if read.ActorID != "" {
+		if err := database.SetUser(ctx, tx, read.ActorID); err != nil {
+			return err
+		}
+	}
+	if read.TenantID != "" {
+		if err := database.SetTenant(ctx, tx, read.TenantID); err != nil {
+			return err
+		}
+	}
+
+	if err := db.New(tx).InsertSensitiveReadEvent(ctx, db.InsertSensitiveReadEventParams{
+		ID:          id.New().String(),
+		TenantID:    read.TenantID,
+		ActorID:     read.ActorID,
+		Action:      read.Action,
+		SubjectType: read.SubjectType,
+		SubjectID:   read.SubjectID,
+		Outcome:     read.Outcome,
+		RequestID:   read.RequestID,
+	}); err != nil {
+		return fmt.Errorf("identity: recording a sensitive read: %w", err)
+	}
+	return tx.Commit(ctx)
+}

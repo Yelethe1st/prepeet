@@ -369,3 +369,24 @@ DO UPDATE SET email = excluded.email, last_seen = now();
 -- Sweep the abandoned ones. People start a sign-in and wander off.
 DELETE FROM identity.oauth_states
 WHERE expires_at < sqlc.arg(before)::timestamptz;
+
+-- name: InsertSensitiveReadEvent :exec
+-- One row per access to restricted content, written before the content is
+-- served.
+--
+-- Separate from InsertAuditEvent because that one hardcodes a NULL tenant for
+-- the sign-in path, and a sensitive read may happen inside a workspace. The
+-- actor is nullable here for the case that one is: a request with no usable
+-- session still made an attempt, and an attempt nobody can attribute is more
+-- worth recording than less.
+INSERT INTO audit.events
+    (id, tenant_id, actor_id, actor_type, action, subject_type, subject_id, outcome, request_id)
+VALUES (sqlc.arg(id)::uuid,
+        nullif(sqlc.arg(tenant_id)::text, '')::uuid,
+        nullif(sqlc.arg(actor_id)::text, '')::uuid,
+        'user',
+        sqlc.arg(action)::text,
+        nullif(sqlc.arg(subject_type)::text, ''),
+        nullif(sqlc.arg(subject_id)::text, ''),
+        sqlc.arg(outcome)::text,
+        nullif(sqlc.arg(request_id)::text, ''));

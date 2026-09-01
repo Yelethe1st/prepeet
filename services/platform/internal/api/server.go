@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/Yelethe1st/prepeet/packages/generated/go/prepeetapi"
@@ -36,7 +37,10 @@ type ServerConfig struct {
 	Billing TenantBilling
 	// Progression serves the candidate's own competency history.
 	Progression Progression
-	Environment config.Environment
+	// SensitiveReads records access to restricted content, for the operations
+	// the contract declares auditable.
+	SensitiveReads SensitiveReadAuditor
+	Environment    config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
 	AgentToken string
@@ -135,8 +139,28 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		return nil, err
 	}
 
+	// Which reads are events. Refused at construction rather than at the first
+	// read, for the same reason: a contract declaring an audit the deployment
+	// cannot write is a promise nothing keeps.
+	auditable, err := sensitiveOperations()
+	if err != nil {
+		return nil, err
+	}
+	if len(auditable) > 0 && cfg.SensitiveReads == nil {
+		return nil, fmt.Errorf(
+			"api: the contract declares %d sensitive read(s) and no SensitiveReadAuditor was given",
+			len(auditable))
+	}
+
 	strict := prepeetapi.NewStrictHandlerWithOptions(handlers,
-		[]prepeetapi.StrictMiddlewareFunc{carryCredentials(cfg.TrustProxyHeaders, required)},
+		// Order matters and reads backwards. The generated router wraps in slice
+		// order, so the last entry is outermost and runs first. The audit is
+		// listed first, which makes it the inner one, so credentials are in the
+		// context by the time it needs to name who read.
+		[]prepeetapi.StrictMiddlewareFunc{
+			auditSensitiveReads(cfg.SensitiveReads, cfg.Identity, auditable, cfg.Environment),
+			carryCredentials(cfg.TrustProxyHeaders, required),
+		},
 		prepeetapi.StrictHTTPServerOptions{
 			// The generated defaults answer with http.Error, which is plain
 			// text. That would make a malformed body the one failure in this

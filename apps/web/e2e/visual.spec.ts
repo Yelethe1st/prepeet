@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 import { expect, hydrated, setTheme, test } from "./fixtures";
 
 /**
@@ -39,6 +41,21 @@ test.describe("appearance", () => {
         // Fonts settle after first paint, and a screenshot taken before they do
         // compares a fallback face against the real one on every run.
         await page.evaluate(() => document.fonts.ready);
+
+        // Nothing on the page still claims to be loading.
+        //
+        // A region that draws placeholders while it waits is taller or shorter
+        // depending on whether its request has finished, so a screenshot taken
+        // mid-flight compares one run's timing against another's. That is not a
+        // hypothetical: the sign-in screen began drawing placeholders for its
+        // provider buttons, and the baseline captured locally, where the request
+        // failed immediately, was 112 pixels shorter than the one CI captured
+        // while the same request was still outstanding.
+        //
+        // Waiting for the settled state is also the more useful baseline. A
+        // person reads this screen after it has loaded, and a placeholder is not
+        // a design anybody reviews.
+        await settled(page);
 
         await expect(page).toHaveScreenshot(`${route.name}-${theme}.png`, {
           fullPage: true,
@@ -137,3 +154,20 @@ test.describe("appearance", () => {
     });
   });
 });
+
+/**
+ * Waits until no region on the page reports that it is busy.
+ *
+ * `aria-busy` is the same signal a screen reader uses to decide whether to
+ * announce a region as still arriving, so a component that gets this right for
+ * assistive technology gets it right for the camera at no extra cost. A
+ * component that does not set it is invisible here, which is a reason to set it
+ * rather than a reason to look for something else.
+ */
+async function settled(page: Page) {
+  await page.waitForFunction(
+    () => document.querySelectorAll('[aria-busy="true"]').length === 0,
+    undefined,
+    { timeout: 10_000 },
+  );
+}

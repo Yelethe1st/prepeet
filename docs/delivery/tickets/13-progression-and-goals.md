@@ -169,9 +169,38 @@ Competency evidence, trend over time, evidence freshness, readiness by role, and
 straight into a session that targets it.
 
 **Done when**
-- [ ] Every competency can be expanded to the evidence behind it, with its date.
-- [ ] Stale evidence is visibly stale rather than silently counted as current.
-- [ ] Charts carry text summaries and table alternatives.
+- [x] Every competency can be expanded to the evidence behind it, with its date.
+- [x] Stale evidence is visibly stale rather than silently counted as current.
+- [x] Charts carry text summaries and table alternatives.
+
+**Done, on the endpoints added to unblock it.** The screen is `/skills`, reachable from the practice
+group in the navigation, and it is a pure function of what the contract returns: the section fetches
+and the screen renders, so the three criteria can be tested without a fetch that could fail them for
+an unrelated reason.
+
+A competency opens to the readings behind it, each with the date it was measured and the rubric
+version that judged it. The version is shown rather than hidden as an implementation detail, because
+two readings under different rubrics are not the same measurement and a candidate comparing them
+deserves to know which is which. Rows stay closed until asked: the standing is the answer, the dates
+are the detail, and a screen that opened everything would bury the reading it exists to give.
+
+Staleness is a word, not a colour. Colour alone is not a reading, and the word is what a screen reader
+and a printed page both carry.
+
+The chart's summary and table are rendered for everyone rather than hidden behind a screen reader
+label. A summary only some people receive is one nobody proofreads, and it is the sighted reader in a
+hurry who most often wants the count rather than the shape.
+
+The rule the rest of this epic turns on holds hardest here. An unassessed competency has no band, no
+bar, and no place in any ordering that implies one: it says "not yet assessed" and, when opened, that
+no session has covered it. A screen is where never-measured most easily becomes measured-badly, and
+the test that would catch that is the unglamorous one that asserts a band is absent.
+
+Four attacks, one per criterion plus the unassessed rule, each failing its own named test: rendering a
+band for an unobserved competency, dropping the staleness wording, removing the summary, and removing
+the table.
+
+Web: 616 tests, 96.78 percent statements against a 95 floor.
 
 **Still not started, but no longer blocked.** All three boxes are about screens and no screen exists
 yet. What has changed is the reason: the contract now declares `GET /me/progression/skills` and

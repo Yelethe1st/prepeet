@@ -50,6 +50,11 @@ export const NAVIGATION: readonly NavigationGroup[] = [
         capability: "candidate.practice.read_own",
       },
       {
+        label: "Skills",
+        href: "/skills",
+        capability: "candidate.practice.read_own",
+      },
+      {
         label: "Profile",
         href: "/profile",
         capability: "candidate.profile.read_own",

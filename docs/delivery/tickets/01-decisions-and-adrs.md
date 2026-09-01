@@ -286,6 +286,12 @@ launch jurisdiction is expected to require and a looser rule elsewhere would oth
 shared code path. The second box still needs the approved disclosure text, which needs the same
 approver the determination does.
 
+A brief for counsel is written and ready to send:
+[screening-legal-brief.md](../../security/screening-legal-brief.md). It asks four questions and
+nothing else, recommends determining the United Kingdom alone, and says plainly what ADR-0020 has
+already settled so that none of it is re-litigated. The second open box, the approved disclosure
+text, can be drafted in parallel rather than after: the ten required areas are already fixed in code.
+
 **Spec** [screen-mode.md](../../product/screen-mode.md) · [responsible-hiring.md](../../security/responsible-hiring.md)
 
 ---

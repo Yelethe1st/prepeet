@@ -517,3 +517,89 @@ func TestTheDatabaseRefusesModelImprovementAsRequired(t *testing.T) {
 		t.Fatal("the database accepted model improvement as a required consent")
 	}
 }
+
+// TEN-04's third criterion, from the campaign side: a rubric a running campaign
+// is using is not removed even as a draft.
+//
+// The refusal itself lives in the rubric library. What this proves is the
+// answer it depends on, which was an unimplemented port until now: the library
+// was refusing on the strength of a question nobody could answer.
+func TestAnOpenCampaignIsReportedAsUsingItsPinnedRubric(t *testing.T) {
+	ctx := context.Background()
+	store := recruiting.NewStore(pool)
+	determinationID := seedDetermination(t, "PT")
+
+	campaign, err := store.CreateDraft(ctx, recruiting.Campaign{
+		TenantID: tenantA, Name: "Uses the backend rubric", RoleReference: "role/backend",
+		Jurisdiction: "PT", CreatedBy: id.New().String(),
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// A draft pins nothing, so nothing is in use yet.
+	using, err := store.CampaignsUsing(ctx, tenantA, "rubric/backend-ten04")
+	if err != nil {
+		t.Fatalf("CampaignsUsing: %v", err)
+	}
+	if len(using) != 0 {
+		t.Fatalf("a draft campaign was reported as using a rubric: %v", using)
+	}
+
+	if _, err := store.Open(ctx, campaign, recruiting.Opening{
+		Determination: recruiting.Determination{ID: determinationID, Jurisdiction: "PT"},
+		Pins: []recruiting.Pin{
+			{Type: "rubric", Reference: "rubric/backend-ten04", Version: "3.0.0", Digest: "sha256:" + repeat("2")},
+			{Type: "calibration", Reference: "calibration/backend", Version: "1.0.0", Digest: "sha256:" + repeat("3")},
+			{Type: "persona", Reference: "persona/neutral", Version: "1.0.0", Digest: "sha256:" + repeat("4")},
+			{Type: "plan", Reference: "plan/standard", Version: "2.0.0", Digest: "sha256:" + repeat("5")},
+		},
+	}); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	using, err = store.CampaignsUsing(ctx, tenantA, "rubric/backend-ten04")
+	if err != nil {
+		t.Fatalf("CampaignsUsing: %v", err)
+	}
+	if len(using) != 1 || using[0] != "Uses the backend rubric" {
+		t.Fatalf("an open campaign is not reported as using its rubric: %v", using)
+	}
+}
+
+// Another workspace's campaign is not an answer to this workspace's question,
+// and leaking the name would say who else is hiring for what.
+func TestUsageDoesNotReachAcrossTenants(t *testing.T) {
+	ctx := context.Background()
+	store := recruiting.NewStore(pool)
+	determinationID := seedDetermination(t, "NL")
+
+	campaign, err := store.CreateDraft(ctx, recruiting.Campaign{
+		TenantID: tenantB, Name: "B's campaign", RoleReference: "role/backend",
+		Jurisdiction: "NL", CreatedBy: id.New().String(),
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := store.Open(ctx, campaign, recruiting.Opening{
+		Determination: recruiting.Determination{ID: determinationID, Jurisdiction: "NL"},
+		Pins: []recruiting.Pin{
+			{Type: "rubric", Reference: "rubric/shared-ten04", Version: "1.0.0", Digest: "sha256:" + repeat("6")},
+			{Type: "calibration", Reference: "calibration/backend", Version: "1.0.0", Digest: "sha256:" + repeat("7")},
+			{Type: "persona", Reference: "persona/neutral", Version: "1.0.0", Digest: "sha256:" + repeat("8")},
+			{Type: "plan", Reference: "plan/standard", Version: "2.0.0", Digest: "sha256:" + repeat("9")},
+		},
+	}); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	// Asked under A, about the reference B is using. A real campaign exists, so
+	// an empty answer here is the policy working rather than nothing to find.
+	using, err := store.CampaignsUsing(ctx, tenantA, "rubric/shared-ten04")
+	if err != nil {
+		t.Fatalf("CampaignsUsing: %v", err)
+	}
+	if len(using) != 0 {
+		t.Fatalf("tenant A was told about tenant B's campaign: %v", using)
+	}
+}

@@ -100,3 +100,25 @@ SELECT DISTINCT ON (purpose)
 FROM recruiting.consent_decision
 WHERE campaign_id = $1 AND candidate_id = $2
 ORDER BY purpose, decided_at DESC;
+
+-- name: CampaignsUsingArtifact :many
+-- The open campaigns that pinned a given artifact reference.
+--
+-- By reference rather than by digest, which is the opposite of how a campaign
+-- identifies its configuration and is deliberate. The question this answers is
+-- the author's: "may I remove this rubric", and they think in references. A
+-- digest match would answer only for the exact version pinned and would let
+-- the draft behind a running campaign be discarded.
+--
+-- Open only. A closed campaign runs nothing and issues nothing, so it does not
+-- block an author from tidying up; what it already evaluated is pinned by
+-- digest and stays resolvable either way.
+--
+-- Tenant scoping comes from the row-level security policy rather than a
+-- predicate here, so a caller who forgets to scope gets nothing rather than
+-- another workspace's campaign names.
+SELECT c.name
+FROM recruiting.campaign c
+JOIN recruiting.campaign_pin p ON p.campaign_id = c.id
+WHERE c.status = 'open' AND p.reference = sqlc.arg(reference)::text
+ORDER BY c.name;

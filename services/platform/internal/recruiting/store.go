@@ -276,3 +276,30 @@ func campaignFrom(row db.RecruitingCampaign) Campaign {
 	}
 	return campaign
 }
+
+// CampaignsUsing answers which open campaigns pinned an artifact reference.
+//
+// The caller is the rubric library, deciding whether an author may discard a
+// draft. It asks rather than looks: campaigns are this context's and the
+// library is another's, so the answer crosses as a list of names that goes
+// straight into the refusal a person reads.
+//
+// Names rather than identifiers for the same reason. "backend-hiring-q3 is
+// still using it" is something an author can act on; a UUID is something they
+// have to go and look up.
+func (s *Store) CampaignsUsing(ctx context.Context, tenantID, reference string) ([]string, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("recruiting: beginning the usage read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, tenantID); err != nil {
+		return nil, err
+	}
+
+	names, err := db.New(tx).CampaignsUsingArtifact(ctx, reference)
+	if err != nil {
+		return nil, fmt.Errorf("recruiting: reading campaigns using %s: %w", reference, err)
+	}
+	return names, nil
+}

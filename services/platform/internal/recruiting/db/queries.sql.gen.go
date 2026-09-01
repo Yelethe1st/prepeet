@@ -104,6 +104,49 @@ func (q *Queries) CampaignsForRecruiter(ctx context.Context, userID string) ([]R
 	return items, nil
 }
 
+const campaignsUsingArtifact = `-- name: CampaignsUsingArtifact :many
+SELECT c.name
+FROM recruiting.campaign c
+JOIN recruiting.campaign_pin p ON p.campaign_id = c.id
+WHERE c.status = 'open' AND p.reference = $1::text
+ORDER BY c.name
+`
+
+// The open campaigns that pinned a given artifact reference.
+//
+// By reference rather than by digest, which is the opposite of how a campaign
+// identifies its configuration and is deliberate. The question this answers is
+// the author's: "may I remove this rubric", and they think in references. A
+// digest match would answer only for the exact version pinned and would let
+// the draft behind a running campaign be discarded.
+//
+// Open only. A closed campaign runs nothing and issues nothing, so it does not
+// block an author from tidying up; what it already evaluated is pinned by
+// digest and stays resolvable either way.
+//
+// Tenant scoping comes from the row-level security policy rather than a
+// predicate here, so a caller who forgets to scope gets nothing rather than
+// another workspace's campaign names.
+func (q *Queries) CampaignsUsingArtifact(ctx context.Context, reference string) ([]string, error) {
+	rows, err := q.db.Query(ctx, campaignsUsingArtifact, reference)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const closeCampaign = `-- name: CloseCampaign :one
 UPDATE recruiting.campaign
 SET status = 'closed', closed_at = now()

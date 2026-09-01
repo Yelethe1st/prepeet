@@ -176,7 +176,7 @@ Draft, validate, approve, publish, and a version history that cannot be rewritte
 **Done when**
 - [x] A published rubric is immutable; editing produces a new version.
 - [x] Version history shows who published what and when.
-- [ ] A rubric in use by a running campaign cannot be deleted.
+- [x] A rubric in use by a running campaign cannot be deleted.
 
 **Built as a surface over the artifact registry, and that is the whole ticket.**
 `content.artifacts` already stores versioned, digest-identified, published artifacts

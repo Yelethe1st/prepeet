@@ -11,6 +11,15 @@
 // Docker, so the failure arrives in the red-green loop rather than four
 // minutes into CI.
 //
+// One rule for anybody writing a test that touches these tables, learned the
+// expensive way in internal/identity. An assertion that reads a policy-protected
+// table through the application pool without setting a scope is not an
+// assertion. Row-level security hides every row from an unscoped caller, so the
+// count is zero whatever exists, and a test asserting absence passes whether or
+// not the thing it forbids happened. Read as the migrator when verifying that
+// something was not created, and set a scope when attacking, so that an empty
+// answer means the policy refused rather than that nobody asked properly.
+//
 // The second is the attack suite in the integration-tagged files beside it:
 // deliberate attempts to cross a tenant boundary through the HTTP handler,
 // through the bounded context, and through the database, each aimed at a row

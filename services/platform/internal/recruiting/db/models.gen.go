@@ -8,6 +8,16 @@ import (
 	"time"
 )
 
+// A candidate asking for one named adjustment on one campaign. Append-only and deliberately without any free-text column: the request names an adjustment, never a condition or a diagnosis. Evaluation cannot read this table, or any table in this schema, which is how "never a scoring signal" is enforced.
+type RecruitingAccommodationRequest struct {
+	ID          string
+	TenantID    string
+	CampaignID  string
+	CandidateID string
+	Adjustment  string
+	RequestedAt time.Time
+}
+
 // The unit an invitation is issued under: one role, one pinned configuration, one jurisdiction determination. Opening is the moment every pin is checked and frozen.
 type RecruitingCampaign struct {
 	ID              string

@@ -61,6 +61,101 @@ func (q *Queries) AcceptancesFor(ctx context.Context, arg AcceptancesForParams) 
 	return items, nil
 }
 
+const accommodationRequestsFor = `-- name: AccommodationRequestsFor :many
+SELECT id, campaign_id, candidate_id, adjustment, requested_at
+FROM recruiting.accommodation_request
+WHERE campaign_id = $1 AND candidate_id = $2
+ORDER BY requested_at DESC
+`
+
+type AccommodationRequestsForParams struct {
+	CampaignID  string
+	CandidateID string
+}
+
+type AccommodationRequestsForRow struct {
+	ID          string
+	CampaignID  string
+	CandidateID string
+	Adjustment  string
+	RequestedAt time.Time
+}
+
+// Every request this candidate made on this campaign, newest first. The
+// standing decision is read per request through StandingAccommodationDecision
+// rather than joined here: a request nobody has answered has no decision row,
+// and "no row" is an answer this store gives a specific meaning to
+// ("requested") rather than a null it has to reinterpret.
+func (q *Queries) AccommodationRequestsFor(ctx context.Context, arg AccommodationRequestsForParams) ([]AccommodationRequestsForRow, error) {
+	rows, err := q.db.Query(ctx, accommodationRequestsFor, arg.CampaignID, arg.CandidateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AccommodationRequestsForRow{}
+	for rows.Next() {
+		var i AccommodationRequestsForRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.CandidateID,
+			&i.Adjustment,
+			&i.RequestedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const accommodationsForSession = `-- name: AccommodationsForSession :many
+SELECT r.adjustment, f.request_id, f.session_id, f.fulfilled_at
+FROM recruiting.accommodation_fulfilment f
+JOIN recruiting.accommodation_request r ON r.id = f.request_id
+WHERE f.session_id = $1
+ORDER BY f.fulfilled_at
+`
+
+type AccommodationsForSessionRow struct {
+	Adjustment  string
+	RequestID   string
+	SessionID   string
+	FulfilledAt time.Time
+}
+
+// What was actually applied to one session: the read the interview runner's
+// port will serve when the composition root wires it. This is the record of
+// an accommodation being exercised, and it lives here so that evaluation,
+// which cannot name this schema, can never make a signal of it.
+func (q *Queries) AccommodationsForSession(ctx context.Context, sessionID string) ([]AccommodationsForSessionRow, error) {
+	rows, err := q.db.Query(ctx, accommodationsForSession, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AccommodationsForSessionRow{}
+	for rows.Next() {
+		var i AccommodationsForSessionRow
+		if err := rows.Scan(
+			&i.Adjustment,
+			&i.RequestID,
+			&i.SessionID,
+			&i.FulfilledAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const campaignsForRecruiter = `-- name: CampaignsForRecruiter :many
 SELECT c.id, c.tenant_id, c.name, c.status, c.role_reference, c.jurisdiction,
        c.determination_id, c.opened_at, c.closed_at, c.created_at, c.created_by
@@ -490,6 +585,57 @@ func (q *Queries) RecordAcceptance(ctx context.Context, arg RecordAcceptancePara
 	return err
 }
 
+const recordAccommodationDecision = `-- name: RecordAccommodationDecision :exec
+INSERT INTO recruiting.accommodation_decision
+    (id, tenant_id, request_id, granted, decided_by)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type RecordAccommodationDecisionParams struct {
+	ID        string
+	TenantID  string
+	RequestID string
+	Granted   bool
+	DecidedBy string
+}
+
+func (q *Queries) RecordAccommodationDecision(ctx context.Context, arg RecordAccommodationDecisionParams) error {
+	_, err := q.db.Exec(ctx, recordAccommodationDecision,
+		arg.ID,
+		arg.TenantID,
+		arg.RequestID,
+		arg.Granted,
+		arg.DecidedBy,
+	)
+	return err
+}
+
+const recordAccommodationFulfilment = `-- name: RecordAccommodationFulfilment :exec
+INSERT INTO recruiting.accommodation_fulfilment
+    (id, tenant_id, request_id, session_id)
+VALUES ($1, $2, $3, $4)
+`
+
+type RecordAccommodationFulfilmentParams struct {
+	ID        string
+	TenantID  string
+	RequestID string
+	SessionID string
+}
+
+// The requires-a-standing-grant rule is enforced by trigger here as well as
+// by the store, so a future caller reaching for this query directly meets the
+// same refusal the store would have given it.
+func (q *Queries) RecordAccommodationFulfilment(ctx context.Context, arg RecordAccommodationFulfilmentParams) error {
+	_, err := q.db.Exec(ctx, recordAccommodationFulfilment,
+		arg.ID,
+		arg.TenantID,
+		arg.RequestID,
+		arg.SessionID,
+	)
+	return err
+}
+
 const recordConsentDecision = `-- name: RecordConsentDecision :exec
 INSERT INTO recruiting.consent_decision
     (id, tenant_id, campaign_id, candidate_id, purpose, required, granted, disclosure_digest)
@@ -540,6 +686,41 @@ func (q *Queries) RecruiterMayAccess(ctx context.Context, arg RecruiterMayAccess
 	return allowed, err
 }
 
+const requestAccommodation = `-- name: RequestAccommodation :one
+INSERT INTO recruiting.accommodation_request
+    (id, tenant_id, campaign_id, candidate_id, adjustment)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, tenant_id, campaign_id, candidate_id, adjustment, requested_at
+`
+
+type RequestAccommodationParams struct {
+	ID          string
+	TenantID    string
+	CampaignID  string
+	CandidateID string
+	Adjustment  string
+}
+
+func (q *Queries) RequestAccommodation(ctx context.Context, arg RequestAccommodationParams) (RecruitingAccommodationRequest, error) {
+	row := q.db.QueryRow(ctx, requestAccommodation,
+		arg.ID,
+		arg.TenantID,
+		arg.CampaignID,
+		arg.CandidateID,
+		arg.Adjustment,
+	)
+	var i RecruitingAccommodationRequest
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.CandidateID,
+		&i.Adjustment,
+		&i.RequestedAt,
+	)
+	return i, err
+}
+
 const revokeCampaignAccess = `-- name: RevokeCampaignAccess :exec
 DELETE FROM recruiting.campaign_recruiter WHERE campaign_id = $1 AND user_id = $2
 `
@@ -552,6 +733,35 @@ type RevokeCampaignAccessParams struct {
 func (q *Queries) RevokeCampaignAccess(ctx context.Context, arg RevokeCampaignAccessParams) error {
 	_, err := q.db.Exec(ctx, revokeCampaignAccess, arg.CampaignID, arg.UserID)
 	return err
+}
+
+const standingAccommodationDecision = `-- name: StandingAccommodationDecision :one
+SELECT request_id, granted, decided_by, decided_at
+FROM recruiting.accommodation_decision
+WHERE request_id = $1
+ORDER BY decided_at DESC
+LIMIT 1
+`
+
+type StandingAccommodationDecisionRow struct {
+	RequestID string
+	Granted   bool
+	DecidedBy string
+	DecidedAt time.Time
+}
+
+// The latest decision for one request, which is the standing answer: a grant
+// later withdrawn or a decline later reversed is a newer row, never an edit.
+func (q *Queries) StandingAccommodationDecision(ctx context.Context, requestID string) (StandingAccommodationDecisionRow, error) {
+	row := q.db.QueryRow(ctx, standingAccommodationDecision, requestID)
+	var i StandingAccommodationDecisionRow
+	err := row.Scan(
+		&i.RequestID,
+		&i.Granted,
+		&i.DecidedBy,
+		&i.DecidedAt,
+	)
+	return i, err
 }
 
 const standingConsent = `-- name: StandingConsent :many

@@ -136,3 +136,53 @@ SELECT id, tenant_id, name, status, role_reference, jurisdiction,
        determination_id, opened_at, closed_at, created_at, created_by
 FROM recruiting.campaign
 ORDER BY created_at DESC;
+
+-- name: RequestAccommodation :one
+INSERT INTO recruiting.accommodation_request
+    (id, tenant_id, campaign_id, candidate_id, adjustment)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, tenant_id, campaign_id, candidate_id, adjustment, requested_at;
+
+-- name: RecordAccommodationDecision :exec
+INSERT INTO recruiting.accommodation_decision
+    (id, tenant_id, request_id, granted, decided_by)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: StandingAccommodationDecision :one
+-- The latest decision for one request, which is the standing answer: a grant
+-- later withdrawn or a decline later reversed is a newer row, never an edit.
+SELECT request_id, granted, decided_by, decided_at
+FROM recruiting.accommodation_decision
+WHERE request_id = $1
+ORDER BY decided_at DESC
+LIMIT 1;
+
+-- name: RecordAccommodationFulfilment :exec
+-- The requires-a-standing-grant rule is enforced by trigger here as well as
+-- by the store, so a future caller reaching for this query directly meets the
+-- same refusal the store would have given it.
+INSERT INTO recruiting.accommodation_fulfilment
+    (id, tenant_id, request_id, session_id)
+VALUES ($1, $2, $3, $4);
+
+-- name: AccommodationRequestsFor :many
+-- Every request this candidate made on this campaign, newest first. The
+-- standing decision is read per request through StandingAccommodationDecision
+-- rather than joined here: a request nobody has answered has no decision row,
+-- and "no row" is an answer this store gives a specific meaning to
+-- ("requested") rather than a null it has to reinterpret.
+SELECT id, campaign_id, candidate_id, adjustment, requested_at
+FROM recruiting.accommodation_request
+WHERE campaign_id = $1 AND candidate_id = $2
+ORDER BY requested_at DESC;
+
+-- name: AccommodationsForSession :many
+-- What was actually applied to one session: the read the interview runner's
+-- port will serve when the composition root wires it. This is the record of
+-- an accommodation being exercised, and it lives here so that evaluation,
+-- which cannot name this schema, can never make a signal of it.
+SELECT r.adjustment, f.request_id, f.session_id, f.fulfilled_at
+FROM recruiting.accommodation_fulfilment f
+JOIN recruiting.accommodation_request r ON r.id = f.request_id
+WHERE f.session_id = $1
+ORDER BY f.fulfilled_at;

@@ -204,8 +204,71 @@ accessible — none of which change the rubric or the anchors.
 
 **Done when**
 - [ ] Accommodations are requestable before and during preparation, and are recorded on the session.
-- [ ] Response latency is excluded from evaluation for every candidate, accommodated or not.
+- [x] Response latency is excluded from evaluation for every candidate, accommodated or not.
 - [ ] An alternative path exists and is exercised, not merely promised.
+
+**One of three. The domain, the schema and the store, not yet the server path: the two open boxes
+wait on the contract, exactly as TEN-01's did, because "requestable" and "exercised" are things a
+candidate does and no candidate can reach code that has no HTTP surface.**
+
+Three facts, three append-only tables in migration 0055: what was requested, what was granted and by
+whom, and which session it was actually applied to. The state a candidate sees is derived from those
+rows at read time and never stored, so it cannot disagree with them. Even attaching a request to its
+session is an insert into the fulfilment table rather than an edit of the request, which is what lets
+every one of the three tables refuse UPDATE and DELETE outright.
+
+Two design constraints are structural rather than behavioural, because a rule that is a column you
+did not create is harder to lose than a rule that is a check you wrote.
+
+The request is a named adjustment from screen-mode.md's list, never a diagnosis. There is no
+free-text column and no field to put one in, since a "reason" box on an accommodation form is where a
+medical condition gets asked for whether or not anybody meant to ask. A unit test asserts the
+struct's exact fields, so a place for a condition cannot appear without a reviewed diff, and the
+schema's CHECK refuses a diagnosis-shaped value from a caller that skipped Go entirely.
+
+An accommodation never reaches evaluation as a signal because evaluation cannot read it, not because
+it promises not to. The tables live in the recruiting schema, the ownership gate refuses any other
+module a query that names it, and ADR-0010 leaves no hand-written SQL to walk around that. Giving
+evaluation a probe query that reads `recruiting.accommodation_request` fails
+`TestAModuleNamesOnlyItsOwnSchemas` with a line naming exactly what leaked.
+
+**The second box was mostly closed before this ticket and is ticked on named evidence, not on this
+ticket's work.** `TestResponseLatencyIsInvisibleToScoring` (SES-05, in internal/evaluation) proves
+two candidates giving the same answers at different speeds aggregate identically, for every
+candidate because the aggregation cannot see timing at all, and QUA-01's datasets carry pause
+positions precisely to prove the intelligence plane cannot read them. What SCR-06 adds is the other
+half: accommodation status is equally invisible, so "accommodated or not" cannot re-enter as a
+proxy. Extra thinking time therefore changes the session's clock and nothing else.
+
+The fulfilment rule, that only a standing grant can be applied to a session, is enforced twice: the
+store refuses with an error a caller can act on, and the database's trigger refuses again for the
+future path that skips the store. Breaking the Go guard fails
+`TestFulfilmentWithoutAGrantIsRefusedInGo` and, satisfyingly, the failure message is the trigger
+firing, which is the defence in depth demonstrating itself. A grant later withdrawn is a newer
+append-only row and stops further fulfilment, so the record of what stood when the interview ran
+survives every change of mind. A decision without a named human is refused for the reason the
+jurisdiction determination refuses an unnamed approver.
+
+The phase rule fails closed: a request mid-interview is refused toward SCR-08's incident path, and a
+caller that does not state the session phase is refused rather than read as "no session yet",
+because silence read as early is how a request would slip in late. The session phase arrives as this
+context's own vocabulary through the caller, since recruiting may not import interview (ADR-0005);
+the composition root will translate when the surface lands.
+
+Nine guards proven by breaking them, each failing a named test: the phase rule, the vocabulary, the
+diagnosis field, FORCE RLS, request append-only, the fulfilment trigger, the tenant policy (attacked
+at a row that exists under the other tenant, reporting what leaked), the Go grant guard, and the
+evaluation boundary.
+
+**What remains for the two open boxes.** The candidate request and status endpoints and the
+recruiter review queue wait on the OpenAPI contract, which another stream holds. The alternative
+path is grantable, fulfillable and recorded on a session today, and
+`TestTheAlternativePathIsGrantedAndRecordedLikeAnyAdjustment` exercises that record; conducting an
+alternative assessment session is the interview context's work and is the difference between this
+record and the criterion's "exercised". Migration 0055 also admits `accommodation_policy` as a
+registry artifact type, so a campaign can pin one by digest exactly as it pins its rubric; making it
+required at open is deliberately left until the policy artifact has an authoring surface, for a
+campaign cannot be asked to pin what nobody can yet publish.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md) · [responsible-hiring.md](../../security/responsible-hiring.md)
 

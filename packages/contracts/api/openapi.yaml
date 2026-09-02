@@ -60,6 +60,8 @@ tags:
     description: Interview sessions - creation from a validated catalogue selection; the lifecycle endpoints arrive with the session tickets.
   - name: tenant
     description: Workspace administration - members and roles. Every operation is decided by the capability catalogue, tenant-scoped, and audited.
+  - name: recruiting
+    description: Campaigns and who works on them. Listing is tenant-wide by design, per the capability catalogue - a recruiter may see which campaigns exist before being assigned to one - while everything about a particular campaign is scoped to the recruiters on it, enforced by the database join rather than by a handler remembering.
   - name: progression
     description: A candidate's own competency history over time - readiness against a pinned role standard, and how current the evidence behind each reading is. Owner-scoped, like the practice data it is derived from.
   - name: internal
@@ -1078,6 +1080,204 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/MemberConflict" }
+
+  /campaigns:
+    get:
+      tags: [recruiting]
+      operationId: listCampaigns
+      x-prepeet-capability: campaign.read
+      summary: Every campaign in the workspace
+      description: |
+        Tenant-wide, which is what campaign.read means: a recruiter may see
+        which campaigns exist before being assigned to one. What they may not
+        see without an assignment is anything inside one, which is why the
+        entries here carry no pins and no determination.
+      responses:
+        "200":
+          description: The campaigns, newest first.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [recruiting]
+      operationId: createCampaign
+      x-prepeet-capability: campaign.read
+      summary: Start a draft campaign
+      description: |
+        A draft accepts configuration and issues nothing. The creator is put on
+        the campaign in the same transaction that creates it, because a
+        campaign its creator cannot open is a race nobody should be able to
+        lose.
+
+        campaign.read rather than campaign.manage, deliberately: manage is
+        scoped to a campaign, and a campaign that does not exist yet has no
+        scope anybody could hold.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, role_reference, jurisdiction]
+              properties:
+                name: { type: string, minLength: 1 }
+                role_reference: { type: string, minLength: 1 }
+                jurisdiction:
+                  type: string
+                  description: ISO 3166-1 alpha-2, or alpha-2 with a subdivision.
+      responses:
+        "201":
+          description: The draft.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /campaigns/{campaignId}:
+    get:
+      tags: [recruiting]
+      operationId: getCampaign
+      x-prepeet-capability: campaign.read
+      summary: One campaign, for a recruiter on it
+      description: |
+        Scoped to the recruiters on the campaign by the database join, so a
+        member who is not on it receives the same not-found a campaign that
+        never existed produces. Telling those apart would let anybody
+        enumerate who is hiring for what.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The campaign.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /campaigns/{campaignId}/open:
+    post:
+      tags: [recruiting]
+      operationId: openCampaign
+      x-prepeet-capability: campaign.read
+      summary: Freeze the configuration and begin issuing
+      description: |
+        Opening is the moment every pin is checked and frozen. The chosen
+        references are resolved to published artifacts and stored by digest, so
+        republishing an artifact afterwards changes nothing this campaign has
+        already scored. A jurisdiction with no recorded legal determination is
+        refused outright, per ADR-0020, and that refusal is reported first
+        because it is the one failure nobody in the product can fix.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pins]
+              properties:
+                pins:
+                  type: array
+                  description: One choice per required artifact kind, by reference.
+                  items:
+                    type: object
+                    required: [type, reference]
+                    properties:
+                      type: { type: string }
+                      reference: { type: string }
+      responses:
+        "200":
+          description: The campaign, now open, with what it pinned.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The campaign is not a draft, so its configuration is already frozen.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: |
+            The configuration cannot open: a required artifact is missing or
+            unpublished, or the jurisdiction has no recorded determination. The
+            code says which, because the recruiter's next step differs.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /campaigns/{campaignId}/recruiters:
+    post:
+      tags: [recruiting]
+      operationId: grantCampaignAccess
+      x-prepeet-capability: campaign.read
+      summary: Put a member on the campaign
+      description: |
+        Only a recruiter already on the campaign may add another, enforced by
+        the same join that scopes reading it. Tenant membership is not
+        authority over a campaign; being on it is.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Granted. Granting twice is not an error.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /tenant/settings:
     get:
@@ -2507,6 +2707,47 @@ components:
           type: array
           items: { type: string }
         created_at: { type: string, format: date-time }
+
+    Campaign:
+      type: object
+      required: [id, name, status, role_reference, jurisdiction, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          type: string
+          enum: [draft, open, closed]
+          description: |
+            A draft accepts configuration and issues nothing; open has frozen
+            its configuration and may issue invitations; closed issues nothing
+            further but remains readable, because a closed campaign is still a
+            hiring record.
+        role_reference: { type: string }
+        jurisdiction: { type: string }
+        opened_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        pins:
+          type: array
+          description: |
+            What the campaign fixed when it opened, by digest. Absent on a
+            draft, which has fixed nothing yet.
+          items:
+            type: object
+            required: [type, reference, version, digest]
+            properties:
+              type: { type: string }
+              reference: { type: string }
+              version: { type: string }
+              digest: { type: string }
+
+    CampaignList:
+      type: object
+      required: [campaigns]
+      properties:
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Campaign"
 
     TenantSettings:
       type: object

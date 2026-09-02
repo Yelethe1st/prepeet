@@ -57,6 +57,7 @@ func serveWithAuditor(t *testing.T, auditor api.SensitiveReadAuditor) http.Handl
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		Settings:       &stubSettings{},
+		Recruiting:     &stubRecruiting{},
 		SensitiveReads: auditor, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -114,6 +115,7 @@ func TestAnActorRefusedByTheHandlerIsAuditedAsDenied(t *testing.T) {
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{err: api.ErrSessionMissing},
 		Members: &fakeMembers{}, Billing: &fakeBilling{}, Progression: &stubProgression{},
 		Settings:       &stubSettings{},
+		Recruiting:     &stubRecruiting{},
 		SensitiveReads: auditor, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -190,6 +192,7 @@ func TestTheServerRefusesToStartWithoutAnAuditor(t *testing.T) {
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		Settings:    &stubSettings{},
+		Recruiting:  &stubRecruiting{},
 		Environment: config.EnvironmentLocal,
 	})
 

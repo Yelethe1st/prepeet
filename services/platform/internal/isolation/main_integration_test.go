@@ -221,6 +221,7 @@ func newServer() (http.Handler, error) {
 		// sensitive read that wrote no row would be a hole it exists to find.
 		SensitiveReads: liveIdentity{service: service},
 		Settings:       undriven{},
+		Recruiting:     undriven{},
 		Environment:    config.EnvironmentLocal,
 	})
 }
@@ -245,6 +246,7 @@ type undriven struct {
 	// yet have and its note says so.
 	api.Progression
 	api.TenantConfiguration
+	api.Recruiting
 }
 
 // liveIdentity presents the identity context as the port the API declared,

@@ -79,6 +79,7 @@ func serveSettings(t *testing.T, settings *stubSettings, held ...authz.Capabilit
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: settings,
+		Recruiting:  &stubRecruiting{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

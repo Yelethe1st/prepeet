@@ -41,7 +41,9 @@ type ServerConfig struct {
 	// the contract declares auditable.
 	SensitiveReads SensitiveReadAuditor
 	// Settings serves the workspace configuration, read only.
-	Settings    TenantConfiguration
+	Settings TenantConfiguration
+	// Recruiting serves SCR-01's campaign surface.
+	Recruiting  Recruiting
 	Environment config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
@@ -93,6 +95,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Settings == nil {
 		return nil, errors.New("api: a TenantConfiguration is required")
 	}
+	if cfg.Recruiting == nil {
+		return nil, errors.New("api: a Recruiting is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -137,6 +142,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	handlers.settingsHandlers = settingsHandlers{
 		authentication: &handlers.authentication,
 		settings:       cfg.Settings,
+	}
+	handlers.campaignHandlers = campaignHandlers{
+		authentication: &handlers.authentication,
+		campaigns:      cfg.Recruiting,
 	}
 
 	// What each operation requires, read from the contract rather than named
@@ -240,6 +249,7 @@ type server struct {
 	billingHandlers
 	progression
 	settingsHandlers
+	campaignHandlers
 	health *health.Registry
 }
 

@@ -49,13 +49,24 @@ func (s *Store) CreateDraft(ctx context.Context, campaign Campaign) (Campaign, e
 		return Campaign{}, err
 	}
 
-	row, err := db.New(tx).CreateCampaign(ctx, db.CreateCampaignParams{
+	queries := db.New(tx)
+	row, err := queries.CreateCampaign(ctx, db.CreateCampaignParams{
 		ID: id.New().String(), TenantID: campaign.TenantID, Name: campaign.Name,
 		RoleReference: campaign.RoleReference, Jurisdiction: campaign.Jurisdiction,
 		CreatedBy: campaign.CreatedBy,
 	})
 	if err != nil {
 		return Campaign{}, fmt.Errorf("recruiting: creating the campaign: %w", err)
+	}
+	// The creator joins their own campaign in the transaction that creates it.
+	// Two steps would leave a window in which the campaign exists and nobody
+	// is on it, and a campaign its creator cannot open is a race nobody
+	// should be able to lose.
+	if err := queries.GrantCampaignAccess(ctx, db.GrantCampaignAccessParams{
+		CampaignID: row.ID, TenantID: campaign.TenantID,
+		UserID: campaign.CreatedBy, GrantedBy: campaign.CreatedBy,
+	}); err != nil {
+		return Campaign{}, fmt.Errorf("recruiting: putting the creator on the campaign: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Campaign{}, fmt.Errorf("recruiting: committing the campaign: %w", err)
@@ -277,6 +288,33 @@ func campaignFrom(row db.RecruitingCampaign) Campaign {
 	return campaign
 }
 
+// List answers every campaign in the tenant, newest first.
+//
+// Tenant-wide by design: campaign.read is unscoped in the catalogue so a
+// recruiter can see which campaigns exist before being assigned to one. The
+// per-campaign join guards everything about a particular campaign, not the
+// fact of its existence inside the caller's own workspace.
+func (s *Store) List(ctx context.Context, tenantID string) ([]Campaign, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("recruiting: beginning the list: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, tenantID); err != nil {
+		return nil, err
+	}
+
+	rows, err := db.New(tx).ListCampaigns(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("recruiting: listing campaigns: %w", err)
+	}
+	campaigns := make([]Campaign, 0, len(rows))
+	for _, row := range rows {
+		campaigns = append(campaigns, campaignFrom(row))
+	}
+	return campaigns, nil
+}
+
 // CampaignsUsing answers which open campaigns pinned an artifact reference.
 //
 // The caller is the rubric library, deciding whether an author may discard a
@@ -302,4 +340,29 @@ func (s *Store) CampaignsUsing(ctx context.Context, tenantID, reference string) 
 		return nil, fmt.Errorf("recruiting: reading campaigns using %s: %w", reference, err)
 	}
 	return names, nil
+}
+
+// LatestDetermination answers the current determination for a jurisdiction.
+//
+// Read straight off the pool: the determinations table is deliberately not
+// tenant data, its policy admits every reader, and requiring a scope here
+// would make the one table whose absence is load-bearing unreadable in the
+// places that must ask about it.
+//
+// Absence is ErrNoDetermination rather than a generic not-found, because
+// absence is the state ADR-0020 gives a specific meaning to: no campaign may
+// open in that jurisdiction, and nobody in the product can fix it.
+func (s *Store) LatestDetermination(ctx context.Context, jurisdiction string) (Determination, error) {
+	row, err := db.New(s.pool).LatestDeterminationFor(ctx, jurisdiction)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Determination{}, fmt.Errorf("%w: %s", ErrNoDetermination, jurisdiction)
+	}
+	if err != nil {
+		return Determination{}, fmt.Errorf("recruiting: reading the determination for %s: %w", jurisdiction, err)
+	}
+	return Determination{
+		ID: row.ID, Jurisdiction: row.Jurisdiction, Version: int(row.Version),
+		ResultDisclosure: row.ResultDisclosure, AppealStatus: row.AppealStatus,
+		Approver: row.Approver, ApprovedAt: row.ApprovedAt,
+	}, nil
 }

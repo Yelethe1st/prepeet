@@ -198,6 +198,11 @@ func (f failure) VisitGetMySkillsResponse(w http.ResponseWriter) error          
 func (f failure) VisitGetMyReadinessResponse(w http.ResponseWriter) error       { return f.write(w) }
 func (f failure) VisitGetTenantSettingsResponse(w http.ResponseWriter) error    { return f.write(w) }
 func (f failure) VisitSaveTenantSettingsResponse(w http.ResponseWriter) error   { return f.write(w) }
+func (f failure) VisitCreateCampaignResponse(w http.ResponseWriter) error       { return f.write(w) }
+func (f failure) VisitListCampaignsResponse(w http.ResponseWriter) error        { return f.write(w) }
+func (f failure) VisitGetCampaignResponse(w http.ResponseWriter) error          { return f.write(w) }
+func (f failure) VisitOpenCampaignResponse(w http.ResponseWriter) error         { return f.write(w) }
+func (f failure) VisitGrantCampaignAccessResponse(w http.ResponseWriter) error  { return f.write(w) }
 
 // Compile-time proof that the hand-written responses satisfy the generated
 // interfaces. Without these, a contract change that altered a Visit signature

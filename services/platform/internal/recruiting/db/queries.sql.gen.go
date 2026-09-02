@@ -306,6 +306,53 @@ func (q *Queries) LatestDeterminationFor(ctx context.Context, jurisdiction strin
 	return i, err
 }
 
+const listCampaigns = `-- name: ListCampaigns :many
+SELECT id, tenant_id, name, status, role_reference, jurisdiction,
+       determination_id, opened_at, closed_at, created_at, created_by
+FROM recruiting.campaign
+ORDER BY created_at DESC
+`
+
+// Every campaign in the tenant, newest first.
+//
+// Deliberately not joined to campaign_recruiter: campaign.read is unscoped in
+// the catalogue precisely so a recruiter can see which campaigns exist before
+// being assigned to one. What stays behind the join is everything about a
+// particular campaign. Tenant scoping is the row-level security policy's, so a
+// caller who forgets to scope gets nothing rather than another workspace's
+// roster of roles.
+func (q *Queries) ListCampaigns(ctx context.Context) ([]RecruitingCampaign, error) {
+	rows, err := q.db.Query(ctx, listCampaigns)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RecruitingCampaign{}
+	for rows.Next() {
+		var i RecruitingCampaign
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Status,
+			&i.RoleReference,
+			&i.Jurisdiction,
+			&i.DeterminationID,
+			&i.OpenedAt,
+			&i.ClosedAt,
+			&i.CreatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const openCampaign = `-- name: OpenCampaign :one
 UPDATE recruiting.campaign
 SET status = 'open', determination_id = $2, opened_at = now()

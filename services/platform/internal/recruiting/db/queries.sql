@@ -122,3 +122,17 @@ FROM recruiting.campaign c
 JOIN recruiting.campaign_pin p ON p.campaign_id = c.id
 WHERE c.status = 'open' AND p.reference = sqlc.arg(reference)::text
 ORDER BY c.name;
+
+-- name: ListCampaigns :many
+-- Every campaign in the tenant, newest first.
+--
+-- Deliberately not joined to campaign_recruiter: campaign.read is unscoped in
+-- the catalogue precisely so a recruiter can see which campaigns exist before
+-- being assigned to one. What stays behind the join is everything about a
+-- particular campaign. Tenant scoping is the row-level security policy's, so a
+-- caller who forgets to scope gets nothing rather than another workspace's
+-- roster of roles.
+SELECT id, tenant_id, name, status, role_reference, jurisdiction,
+       determination_id, opened_at, closed_at, created_at, created_by
+FROM recruiting.campaign
+ORDER BY created_at DESC;

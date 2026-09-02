@@ -735,6 +735,110 @@ export interface paths {
         patch: operations["changeMemberRole"];
         trace?: never;
     };
+    "/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every campaign in the workspace
+         * @description Tenant-wide, which is what campaign.read means: a recruiter may see
+         *     which campaigns exist before being assigned to one. What they may not
+         *     see without an assignment is anything inside one, which is why the
+         *     entries here carry no pins and no determination.
+         */
+        get: operations["listCampaigns"];
+        put?: never;
+        /**
+         * Start a draft campaign
+         * @description A draft accepts configuration and issues nothing. The creator is put on
+         *     the campaign in the same transaction that creates it, because a
+         *     campaign its creator cannot open is a race nobody should be able to
+         *     lose.
+         *
+         *     campaign.read rather than campaign.manage, deliberately: manage is
+         *     scoped to a campaign, and a campaign that does not exist yet has no
+         *     scope anybody could hold.
+         */
+        post: operations["createCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One campaign, for a recruiter on it
+         * @description Scoped to the recruiters on the campaign by the database join, so a
+         *     member who is not on it receives the same not-found a campaign that
+         *     never existed produces. Telling those apart would let anybody
+         *     enumerate who is hiring for what.
+         */
+        get: operations["getCampaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Freeze the configuration and begin issuing
+         * @description Opening is the moment every pin is checked and frozen. The chosen
+         *     references are resolved to published artifacts and stored by digest, so
+         *     republishing an artifact afterwards changes nothing this campaign has
+         *     already scored. A jurisdiction with no recorded legal determination is
+         *     refused outright, per ADR-0020, and that refusal is reported first
+         *     because it is the one failure nobody in the product can fix.
+         */
+        post: operations["openCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/recruiters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a member on the campaign
+         * @description Only a recruiter already on the campaign may add another, enforced by
+         *     the same join that scopes reading it. Tenant membership is not
+         *     authority over a campaign; being on it is.
+         */
+        post: operations["grantCampaignAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenant/settings": {
         parameters: {
             query?: never;
@@ -1570,6 +1674,38 @@ export interface components {
             warnings: string[];
             /** Format: date-time */
             created_at: string;
+        };
+        Campaign: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * @description A draft accepts configuration and issues nothing; open has frozen
+             *     its configuration and may issue invitations; closed issues nothing
+             *     further but remains readable, because a closed campaign is still a
+             *     hiring record.
+             * @enum {string}
+             */
+            status: "draft" | "open" | "closed";
+            role_reference: string;
+            jurisdiction: string;
+            /** Format: date-time */
+            opened_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * @description What the campaign fixed when it opened, by digest. Absent on a
+             *     draft, which has fixed nothing yet.
+             */
+            pins?: {
+                type: string;
+                reference: string;
+                version: string;
+                digest: string;
+            }[];
+        };
+        CampaignList: {
+            campaigns: components["schemas"]["Campaign"][];
         };
         TenantSettings: {
             /**
@@ -3460,6 +3596,179 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["MemberConflict"];
+        };
+    };
+    listCampaigns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The campaigns, newest first. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    role_reference: string;
+                    /** @description ISO 3166-1 alpha-2, or alpha-2 with a subdivision. */
+                    jurisdiction: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The draft. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The campaign. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    openCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description One choice per required artifact kind, by reference. */
+                    pins: {
+                        type: string;
+                        reference: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description The campaign, now open, with what it pinned. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The campaign is not a draft, so its configuration is already frozen. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /**
+             * @description The configuration cannot open: a required artifact is missing or
+             *     unpublished, or the jurisdiction has no recorded determination. The
+             *     code says which, because the recruiter's next step differs.
+             */
+            422: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    grantCampaignAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    user_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Granted. Granting twice is not an error. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getTenantSettings: {

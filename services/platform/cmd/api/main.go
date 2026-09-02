@@ -29,6 +29,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/progression"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/recruiting"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/tenantadmin"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/health"
@@ -175,6 +176,7 @@ func main() {
 		Progression:    newProgressionAdapter(progression.NewStore(pool)),
 		SensitiveReads: identityAdapter{service: identityService},
 		Settings:       settingsAdapter{settings: tenantadmin.NewSettingsStore(pool)},
+		Recruiting:     newRecruitingAdapter(recruiting.NewStore(pool), content.NewStore(pool)),
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

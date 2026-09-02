@@ -20,7 +20,7 @@ policy. Invitations are issued under a campaign, never standalone.
 **Done when**
 - [x] A campaign cannot be opened against a draft or unpublished configuration.
 - [x] Publishing a new rubric version does not alter a running campaign or re-score completed interviews.
-- [ ] Recruiter access is scoped per campaign, enforced server-side.
+- [x] Recruiter access is scoped per campaign, enforced server-side.
 
 **Two of three. The domain and the schema, not yet the server path.**
 
@@ -50,9 +50,35 @@ doing anything that looks wrong. A refusal is worded identically to a campaign t
 since a recruiter who can tell "not yours" from "no such thing" can enumerate a tenant's campaigns by
 asking.
 
-It stays open because the bar set when it was written was that a request actually passes through it,
-and there is still no HTTP handler. The enforcement exists and is proven; nothing calls it yet. That
-arrives with SCR-04 and SCR-05.
+**Closed: requests now pass through it.** Five operations serve the surface, and the capability
+story is worth recording because it is not the obvious one. Every operation declares `campaign.read`,
+including the writes, and that is a consequence of the catalogue rather than a loosening:
+`campaign.manage` is scoped to a campaign, `Authorize` never names a scope, so declaring manage would
+deny everybody always. Per-campaign authority lives where it already provably lives, the
+`campaign_recruiter` join, and the handlers route everything about a particular campaign through it:
+reading, opening and granting all admit the caller by the join first, so the writes are guarded
+exactly as tightly as the reads. A member who is not on a campaign gets the same not-found a campaign
+that never existed produces, because telling those apart would let anybody enumerate who is hiring
+for what.
+
+The tenant-wide list is deliberately different: `campaign.read` is unscoped in the catalogue
+precisely so a recruiter can see which campaigns exist before being assigned to one, and the list
+therefore carries no pins and no determination, which an attack proves rather than a comment
+promising it. The creator joins their own campaign in the transaction that creates it, because a
+campaign its creator cannot open is a race nobody should be able to lose.
+
+The opening failures each keep their own code, since the recruiter's next step differs per code: a
+missing determination is counsel's to fix and the message says so in as many words, an unpublished
+artifact is its author's, and an incomplete configuration is their own.
+
+The architecture gate earned its keep here. The first draft of the surface imported
+`internal/recruiting` directly, reasoning that a second copy of the types would be a translation
+layer with nothing to translate; `TestNoContextImportsAnother` refused it, and the refusal was
+correct. The vocabulary is now declared in the API package and translated in `cmd`, where every
+other pair of contexts already meets.
+
+Four attacks on the handlers, each failing its own named test: opening without the join, taking the
+creator from the body, leaking pins on the tenant-wide list, and granting without the join.
 
 **An attack on this found a real gap in the first version of these tests.** Making
 `recruiting.campaign`'s own policy permissive left every test green, because the recruiter read goes

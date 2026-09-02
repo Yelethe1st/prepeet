@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/api"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/authz"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 )
 
@@ -98,7 +99,12 @@ type fakeIdentity struct {
 
 	principal api.Principal
 	lookupErr error
-	lookedUp  []string
+
+	// allowed, when set, makes Authorize answer the capability it was asked
+	// for rather than ignoring it. Nil means every capability is granted,
+	// which is what every test written before capabilities mattered expects.
+	allowed  []authz.Capability
+	lookedUp []string
 
 	revoked   []string
 	revokeErr error
@@ -126,9 +132,29 @@ type fakeIdentity struct {
 
 // Authorize answers like Lookup by default: the capability-refusal paths are
 // the members suite's subject, through authorizingIdentity.
-func (f *fakeIdentity) Authorize(_ context.Context, presented, _ string) (api.Principal, error) {
+func (f *fakeIdentity) Holds(_ context.Context, _, capability string) bool {
+	if f.allowed == nil {
+		return true
+	}
+	for _, held := range f.allowed {
+		if string(held) == capability {
+			return true
+		}
+	}
+	return false
+}
+
+func (f *fakeIdentity) Authorize(_ context.Context, presented, capability string) (api.Principal, error) {
 	f.lookedUp = append(f.lookedUp, presented)
-	return f.principal, f.lookupErr
+	if f.allowed == nil {
+		return f.principal, f.lookupErr
+	}
+	for _, held := range f.allowed {
+		if string(held) == capability {
+			return f.principal, f.lookupErr
+		}
+	}
+	return api.Principal{}, api.ErrForbidden
 }
 
 // The token flows, recorded and scripted like everything else on the fake.
@@ -260,6 +286,7 @@ func serveWith(t *testing.T, identity api.Identity, candidates api.CandidateProf
 		Interviews:     &fakeInterviews{},
 		Members:        &fakeMembers{},
 		Billing:        &fakeBilling{},
+		Settings:       &stubSettings{},
 		SensitiveReads: &recordingAuditor{},
 		Progression:    &stubProgression{},
 		Environment:    config.EnvironmentLocal,
@@ -280,6 +307,7 @@ func serveWithLimiter(t *testing.T, identity api.Identity, limiter api.Limiter) 
 		Interviews:         &fakeInterviews{},
 		Members:            &fakeMembers{},
 		Billing:            &fakeBilling{},
+		Settings:           &stubSettings{},
 		SensitiveReads:     &recordingAuditor{},
 		Progression:        &stubProgression{},
 		AttemptsPerAddress: limiter,
@@ -303,6 +331,7 @@ func serveIn(t *testing.T, identity api.Identity, environment config.Environment
 		Interviews:     &fakeInterviews{},
 		Members:        &fakeMembers{},
 		Billing:        &fakeBilling{},
+		Settings:       &stubSettings{},
 		SensitiveReads: &recordingAuditor{},
 		Progression:    &stubProgression{},
 		Environment:    environment,

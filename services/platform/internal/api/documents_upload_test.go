@@ -28,6 +28,7 @@ func serveDocuments(t *testing.T, documents *fakeDocuments) http.Handler {
 		Interviews:     &fakeInterviews{},
 		Members:        &fakeMembers{},
 		Billing:        &fakeBilling{},
+		Settings:       &stubSettings{},
 		SensitiveReads: &recordingAuditor{},
 		Progression:    &stubProgression{},
 		Environment:    config.EnvironmentLocal,

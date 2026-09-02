@@ -80,6 +80,19 @@ func (a identityAdapter) Lookup(ctx context.Context, sessionToken string) (api.P
 // Authorize resolves the session and decides one capability through the
 // single policy path. A denial arrives as api.ErrForbidden whatever the
 // reason was: the reason is the audit record's, not the client's.
+// Holds answers whether the session carries a capability, as a fact rather
+// than as a decision.
+//
+// Any failure is false. This question is asked to decide whether to draw a
+// control, and an error deciding it must produce the read-only rendering rather
+// than an editable one: a screen that offers controls because the check broke
+// would let somebody try an action the server will refuse, which is worse than
+// not offering it.
+func (a identityAdapter) Holds(ctx context.Context, sessionToken, capability string) bool {
+	_, err := a.service.Authorize(ctx, sessionToken, authz.Capability(capability))
+	return err == nil
+}
+
 func (a identityAdapter) Authorize(ctx context.Context, sessionToken, capability string) (api.Principal, error) {
 	row, err := a.service.Authorize(ctx, sessionToken, authz.Capability(capability))
 	if err != nil {

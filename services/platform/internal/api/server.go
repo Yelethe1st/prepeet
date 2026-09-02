@@ -40,7 +40,9 @@ type ServerConfig struct {
 	// SensitiveReads records access to restricted content, for the operations
 	// the contract declares auditable.
 	SensitiveReads SensitiveReadAuditor
-	Environment    config.Environment
+	// Settings serves the workspace configuration, read only.
+	Settings    TenantConfiguration
+	Environment config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
 	AgentToken string
@@ -88,6 +90,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Progression == nil {
 		return nil, errors.New("api: a Progression is required")
 	}
+	if cfg.Settings == nil {
+		return nil, errors.New("api: a TenantConfiguration is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -128,6 +133,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	handlers.progression = progression{
 		authentication: &handlers.authentication,
 		history:        cfg.Progression,
+	}
+	handlers.settingsHandlers = settingsHandlers{
+		authentication: &handlers.authentication,
+		settings:       cfg.Settings,
 	}
 
 	// What each operation requires, read from the contract rather than named
@@ -230,6 +239,7 @@ type server struct {
 	members
 	billingHandlers
 	progression
+	settingsHandlers
 	health *health.Registry
 }
 

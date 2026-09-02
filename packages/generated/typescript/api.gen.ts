@@ -735,6 +735,45 @@ export interface paths {
         patch: operations["changeMemberRole"];
         trace?: never;
     };
+    "/tenant/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How this workspace is configured
+         * @description Reading is a lesser authority than changing, and every membership role
+         *     holds it. A viewer, whose whole role is oversight without authority,
+         *     needs to see the defaults their colleagues' work happens under: which
+         *     rubric a campaign starts from, what a candidate is told, how long
+         *     anything is kept.
+         *
+         *     The response says whether the caller may change what they are reading,
+         *     so the screen can render the same document with or without controls
+         *     rather than guessing from a role name it would have to keep in step.
+         */
+        get: operations["getTenantSettings"];
+        /**
+         * Change how this workspace is configured
+         * @description The version read is the version changed. A save naming a version other
+         *     than the current one is refused rather than merged, because two
+         *     administrators editing the same document should be told they collided
+         *     rather than have one of them quietly lose their work.
+         *
+         *     Defaults apply to campaigns opened afterwards and never retroactively,
+         *     which is a property of how a campaign pins its configuration rather
+         *     than a rule this endpoint enforces.
+         */
+        put: operations["saveTenantSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenant/usage": {
         parameters: {
             query?: never;
@@ -1531,6 +1570,42 @@ export interface components {
             warnings: string[];
             /** Format: date-time */
             created_at: string;
+        };
+        TenantSettings: {
+            /**
+             * @description Zero for a workspace that has never saved, whose document is the
+             *     platform defaults. Every saved version is 1 or above, and a change
+             *     must name the version it was made against.
+             */
+            version: number;
+            /**
+             * @description Whether this caller holds tenant.settings_manage. Served rather
+             *     than inferred, so a read-only screen is a rendering decision the
+             *     server made rather than one the browser guessed from a role.
+             */
+            editable: boolean;
+            settings: components["schemas"]["TenantSettingsDocument"];
+            changed_by?: string;
+            /** Format: date-time */
+            changed_at?: string;
+        };
+        TenantSettingsDocument: {
+            organisation: {
+                /** @description The entity that answers for the hiring decision. */
+                legal_name: string;
+                /** @description What a candidate sees on an invitation. */
+                display_name: string;
+            };
+            /** @description What a new campaign starts from. Never applied retroactively. */
+            defaults: {
+                [key: string]: unknown;
+            };
+            candidate_experience: {
+                [key: string]: unknown;
+            };
+            notifications: {
+                [key: string]: unknown;
+            };
         };
         SkillHistory: {
             competencies: components["schemas"]["SkillStanding"][];
@@ -3385,6 +3460,71 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["MemberConflict"];
+        };
+    };
+    getTenantSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current configuration and whether this caller may change it. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantSettings"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    saveTenantSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version this change was made against. */
+                    version: number;
+                    settings: components["schemas"]["TenantSettingsDocument"];
+                };
+            };
+        };
+        responses: {
+            /** @description The saved configuration, at its new version. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantSettings"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            /** @description Somebody else changed the settings first. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getTenantUsage: {

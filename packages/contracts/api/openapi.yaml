@@ -1079,6 +1079,84 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/MemberConflict" }
 
+  /tenant/settings:
+    get:
+      tags: [tenant]
+      operationId: getTenantSettings
+      x-prepeet-capability: tenant.settings_read
+      summary: How this workspace is configured
+      description: |
+        Reading is a lesser authority than changing, and every membership role
+        holds it. A viewer, whose whole role is oversight without authority,
+        needs to see the defaults their colleagues' work happens under: which
+        rubric a campaign starts from, what a candidate is told, how long
+        anything is kept.
+
+        The response says whether the caller may change what they are reading,
+        so the screen can render the same document with or without controls
+        rather than guessing from a role name it would have to keep in step.
+      responses:
+        "200":
+          description: The current configuration and whether this caller may change it.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantSettings"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      tags: [tenant]
+      operationId: saveTenantSettings
+      x-prepeet-capability: tenant.settings_manage
+      summary: Change how this workspace is configured
+      description: |
+        The version read is the version changed. A save naming a version other
+        than the current one is refused rather than merged, because two
+        administrators editing the same document should be told they collided
+        rather than have one of them quietly lose their work.
+
+        Defaults apply to campaigns opened afterwards and never retroactively,
+        which is a property of how a campaign pins its configuration rather
+        than a rule this endpoint enforces.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, settings]
+              properties:
+                version:
+                  type: integer
+                  description: The version this change was made against.
+                settings:
+                  $ref: "#/components/schemas/TenantSettingsDocument"
+      responses:
+        "200":
+          description: The saved configuration, at its new version.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantSettings"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: Somebody else changed the settings first.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /tenant/usage:
     get:
       tags: [tenant]
@@ -2429,6 +2507,52 @@ components:
           type: array
           items: { type: string }
         created_at: { type: string, format: date-time }
+
+    TenantSettings:
+      type: object
+      required: [version, editable, settings]
+      properties:
+        version:
+          type: integer
+          description: |
+            Zero for a workspace that has never saved, whose document is the
+            platform defaults. Every saved version is 1 or above, and a change
+            must name the version it was made against.
+        editable:
+          type: boolean
+          description: |
+            Whether this caller holds tenant.settings_manage. Served rather
+            than inferred, so a read-only screen is a rendering decision the
+            server made rather than one the browser guessed from a role.
+        settings:
+          $ref: "#/components/schemas/TenantSettingsDocument"
+        changed_by: { type: string }
+        changed_at: { type: string, format: date-time }
+
+    TenantSettingsDocument:
+      type: object
+      required: [organisation, defaults, candidate_experience, notifications]
+      properties:
+        organisation:
+          type: object
+          required: [legal_name, display_name]
+          properties:
+            legal_name:
+              type: string
+              description: The entity that answers for the hiring decision.
+            display_name:
+              type: string
+              description: What a candidate sees on an invitation.
+        defaults:
+          type: object
+          description: What a new campaign starts from. Never applied retroactively.
+          additionalProperties: true
+        candidate_experience:
+          type: object
+          additionalProperties: true
+        notifications:
+          type: object
+          additionalProperties: true
 
     SkillHistory:
       type: object

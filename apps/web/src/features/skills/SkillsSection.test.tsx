@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -104,5 +104,27 @@ describe("SkillsSection", () => {
     expect(
       await screen.findByRole("button", { name: /try again/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("SkillsSection recovery", () => {
+  it("asks again when told to", async () => {
+    // The retry is the only thing on the failure state a person can do, so it
+    // is the one part of it worth proving works.
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ code: "INTERNAL", message: "nope" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    renderSection();
+    const retry = await screen.findByRole("button", { name: /try again/i });
+    const before = fetchMock.mock.calls.length;
+    retry.click();
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(before),
+    );
   });
 });

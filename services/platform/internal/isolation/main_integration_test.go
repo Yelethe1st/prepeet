@@ -220,6 +220,7 @@ func newServer() (http.Handler, error) {
 		// The real recorder, not a stub. This suite attacks real paths, and a
 		// sensitive read that wrote no row would be a hole it exists to find.
 		SensitiveReads: liveIdentity{service: service},
+		Settings:       undriven{},
 		Environment:    config.EnvironmentLocal,
 	})
 }
@@ -243,6 +244,7 @@ type undriven struct {
 	// attack the way the practice tables already are, which this suite does not
 	// yet have and its note says so.
 	api.Progression
+	api.TenantConfiguration
 }
 
 // liveIdentity presents the identity context as the port the API declared,

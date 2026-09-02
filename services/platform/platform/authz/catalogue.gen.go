@@ -157,6 +157,15 @@ const (
 
 	// Tenant configuration.
 	TenantSettingsManage Capability = "tenant.settings_manage"
+
+	// Seeing how the workspace is configured, which is not the same
+	// authority as changing it. Every membership role already needs to
+	// know the defaults its work happens under: which rubric a new
+	// campaign starts from, what a candidate is told, how long anything is
+	// kept. Withholding that made the settings screen a page a viewer
+	// could not open rather than one they could not edit, which reads as a
+	// broken product rather than as a boundary.
+	TenantSettingsRead Capability = "tenant.settings_read"
 )
 
 // catalogue maps every capability to what it requires.
@@ -197,6 +206,7 @@ var catalogue = map[Capability]Requirement{
 	TenantMemberRead:              {Tenant: true},
 	TenantRetentionManage:         {Tenant: true, StepUp: true},
 	TenantSettingsManage:          {Tenant: true},
+	TenantSettingsRead:            {Tenant: true},
 }
 
 // Role is a bundle of capabilities.
@@ -261,6 +271,7 @@ var bundles = map[Role][]Capability{
 		TenantMemberRead,
 		TenantRetentionManage,
 		TenantSettingsManage,
+		TenantSettingsRead,
 	},
 	RoleCandidate: {
 		CandidatePracticeDeleteOwn,
@@ -284,6 +295,7 @@ var bundles = map[Role][]Capability{
 		InvitationRead,
 		RubricRead,
 		TenantMemberRead,
+		TenantSettingsRead,
 	},
 	RoleOwner: {
 		AppealManage,
@@ -303,6 +315,7 @@ var bundles = map[Role][]Capability{
 		TenantMemberRead,
 		TenantRetentionManage,
 		TenantSettingsManage,
+		TenantSettingsRead,
 	},
 	RoleRecruiter: {
 		AppealRaise,
@@ -314,6 +327,7 @@ var bundles = map[Role][]Capability{
 		InvitationRead,
 		RubricRead,
 		TenantMemberRead,
+		TenantSettingsRead,
 	},
 	RoleViewer: {
 		CampaignRead,
@@ -321,5 +335,6 @@ var bundles = map[Role][]Capability{
 		InvitationRead,
 		RubricRead,
 		TenantMemberRead,
+		TenantSettingsRead,
 	},
 }

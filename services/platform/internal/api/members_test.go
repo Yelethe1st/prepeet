@@ -77,6 +77,7 @@ func serveMembers(t *testing.T, identity *authorizingIdentity, members *fakeMemb
 		Interviews:     &fakeInterviews{},
 		Members:        members,
 		Billing:        &fakeBilling{},
+		Settings:       &stubSettings{},
 		SensitiveReads: &recordingAuditor{},
 		Progression:    &stubProgression{},
 		Environment:    config.EnvironmentLocal,
@@ -286,6 +287,7 @@ func serveBilling(t *testing.T, identity *authorizingIdentity, billing *fakeBill
 		Billing:        billing,
 		Progression:    &stubProgression{},
 		SensitiveReads: &recordingAuditor{},
+		Settings:       &stubSettings{},
 		Environment:    config.EnvironmentLocal,
 	})
 	if err != nil {

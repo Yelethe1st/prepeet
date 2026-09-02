@@ -18,7 +18,39 @@ a tenant administrator.
 **Done when**
 - [x] Settings changes are audited with actor and previous value.
 - [x] Defaults apply to new campaigns only, never retroactively.
-- [ ] Read-only users see the settings without controls, not a broken form.
+- [x] Read-only users see the settings without controls, not a broken form.
+
+**The blocker was a capability that did not exist.** Only `tenant.settings_manage` was defined, so a
+viewer, whose role the catalogue describes as oversight without authority, could not open the settings
+page at all. A 403 there reads as a broken product rather than as a boundary, and the catalogue had
+already drawn the line correctly in prose: the recruiter role says they cannot *change* how the
+workspace is configured, not that they cannot see it. `tenant.settings_read` makes the code match its
+own stated intent, and every membership role holds it.
+
+Whether the caller may change what they are reading is served rather than inferred. A browser deciding
+from a role name would be a second copy of the authorization rules, and the copy that drifts is the one
+nobody re-reads. The absence of controls is explained rather than left to be guessed: a page with no
+inputs and no reason reads as something that failed to load, while naming the authority that is missing
+turns it into something a person can act on by asking the right colleague.
+
+The write endpoint was built alongside, and for a reason worth recording. A test asserting "no controls
+for a viewer" passes vacuously if nobody ever has controls, which is exactly the shape of empty
+assertion this codebase was swept for a few commits earlier. The criterion is only checkable because an
+administrator genuinely gets a form.
+
+The version read is the version saved, so two administrators editing at once are told they collided
+rather than one of them losing their work silently. The adapter carries the rest of the document
+through from what is stored, so a client that has not been taught the whole shape cannot blank the
+parts it does not know about.
+
+Two existing gates caught real mistakes on the way. CTR-01's capability gate refused a handler that
+authorized twice, which produced `Identity.Holds`: a question whose answer is a boolean and never a
+403, kept apart from `Authorize` whose answer is a refusal. And the cacheability gate refused a 409
+that declared no `Cache-Control`.
+
+Four attacks, each failing its own named test: showing the form to everyone, dropping the explanation,
+sending a fresh version instead of the one read, and claiming a change history a new workspace has not
+got.
 
 **The two structural boxes are closed in the bounded context; the screen is not
 built.** `tenancy.tenant_configuration` stores a workspace's settings as versions

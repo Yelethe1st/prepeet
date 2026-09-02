@@ -85,7 +85,11 @@ export const NAVIGATION: readonly NavigationGroup[] = [
       {
         label: "Settings",
         href: "/workspace/settings",
-        capability: "tenant.settings_manage",
+        // The read capability, not manage. Every membership role may see how
+        // the workspace is configured; only some may change it. Gating the
+        // link on manage hid the page from the people TEN-01 is about, which
+        // is the same 403 wearing a different hat.
+        capability: "tenant.settings_read",
       },
     ],
   },

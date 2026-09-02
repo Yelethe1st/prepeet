@@ -60,6 +60,17 @@ type Identity interface {
 	// family and returns ErrSessionRejected.
 	Refresh(ctx context.Context, refreshToken string) (Session, error)
 
+	// Holds answers whether the session carries a capability, without
+	// deciding a request.
+	//
+	// Separate from Authorize because it asks a different question. Authorize
+	// is the gate on this operation and its answer is a refusal; this is a
+	// presentation question, "may this person also edit what they are
+	// reading", whose answer is a boolean and never a 403. Keeping them apart
+	// is what lets the capability gate assert that an operation authorizes
+	// with exactly the capability the contract declares for it.
+	Holds(ctx context.Context, sessionToken, capability string) bool
+
 	// The OAuth half, for IAM-08.
 	//
 	// AvailableOAuthProviders is what the sign-in screen draws buttons from,

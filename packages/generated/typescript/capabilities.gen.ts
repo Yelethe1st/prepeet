@@ -160,6 +160,15 @@ export const CAPABILITIES = [
   // Tenant configuration.
   "tenant.settings_manage",
 
+  // Seeing how the workspace is configured, which is not the same
+  // authority as changing it. Every membership role already needs to
+  // know the defaults its work happens under: which rubric a new
+  // campaign starts from, what a candidate is told, how long anything is
+  // kept. Withholding that made the settings screen a page a viewer
+  // could not open rather than one they could not edit, which reads as a
+  // broken product rather than as a boundary.
+  "tenant.settings_read",
+
 ] as const;
 
 /** Every capability name the catalogue defines. */
@@ -204,6 +213,7 @@ export const BUNDLES = {
     "rubric.draft",
     "rubric.publish",
     "tenant.member_manage",
+    "tenant.settings_read",
     "tenant.settings_manage",
     "tenant.retention_manage",
     "tenant.billing_read",
@@ -221,6 +231,7 @@ export const BUNDLES = {
     "session.read_screen_confirmation",
   ],
   hiring_manager: [
+    "tenant.settings_read",
     "campaign.read",
     "campaign.manage",
     "invitation.read",
@@ -246,12 +257,14 @@ export const BUNDLES = {
     "rubric.draft",
     "rubric.publish",
     "tenant.member_manage",
+    "tenant.settings_read",
     "tenant.settings_manage",
     "tenant.retention_manage",
     "tenant.billing_read",
     "tenant.integration_manage",
   ],
   recruiter: [
+    "tenant.settings_read",
     "campaign.read",
     "campaign.manage",
     "invitation.read",
@@ -263,6 +276,7 @@ export const BUNDLES = {
     "rubric.read",
   ],
   viewer: [
+    "tenant.settings_read",
     "campaign.read",
     "invitation.read",
     "evaluation.read_screen",
@@ -326,6 +340,7 @@ export const CAPABILITY_REASONS = {
   "tenant.member_read": "Seeing who belongs to the workspace, with each person's role. Every membership role holds it, because a colleague list is not authority over anyone and hiding it only obscures who to ask for access.",
   "tenant.retention_manage": "Retention determines when candidate data is destroyed, which is irreversible.",
   "tenant.settings_manage": "Tenant configuration.",
+  "tenant.settings_read": "Seeing how the workspace is configured, which is not the same authority as changing it. Every membership role already needs to know the defaults its work happens under: which rubric a new campaign starts from, what a candidate is told, how long anything is kept. Withholding that made the settings screen a page a viewer could not open rather than one they could not edit, which reads as a broken product rather than as a boundary.",
 } as const satisfies Record<Capability, string>;
 
 /**

@@ -171,9 +171,26 @@ Single-use expiring links, delivery tracking including bounces, resend, and revo
 consequences are previewed before it happens.
 
 **Done when**
-- [ ] An invitation token is single-use, expiring and safe against enumeration.
-- [ ] Revocation states plainly what it does and does not delete.
-- [ ] Delivery failures are visible to the recruiter and recoverable.
+- [x] An invitation token is single-use, expiring and safe against enumeration.
+- [x] Revocation states plainly what it does and does not delete.
+- [x] Delivery failures are visible to the recruiter and recoverable.
+
+Built in `recruiting.invitation` (migration 0056) with the token discipline
+identity's action tokens already set: only the sha256 hash is stored, the
+plaintext lives for the one call that emails it, and the lookup is by hash of
+32 random bytes, so there is nothing sequential to enumerate. Single-use is
+the consume-guard on a null outcome; a resend supersedes every live link for
+the recipient so two forwarded emails cannot both be accepted. Expiry is
+computed from `expires_at` against the clock, not a stored flag, so a live link
+past its window reads expired without a job flipping it. Revocation sets an
+outcome and deletes nothing, and the endpoint says so; it is scoped to the
+named campaign so a recruiter on one campaign cannot revoke another's link by
+id. Delivery status rides on each invitation, read from `notification.emails`
+in cmd (recruiting cannot name that schema), and resend is the recovery path,
+refused for an invitation already accepted, declined or revoked. This also
+advances INT-01's delivery-status item on the visible-where-it-matters half;
+the provider-feedback ingestion that sets `bounced_at`/`complained_at` remains
+INT-01's outstanding work.
 
 **Spec** [public-api.md](../../contracts/public-api.md)
 

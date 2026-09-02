@@ -192,3 +192,81 @@ func backoff(attempt int) time.Duration {
 	}
 	return wait
 }
+
+// Delivery is what became of one enqueued email, for the context that sent it.
+//
+// It carries the state a recruiter needs to decide whether to resend and
+// nothing a recruiter has no business seeing: never the body, which is nulled
+// at send, and never the recipient's provider, only the outcome.
+type Delivery struct {
+	// Status is one of the DeliveryStatus* values below.
+	Status string
+	// Attempts is how many times the sender has tried, for a pending email
+	// that is taking a while versus one stuck behind repeated failures.
+	Attempts int
+	// LastError is the most recent transport failure, empty when there is
+	// none. Present so a recruiter is told why, not only that.
+	LastError string
+}
+
+// The delivery states a caller reads. Ordered from the terminal bad outcomes
+// down to the ordinary ones, because that is the order that decides what a
+// recruiter should do: a bounce or a complaint needs a new address, a dead
+// letter needs a resend, a sent email needs nothing, and a pending one needs
+// only patience.
+const (
+	// DeliveryUnknown is an id with no row: an email that a transaction
+	// promised and then rolled back, or one never enqueued. Not "delivered"
+	// and not "failed", because neither would be honest about a row that is
+	// not there.
+	DeliveryUnknown = "unknown"
+	// DeliveryBounced means the provider rejected it at the recipient: a wrong
+	// or dead address, which a resend to the same address will not fix.
+	DeliveryBounced = "bounced"
+	// DeliveryComplained means the recipient marked it spam. Sending more is
+	// the one response that makes it worse.
+	DeliveryComplained = "complained"
+	// DeliveryFailed means the sender gave up after its retries: a dead
+	// letter, which a resend may still clear if the cause was transient.
+	DeliveryFailed = "failed"
+	// DeliverySent means it was handed to the transport without error. Not a
+	// read receipt: it is the furthest this side can honestly claim.
+	DeliverySent = "sent"
+	// DeliveryPending means it is still queued or mid-retry.
+	DeliveryPending = "pending"
+)
+
+// DeliveryStatus answers what became of one email by its id.
+//
+// The precedence is deliberate: a bounce or a complaint is a fact about the
+// address that outlives a later send attempt, so it wins over sent; a dead
+// letter is terminal for this send; sent beats pending. An id with no row is
+// unknown rather than guessed, because the caller may hold an id whose
+// transaction rolled back and a confident answer there would be a lie.
+func (n *Queue) DeliveryStatus(ctx context.Context, emailID string) (Delivery, error) {
+	row, err := n.q.DeliveryStatusByID(ctx, emailID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Delivery{Status: DeliveryUnknown}, nil
+	}
+	if err != nil {
+		return Delivery{}, fmt.Errorf("notification: reading delivery status: %w", err)
+	}
+
+	delivery := Delivery{Attempts: int(row.Attempts)}
+	if row.LastError.Valid {
+		delivery.LastError = row.LastError.String
+	}
+	switch {
+	case row.BouncedAt != nil:
+		delivery.Status = DeliveryBounced
+	case row.ComplainedAt != nil:
+		delivery.Status = DeliveryComplained
+	case row.DeadAt != nil:
+		delivery.Status = DeliveryFailed
+	case row.SentAt != nil:
+		delivery.Status = DeliverySent
+	default:
+		delivery.Status = DeliveryPending
+	}
+	return delivery, nil
+}

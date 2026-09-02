@@ -53,3 +53,13 @@ SET attempts = sqlc.arg(attempts)::integer,
     next_attempt_at = now() + make_interval(secs => sqlc.arg(backoff_seconds)::double precision),
     dead_at = sqlc.narg(dead_at)::timestamptz
 WHERE id = sqlc.arg(id)::uuid;
+
+-- name: DeliveryStatusByID :one
+-- The delivery facts about one email, for a context that enqueued it and now
+-- wants to show whether it arrived. Only the status columns: the body is
+-- nulled at send and is never anyone else's to read. A caller that holds an
+-- id from a rolled-back transaction finds no row, which the reader turns into
+-- an "unknown" rather than a delivered-or-not it cannot honestly answer.
+SELECT sent_at, bounced_at, complained_at, dead_at, attempts, last_error
+FROM notification.emails
+WHERE id = sqlc.arg(id)::uuid;

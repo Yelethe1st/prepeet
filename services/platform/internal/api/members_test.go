@@ -70,15 +70,15 @@ func (f *authorizingIdentity) Authorize(_ context.Context, _ string, capability 
 func serveMembers(t *testing.T, identity *authorizingIdentity, members *fakeMembers) http.Handler {
 	t.Helper()
 	handler, err := api.NewServer(api.ServerConfig{
-		Identity:       identity,
-		Candidates:     &fakeCandidates{},
-		Documents:      &fakeDocuments{},
-		Catalog:        &fakeCatalog{},
-		Interviews:     &fakeInterviews{},
-		Members:        members,
-		Billing:        &fakeBilling{},
-		Settings:       &stubSettings{},
-		Recruiting:     &stubRecruiting{},
+		Identity:    identity,
+		Candidates:  &fakeCandidates{},
+		Documents:   &fakeDocuments{},
+		Catalog:     &fakeCatalog{},
+		Interviews:  &fakeInterviews{},
+		Members:     members,
+		Billing:     &fakeBilling{},
+		Settings:    &stubSettings{},
+		Invitations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
 		SensitiveReads: &recordingAuditor{},
 		Progression:    &stubProgression{},
 		Environment:    config.EnvironmentLocal,
@@ -289,8 +289,8 @@ func serveBilling(t *testing.T, identity *authorizingIdentity, billing *fakeBill
 		Progression:    &stubProgression{},
 		SensitiveReads: &recordingAuditor{},
 		Settings:       &stubSettings{},
-		Recruiting:     &stubRecruiting{},
-		Environment:    config.EnvironmentLocal,
+		Invitations:    defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

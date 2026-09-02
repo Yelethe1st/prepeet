@@ -8,6 +8,8 @@ package notificationdb
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const claim = `-- name: Claim :many
@@ -58,6 +60,40 @@ func (q *Queries) Claim(ctx context.Context, limit int32) ([]ClaimRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const deliveryStatusByID = `-- name: DeliveryStatusByID :one
+SELECT sent_at, bounced_at, complained_at, dead_at, attempts, last_error
+FROM notification.emails
+WHERE id = $1::uuid
+`
+
+type DeliveryStatusByIDRow struct {
+	SentAt       *time.Time
+	BouncedAt    *time.Time
+	ComplainedAt *time.Time
+	DeadAt       *time.Time
+	Attempts     int32
+	LastError    pgtype.Text
+}
+
+// The delivery facts about one email, for a context that enqueued it and now
+// wants to show whether it arrived. Only the status columns: the body is
+// nulled at send and is never anyone else's to read. A caller that holds an
+// id from a rolled-back transaction finds no row, which the reader turns into
+// an "unknown" rather than a delivered-or-not it cannot honestly answer.
+func (q *Queries) DeliveryStatusByID(ctx context.Context, id string) (DeliveryStatusByIDRow, error) {
+	row := q.db.QueryRow(ctx, deliveryStatusByID, id)
+	var i DeliveryStatusByIDRow
+	err := row.Scan(
+		&i.SentAt,
+		&i.BouncedAt,
+		&i.ComplainedAt,
+		&i.DeadAt,
+		&i.Attempts,
+		&i.LastError,
+	)
+	return i, err
 }
 
 const enqueue = `-- name: Enqueue :exec

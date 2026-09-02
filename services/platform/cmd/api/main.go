@@ -177,6 +177,11 @@ func main() {
 		SensitiveReads: identityAdapter{service: identityService},
 		Settings:       settingsAdapter{settings: tenantadmin.NewSettingsStore(pool)},
 		Recruiting:     newRecruitingAdapter(recruiting.NewStore(pool), content.NewStore(pool)),
+		Invitations: newInvitationsAdapter(
+			recruiting.NewStore(pool), notification.NewQueue(pool),
+			tenantadmin.NewSettingsStore(pool),
+			catalog.NewService(registrySource{registry: content.NewStore(pool)}),
+			cfg.WebBaseURL),
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

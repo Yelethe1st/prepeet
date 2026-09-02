@@ -839,6 +839,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The invitations issued for a campaign
+         * @description The roster for one campaign, newest first, each with where it stands
+         *     and whether its email arrived. Scoped to the recruiters on the campaign
+         *     by the same join that scopes reading the campaign itself, not by the
+         *     capability: invitation.read is scoped to a campaign and Authorize names
+         *     no scope yet, so the join is the enforcement, exactly as it is for the
+         *     campaign.
+         */
+        get: operations["listInvitations"];
+        put?: never;
+        /**
+         * Invite a candidate to the campaign
+         * @description Mints a single-use, expiring link and emails it. Only the hash is
+         *     stored; the token itself lives for the one call that sends it and is
+         *     never returned or written. Issuing to a recipient who already holds a
+         *     live link supersedes the old one, so a resend never leaves two working
+         *     links. The campaign must be open: a draft has not fixed the
+         *     configuration a candidate would be interviewed against.
+         *
+         *     campaign.read with the join, not invitation.manage: the scoped
+         *     capability is intent until scope grants are populated, and the
+         *     recruiter-on-campaign join is what actually admits the caller.
+         */
+        post: operations["issueInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/invitations/{invitationId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop a live invitation
+         * @description Stops the link from being accepted. It does not delete the invitation,
+         *     the campaign, or anything the candidate has already done: the record
+         *     that the invitation was issued remains, now marked revoked. Revoking a
+         *     link that was already accepted, declined or revoked is refused rather
+         *     than silently rewritten, because the ending it already has is a fact.
+         *     Scoped to the named campaign, so a recruiter on one campaign cannot
+         *     revoke another's invitation by its id.
+         */
+        post: operations["revokeInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/invitations/{invitationId}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a fresh link to the same recipient
+         * @description The recovery path when an email did not arrive: mints a new link to the
+         *     same recipient and supersedes the old one, so the recipient never holds
+         *     two working links. Refused for an invitation the candidate has already
+         *     accepted or declined, and for one already revoked, because a resend
+         *     there would hand a new link to someone whose answer is already
+         *     recorded. Returns the fresh invitation, with its own delivery status.
+         */
+        post: operations["resendInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenant/settings": {
         parameters: {
             query?: never;
@@ -1706,6 +1795,51 @@ export interface components {
         };
         CampaignList: {
             campaigns: components["schemas"]["Campaign"][];
+        };
+        Invitation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            /**
+             * Format: email
+             * @description Who the link was sent to. The token itself is never returned; it exists only in the email.
+             */
+            recipient: string;
+            /**
+             * @description Where the invitation stands. `live` can still be accepted; `expired`
+             *     passed its window with nobody acting; `accepted` and `declined` are
+             *     the candidate's answers; `revoked` is the recruiter stopping it;
+             *     `superseded` is a resend that replaced it. Expiry is computed from
+             *     the clock, not stored, so a live link past its window reads expired
+             *     without anything having to flip it.
+             * @enum {string}
+             */
+            status: "live" | "expired" | "accepted" | "declined" | "revoked" | "superseded";
+            /** Format: date-time */
+            issued_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            delivery: components["schemas"]["InvitationDelivery"];
+        };
+        InvitationDelivery: {
+            /**
+             * @description What became of the email that carried the link, so a delivery
+             *     failure is visible and a recruiter knows whether to resend. `sent`
+             *     is handed to the transport, not a read receipt; `bounced` and
+             *     `complained` are facts about the address that a resend to it will
+             *     not fix; `failed` is a dead letter a resend may still clear;
+             *     `unknown` is an email whose record is not there.
+             * @enum {string}
+             */
+            status: "pending" | "sent" | "bounced" | "complained" | "failed" | "unknown";
+            /** @description How many times sending has been tried. */
+            attempts?: number;
+            /** @description The most recent transport failure, when there is one. */
+            last_error?: string;
+        };
+        InvitationList: {
+            invitations: components["schemas"]["Invitation"][];
         };
         TenantSettings: {
             /**
@@ -3769,6 +3903,157 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invitations, newest first. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    issueInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    recipient: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The invitation, issued. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invitation"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The campaign is not open, so it may not issue invitations. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                invitationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invitation, now revoked. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invitation"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            /** @description No such live invitation on this campaign to revoke. */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resendInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                invitationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The fresh invitation, issued to the same recipient. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invitation"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            /** @description No such invitation on this campaign. */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The invitation has an ending that a resend must not overwrite. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getTenantSettings: {

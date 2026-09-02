@@ -186,3 +186,61 @@ FROM recruiting.accommodation_fulfilment f
 JOIN recruiting.accommodation_request r ON r.id = f.request_id
 WHERE f.session_id = $1
 ORDER BY f.fulfilled_at;
+
+-- name: IssueInvitation :one
+-- Store one invitation. Only the hash reaches the table; the plaintext was
+-- handed to the email in the same transaction and exists nowhere else. Tenant
+-- scoping is the policy's, so an unscoped caller inserts nothing it can then
+-- read back.
+INSERT INTO recruiting.invitation
+    (id, tenant_id, campaign_id, recipient, token_hash, email_id, issued_by, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
+          issued_at, expires_at, outcome, outcome_at;
+
+-- name: SupersedeLiveInvitations :exec
+-- Retire every live link for this recipient on this campaign, which is what a
+-- resend does before it issues a fresh one: the old link stops working the
+-- instant the new one is promised, so a recipient forwarded two emails cannot
+-- accept twice. Only live rows are touched; a spent or revoked invitation
+-- keeps the ending it already has.
+UPDATE recruiting.invitation
+SET outcome = 'superseded', outcome_at = now()
+WHERE campaign_id = $1 AND recipient = $2 AND outcome IS NULL;
+
+-- name: RevokeInvitation :one
+-- Revoke one invitation by id on one campaign, but only while it is still live.
+-- The campaign_id in the guard is the per-campaign scope: a recruiter admitted
+-- to one campaign cannot revoke another campaign's invitation in the same
+-- tenant by knowing its id, because the id alone matches nothing without the
+-- campaign the caller was checked against. The guard on a null outcome is what
+-- makes revocation honest: a link the candidate has already accepted or
+-- declined cannot be quietly revoked out from under the record of what they
+-- did, and revoking an already-revoked one is a no-op that returns nothing
+-- rather than a second ending. Nothing is deleted; the row and everything it
+-- points at stay exactly where they are.
+UPDATE recruiting.invitation
+SET outcome = 'revoked', outcome_at = now()
+WHERE id = $1 AND campaign_id = $2 AND outcome IS NULL
+RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
+          issued_at, expires_at, outcome, outcome_at;
+
+-- name: InvitationsForCampaign :many
+-- The recruiter's roster for one campaign, newest first. email_id rides along
+-- so cmd can join delivery status from notification, which this context does
+-- not read. Tenant scoping is the policy's.
+SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
+       issued_at, expires_at, outcome, outcome_at
+FROM recruiting.invitation
+WHERE campaign_id = $1
+ORDER BY issued_at DESC;
+
+-- name: InvitationByID :one
+-- One invitation on one campaign, for the resend path that needs its recipient
+-- and its outcome before deciding whether a fresh link may be sent. Scoped by
+-- campaign_id for the same reason revoke is: a recruiter on one campaign cannot
+-- reach another's invitation by id. Tenant scoping is the policy's.
+SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
+       issued_at, expires_at, outcome, outcome_at
+FROM recruiting.invitation
+WHERE id = $1 AND campaign_id = $2;

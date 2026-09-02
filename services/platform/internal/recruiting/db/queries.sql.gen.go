@@ -8,6 +8,8 @@ package recruitingdb
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const acceptancesFor = `-- name: AcceptancesFor :many
@@ -363,6 +365,171 @@ func (q *Queries) GrantCampaignAccess(ctx context.Context, arg GrantCampaignAcce
 		arg.GrantedBy,
 	)
 	return err
+}
+
+const invitationByID = `-- name: InvitationByID :one
+SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
+       issued_at, expires_at, outcome, outcome_at
+FROM recruiting.invitation
+WHERE id = $1 AND campaign_id = $2
+`
+
+type InvitationByIDParams struct {
+	ID         string
+	CampaignID string
+}
+
+type InvitationByIDRow struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	EmailID    string
+	IssuedBy   string
+	IssuedAt   time.Time
+	ExpiresAt  time.Time
+	Outcome    pgtype.Text
+	OutcomeAt  *time.Time
+}
+
+// One invitation on one campaign, for the resend path that needs its recipient
+// and its outcome before deciding whether a fresh link may be sent. Scoped by
+// campaign_id for the same reason revoke is: a recruiter on one campaign cannot
+// reach another's invitation by id. Tenant scoping is the policy's.
+func (q *Queries) InvitationByID(ctx context.Context, arg InvitationByIDParams) (InvitationByIDRow, error) {
+	row := q.db.QueryRow(ctx, invitationByID, arg.ID, arg.CampaignID)
+	var i InvitationByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.Recipient,
+		&i.EmailID,
+		&i.IssuedBy,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.Outcome,
+		&i.OutcomeAt,
+	)
+	return i, err
+}
+
+const invitationsForCampaign = `-- name: InvitationsForCampaign :many
+SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
+       issued_at, expires_at, outcome, outcome_at
+FROM recruiting.invitation
+WHERE campaign_id = $1
+ORDER BY issued_at DESC
+`
+
+type InvitationsForCampaignRow struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	EmailID    string
+	IssuedBy   string
+	IssuedAt   time.Time
+	ExpiresAt  time.Time
+	Outcome    pgtype.Text
+	OutcomeAt  *time.Time
+}
+
+// The recruiter's roster for one campaign, newest first. email_id rides along
+// so cmd can join delivery status from notification, which this context does
+// not read. Tenant scoping is the policy's.
+func (q *Queries) InvitationsForCampaign(ctx context.Context, campaignID string) ([]InvitationsForCampaignRow, error) {
+	rows, err := q.db.Query(ctx, invitationsForCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []InvitationsForCampaignRow{}
+	for rows.Next() {
+		var i InvitationsForCampaignRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.CampaignID,
+			&i.Recipient,
+			&i.EmailID,
+			&i.IssuedBy,
+			&i.IssuedAt,
+			&i.ExpiresAt,
+			&i.Outcome,
+			&i.OutcomeAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const issueInvitation = `-- name: IssueInvitation :one
+INSERT INTO recruiting.invitation
+    (id, tenant_id, campaign_id, recipient, token_hash, email_id, issued_by, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
+          issued_at, expires_at, outcome, outcome_at
+`
+
+type IssueInvitationParams struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	TokenHash  string
+	EmailID    string
+	IssuedBy   string
+	ExpiresAt  time.Time
+}
+
+type IssueInvitationRow struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	EmailID    string
+	IssuedBy   string
+	IssuedAt   time.Time
+	ExpiresAt  time.Time
+	Outcome    pgtype.Text
+	OutcomeAt  *time.Time
+}
+
+// Store one invitation. Only the hash reaches the table; the plaintext was
+// handed to the email in the same transaction and exists nowhere else. Tenant
+// scoping is the policy's, so an unscoped caller inserts nothing it can then
+// read back.
+func (q *Queries) IssueInvitation(ctx context.Context, arg IssueInvitationParams) (IssueInvitationRow, error) {
+	row := q.db.QueryRow(ctx, issueInvitation,
+		arg.ID,
+		arg.TenantID,
+		arg.CampaignID,
+		arg.Recipient,
+		arg.TokenHash,
+		arg.EmailID,
+		arg.IssuedBy,
+		arg.ExpiresAt,
+	)
+	var i IssueInvitationRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.Recipient,
+		&i.EmailID,
+		&i.IssuedBy,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.Outcome,
+		&i.OutcomeAt,
+	)
+	return i, err
 }
 
 const latestDeterminationFor = `-- name: LatestDeterminationFor :one
@@ -735,6 +902,60 @@ func (q *Queries) RevokeCampaignAccess(ctx context.Context, arg RevokeCampaignAc
 	return err
 }
 
+const revokeInvitation = `-- name: RevokeInvitation :one
+UPDATE recruiting.invitation
+SET outcome = 'revoked', outcome_at = now()
+WHERE id = $1 AND campaign_id = $2 AND outcome IS NULL
+RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
+          issued_at, expires_at, outcome, outcome_at
+`
+
+type RevokeInvitationParams struct {
+	ID         string
+	CampaignID string
+}
+
+type RevokeInvitationRow struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	EmailID    string
+	IssuedBy   string
+	IssuedAt   time.Time
+	ExpiresAt  time.Time
+	Outcome    pgtype.Text
+	OutcomeAt  *time.Time
+}
+
+// Revoke one invitation by id on one campaign, but only while it is still live.
+// The campaign_id in the guard is the per-campaign scope: a recruiter admitted
+// to one campaign cannot revoke another campaign's invitation in the same
+// tenant by knowing its id, because the id alone matches nothing without the
+// campaign the caller was checked against. The guard on a null outcome is what
+// makes revocation honest: a link the candidate has already accepted or
+// declined cannot be quietly revoked out from under the record of what they
+// did, and revoking an already-revoked one is a no-op that returns nothing
+// rather than a second ending. Nothing is deleted; the row and everything it
+// points at stay exactly where they are.
+func (q *Queries) RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (RevokeInvitationRow, error) {
+	row := q.db.QueryRow(ctx, revokeInvitation, arg.ID, arg.CampaignID)
+	var i RevokeInvitationRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.Recipient,
+		&i.EmailID,
+		&i.IssuedBy,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.Outcome,
+		&i.OutcomeAt,
+	)
+	return i, err
+}
+
 const standingAccommodationDecision = `-- name: StandingAccommodationDecision :one
 SELECT request_id, granted, decided_by, decided_at
 FROM recruiting.accommodation_decision
@@ -812,4 +1033,25 @@ func (q *Queries) StandingConsent(ctx context.Context, arg StandingConsentParams
 		return nil, err
 	}
 	return items, nil
+}
+
+const supersedeLiveInvitations = `-- name: SupersedeLiveInvitations :exec
+UPDATE recruiting.invitation
+SET outcome = 'superseded', outcome_at = now()
+WHERE campaign_id = $1 AND recipient = $2 AND outcome IS NULL
+`
+
+type SupersedeLiveInvitationsParams struct {
+	CampaignID string
+	Recipient  string
+}
+
+// Retire every live link for this recipient on this campaign, which is what a
+// resend does before it issues a fresh one: the old link stops working the
+// instant the new one is promised, so a recipient forwarded two emails cannot
+// accept twice. Only live rows are touched; a spent or revoked invitation
+// keeps the ending it already has.
+func (q *Queries) SupersedeLiveInvitations(ctx context.Context, arg SupersedeLiveInvitationsParams) error {
+	_, err := q.db.Exec(ctx, supersedeLiveInvitations, arg.CampaignID, arg.Recipient)
+	return err
 }

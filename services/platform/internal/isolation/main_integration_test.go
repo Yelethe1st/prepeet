@@ -222,6 +222,7 @@ func newServer() (http.Handler, error) {
 		SensitiveReads: liveIdentity{service: service},
 		Settings:       undriven{},
 		Recruiting:     undriven{},
+		Invitations:    undriven{},
 		Environment:    config.EnvironmentLocal,
 	})
 }
@@ -247,6 +248,7 @@ type undriven struct {
 	api.Progression
 	api.TenantConfiguration
 	api.Recruiting
+	api.Invitations
 }
 
 // liveIdentity presents the identity context as the port the API declared,

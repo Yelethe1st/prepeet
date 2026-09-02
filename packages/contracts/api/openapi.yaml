@@ -1279,6 +1279,188 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /campaigns/{campaignId}/invitations:
+    get:
+      tags: [recruiting]
+      operationId: listInvitations
+      x-prepeet-capability: campaign.read
+      summary: The invitations issued for a campaign
+      description: |
+        The roster for one campaign, newest first, each with where it stands
+        and whether its email arrived. Scoped to the recruiters on the campaign
+        by the same join that scopes reading the campaign itself, not by the
+        capability: invitation.read is scoped to a campaign and Authorize names
+        no scope yet, so the join is the enforcement, exactly as it is for the
+        campaign.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The invitations, newest first.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [recruiting]
+      operationId: issueInvitation
+      x-prepeet-capability: campaign.read
+      summary: Invite a candidate to the campaign
+      description: |
+        Mints a single-use, expiring link and emails it. Only the hash is
+        stored; the token itself lives for the one call that sends it and is
+        never returned or written. Issuing to a recipient who already holds a
+        live link supersedes the old one, so a resend never leaves two working
+        links. The campaign must be open: a draft has not fixed the
+        configuration a candidate would be interviewed against.
+
+        campaign.read with the join, not invitation.manage: the scoped
+        capability is intent until scope grants are populated, and the
+        recruiter-on-campaign join is what actually admits the caller.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient]
+              properties:
+                recipient: { type: string, format: email, minLength: 3 }
+      responses:
+        "201":
+          description: The invitation, issued.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The campaign is not open, so it may not issue invitations.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /campaigns/{campaignId}/invitations/{invitationId}/revoke:
+    post:
+      tags: [recruiting]
+      operationId: revokeInvitation
+      x-prepeet-capability: campaign.read
+      summary: Stop a live invitation
+      description: |
+        Stops the link from being accepted. It does not delete the invitation,
+        the campaign, or anything the candidate has already done: the record
+        that the invitation was issued remains, now marked revoked. Revoking a
+        link that was already accepted, declined or revoked is refused rather
+        than silently rewritten, because the ending it already has is a fact.
+        Scoped to the named campaign, so a recruiter on one campaign cannot
+        revoke another's invitation by its id.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: invitationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The invitation, now revoked.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: No such live invitation on this campaign to revoke.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /campaigns/{campaignId}/invitations/{invitationId}/resend:
+    post:
+      tags: [recruiting]
+      operationId: resendInvitation
+      x-prepeet-capability: campaign.read
+      summary: Send a fresh link to the same recipient
+      description: |
+        The recovery path when an email did not arrive: mints a new link to the
+        same recipient and supersedes the old one, so the recipient never holds
+        two working links. Refused for an invitation the candidate has already
+        accepted or declined, and for one already revoked, because a resend
+        there would hand a new link to someone whose answer is already
+        recorded. Returns the fresh invitation, with its own delivery status.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: invitationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201":
+          description: The fresh invitation, issued to the same recipient.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: No such invitation on this campaign.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The invitation has an ending that a resend must not overwrite.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /tenant/settings:
     get:
       tags: [tenant]
@@ -2748,6 +2930,61 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Campaign"
+
+    Invitation:
+      type: object
+      required: [id, campaign_id, recipient, status, issued_at, expires_at, delivery]
+      properties:
+        id: { type: string, format: uuid }
+        campaign_id: { type: string, format: uuid }
+        recipient:
+          type: string
+          format: email
+          description: Who the link was sent to. The token itself is never returned; it exists only in the email.
+        status:
+          type: string
+          enum: [live, expired, accepted, declined, revoked, superseded]
+          description: |
+            Where the invitation stands. `live` can still be accepted; `expired`
+            passed its window with nobody acting; `accepted` and `declined` are
+            the candidate's answers; `revoked` is the recruiter stopping it;
+            `superseded` is a resend that replaced it. Expiry is computed from
+            the clock, not stored, so a live link past its window reads expired
+            without anything having to flip it.
+        issued_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        delivery:
+          $ref: "#/components/schemas/InvitationDelivery"
+
+    InvitationDelivery:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, sent, bounced, complained, failed, unknown]
+          description: |
+            What became of the email that carried the link, so a delivery
+            failure is visible and a recruiter knows whether to resend. `sent`
+            is handed to the transport, not a read receipt; `bounced` and
+            `complained` are facts about the address that a resend to it will
+            not fix; `failed` is a dead letter a resend may still clear;
+            `unknown` is an email whose record is not there.
+        attempts:
+          type: integer
+          description: How many times sending has been tried.
+        last_error:
+          type: string
+          description: The most recent transport failure, when there is one.
+
+    InvitationList:
+      type: object
+      required: [invitations]
+      properties:
+        invitations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invitation"
 
     TenantSettings:
       type: object

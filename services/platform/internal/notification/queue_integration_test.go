@@ -314,3 +314,82 @@ func claimAll(t *testing.T, queue *notification.Queue) map[string]notification.P
 	}
 	return byID
 }
+
+// Delivery status is read back by the id the enqueue returned, and the
+// precedence is the one a recruiter's decision depends on: a bounce or a
+// complaint is a fact about the address that outlives a later send, a dead
+// letter is terminal for the attempt, sent beats pending, and an id with no
+// row is unknown rather than guessed.
+func TestDeliveryStatusReadsWhatBecameOfAnEmail(t *testing.T) {
+	ctx := t.Context()
+	queue := notification.NewQueue(pool)
+
+	setColumn := func(t *testing.T, id, column string) {
+		t.Helper()
+		// The column name is a fixed test literal, never input, so interpolating
+		// it is safe here where a parameter cannot stand in for an identifier.
+		if _, err := pool.Exec(ctx,
+			"UPDATE notification.emails SET "+column+" = now() WHERE id = $1", id); err != nil {
+			t.Fatalf("set %s: %v", column, err)
+		}
+	}
+
+	t.Run("pending before anything happens", func(t *testing.T) {
+		id := enqueueOne(t, queue, "pending@example.test")
+		got, err := queue.DeliveryStatus(ctx, id)
+		if err != nil {
+			t.Fatalf("status: %v", err)
+		}
+		if got.Status != notification.DeliveryPending {
+			t.Fatalf("status = %q, want pending", got.Status)
+		}
+	})
+
+	t.Run("sent once handed to the transport", func(t *testing.T) {
+		id := enqueueOne(t, queue, "sent@example.test")
+		setColumn(t, id, "sent_at")
+		got, _ := queue.DeliveryStatus(ctx, id)
+		if got.Status != notification.DeliverySent {
+			t.Fatalf("status = %q, want sent", got.Status)
+		}
+	})
+
+	t.Run("a bounce wins over a send", func(t *testing.T) {
+		id := enqueueOne(t, queue, "bounce@example.test")
+		setColumn(t, id, "sent_at")
+		setColumn(t, id, "bounced_at")
+		got, _ := queue.DeliveryStatus(ctx, id)
+		if got.Status != notification.DeliveryBounced {
+			t.Fatalf("status = %q, want bounced", got.Status)
+		}
+	})
+
+	t.Run("a complaint wins over a send", func(t *testing.T) {
+		id := enqueueOne(t, queue, "spam@example.test")
+		setColumn(t, id, "sent_at")
+		setColumn(t, id, "complained_at")
+		got, _ := queue.DeliveryStatus(ctx, id)
+		if got.Status != notification.DeliveryComplained {
+			t.Fatalf("status = %q, want complained", got.Status)
+		}
+	})
+
+	t.Run("a dead letter reads failed", func(t *testing.T) {
+		id := enqueueOne(t, queue, "dead@example.test")
+		setColumn(t, id, "dead_at")
+		got, _ := queue.DeliveryStatus(ctx, id)
+		if got.Status != notification.DeliveryFailed {
+			t.Fatalf("status = %q, want failed", got.Status)
+		}
+	})
+
+	t.Run("an unknown id is unknown, not a guessed delivery", func(t *testing.T) {
+		got, err := queue.DeliveryStatus(ctx, "00000000-0000-7000-8000-0000000000ff")
+		if err != nil {
+			t.Fatalf("status: %v", err)
+		}
+		if got.Status != notification.DeliveryUnknown {
+			t.Fatalf("status = %q, want unknown", got.Status)
+		}
+	})
+}

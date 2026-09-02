@@ -2,16 +2,17 @@
 -- ADR-0010 records why no SQL lives in Go source.
 
 -- name: InsertSession :exec
-INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, blueprint_id, config,
+INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, campaign_id, blueprint_id, config,
                                 recording_preference, consent_version)
 VALUES (sqlc.arg(id)::uuid, sqlc.arg(mode)::text, sqlc.arg(candidate_id)::uuid,
-        nullif(sqlc.arg(tenant_id)::text, '')::uuid, sqlc.arg(blueprint_id)::text,
-        sqlc.arg(config)::jsonb,
+        nullif(sqlc.arg(tenant_id)::text, '')::uuid, nullif(sqlc.arg(campaign_id)::text, '')::uuid,
+        sqlc.arg(blueprint_id)::text, sqlc.arg(config)::jsonb,
         sqlc.arg(recording_preference)::text, sqlc.arg(consent_version)::text);
 
 -- name: GetSession :one
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
+       coalesce(campaign_id::text, '')::text AS campaign_id,
        blueprint_id, config, recording_preference, consent_version,
        connection_epoch, accepted_sequence, state, version,
        coalesce(bundle_ref, '')::text AS bundle_ref,
@@ -246,6 +247,7 @@ WHERE session_id = sqlc.arg(session_id)::uuid
 -- the only policy here.
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
+       coalesce(campaign_id::text, '')::text AS campaign_id,
        blueprint_id, config, recording_preference, consent_version,
        connection_epoch, accepted_sequence, state, version,
        coalesce(bundle_ref, '')::text AS bundle_ref,

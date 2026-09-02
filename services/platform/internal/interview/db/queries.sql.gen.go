@@ -182,6 +182,7 @@ func (q *Queries) GetSeal(ctx context.Context, sessionID string) (GetSealRow, er
 const getSession = `-- name: GetSession :one
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
+       coalesce(campaign_id::text, '')::text AS campaign_id,
        blueprint_id, config, recording_preference, consent_version,
        connection_epoch, accepted_sequence, state, version,
        coalesce(bundle_ref, '')::text AS bundle_ref,
@@ -199,6 +200,7 @@ type GetSessionRow struct {
 	Mode                string
 	CandidateID         string
 	TenantID            string
+	CampaignID          string
 	BlueprintID         string
 	Config              []byte
 	RecordingPreference string
@@ -224,6 +226,7 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 		&i.Mode,
 		&i.CandidateID,
 		&i.TenantID,
+		&i.CampaignID,
 		&i.BlueprintID,
 		&i.Config,
 		&i.RecordingPreference,
@@ -483,12 +486,12 @@ func (q *Queries) InsertSeal(ctx context.Context, arg InsertSealParams) error {
 
 const insertSession = `-- name: InsertSession :exec
 
-INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, blueprint_id, config,
+INSERT INTO interview.sessions (id, mode, candidate_id, tenant_id, campaign_id, blueprint_id, config,
                                 recording_preference, consent_version)
 VALUES ($1::uuid, $2::text, $3::uuid,
-        nullif($4::text, '')::uuid, $5::text,
-        $6::jsonb,
-        $7::text, $8::text)
+        nullif($4::text, '')::uuid, nullif($5::text, '')::uuid,
+        $6::text, $7::jsonb,
+        $8::text, $9::text)
 `
 
 type InsertSessionParams struct {
@@ -496,6 +499,7 @@ type InsertSessionParams struct {
 	Mode                string
 	CandidateID         string
 	TenantID            string
+	CampaignID          string
 	BlueprintID         string
 	Config              []byte
 	RecordingPreference string
@@ -510,6 +514,7 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.Mode,
 		arg.CandidateID,
 		arg.TenantID,
+		arg.CampaignID,
 		arg.BlueprintID,
 		arg.Config,
 		arg.RecordingPreference,
@@ -622,6 +627,7 @@ func (q *Queries) ListRedos(ctx context.Context, parentSessionID string) ([]List
 const listSessions = `-- name: ListSessions :many
 SELECT id::text AS id, mode, candidate_id::text AS candidate_id,
        coalesce(tenant_id::text, '')::text AS tenant_id,
+       coalesce(campaign_id::text, '')::text AS campaign_id,
        blueprint_id, config, recording_preference, consent_version,
        connection_epoch, accepted_sequence, state, version,
        coalesce(bundle_ref, '')::text AS bundle_ref,
@@ -639,6 +645,7 @@ type ListSessionsRow struct {
 	Mode                string
 	CandidateID         string
 	TenantID            string
+	CampaignID          string
 	BlueprintID         string
 	Config              []byte
 	RecordingPreference string
@@ -672,6 +679,7 @@ func (q *Queries) ListSessions(ctx context.Context) ([]ListSessionsRow, error) {
 			&i.Mode,
 			&i.CandidateID,
 			&i.TenantID,
+			&i.CampaignID,
 			&i.BlueprintID,
 			&i.Config,
 			&i.RecordingPreference,

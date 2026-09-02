@@ -102,7 +102,7 @@ func readyScreening(t *testing.T) interview.Session {
 	store := interview.NewStore(pool)
 	session := interview.Session{
 		ID: id.New().String(), Mode: "screening", CandidateID: candidateID,
-		TenantID: tenantID, BlueprintID: "bp_screen",
+		TenantID: tenantID, CampaignID: seedCampaign(t), BlueprintID: "bp_screen",
 	}
 	if err := store.Create(ctx, session, candidate); err != nil {
 		t.Fatalf("create screening: %v", err)

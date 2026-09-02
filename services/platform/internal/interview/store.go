@@ -48,7 +48,10 @@ type Session struct {
 	CandidateID string
 	// TenantID is empty for practice, by the schema's CHECK rather than by
 	// convention.
-	TenantID    string
+	TenantID string
+	// CampaignID is set for screening and empty for practice, by the schema's
+	// CHECK: a screening session runs for exactly one campaign.
+	CampaignID  string
 	BlueprintID string
 	// Config is the validated catalogue selection the session was created
 	// from, immutable by trigger from the moment it is written. The bundle,
@@ -167,6 +170,7 @@ func (s *Store) Create(ctx context.Context, session Session, actor Actor) error 
 		Mode:                session.Mode,
 		CandidateID:         session.CandidateID,
 		TenantID:            session.TenantID,
+		CampaignID:          session.CampaignID,
 		BlueprintID:         session.BlueprintID,
 		Config:              config,
 		RecordingPreference: preference,
@@ -220,6 +224,42 @@ func (s *Store) Get(ctx context.Context, sessionID, mode, candidateID, tenantID 
 	return s.get(ctx, tx, sessionID)
 }
 
+// GetScreeningForCandidate reads a screening session as the candidate who sits
+// it: an untenanted transaction acting as themselves, which is the only scope
+// the candidate can offer, since they belong to no tenant. The tenant policy
+// scopes screening sessions to the recruiters who run them; this is the owner
+// side, the screening analogue of how Get reads a practice session, and it is
+// what lets a candidate see their own interview at all.
+//
+// A session that is not this candidate's, or is practice rather than screening,
+// is ErrNotFound: the owner policy yields nothing rather than someone else's
+// row, so existence is not answered across candidates.
+func (s *Store) GetScreeningForCandidate(ctx context.Context, sessionID, candidateID string) (Session, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Session{}, fmt.Errorf("interview: beginning candidate read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := database.SetUser(ctx, tx, candidateID); err != nil {
+		return Session{}, err
+	}
+	session, err := s.get(ctx, tx, sessionID)
+	if err != nil {
+		return Session{}, err
+	}
+	// The owner scope also admits this candidate's practice sessions, through
+	// the practice-owner policy beside the screening one. This method answers
+	// only for screening, so a practice session read by its id here is not
+	// found rather than returned: the candidate has other routes to their
+	// practice sessions, and mixing the two here would let a screening-only
+	// caller act on a practice session by holding its id.
+	if session.Mode != "screening" {
+		return Session{}, ErrNotFound
+	}
+	return session, nil
+}
+
 func (s *Store) get(ctx context.Context, tx pgx.Tx, sessionID string) (Session, error) {
 	row, err := db.New(tx).GetSession(ctx, sessionID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -230,6 +270,7 @@ func (s *Store) get(ctx context.Context, tx pgx.Tx, sessionID string) (Session, 
 	}
 	return Session{
 		ID: row.ID, Mode: row.Mode, CandidateID: row.CandidateID, TenantID: row.TenantID,
+		CampaignID:  row.CampaignID,
 		BlueprintID: row.BlueprintID, Config: json.RawMessage(row.Config),
 		RecordingPreference: row.RecordingPreference, ConsentVersion: row.ConsentVersion,
 		ConnectionEpoch: int(row.ConnectionEpoch), AcceptedSequence: int(row.AcceptedSequence),
@@ -426,6 +467,7 @@ func (s *Store) ListMine(ctx context.Context, mode, candidateID, tenantID string
 	for _, row := range rows {
 		sessions = append(sessions, Session{
 			ID: row.ID, Mode: row.Mode, CandidateID: row.CandidateID, TenantID: row.TenantID,
+			CampaignID:  row.CampaignID,
 			BlueprintID: row.BlueprintID, Config: json.RawMessage(row.Config),
 			RecordingPreference: row.RecordingPreference, ConsentVersion: row.ConsentVersion,
 			ConnectionEpoch: int(row.ConnectionEpoch), AcceptedSequence: int(row.AcceptedSequence),

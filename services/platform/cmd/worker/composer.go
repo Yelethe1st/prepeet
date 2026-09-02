@@ -14,19 +14,28 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/recruiting"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/grpcdial"
 )
+
+// campaignConfig is what the composer needs of recruiting: the artifacts a
+// campaign froze at open. Declared here per ADR-0005, so the composer says how
+// narrow its need is, and satisfied by recruiting's store in cmd.
+type campaignConfig interface {
+	CampaignPins(ctx context.Context, tenantID, campaignID string) ([]recruiting.Pin, error)
+}
 
 // grpcComposer presents the intelligence plane as the Composer interview
 // declared: CTR-02's contract on the wire, ADR-0005's translation in cmd.
 //
-// It also carries the registry, because resolving what to pin is the caller's
-// half of the composition contract: the registry is Go's, Python reads only
-// what arrives pinned, and this adapter is the one place allowed to see both
-// the interview port and the content store.
+// It also carries the registry and the campaign config, because resolving what
+// to pin is the caller's half of the composition contract: the registry is
+// Go's, the campaign's frozen choices are recruiting's, Python reads only what
+// arrives pinned, and this adapter is the one place allowed to see all three.
 type grpcComposer struct {
-	client   intelligencev1.IntelligenceServiceClient
-	registry *content.Store
+	client    intelligencev1.IntelligenceServiceClient
+	registry  *content.Store
+	campaigns campaignConfig
 }
 
 // newComposer dials the intelligence plane.
@@ -37,7 +46,7 @@ type grpcComposer struct {
 // and transcripts back. platform/config refuses undeclared plaintext outside
 // local and preview, and the Python server binds a secure port when its own
 // certificate is configured.
-func newComposer(address string, transport grpcdial.Config, registry *content.Store) (*grpcComposer, *grpc.ClientConn, error) {
+func newComposer(address string, transport grpcdial.Config, registry *content.Store, campaigns campaignConfig) (*grpcComposer, *grpc.ClientConn, error) {
 	option, err := transport.DialOption()
 	if err != nil {
 		return nil, nil, fmt.Errorf("the intelligence plane transport: %w", err)
@@ -50,8 +59,9 @@ func newComposer(address string, transport grpcdial.Config, registry *content.St
 		return nil, nil, fmt.Errorf("dialling the intelligence plane: %w", err)
 	}
 	return &grpcComposer{
-		client:   intelligencev1.NewIntelligenceServiceClient(conn),
-		registry: registry,
+		client:    intelligencev1.NewIntelligenceServiceClient(conn),
+		registry:  registry,
+		campaigns: campaigns,
 	}, conn, nil
 }
 
@@ -63,6 +73,9 @@ func newComposer(address string, transport grpcdial.Config, registry *content.St
 // use: the failure belongs to the request, not to the transport, and
 // retrying it spends nothing but repeats nothing either.
 func (c *grpcComposer) resolvePins(ctx context.Context, request interview.ComposeRequest) ([]*intelligencev1.PinnedArtifact, error) {
+	if request.Mode == "screening" {
+		return c.screeningPins(ctx, request)
+	}
 	if request.BlueprintID == "" {
 		// Python's own validation refuses this with INVALID_INPUT; sending it
 		// keeps that refusal's home in one place.
@@ -92,8 +105,8 @@ func (c *grpcComposer) resolvePins(ctx context.Context, request interview.Compos
 
 	// EVL-02: the rubric is pinned at composition, so evaluation judges by
 	// what was in force when the session was made, never by whatever is
-	// published later. Practice uses the platform default; screening
-	// campaigns will name their own.
+	// published later. Practice uses the platform default; screening pins the
+	// campaign's own, resolved by digest in screeningPins.
 	rubric, err := c.registry.Resolve(ctx, practiceRubricReference, request.TenantID)
 	if err != nil {
 		if errors.Is(err, content.ErrNotFound) {
@@ -139,8 +152,87 @@ func (c *grpcComposer) resolvePins(ctx context.Context, request interview.Compos
 	return pins, nil
 }
 
+// screeningPins pins a screening session to exactly what its campaign froze.
+//
+// The campaign chose its rubric, calibration, persona and plan at open and
+// stored each by digest; this reads them and resolves each digest to the
+// immutable body content holds for it, so the session runs and is judged by the
+// configuration the campaign committed to and not by whatever is published when
+// the interview happens. That is EVL-02 for screening: the practice path pins
+// the platform default rubric, and this pins the campaign's, from the same
+// need. The blueprint the request carries is deliberately unused here; the
+// campaign's pinned plan is the plan, and a screening session's blueprint is a
+// record of the request, not a second source of truth.
+//
+// The model policy is pinned too, current at composition, exactly as practice
+// pins it, because a campaign fixes what a session is judged against, not what
+// each stage may spend, which is the platform's to set (EVL-07).
+func (c *grpcComposer) screeningPins(ctx context.Context, request interview.ComposeRequest) ([]*intelligencev1.PinnedArtifact, error) {
+	pins, err := c.campaigns.CampaignPins(ctx, request.TenantID, request.CampaignID)
+	if err != nil {
+		return nil, fmt.Errorf("reading the campaign's pins: %w", err)
+	}
+	if len(pins) == 0 {
+		// A screening session whose campaign pinned nothing cannot be composed
+		// into anything meaningful. It is the request's fault, not the
+		// transport's, and retrying it composes the same nothing.
+		return nil, &interview.ComposeFailure{
+			Code:      "FAILURE_CODE_ARTIFACT_NOT_FOUND",
+			Retryable: retryableCodes[rpcv1.FailureCode_FAILURE_CODE_ARTIFACT_NOT_FOUND],
+			Message:   "the campaign has pinned no configuration to compose against",
+		}
+	}
+
+	resolved := make([]*intelligencev1.PinnedArtifact, 0, len(pins)+1)
+	for _, pin := range pins {
+		artifact, err := c.registry.GetByDigest(ctx, pin.Digest, request.TenantID)
+		if err != nil {
+			if errors.Is(err, content.ErrNotFound) {
+				// The campaign pinned a digest the registry no longer holds.
+				// That is a data integrity failure, not a transient one, and
+				// retrying re-reads the same missing artifact.
+				return nil, &interview.ComposeFailure{
+					Code:      "FAILURE_CODE_ARTIFACT_NOT_FOUND",
+					Retryable: retryableCodes[rpcv1.FailureCode_FAILURE_CODE_ARTIFACT_NOT_FOUND],
+					Message:   fmt.Sprintf("the campaign pinned %s at %s, which the registry no longer resolves", pin.Reference, pin.Digest),
+				}
+			}
+			return nil, fmt.Errorf("resolving pinned %s: %w", pin.Reference, err)
+		}
+		resolved = append(resolved, &intelligencev1.PinnedArtifact{
+			ArtifactType:  artifact.Type,
+			Reference:     artifact.Reference,
+			Version:       artifact.Version,
+			SchemaVersion: artifact.SchemaVersion,
+			Digest:        artifact.Digest,
+			Body:          artifact.Body,
+		})
+	}
+
+	policy, err := c.registry.Resolve(ctx, evaluation.PolicyReference, request.TenantID)
+	if err != nil {
+		if errors.Is(err, content.ErrNotFound) {
+			return nil, &interview.ComposeFailure{
+				Code:      "FAILURE_CODE_ARTIFACT_NOT_FOUND",
+				Retryable: retryableCodes[rpcv1.FailureCode_FAILURE_CODE_ARTIFACT_NOT_FOUND],
+				Message:   "the registry resolves no model policy; publish content first",
+			}
+		}
+		return nil, fmt.Errorf("resolving the model policy: %w", err)
+	}
+	resolved = append(resolved, &intelligencev1.PinnedArtifact{
+		ArtifactType:  policy.Type,
+		Reference:     policy.Reference,
+		Version:       policy.Version,
+		SchemaVersion: policy.SchemaVersion,
+		Digest:        policy.Digest,
+		Body:          policy.Body,
+	})
+	return resolved, nil
+}
+
 // practiceRubricReference is the platform default every practice session
-// is judged by until screening campaigns pin their own.
+// is judged by. Screening pins the campaign's own instead; see screeningPins.
 const practiceRubricReference = "rubric/practice-default"
 
 // Compose asks Python for the session bundle.

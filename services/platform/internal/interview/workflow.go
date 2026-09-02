@@ -43,6 +43,9 @@ type ComposeRequest struct {
 	Mode        string
 	CandidateID string
 	TenantID    string
+	// CampaignID names the campaign a screening composition pins to; empty for
+	// practice, which pins the platform defaults.
+	CampaignID  string
 	BlueprintID string
 }
 
@@ -78,6 +81,9 @@ type CompositionInput struct {
 	Mode        string
 	CandidateID string
 	TenantID    string
+	// CampaignID is set for screening and empty for practice; it is what the
+	// composer pins the screening bundle to.
+	CampaignID  string
 	BlueprintID string
 	// Actor is whose authority the workflow acts under, carried into every
 	// transition's audit row with Type "service" marking the automation.
@@ -106,6 +112,7 @@ func (a *Activities) Compose(ctx context.Context, input CompositionInput) (Compo
 		Mode:        input.Mode,
 		CandidateID: input.CandidateID,
 		TenantID:    input.TenantID,
+		CampaignID:  input.CampaignID,
 		BlueprintID: input.BlueprintID,
 	})
 	if err != nil {

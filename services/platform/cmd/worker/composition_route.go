@@ -67,6 +67,7 @@ func startComposition(workflows sdkclient.Client, sessions *interview.Store) out
 			Mode:        session.Mode,
 			CandidateID: session.CandidateID,
 			TenantID:    session.TenantID,
+			CampaignID:  session.CampaignID,
 			BlueprintID: session.BlueprintID,
 			ActorID:     session.CandidateID,
 		})

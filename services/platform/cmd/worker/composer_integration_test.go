@@ -23,6 +23,7 @@ import (
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/content"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/recruiting"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/grpcdial"
 )
@@ -263,7 +264,7 @@ func startIntelligence(t *testing.T) string {
 func TestGoComposesThroughPython(t *testing.T) {
 	address := startIntelligence(t)
 
-	composer, conn, err := newComposer(address, grpcdial.Config{Insecure: true}, registry)
+	composer, conn, err := newComposer(address, grpcdial.Config{Insecure: true}, registry, recruiting.NewStore(pool))
 	if err != nil {
 		t.Fatalf("newComposer: %v", err)
 	}
@@ -363,7 +364,7 @@ func TestARefusalCrossesTheWireTyped(t *testing.T) {
 	// vocabulary they share.
 	address := startIntelligence(t)
 
-	composer, conn, err := newComposer(address, grpcdial.Config{Insecure: true}, registry)
+	composer, conn, err := newComposer(address, grpcdial.Config{Insecure: true}, registry, recruiting.NewStore(pool))
 	if err != nil {
 		t.Fatalf("newComposer: %v", err)
 	}

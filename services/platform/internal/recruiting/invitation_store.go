@@ -284,6 +284,38 @@ func (s *Store) consumeByToken(ctx context.Context, tokenHash string,
 	return invitationFromAccept(row), nil
 }
 
+// CampaignPins reads what a campaign froze at open, tenant-scoped, so the
+// composition run can pin the screening interview to exactly those artifacts by
+// their digests. This is the read that makes a screening session judged by what
+// the campaign chose rather than by whatever is published when it runs.
+func (s *Store) CampaignPins(ctx context.Context, tenantID, campaignID string) ([]Pin, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("recruiting: beginning pins read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, tenantID); err != nil {
+		return nil, err
+	}
+
+	rows, err := db.New(tx).PinsForCampaign(ctx, campaignID)
+	if err != nil {
+		return nil, fmt.Errorf("recruiting: reading campaign pins: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("recruiting: committing the pins read: %w", err)
+	}
+
+	pins := make([]Pin, 0, len(rows))
+	for _, row := range rows {
+		pins = append(pins, Pin{
+			Type: row.ArtifactType, Reference: row.Reference, Version: row.Version,
+			Digest: row.Digest, ArtifactID: row.ArtifactID,
+		})
+	}
+	return pins, nil
+}
+
 // CampaignByID reads the campaign an invitation points to, tenant-scoped, for
 // the candidate acceptance path. The tenant it scopes to is the invitation's
 // own, which the token already authorised the caller to act within.

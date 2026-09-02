@@ -17,6 +17,7 @@ import (
 	tclocalstack "github.com/testcontainers/testcontainers-go/modules/localstack"
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/candidate"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/recruiting"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/grpcdial"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/objectstore"
 )
@@ -108,7 +109,7 @@ func TestGoExtractsThroughPython(t *testing.T) {
 
 	// The composer's dial is reused: one channel to the plane, two
 	// capabilities on it, exactly as the worker wires it.
-	_, conn, err := newComposer(address, grpcdial.Config{Insecure: true}, registry)
+	_, conn, err := newComposer(address, grpcdial.Config{Insecure: true}, registry, recruiting.NewStore(pool))
 	if err != nil {
 		t.Fatalf("dialling: %v", err)
 	}

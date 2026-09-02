@@ -32,6 +32,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/notification"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/operations"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/progression"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/recruiting"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/broadcast"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/email"
@@ -143,7 +144,7 @@ func main() {
 		if cfg.IntelligenceAddress == "" {
 			log.Warn("no intelligence address is configured; the interview task queue is not being served")
 		} else {
-			composer, conn, err := newComposer(cfg.IntelligenceAddress, cfg.IntelligenceTLS, content.NewStore(pool))
+			composer, conn, err := newComposer(cfg.IntelligenceAddress, cfg.IntelligenceTLS, content.NewStore(pool), recruiting.NewStore(pool))
 			if err != nil {
 				log.Error("the intelligence plane is not usable", slog.String("error", err.Error()))
 				os.Exit(1)

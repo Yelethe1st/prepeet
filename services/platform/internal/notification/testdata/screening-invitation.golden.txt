@@ -1,0 +1,12 @@
+Subject: You have been invited to an interview
+
+Northwind Health has invited you to a short voice interview for Registered Nurse, Intensive Care.
+
+https://app.example.test/invitations/accept?token=TOKEN
+
+The invitation is yours alone and expires in 72 hours. Before you
+begin, you will see exactly what is recorded, who can see it, and how the result
+is used, and you decide whether to go ahead.
+
+If you were not expecting this, you can ignore it; nothing happens until you open
+the link and agree.

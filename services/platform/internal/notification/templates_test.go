@@ -25,6 +25,10 @@ var inputs = map[string]Input{
 	"password-reset": PasswordReset{Link: "https://app.example.test/reset?token=TOKEN", ExpiresMinutes: 30},
 	"magic-link":     MagicLink{Link: "https://app.example.test/magic?token=TOKEN", ExpiresMinutes: 15},
 	"otp":            OTP{Code: "000000", ExpiresMinutes: 10},
+	"screening-invitation": ScreeningInvitation{
+		Employer: "Northwind Health", Role: "Registered Nurse, Intensive Care",
+		Link: "https://app.example.test/invitations/accept?token=TOKEN", ExpiresHours: 72,
+	},
 }
 
 func TestEveryTemplateRendersItsGolden(t *testing.T) {
@@ -93,12 +97,17 @@ func TestEveryExpiryIsStatedToTheRecipient(t *testing.T) {
 	// The prototype distinguishes expired-token outcomes, and the email is
 	// where the person learns the deadline exists. A token email that does not
 	// state its expiry turns the expired screen into a surprise.
+	//
+	// Any unit, not only minutes: a sign-in link lives for minutes and an
+	// invitation for days, and pinning the assertion to "minutes" would force
+	// an invitation to lie about its own lifetime to satisfy a test.
 	for name, input := range inputs {
 		rendered, err := Render(input)
 		if err != nil {
 			t.Fatalf("rendering %s: %v", name, err)
 		}
-		if !strings.Contains(rendered.Body, "minutes") {
+		if !strings.Contains(rendered.Body, "minutes") &&
+			!strings.Contains(rendered.Body, "hours") {
 			t.Errorf("%s does not tell the recipient how long they have", name)
 		}
 	}

@@ -60,6 +60,26 @@ type MagicLink struct {
 
 func (MagicLink) template() string { return "magic-link" }
 
+// ScreeningInvitation invites a candidate to a campaign's interview.
+//
+// Employer and role are named because a candidate may hold invitations from
+// several employers at once, and an email that could be any of them is one
+// they cannot safely act on. No transcript or evaluation content appears here,
+// nor could: an invitation precedes the interview it invites.
+type ScreeningInvitation struct {
+	// Employer is the workspace's display name, what the candidate recognises.
+	Employer string
+	// Role is the human role title the campaign interviews for.
+	Role string
+	// Link is the single-use acceptance URL.
+	Link string
+	// ExpiresHours is how long the invitation stands, in hours rather than
+	// minutes because an invitation is answered over days, not in one sitting.
+	ExpiresHours int
+}
+
+func (ScreeningInvitation) template() string { return "screening-invitation" }
+
 // OTP carries a one-time code.
 type OTP struct {
 	// Code is the short-lived numeric code. A code rather than a link, for the
@@ -135,6 +155,20 @@ If you did not ask to sign in, ignore this email and nothing will happen.`,
 The code works once and expires in {{.ExpiresMinutes}} minutes.
 
 If you did not ask for a code, ignore this email and nothing will happen.`,
+	},
+	"screening-invitation": {
+		version: "1",
+		subject: "You have been invited to an interview",
+		body: `{{.Employer}} has invited you to a short voice interview for {{.Role}}.
+
+{{.Link}}
+
+The invitation is yours alone and expires in {{.ExpiresHours}} hours. Before you
+begin, you will see exactly what is recorded, who can see it, and how the result
+is used, and you decide whether to go ahead.
+
+If you were not expecting this, you can ignore it; nothing happens until you open
+the link and agree.`,
 	},
 }
 

@@ -210,6 +210,39 @@ func (s *Service) ConsumeMagicLink(ctx context.Context, plaintext string) (Sessi
 	return s.issue(ctx, state.UserID, id.New().String(), now, now)
 }
 
+// ProvisionCandidateSession resolves the invitation's candidate and signs them
+// in, whether or not they already had an account.
+//
+// It is the identity half of SCR-05's acceptance. The invitation token, which
+// the caller has already validated, is what proves control of the address, so
+// this issues a session on the strength of it exactly as ConsumeMagicLink does
+// on the strength of a magic-link token. The same session either way is the
+// requirement ADR-0003 states: a candidate who was new and one who already had
+// an account are indistinguishable from here, so acceptance cannot be used to
+// learn whether an address is registered.
+//
+// The userID is returned alongside the session because the acceptance flow
+// records the accepted invitation against the candidate, and the caller needs
+// to know who that resolved to.
+func (s *Service) ProvisionCandidateSession(ctx context.Context, rawEmail string) (string, Session, error) {
+	email := NormaliseEmail(rawEmail)
+	if err := ValidateEmail(email); err != nil {
+		return "", Session{}, err
+	}
+
+	userID, err := s.repo.ProvisionCandidate(ctx, email)
+	if err != nil {
+		return "", Session{}, err
+	}
+
+	now := s.clock()
+	session, err := s.issue(ctx, userID, id.New().String(), now, now)
+	if err != nil {
+		return "", Session{}, err
+	}
+	return userID, session, nil
+}
+
 // RequestOTP sends a one-time code.
 func (s *Service) RequestOTP(ctx context.Context, rawEmail string) error {
 	return s.sendCode(ctx, rawEmail)

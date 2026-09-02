@@ -29,7 +29,7 @@ func serveDocuments(t *testing.T, documents *fakeDocuments) http.Handler {
 		Members:     &fakeMembers{},
 		Billing:     &fakeBilling{},
 		Settings:    &stubSettings{},
-		Invitations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), Recruiting: &stubRecruiting{},
 		SensitiveReads: &recordingAuditor{},
 		Progression:    &stubProgression{},
 		Environment:    config.EnvironmentLocal,

@@ -87,8 +87,8 @@ func (a invitationsAdapter) Resend(ctx context.Context, campaign api.Campaign, i
 // email says, mint the token, build the link, and store the invitation with
 // its email enqueued in the same transaction.
 func (a invitationsAdapter) issueFresh(ctx context.Context, campaign api.Campaign, recipient, issuedBy string) (api.Invitation, error) {
-	employer := a.employerName(ctx, campaign.TenantID)
-	role := a.roleTitle(ctx, campaign.TenantID, campaign.RoleReference)
+	employer := employerName(ctx, a.settings, campaign.TenantID)
+	role := roleTitle(ctx, a.catalogue, campaign.TenantID, campaign.RoleReference)
 
 	minted, err := token.New(token.PurposeInvitation)
 	if err != nil {
@@ -138,8 +138,8 @@ func (a invitationsAdapter) withDelivery(ctx context.Context, invitation recruit
 // employerName is what a candidate should recognise in the email: the
 // workspace's display name, or its legal name, or a neutral fallback so an
 // invitation is never signed by an empty string.
-func (a invitationsAdapter) employerName(ctx context.Context, tenantID string) string {
-	current, err := a.settings.Current(ctx, tenantID)
+func employerName(ctx context.Context, settings *tenantadmin.SettingsStore, tenantID string) string {
+	current, err := settings.Current(ctx, tenantID)
 	if err == nil {
 		if name := strings.TrimSpace(current.Settings.Organisation.DisplayName); name != "" {
 			return name
@@ -154,12 +154,12 @@ func (a invitationsAdapter) employerName(ctx context.Context, tenantID string) s
 // roleTitle resolves the campaign's role reference to the human title the
 // catalogue gives it, falling back to the reference itself when the catalogue
 // cannot be read or does not name it.
-func (a invitationsAdapter) roleTitle(ctx context.Context, tenantID, reference string) string {
-	catalogue, err := a.catalogue.Catalogue(ctx, tenantID)
+func roleTitle(ctx context.Context, catalogue *catalog.Service, tenantID, reference string) string {
+	cat, err := catalogue.Catalogue(ctx, tenantID)
 	if err != nil {
 		return reference
 	}
-	for _, role := range catalogue.Roles {
+	for _, role := range cat.Roles {
 		if role.ID == reference {
 			return role.Title
 		}

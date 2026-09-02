@@ -328,6 +328,73 @@ func (r *PostgresRepository) CreateUserWithOAuthIdentity(
 	return tx.Commit(ctx)
 }
 
+// ProvisionCandidate resolves the candidate an invitation was sent to,
+// creating a passwordless, already-verified account when none exists.
+//
+// Returning the same account either way is the requirement, not a convenience:
+// ADR-0003 says invitation acceptance must not reveal whether an address has an
+// account, and this is where that holds. A new candidate is passwordless for
+// the reason an OAuth account is, an empty hash that Authenticate treats as a
+// wrong password rather than a corrupt record, and verified because arriving
+// with a token emailed to the address is the same proof of control the
+// verification link asks for.
+//
+// The find comes first and the create tolerates the unique index on email, so
+// two acceptances racing one new address resolve to the same account rather
+// than one of them failing: the loser of the insert re-reads and finds what the
+// winner wrote.
+func (r *PostgresRepository) ProvisionCandidate(ctx context.Context, email string) (string, error) {
+	if existing, err := r.q.FindActiveUserByEmail(ctx, email); err == nil {
+		return existing, nil
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return "", fmt.Errorf("identity: resolving the candidate address: %w", err)
+	}
+
+	userID := id.New().String()
+	err := r.createPasswordlessCandidate(ctx, userID, email)
+	if err == nil {
+		return userID, nil
+	}
+
+	// Lost the race to create the address. The winner's row is there now, so
+	// read it rather than failing an acceptance on a collision the candidate
+	// caused by clicking twice.
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+		existing, findErr := r.q.FindActiveUserByEmail(ctx, email)
+		if findErr != nil {
+			return "", fmt.Errorf("identity: re-resolving the raced candidate address: %w", findErr)
+		}
+		return existing, nil
+	}
+	return "", err
+}
+
+// createPasswordlessCandidate writes the person, an empty credential and the
+// verified mark in one transaction, so a failure between them cannot leave an
+// address taken by an account nobody can complete. This is the invitation
+// analogue of CreateUserWithOAuthIdentity, and it makes the same atomicity
+// argument.
+func (r *PostgresRepository) createPasswordlessCandidate(ctx context.Context, userID, email string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("identity: beginning candidate provision: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := db.New(tx)
+
+	if err := q.InsertUser(ctx, db.InsertUserParams{ID: userID, Email: email}); err != nil {
+		return fmt.Errorf("identity: inserting candidate: %w", err)
+	}
+	if err := q.InsertCredentials(ctx, db.InsertCredentialsParams{UserID: userID, PasswordHash: ""}); err != nil {
+		return fmt.Errorf("identity: inserting empty candidate credential: %w", err)
+	}
+	if err := q.MarkEmailVerified(ctx, userID); err != nil {
+		return fmt.Errorf("identity: marking the candidate verified: %w", err)
+	}
+	return tx.Commit(ctx)
+}
+
 // maxSlugAttempts bounds the search for a free slug.
 //
 // Retry rather than a uniqueness check first, because checking then inserting

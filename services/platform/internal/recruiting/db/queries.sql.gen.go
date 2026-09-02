@@ -12,6 +12,51 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const acceptInvitationByToken = `-- name: AcceptInvitationByToken :one
+UPDATE recruiting.invitation
+SET outcome = 'accepted', outcome_at = now()
+WHERE token_hash = $1 AND outcome IS NULL AND expires_at > now()
+RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
+          issued_at, expires_at, outcome, outcome_at
+`
+
+type AcceptInvitationByTokenRow struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	EmailID    string
+	IssuedBy   string
+	IssuedAt   time.Time
+	ExpiresAt  time.Time
+	Outcome    pgtype.Text
+	OutcomeAt  *time.Time
+}
+
+// Accept, single-use and not past expiry. The guard on a null outcome makes the
+// accept a one-winner race: two clicks on one link produce one accepted
+// interview and one refusal, not two. The expires_at guard refuses a link that
+// lapsed while it sat in an inbox; the caller reads the current state first and
+// tells the candidate which of expired, revoked or already-answered it was, so
+// this returning no row is an outcome to explain rather than an error.
+func (q *Queries) AcceptInvitationByToken(ctx context.Context, tokenHash string) (AcceptInvitationByTokenRow, error) {
+	row := q.db.QueryRow(ctx, acceptInvitationByToken, tokenHash)
+	var i AcceptInvitationByTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.Recipient,
+		&i.EmailID,
+		&i.IssuedBy,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.Outcome,
+		&i.OutcomeAt,
+	)
+	return i, err
+}
+
 const acceptancesFor = `-- name: AcceptancesFor :many
 SELECT id, campaign_id, candidate_id, disclosure_digest, disclosure_version, accepted_at
 FROM recruiting.disclosure_acceptance
@@ -156,6 +201,38 @@ func (q *Queries) AccommodationsForSession(ctx context.Context, sessionID string
 		return nil, err
 	}
 	return items, nil
+}
+
+const campaignByID = `-- name: CampaignByID :one
+SELECT id, tenant_id, name, status, role_reference, jurisdiction,
+       determination_id, opened_at, closed_at, created_at, created_by
+FROM recruiting.campaign
+WHERE id = $1
+`
+
+// One campaign by id, tenant-scoped by the row-level security policy. Unlike
+// CampaignsForRecruiter this carries no recruiter join, so it is not a way to
+// read a campaign a recruiter is not on: it exists for the candidate
+// acceptance path, which is authorised by a valid invitation token rather than
+// by campaign membership, and needs the role the invitation is for. A recruiter
+// surface must keep using the join; this is not that.
+func (q *Queries) CampaignByID(ctx context.Context, id string) (RecruitingCampaign, error) {
+	row := q.db.QueryRow(ctx, campaignByID, id)
+	var i RecruitingCampaign
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.Status,
+		&i.RoleReference,
+		&i.Jurisdiction,
+		&i.DeterminationID,
+		&i.OpenedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
 }
 
 const campaignsForRecruiter = `-- name: CampaignsForRecruiter :many
@@ -309,6 +386,50 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 		&i.ClosedAt,
 		&i.CreatedAt,
 		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const declineInvitationByToken = `-- name: DeclineInvitationByToken :one
+UPDATE recruiting.invitation
+SET outcome = 'declined', outcome_at = now()
+WHERE token_hash = $1 AND outcome IS NULL AND expires_at > now()
+RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
+          issued_at, expires_at, outcome, outcome_at
+`
+
+type DeclineInvitationByTokenRow struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	EmailID    string
+	IssuedBy   string
+	IssuedAt   time.Time
+	ExpiresAt  time.Time
+	Outcome    pgtype.Text
+	OutcomeAt  *time.Time
+}
+
+// Decline, the candidate's first-class no. Guarded on a null outcome like
+// accept, so declining a link already answered or revoked changes nothing and
+// returns nothing. Declining is recorded, never penalised: the row simply ends
+// as declined, and nothing downstream treats that differently from never having
+// been asked.
+func (q *Queries) DeclineInvitationByToken(ctx context.Context, tokenHash string) (DeclineInvitationByTokenRow, error) {
+	row := q.db.QueryRow(ctx, declineInvitationByToken, tokenHash)
+	var i DeclineInvitationByTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.Recipient,
+		&i.EmailID,
+		&i.IssuedBy,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.Outcome,
+		&i.OutcomeAt,
 	)
 	return i, err
 }
@@ -884,6 +1005,50 @@ func (q *Queries) RequestAccommodation(ctx context.Context, arg RequestAccommoda
 		&i.CandidateID,
 		&i.Adjustment,
 		&i.RequestedAt,
+	)
+	return i, err
+}
+
+const resolveInvitationByToken = `-- name: ResolveInvitationByToken :one
+SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
+       issued_at, expires_at, outcome, outcome_at
+FROM recruiting.invitation
+WHERE token_hash = $1
+`
+
+type ResolveInvitationByTokenRow struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	EmailID    string
+	IssuedBy   string
+	IssuedAt   time.Time
+	ExpiresAt  time.Time
+	Outcome    pgtype.Text
+	OutcomeAt  *time.Time
+}
+
+// Read one invitation by the hash of the presented token, for the candidate
+// acceptance path. Access is the token-scoped policy's: the row is visible only
+// because the caller set app.invitation_token_hash to this same hash, which is
+// proof they hold the token. The WHERE is that hash again, so the query names
+// the one row the policy already narrowed to rather than trusting the scope
+// alone.
+func (q *Queries) ResolveInvitationByToken(ctx context.Context, tokenHash string) (ResolveInvitationByTokenRow, error) {
+	row := q.db.QueryRow(ctx, resolveInvitationByToken, tokenHash)
+	var i ResolveInvitationByTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.Recipient,
+		&i.EmailID,
+		&i.IssuedBy,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.Outcome,
+		&i.OutcomeAt,
 	)
 	return i, err
 }

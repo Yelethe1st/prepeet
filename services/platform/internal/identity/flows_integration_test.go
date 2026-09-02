@@ -462,3 +462,94 @@ func TestTwoConcurrentConsumesOfOneTokenHaveOneWinner(t *testing.T) {
 		t.Fatalf("first=%v second=%v; exactly one presentation may win", first, second)
 	}
 }
+
+// ─────────────────────────────────────────────── invitation candidate provisioning
+
+// A candidate the invitation was sent to who has no account gets one: a
+// passwordless, verified account, and a working session, so acceptance can sign
+// them in on the strength of the token that reached them.
+func TestProvisionCandidateSessionCreatesANewCandidate(t *testing.T) {
+	ctx := context.Background()
+	service := flowService(t, time.Now)
+	email := emailFor(t)
+
+	userID, session, err := service.ProvisionCandidateSession(ctx, email)
+	if err != nil {
+		t.Fatalf("provision: %v", err)
+	}
+	if userID == "" {
+		t.Fatal("no candidate id returned")
+	}
+	if _, err := service.Lookup(ctx, session.SessionToken); err != nil {
+		t.Fatalf("the issued session does not look up: %v", err)
+	}
+
+	var verified bool
+	var hash string
+	if err := pool.QueryRow(ctx,
+		`SELECT u.email_verified, coalesce(c.password_hash, '')
+		 FROM identity.users u JOIN identity.credentials c ON c.user_id = u.id
+		 WHERE u.id = $1`, userID).Scan(&verified, &hash); err != nil {
+		t.Fatalf("reading the provisioned candidate: %v", err)
+	}
+	if !verified {
+		t.Error("arriving with an emailed token proves control of the address; it was not marked verified")
+	}
+	if hash != "" {
+		t.Error("a candidate provisioned from an invitation must have no password")
+	}
+}
+
+// An address that already has an account resolves to that same account rather
+// than a second one, and its password is left untouched. This is the no-leak
+// property: acceptance returns a session either way, so it cannot be used to
+// learn whether the address was already registered.
+func TestProvisionCandidateSessionResolvesAnExistingAccount(t *testing.T) {
+	ctx := context.Background()
+	service := flowService(t, time.Now)
+
+	email := emailFor(t)
+	registered, err := service.Register(ctx, identity.RegisterInput{
+		Email: email, Password: goodPassword, AccountType: identity.AccountCandidate,
+	})
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	userID, session, err := service.ProvisionCandidateSession(ctx, email)
+	if err != nil {
+		t.Fatalf("provision: %v", err)
+	}
+	if userID != registered.UserID {
+		t.Fatalf("provision made a new account %q for an existing address %q", userID, registered.UserID)
+	}
+	if _, err := service.Lookup(ctx, session.SessionToken); err != nil {
+		t.Fatalf("the issued session does not look up: %v", err)
+	}
+
+	// The existing password is intact: provisioning resolved, it did not
+	// overwrite. The original credentials still authenticate.
+	if _, err := service.Authenticate(ctx, email, goodPassword); err != nil {
+		t.Fatalf("provisioning clobbered an existing account's password: %v", err)
+	}
+}
+
+// Provisioning the same new address twice resolves to one account, so a
+// candidate who clicks the link twice does not end up with two.
+func TestProvisionCandidateSessionIsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	service := flowService(t, time.Now)
+	email := emailFor(t)
+
+	first, _, err := service.ProvisionCandidateSession(ctx, email)
+	if err != nil {
+		t.Fatalf("first provision: %v", err)
+	}
+	second, _, err := service.ProvisionCandidateSession(ctx, email)
+	if err != nil {
+		t.Fatalf("second provision: %v", err)
+	}
+	if first != second {
+		t.Fatalf("provisioning one address made two accounts: %q and %q", first, second)
+	}
+}

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Yelethe1st/prepeet/services/platform/internal/recruiting"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
@@ -324,6 +325,157 @@ func TestInvitationByIDReadsAndScopes(t *testing.T) {
 	// per-campaign scope revoke enforces.
 	if _, err := store.InvitationByID(ctx, tenantA, other.ID, inv.ID); !errors.Is(err, recruiting.ErrInvitationNotFound) {
 		t.Fatalf("wrong-campaign read error = %v, want ErrInvitationNotFound", err)
+	}
+}
+
+// A candidate holding the token resolves exactly the invitation it names, and
+// an unknown token resolves to nothing. This is the token-scoped policy: the
+// row is reachable only with the hash that produced it.
+func TestResolveInvitationByToken(t *testing.T) {
+	campaign := openCampaignFor(t, tenantA)
+	inv, plaintext, _ := issue(t, campaign, "resolve@example.com")
+	store := recruiting.NewStore(pool)
+	ctx := context.Background()
+
+	got, err := store.ResolveInvitationByToken(ctx, token.HashOf(plaintext))
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got.ID != inv.ID || got.CampaignID != campaign.ID {
+		t.Fatalf("resolved the wrong invitation: %+v", got)
+	}
+
+	// A token nobody issued resolves to nothing, the same answer a spent link
+	// would give, so a guess cannot be told from a real dead token.
+	if _, err := store.ResolveInvitationByToken(ctx, token.HashOf("inv_not-a-real-token")); !errors.Is(err, recruiting.ErrInvitationUnknownToken) {
+		t.Fatalf("unknown token error = %v, want ErrInvitationUnknownToken", err)
+	}
+}
+
+// Holding one campaign's token gives no reach to another invitation. The token
+// scope is one row, so resolving with the wrong hash returns nothing even for a
+// real invitation that exists under the same tenant.
+func TestATokenReachesOnlyItsOwnInvitation(t *testing.T) {
+	campaign := openCampaignFor(t, tenantA)
+	mine, mineToken, _ := issue(t, campaign, "mine@example.com")
+	_, _, _ = issue(t, campaign, "theirs@example.com")
+	store := recruiting.NewStore(pool)
+	ctx := context.Background()
+
+	// My token resolves my invitation.
+	got, err := store.ResolveInvitationByToken(ctx, token.HashOf(mineToken))
+	if err != nil || got.ID != mine.ID {
+		t.Fatalf("my token did not resolve my invitation: %v %+v", err, got)
+	}
+	// A hash I do not hold resolves nothing, even though a real invitation with
+	// that recipient exists: the policy admits only the row whose hash I set.
+	if _, err := store.ResolveInvitationByToken(ctx, token.HashOf("inv_someone-elses")); !errors.Is(err, recruiting.ErrInvitationUnknownToken) {
+		t.Fatalf("a hash I do not hold resolved something: %v", err)
+	}
+}
+
+// Accepting is single-use: the first accept wins, a second finds nothing live.
+func TestAcceptInvitationByTokenIsSingleUse(t *testing.T) {
+	campaign := openCampaignFor(t, tenantA)
+	_, plaintext, _ := issue(t, campaign, "accept@example.com")
+	store := recruiting.NewStore(pool)
+	ctx := context.Background()
+	hash := token.HashOf(plaintext)
+
+	accepted, err := store.AcceptInvitationByToken(ctx, hash)
+	if err != nil {
+		t.Fatalf("accept: %v", err)
+	}
+	if accepted.Outcome != recruiting.InvitationAccepted {
+		t.Fatalf("outcome = %q, want accepted", accepted.Outcome)
+	}
+	if _, err := store.AcceptInvitationByToken(ctx, hash); !errors.Is(err, recruiting.ErrInvitationNotLive) {
+		t.Fatalf("second accept error = %v, want ErrInvitationNotLive", err)
+	}
+}
+
+// An expired invitation cannot be accepted, even though its outcome is still
+// null: expiry is a guard in the update, not a stored flag.
+func TestAcceptRefusesAnExpiredInvitation(t *testing.T) {
+	campaign := openCampaignFor(t, tenantA)
+	inv, plaintext, _ := issue(t, campaign, "expired@example.com")
+	expireInvitation(t, inv.ID)
+
+	if _, err := recruiting.NewStore(pool).AcceptInvitationByToken(context.Background(), token.HashOf(plaintext)); !errors.Is(err, recruiting.ErrInvitationNotLive) {
+		t.Fatalf("accept of expired error = %v, want ErrInvitationNotLive", err)
+	}
+}
+
+// Declining is a first-class, single-use outcome: it records declined and a
+// second decline finds nothing live.
+func TestDeclineInvitationByToken(t *testing.T) {
+	campaign := openCampaignFor(t, tenantA)
+	_, plaintext, _ := issue(t, campaign, "decline@example.com")
+	store := recruiting.NewStore(pool)
+	ctx := context.Background()
+	hash := token.HashOf(plaintext)
+
+	declined, err := store.DeclineInvitationByToken(ctx, hash)
+	if err != nil {
+		t.Fatalf("decline: %v", err)
+	}
+	if declined.Outcome != recruiting.InvitationDeclined {
+		t.Fatalf("outcome = %q, want declined", declined.Outcome)
+	}
+	if _, err := store.DeclineInvitationByToken(ctx, hash); !errors.Is(err, recruiting.ErrInvitationNotLive) {
+		t.Fatalf("second decline error = %v, want ErrInvitationNotLive", err)
+	}
+}
+
+// A revoked invitation cannot be accepted: the recruiter's stop holds against
+// the candidate's click.
+func TestAcceptRefusesARevokedInvitation(t *testing.T) {
+	campaign := openCampaignFor(t, tenantA)
+	inv, plaintext, _ := issue(t, campaign, "revoked-then-accept@example.com")
+	store := recruiting.NewStore(pool)
+	ctx := context.Background()
+
+	if _, err := store.RevokeInvitation(ctx, tenantA, campaign.ID, inv.ID); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	if _, err := store.AcceptInvitationByToken(ctx, token.HashOf(plaintext)); !errors.Is(err, recruiting.ErrInvitationNotLive) {
+		t.Fatalf("accept of revoked error = %v, want ErrInvitationNotLive", err)
+	}
+}
+
+// CampaignByID reads the campaign an invitation points to, tenant-scoped.
+func TestCampaignByIDReadsWithinTheTenant(t *testing.T) {
+	campaign := openCampaignFor(t, tenantA)
+	store := recruiting.NewStore(pool)
+	ctx := context.Background()
+
+	got, err := store.CampaignByID(ctx, tenantA, campaign.ID)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if got.ID != campaign.ID || got.RoleReference != campaign.RoleReference {
+		t.Fatalf("read back the wrong campaign: %+v", got)
+	}
+	// Another tenant cannot read it, the same tenant policy every campaign read
+	// carries.
+	if _, err := store.CampaignByID(ctx, tenantB, campaign.ID); !errors.Is(err, recruiting.ErrNoAccess) {
+		t.Fatalf("cross-tenant campaign read error = %v, want ErrNoAccess", err)
+	}
+}
+
+// expireInvitation moves an invitation's expiry into the past, as the migrator,
+// so an accept can be tested against a lapsed link without waiting a week.
+func expireInvitation(t *testing.T, invitationID string) {
+	t.Helper()
+	admin, err := pgxpool.New(context.Background(), adminURL)
+	if err != nil {
+		t.Fatalf("admin pool: %v", err)
+	}
+	defer admin.Close()
+	if _, err := admin.Exec(context.Background(),
+		`UPDATE recruiting.invitation SET expires_at = now() - interval '1 hour' WHERE id = $1`,
+		invitationID); err != nil {
+		t.Fatalf("expiring the invitation: %v", err)
 	}
 }
 

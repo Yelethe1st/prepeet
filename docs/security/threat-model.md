@@ -274,8 +274,16 @@ disabled by a limit of zero rather than failing loudly. Limits are applied per h
 middleware, so a new guessable endpoint gets none unless somebody remembers. If a deployment sits
 behind a proxy without declaring it, every caller collapses into one bucket.
 
-Screening invitation tokens do not exist yet. `token.PurposeInvitation` has no caller, no table, and is
-excluded by the purpose check constraint in migration 0010.
+Screening invitation tokens now exist and follow the same discipline. `token.PurposeInvitation` is
+minted for each invitation, carries 256 bits from `crypto/rand`, and is stored only as its SHA-256 hash
+in `recruiting.invitation` from migration 0056; the plaintext lives for the one call that emails it and
+is written nowhere. Acceptance and decline are conditional updates guarded on a null outcome and an
+unexpired link, so two clicks race to one winner. The candidate reaches the row not through a tenant
+scope, which they have none of, but through the token-scoped policy in migration 0057: the row is
+visible only to a transaction whose `app.invitation_token_hash` equals the stored hash, which is proof
+of holding the token. A token that names nothing resolves the same as a spent one, so a guess is not
+told from a real dead link. The three candidate endpoints are rate limited per network like the
+magic-link and OTP consumes, because a token guess has no address to count against.
 
 ### T9 Evaluation evidence is altered after a hiring decision cites it
 

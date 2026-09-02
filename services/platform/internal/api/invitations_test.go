@@ -98,7 +98,7 @@ func serveInvitations(t *testing.T, recruiting *stubRecruiting, invitations *stu
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
-		Recruiting: recruiting, Invitations: invitations, Environment: config.EnvironmentLocal,
+		ScreeningInvitations: defaultStubScreening(), Recruiting: recruiting, Invitations: invitations, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

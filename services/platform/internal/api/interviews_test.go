@@ -171,7 +171,7 @@ func serveInterviews(t *testing.T, interviews *fakeInterviews) http.Handler {
 		Members:     &fakeMembers{},
 		Billing:     &fakeBilling{},
 		Settings:    &stubSettings{},
-		Invitations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), Recruiting: &stubRecruiting{},
 		SensitiveReads: &recordingAuditor{},
 		Progression:    &stubProgression{},
 		Environment:    config.EnvironmentLocal,

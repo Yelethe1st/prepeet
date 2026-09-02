@@ -90,6 +90,19 @@ var (
 	// already ended. Revocation of something already terminal is not an error
 	// the recruiter can act on differently, so all three collapse to one.
 	ErrInvitationNotFound = errors.New("recruiting: no such live invitation")
+
+	// ErrInvitationUnknownToken is returned when a presented token resolves to
+	// no invitation at all. It is deliberately the same shape a candidate sees
+	// for any dead token, so a guessed token cannot be told apart from a real
+	// one that was already spent and cleaned up.
+	ErrInvitationUnknownToken = errors.New("recruiting: no invitation for this token")
+
+	// ErrInvitationNotLive is returned when a token-scoped accept or decline
+	// finds nothing live to act on: the invitation is already answered,
+	// revoked, superseded or expired. The caller resolves the current state to
+	// tell the candidate which, so this is a signal to re-read rather than a
+	// message to show.
+	ErrInvitationNotLive = errors.New("recruiting: the invitation is not live")
 )
 
 // InvitationExpiry is how long a screening invitation stands.

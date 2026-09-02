@@ -46,7 +46,9 @@ type ServerConfig struct {
 	Recruiting Recruiting
 	// Invitations serves SCR-04's invitation surface.
 	Invitations Invitations
-	Environment config.Environment
+	// ScreeningInvitations serves SCR-05's candidate-facing acceptance surface.
+	ScreeningInvitations ScreeningInvitations
+	Environment          config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
 	AgentToken string
@@ -103,6 +105,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Invitations == nil {
 		return nil, errors.New("api: an Invitations is required")
 	}
+	if cfg.ScreeningInvitations == nil {
+		return nil, errors.New("api: a ScreeningInvitations is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -156,6 +161,10 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		authentication: &handlers.authentication,
 		campaigns:      cfg.Recruiting,
 		invitations:    cfg.Invitations,
+	}
+	handlers.screeningHandlers = screeningHandlers{
+		authentication: &handlers.authentication,
+		invitations:    cfg.ScreeningInvitations,
 	}
 
 	// What each operation requires, read from the contract rather than named
@@ -261,6 +270,7 @@ type server struct {
 	settingsHandlers
 	campaignHandlers
 	invitationHandlers
+	screeningHandlers
 	health *health.Registry
 }
 

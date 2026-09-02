@@ -182,6 +182,10 @@ func main() {
 			tenantadmin.NewSettingsStore(pool),
 			catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			cfg.WebBaseURL),
+		ScreeningInvitations: newScreeningAdapter(
+			recruiting.NewStore(pool), identityService,
+			tenantadmin.NewSettingsStore(pool),
+			catalog.NewService(registrySource{registry: content.NewStore(pool)})),
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

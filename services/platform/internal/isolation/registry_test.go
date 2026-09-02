@@ -195,10 +195,17 @@ var (
 	tenantColumn = regexp.MustCompile(`(?im)^\s*tenant_id\s`)
 )
 
-// settingsThatIdentifyTheCaller are the two request-scoped settings every
-// isolating policy in this schema is written against. A policy that mentions
-// neither cannot be deciding anything about who is asking.
-var settingsThatIdentifyTheCaller = []string{"app.tenant_id", "app.user_id"}
+// settingsThatIdentifyTheCaller are the request-scoped settings an isolating
+// policy in this schema is written against. A policy that mentions none of them
+// cannot be deciding anything about who is asking.
+//
+// The tenant and the user are the two most policies use. app.invitation_token_hash
+// is the third, and narrower than either: it identifies the caller not as a
+// tenant or a signed-in person but as the holder of one specific invitation
+// token, which is the only authority a screening candidate has before they
+// accept (SCR-05, migration 0057). A policy keyed to it admits exactly the one
+// row whose stored hash the caller has proven they hold.
+var settingsThatIdentifyTheCaller = []string{"app.tenant_id", "app.user_id", "app.invitation_token_hash"}
 
 // qualify gives an unqualified table name the schema PostgreSQL would give it.
 func qualify(name string) string {

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	db "github.com/Yelethe1st/prepeet/services/platform/internal/recruiting/db"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/database"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 )
 
@@ -186,8 +187,158 @@ func (s *Store) InvitationByID(ctx context.Context, tenantID, campaignID, invita
 	return invitationFromByID(row), nil
 }
 
+// scopeToken sets the invitation-token context for the candidate acceptance
+// path, which carries no tenant and no user. It is what the token-scoped policy
+// reads, so without it every candidate query returns empty, failing closed.
+func scopeToken(ctx context.Context, tx pgx.Tx, tokenHash string) error {
+	return database.SetInvitationToken(ctx, tx, tokenHash)
+}
+
+// ResolveInvitationByToken reads the invitation a token names, for the
+// candidate holding it. Access is the token-scoped policy's: the row is visible
+// only because scopeToken set the same hash, which is proof of holding the
+// token. An unknown token resolves to nothing, reported the same as any dead
+// token so a guess cannot be told from a real spent link.
+func (s *Store) ResolveInvitationByToken(ctx context.Context, tokenHash string) (Invitation, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: beginning token resolve: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scopeToken(ctx, tx, tokenHash); err != nil {
+		return Invitation{}, err
+	}
+
+	row, err := db.New(tx).ResolveInvitationByToken(ctx, tokenHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Invitation{}, ErrInvitationUnknownToken
+	}
+	if err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: resolving the token: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: committing the token resolve: %w", err)
+	}
+	return invitationFromResolve(row), nil
+}
+
+// AcceptInvitationByToken accepts single-use and not past expiry, returning the
+// accepted invitation. A guarded update that touches nothing is ErrInvitationNotLive:
+// the invitation is spent, revoked, superseded or expired, and the caller
+// re-reads to say which.
+func (s *Store) AcceptInvitationByToken(ctx context.Context, tokenHash string) (Invitation, error) {
+	return s.consumeByToken(ctx, tokenHash, func(q *db.Queries) (db.AcceptInvitationByTokenRow, error) {
+		return q.AcceptInvitationByToken(ctx, tokenHash)
+	})
+}
+
+// DeclineInvitationByToken records the candidate's no, single-use and guarded
+// the same way accept is, so declining a link already answered changes nothing.
+func (s *Store) DeclineInvitationByToken(ctx context.Context, tokenHash string) (Invitation, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: beginning decline: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scopeToken(ctx, tx, tokenHash); err != nil {
+		return Invitation{}, err
+	}
+
+	row, err := db.New(tx).DeclineInvitationByToken(ctx, tokenHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Invitation{}, ErrInvitationNotLive
+	}
+	if err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: declining the invitation: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: committing the decline: %w", err)
+	}
+	return invitationFromDecline(row), nil
+}
+
+// consumeByToken runs an accept in its own token-scoped transaction. Decline
+// is written out rather than sharing this only because the generated row types
+// differ; the shape is the same.
+func (s *Store) consumeByToken(ctx context.Context, tokenHash string,
+	update func(*db.Queries) (db.AcceptInvitationByTokenRow, error)) (Invitation, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: beginning accept: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scopeToken(ctx, tx, tokenHash); err != nil {
+		return Invitation{}, err
+	}
+
+	row, err := update(db.New(tx))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Invitation{}, ErrInvitationNotLive
+	}
+	if err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: accepting the invitation: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: committing the accept: %w", err)
+	}
+	return invitationFromAccept(row), nil
+}
+
+// CampaignByID reads the campaign an invitation points to, tenant-scoped, for
+// the candidate acceptance path. The tenant it scopes to is the invitation's
+// own, which the token already authorised the caller to act within.
+func (s *Store) CampaignByID(ctx context.Context, tenantID, campaignID string) (Campaign, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Campaign{}, fmt.Errorf("recruiting: beginning campaign read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, tenantID); err != nil {
+		return Campaign{}, err
+	}
+
+	row, err := db.New(tx).CampaignByID(ctx, campaignID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Campaign{}, ErrNoAccess
+	}
+	if err != nil {
+		return Campaign{}, fmt.Errorf("recruiting: reading the campaign: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Campaign{}, fmt.Errorf("recruiting: committing the campaign read: %w", err)
+	}
+	return campaignFrom(row), nil
+}
+
 // The Row shapes carry the same columns under different generated names, so the
 // mapping is written once per shape rather than once per field.
+
+func invitationFromResolve(row db.ResolveInvitationByTokenRow) Invitation {
+	return Invitation{
+		ID: row.ID, TenantID: row.TenantID, CampaignID: row.CampaignID,
+		Recipient: row.Recipient, EmailID: row.EmailID, IssuedBy: row.IssuedBy,
+		IssuedAt: row.IssuedAt, ExpiresAt: row.ExpiresAt,
+		Outcome: outcomeFrom(row.Outcome.Valid, row.Outcome.String), OutcomeAt: row.OutcomeAt,
+	}
+}
+
+func invitationFromAccept(row db.AcceptInvitationByTokenRow) Invitation {
+	return Invitation{
+		ID: row.ID, TenantID: row.TenantID, CampaignID: row.CampaignID,
+		Recipient: row.Recipient, EmailID: row.EmailID, IssuedBy: row.IssuedBy,
+		IssuedAt: row.IssuedAt, ExpiresAt: row.ExpiresAt,
+		Outcome: outcomeFrom(row.Outcome.Valid, row.Outcome.String), OutcomeAt: row.OutcomeAt,
+	}
+}
+
+func invitationFromDecline(row db.DeclineInvitationByTokenRow) Invitation {
+	return Invitation{
+		ID: row.ID, TenantID: row.TenantID, CampaignID: row.CampaignID,
+		Recipient: row.Recipient, EmailID: row.EmailID, IssuedBy: row.IssuedBy,
+		IssuedAt: row.IssuedAt, ExpiresAt: row.ExpiresAt,
+		Outcome: outcomeFrom(row.Outcome.Valid, row.Outcome.String), OutcomeAt: row.OutcomeAt,
+	}
+}
 
 func invitationFromByID(row db.InvitationByIDRow) Invitation {
 	return Invitation{

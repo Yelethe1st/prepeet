@@ -928,6 +928,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/screening/invitation/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look at an invitation before acting on it
+         * @description The candidate arrives holding a token and nothing else. This resolves it
+         *     to what they need to decide: who invited them, for what role, and
+         *     whether the link can still be used. A link that has expired, been
+         *     revoked, or already been answered comes back with that outcome and the
+         *     employer who issued it, so the candidate knows who to contact rather
+         *     than meeting a dead end. A token that names no invitation is refused
+         *     without saying more, because a guess must not be told from a real link.
+         *
+         *     Nothing is consumed here, and nothing about whether the address has an
+         *     account is revealed: resolving is only reading.
+         */
+        post: operations["resolveScreeningInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/screening/invitation/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an invitation and sign in
+         * @description Consumes the invitation, single use, and signs the candidate in with the
+         *     same cookies a login sets. Arriving with the token proves control of the
+         *     address it was sent to, so a candidate with no account is given a
+         *     passwordless one and a candidate who already has an account is signed
+         *     into it: the response is the same either way, and never reveals which it
+         *     was. A link that has expired, been revoked or already been answered is
+         *     refused with its own code, and resolving it again shows who to contact.
+         */
+        post: operations["acceptScreeningInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/screening/invitation/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline an invitation
+         * @description Records the candidate's no. It is a first-class outcome and carries no
+         *     penalty: the invitation ends as declined and nothing downstream treats a
+         *     decline differently from never having been asked. Single use, guarded the
+         *     same way accept is, so declining a link already answered changes nothing.
+         *     No account is created and no session is issued: declining is the end of
+         *     the candidate's involvement, not the start of it.
+         */
+        post: operations["declineScreeningInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenant/settings": {
         parameters: {
             query?: never;
@@ -1840,6 +1920,34 @@ export interface components {
         };
         InvitationList: {
             invitations: components["schemas"]["Invitation"][];
+        };
+        /**
+         * @description An invitation as the candidate holding its token sees it: who invited
+         *     them, for what, and whether it can still be used. It never carries the
+         *     token or anything about whether the address has an account.
+         */
+        ScreeningInvitationView: {
+            /**
+             * @description Whether the link can still be acted on. `live` can be accepted or
+             *     declined; every other value is terminal and the employer is the
+             *     route from here.
+             * @enum {string}
+             */
+            status: "live" | "expired" | "revoked" | "accepted" | "declined" | "superseded";
+            /** @description The workspace that issued the invitation, so a candidate meeting a dead link knows who to contact. */
+            employer: string;
+            /** @description The role the invitation is for. */
+            role?: string;
+            /**
+             * Format: uuid
+             * @description Present while the link is live, for the flow that follows acceptance.
+             */
+            campaign_id?: string;
+            /**
+             * Format: date-time
+             * @description When a live link stops working.
+             */
+            expires_at?: string;
         };
         TenantSettings: {
             /**
@@ -4045,6 +4153,136 @@ export interface operations {
                 };
             };
             /** @description The invitation has an ending that a resend must not overwrite. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resolveScreeningInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description The invitation, live or with its terminal outcome and who to contact. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreeningInvitationView"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            /** @description The token names no invitation. */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    acceptScreeningInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted and signed in. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    /** @description Session and refresh cookies, HTTP-only and SameSite. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            /** @description The token names no invitation. */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The invitation is expired, revoked or already answered, so it cannot be accepted. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    declineScreeningInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Declined. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreeningInvitationView"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            /** @description The token names no invitation. */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The invitation is expired, revoked or already answered, so it cannot be declined. */
             409: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];

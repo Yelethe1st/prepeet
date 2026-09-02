@@ -244,3 +244,52 @@ SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
        issued_at, expires_at, outcome, outcome_at
 FROM recruiting.invitation
 WHERE id = $1 AND campaign_id = $2;
+
+-- name: ResolveInvitationByToken :one
+-- Read one invitation by the hash of the presented token, for the candidate
+-- acceptance path. Access is the token-scoped policy's: the row is visible only
+-- because the caller set app.invitation_token_hash to this same hash, which is
+-- proof they hold the token. The WHERE is that hash again, so the query names
+-- the one row the policy already narrowed to rather than trusting the scope
+-- alone.
+SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
+       issued_at, expires_at, outcome, outcome_at
+FROM recruiting.invitation
+WHERE token_hash = $1;
+
+-- name: AcceptInvitationByToken :one
+-- Accept, single-use and not past expiry. The guard on a null outcome makes the
+-- accept a one-winner race: two clicks on one link produce one accepted
+-- interview and one refusal, not two. The expires_at guard refuses a link that
+-- lapsed while it sat in an inbox; the caller reads the current state first and
+-- tells the candidate which of expired, revoked or already-answered it was, so
+-- this returning no row is an outcome to explain rather than an error.
+UPDATE recruiting.invitation
+SET outcome = 'accepted', outcome_at = now()
+WHERE token_hash = $1 AND outcome IS NULL AND expires_at > now()
+RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
+          issued_at, expires_at, outcome, outcome_at;
+
+-- name: DeclineInvitationByToken :one
+-- Decline, the candidate's first-class no. Guarded on a null outcome like
+-- accept, so declining a link already answered or revoked changes nothing and
+-- returns nothing. Declining is recorded, never penalised: the row simply ends
+-- as declined, and nothing downstream treats that differently from never having
+-- been asked.
+UPDATE recruiting.invitation
+SET outcome = 'declined', outcome_at = now()
+WHERE token_hash = $1 AND outcome IS NULL AND expires_at > now()
+RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
+          issued_at, expires_at, outcome, outcome_at;
+
+-- name: CampaignByID :one
+-- One campaign by id, tenant-scoped by the row-level security policy. Unlike
+-- CampaignsForRecruiter this carries no recruiter join, so it is not a way to
+-- read a campaign a recruiter is not on: it exists for the candidate
+-- acceptance path, which is authorised by a valid invitation token rather than
+-- by campaign membership, and needs the role the invitation is for. A recruiter
+-- surface must keep using the join; this is not that.
+SELECT id, tenant_id, name, status, role_reference, jurisdiction,
+       determination_id, opened_at, closed_at, created_at, created_by
+FROM recruiting.campaign
+WHERE id = $1;

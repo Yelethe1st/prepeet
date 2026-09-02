@@ -107,6 +107,11 @@ type RegisterOutcome struct {
 type Repository interface {
 	FindCredentialsByEmail(ctx context.Context, email string) (userID, passwordHash string, err error)
 	CreateUserWithCredentials(ctx context.Context, userID, email, passwordHash string) error
+	// ProvisionCandidate resolves the address an invitation was sent to,
+	// creating a passwordless, verified account when none exists, and returning
+	// the same account whether it was found or made. SCR-05 and ADR-0003: this
+	// must not reveal whether the address already had an account.
+	ProvisionCandidate(ctx context.Context, email string) (userID string, err error)
 	// CreateOrganisationAccount creates the person, the workspace and the
 	// membership that says the person administers it, in one transaction.
 	//

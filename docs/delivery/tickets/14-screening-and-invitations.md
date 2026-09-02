@@ -204,9 +204,26 @@ The candidate opens the link, the token is validated, and their identity is reso
 revealing another candidate's existence.
 
 **Done when**
-- [ ] Acceptance works for a new account and an existing one without leaking whether either exists.
-- [ ] An expired or revoked invitation has its own outcome with a route to the employer.
-- [ ] Declining is a first-class outcome recorded without penalty.
+- [x] Acceptance works for a new account and an existing one without leaking whether either exists.
+- [x] An expired or revoked invitation has its own outcome with a route to the employer.
+- [x] Declining is a first-class outcome recorded without penalty.
+
+Built as three public endpoints under `/screening/invitation`: resolve, accept
+and decline, none authenticated because the candidate arrives holding only a
+token. The candidate reaches their invitation row through the token-scoped
+policy in migration 0057, which admits exactly the row whose stored hash equals
+the `app.invitation_token_hash` the transaction carries: proof of holding the
+token stands in for the tenant a candidate does not have, the way the practice
+owner-policy stands in for it in 0012. Acceptance provisions the candidate in
+identity when the address has no account and signs into the existing one when
+it does, returning the same session either way, so acceptance never reveals
+whether the address was registered (ADR-0003). A new candidate is passwordless
+and verified, because arriving with an emailed token proves control of the
+address. Resolving a link that expired, was revoked or was already answered
+returns that outcome and the employer who issued it; a token that names nothing
+is refused without saying more. Declining is a guarded, single-use outcome that
+issues no session and creates no account. The threat-model T8 note is updated to
+match.
 
 **Spec** [user-journeys.md](../../product/user-journeys.md) · [threat-model.md](../../security/threat-model.md)
 

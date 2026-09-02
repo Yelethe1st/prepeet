@@ -1461,6 +1461,155 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /screening/invitation/resolve:
+    post:
+      tags: [recruiting]
+      operationId: resolveScreeningInvitation
+      x-prepeet-capability: public
+      summary: Look at an invitation before acting on it
+      description: |
+        The candidate arrives holding a token and nothing else. This resolves it
+        to what they need to decide: who invited them, for what role, and
+        whether the link can still be used. A link that has expired, been
+        revoked, or already been answered comes back with that outcome and the
+        employer who issued it, so the candidate knows who to contact rather
+        than meeting a dead end. A token that names no invitation is refused
+        without saying more, because a guess must not be told from a real link.
+
+        Nothing is consumed here, and nothing about whether the address has an
+        account is revealed: resolving is only reading.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenConfirmRequest"
+      responses:
+        "200":
+          description: The invitation, live or with its terminal outcome and who to contact.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreeningInvitationView"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "404":
+          description: The token names no invitation.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /screening/invitation/accept:
+    post:
+      tags: [recruiting]
+      operationId: acceptScreeningInvitation
+      x-prepeet-capability: public
+      summary: Accept an invitation and sign in
+      description: |
+        Consumes the invitation, single use, and signs the candidate in with the
+        same cookies a login sets. Arriving with the token proves control of the
+        address it was sent to, so a candidate with no account is given a
+        passwordless one and a candidate who already has an account is signed
+        into it: the response is the same either way, and never reveals which it
+        was. A link that has expired, been revoked or already been answered is
+        refused with its own code, and resolving it again shows who to contact.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenConfirmRequest"
+      responses:
+        "200":
+          description: Accepted and signed in.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+            Set-Cookie:
+              description: Session and refresh cookies, HTTP-only and SameSite.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "404":
+          description: The token names no invitation.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The invitation is expired, revoked or already answered, so it cannot be accepted.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /screening/invitation/decline:
+    post:
+      tags: [recruiting]
+      operationId: declineScreeningInvitation
+      x-prepeet-capability: public
+      summary: Decline an invitation
+      description: |
+        Records the candidate's no. It is a first-class outcome and carries no
+        penalty: the invitation ends as declined and nothing downstream treats a
+        decline differently from never having been asked. Single use, guarded the
+        same way accept is, so declining a link already answered changes nothing.
+        No account is created and no session is issued: declining is the end of
+        the candidate's involvement, not the start of it.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenConfirmRequest"
+      responses:
+        "200":
+          description: Declined.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreeningInvitationView"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "404":
+          description: The token names no invitation.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The invitation is expired, revoked or already answered, so it cannot be declined.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /tenant/settings:
     get:
       tags: [tenant]
@@ -2985,6 +3134,36 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Invitation"
+
+    ScreeningInvitationView:
+      type: object
+      description: |
+        An invitation as the candidate holding its token sees it: who invited
+        them, for what, and whether it can still be used. It never carries the
+        token or anything about whether the address has an account.
+      required: [status, employer]
+      properties:
+        status:
+          type: string
+          enum: [live, expired, revoked, accepted, declined, superseded]
+          description: |
+            Whether the link can still be acted on. `live` can be accepted or
+            declined; every other value is terminal and the employer is the
+            route from here.
+        employer:
+          type: string
+          description: The workspace that issued the invitation, so a candidate meeting a dead link knows who to contact.
+        role:
+          type: string
+          description: The role the invitation is for.
+        campaign_id:
+          type: string
+          format: uuid
+          description: Present while the link is live, for the flow that follows acceptance.
+        expires_at:
+          type: string
+          format: date-time
+          description: When a live link stops working.
 
     TenantSettings:
       type: object

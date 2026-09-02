@@ -65,7 +65,7 @@ func serveLimited(t *testing.T, perAddress, perNetwork api.Limiter) http.Handler
 		Members:     &fakeMembers{},
 		Billing:     &fakeBilling{},
 		Settings:    &stubSettings{},
-		Invitations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), Recruiting: &stubRecruiting{},
 		SensitiveReads:     &recordingAuditor{},
 		Progression:        &stubProgression{},
 		AttemptsPerAddress: perAddress,

@@ -225,6 +225,26 @@ func SetUser(ctx context.Context, tx pgx.Tx, userID string) error {
 	return nil
 }
 
+// SetInvitationToken scopes a transaction to the one invitation whose stored
+// hash equals the presented one, for the candidate acceptance path that has no
+// tenant and no user yet.
+//
+// SET LOCAL for the same reason as the tenant and the user: the value must die
+// with the transaction rather than be inherited by the next request on a
+// pooled connection, which for a token-scoped policy would be one request
+// reaching another candidate's invitation. The value is the SHA-256 hash, not
+// the token: the plaintext never reaches the database, and the policy compares
+// what the caller hashed against what was stored.
+func SetInvitationToken(ctx context.Context, tx pgx.Tx, tokenHash string) error {
+	if strings.TrimSpace(tokenHash) == "" {
+		return errors.New("database: an invitation token hash is required")
+	}
+	if _, err := tx.Exec(ctx, `SELECT set_config('app.invitation_token_hash', $1, true)`, tokenHash); err != nil {
+		return fmt.Errorf("database: setting invitation token context: %w", err)
+	}
+	return nil
+}
+
 // SetTenant scopes a transaction to one tenant.
 //
 // SET LOCAL rather than SET, deliberately: the value dies with the transaction

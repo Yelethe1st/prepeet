@@ -286,3 +286,14 @@ SET created_at = 'epoch'::timestamptz
 WHERE session_id = sqlc.arg(session_id)::uuid
   AND track = sqlc.arg(track)::text
   AND egress_id = '';
+
+-- name: ScreeningSessionForCandidate :one
+-- The candidate's screening session for one campaign, read as the candidate
+-- through the screening-owner policy. It answers the accommodation request's
+-- phase question, "where is my interview", for a candidate who may not yet have
+-- a session at all: no row means no session, which is the earliest phase.
+SELECT id::text AS id, state
+FROM interview.sessions
+WHERE campaign_id = sqlc.arg(campaign_id)::uuid
+  AND candidate_id = sqlc.arg(candidate_id)::uuid
+  AND mode = 'screening';

@@ -28,6 +28,13 @@ type stubInvitations struct {
 	sawCampaign  api.Campaign
 	sawRevokeID  string
 	sawResendID  string
+	sawDecideID  string
+	decideErr    error
+}
+
+func (s *stubInvitations) DecideAccommodation(_ context.Context, tenantID, campaignID, requestID, decidedBy string, granted bool) error {
+	s.sawDecideID = requestID
+	return s.decideErr
 }
 
 func (s *stubInvitations) Issue(_ context.Context, campaign api.Campaign, recipient, issuedBy string) (api.Invitation, error) {
@@ -98,7 +105,7 @@ func serveInvitations(t *testing.T, recruiting *stubRecruiting, invitations *stu
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
-		ScreeningInvitations: defaultStubScreening(), Recruiting: recruiting, Invitations: invitations, Environment: config.EnvironmentLocal,
+		ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), RecruiterAccommodations: invitations, Recruiting: recruiting, Invitations: invitations, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

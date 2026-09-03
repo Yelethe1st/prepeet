@@ -23,13 +23,34 @@ type stubScreening struct {
 	started  api.StartedScreeningSession
 	sawStart api.ScreeningStart
 
+	accommodation  api.Accommodation
+	accommodations []api.Accommodation
+	sawAdjustment  string
+
 	resolveErr error
 	acceptErr  error
 	declineErr error
 	resultErr  error
 	startErr   error
+	requestErr error
+	listAccErr error
 
 	sawToken string
+}
+
+func (s *stubScreening) RequestAccommodation(_ context.Context, candidateID, campaignID, adjustment string) (api.Accommodation, error) {
+	s.sawAdjustment = adjustment
+	if s.requestErr != nil {
+		return api.Accommodation{}, s.requestErr
+	}
+	return s.accommodation, nil
+}
+
+func (s *stubScreening) ListAccommodations(_ context.Context, candidateID, campaignID string) ([]api.Accommodation, error) {
+	if s.listAccErr != nil {
+		return nil, s.listAccErr
+	}
+	return s.accommodations, nil
 }
 
 func (s *stubScreening) Resolve(_ context.Context, token string) (api.ScreeningInvitationView, error) {
@@ -97,7 +118,7 @@ func serveScreening(t *testing.T, stub *stubScreening) http.Handler {
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
 		Recruiting: &stubRecruiting{}, Invitations: defaultStubInvitations(),
-		ScreeningInvitations: stub, Environment: config.EnvironmentLocal,
+		ScreeningInvitations: stub, CandidateAccommodations: stub, RecruiterAccommodations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -347,7 +368,7 @@ func serveScreeningAuthed(t *testing.T, stub *stubScreening) http.Handler {
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
 		Recruiting: &stubRecruiting{}, Invitations: defaultStubInvitations(),
-		ScreeningInvitations: stub, Environment: config.EnvironmentLocal,
+		ScreeningInvitations: stub, CandidateAccommodations: stub, RecruiterAccommodations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

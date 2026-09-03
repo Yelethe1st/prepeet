@@ -1008,6 +1008,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/screening/accommodations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The candidate's own accommodation requests for a campaign
+         * @description Each request the candidate made for the campaign, with its state:
+         *     requested until somebody answers, then granted or declined. The authority
+         *     is the candidate's accepted invitation.
+         */
+        get: operations["listAccommodations"];
+        put?: never;
+        /**
+         * Ask for an adjustment to how the interview is conducted
+         * @description A candidate asks for a named adjustment: captions, push-to-talk, extra
+         *     thinking time, or the alternative path for when voice is not accessible.
+         *     It is requestable before the interview and during preparation; once the
+         *     interview is underway a need becomes an incident, not a request, and is
+         *     refused here with a route to that path. The adjustment is chosen from a
+         *     fixed vocabulary, never free text: a form that let a candidate explain
+         *     why is a form that asks for a medical condition, so there is no field
+         *     for one. The authority is the candidate's accepted invitation to the
+         *     campaign.
+         */
+        post: operations["requestAccommodation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/accommodations/{requestId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant or decline an accommodation request
+         * @description A recruiter on the campaign answers a request. The answer names the
+         *     human who made it, because an accommodation decision from nobody is not
+         *     one somebody can be accountable for; the session records the recruiter
+         *     from their session, never the body. A change of mind is a new decision,
+         *     not an edit: the latest answer stands, and the history remains. Scoped to
+         *     the campaign by the same join that scopes reading it.
+         */
+        post: operations["decideAccommodation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/screening/sessions": {
         parameters: {
             query?: never;
@@ -1983,6 +2042,33 @@ export interface components {
         };
         InvitationList: {
             invitations: components["schemas"]["Invitation"][];
+        };
+        /**
+         * @description One accommodation request as the candidate sees it. The adjustment is a
+         *     named change to how the interview runs, never a reason or a diagnosis.
+         */
+        Accommodation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaign_id?: string;
+            /** @enum {string} */
+            adjustment: "captions" | "push_to_talk" | "extra_time" | "alternative_path";
+            /**
+             * @description requested until a recruiter answers, then granted or declined.
+             * @enum {string}
+             */
+            state: "requested" | "granted" | "declined";
+            /** Format: date-time */
+            requested_at: string;
+            /**
+             * Format: date-time
+             * @description When somebody answered. Absent while the state is requested.
+             */
+            decided_at?: string;
+        };
+        AccommodationList: {
+            accommodations: components["schemas"]["Accommodation"][];
         };
         /** @description The candidate's screening session, just created. */
         ScreeningSession: {
@@ -4401,6 +4487,107 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    listAccommodations: {
+        parameters: {
+            query: {
+                campaignId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The candidate's accommodation requests. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccommodationList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    requestAccommodation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaign_id: string;
+                    /** @enum {string} */
+                    adjustment: "captions" | "push_to_talk" | "extra_time" | "alternative_path";
+                };
+            };
+        };
+        responses: {
+            /** @description The request, recorded, with its state. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accommodation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The interview is underway or over; an accommodation need now goes to the incident path. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    decideAccommodation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    granted: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Recorded. The candidate's next read reflects it. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     startScreeningSession: {

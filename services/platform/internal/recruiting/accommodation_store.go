@@ -52,7 +52,7 @@ func (s *Store) RequestAccommodation(ctx context.Context, request AccommodationR
 // Append-only by schema: a later change of mind is a later call to this
 // method, and both rows remain, so "what had been decided when the interview
 // ran" stays answerable.
-func (s *Store) DecideAccommodation(ctx context.Context, tenantID string, decision AccommodationDecision) error {
+func (s *Store) DecideAccommodation(ctx context.Context, tenantID, campaignID string, decision AccommodationDecision) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("recruiting: beginning the decision: %w", err)
@@ -62,11 +62,18 @@ func (s *Store) DecideAccommodation(ctx context.Context, tenantID string, decisi
 		return err
 	}
 
-	if err := db.New(tx).RecordAccommodationDecision(ctx, db.RecordAccommodationDecisionParams{
-		ID: id.New().String(), TenantID: tenantID,
+	// The insert selects the request only if it belongs to the campaign, so a
+	// decision for a request on another campaign writes nothing. Zero rows is
+	// ErrNotFound: the request the recruiter named is not one this campaign has.
+	affected, err := db.New(tx).RecordAccommodationDecision(ctx, db.RecordAccommodationDecisionParams{
+		ID: id.New().String(), TenantID: tenantID, CampaignID: campaignID,
 		RequestID: decision.RequestID, Granted: decision.Granted, DecidedBy: decision.DecidedBy,
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("recruiting: recording the decision: %w", err)
+	}
+	if affected == 0 {
+		return ErrRequestNotFound
 	}
 	return tx.Commit(ctx)
 }

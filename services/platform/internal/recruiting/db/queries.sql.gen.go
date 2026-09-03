@@ -925,29 +925,40 @@ func (q *Queries) RecordAcceptance(ctx context.Context, arg RecordAcceptancePara
 	return err
 }
 
-const recordAccommodationDecision = `-- name: RecordAccommodationDecision :exec
-INSERT INTO recruiting.accommodation_decision
-    (id, tenant_id, request_id, granted, decided_by)
-VALUES ($1, $2, $3, $4, $5)
+const recordAccommodationDecision = `-- name: RecordAccommodationDecision :execrows
+INSERT INTO recruiting.accommodation_decision (id, tenant_id, request_id, granted, decided_by)
+SELECT $1::uuid, $2::uuid, r.id, $3::boolean, $4::uuid
+FROM recruiting.accommodation_request r
+WHERE r.id = $5::uuid AND r.campaign_id = $6::uuid
 `
 
 type RecordAccommodationDecisionParams struct {
-	ID        string
-	TenantID  string
-	RequestID string
-	Granted   bool
-	DecidedBy string
+	ID         string
+	TenantID   string
+	Granted    bool
+	DecidedBy  string
+	RequestID  string
+	CampaignID string
 }
 
-func (q *Queries) RecordAccommodationDecision(ctx context.Context, arg RecordAccommodationDecisionParams) error {
-	_, err := q.db.Exec(ctx, recordAccommodationDecision,
+// The campaign guard is a join, not decoration: a decision lands only on a
+// request that belongs to the named campaign, so a recruiter admitted to one
+// campaign cannot answer another's request in the same tenant by its id. Zero
+// rows means no such request on this campaign, which the store turns into a
+// not-found rather than a silent no-op.
+func (q *Queries) RecordAccommodationDecision(ctx context.Context, arg RecordAccommodationDecisionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordAccommodationDecision,
 		arg.ID,
 		arg.TenantID,
-		arg.RequestID,
 		arg.Granted,
 		arg.DecidedBy,
+		arg.RequestID,
+		arg.CampaignID,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const recordAccommodationFulfilment = `-- name: RecordAccommodationFulfilment :exec

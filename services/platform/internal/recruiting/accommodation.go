@@ -104,6 +104,10 @@ var (
 	// fulfilment path with no accountable person is the thing
 	// responsible-hiring.md's human-decision rule forbids.
 	ErrNoDecider = errors.New("recruiting: an accommodation decision requires a named human")
+	// ErrRequestNotFound means a decision named a request that does not exist on
+	// the campaign, collapsed with somebody else's so an id cannot be probed
+	// across campaigns.
+	ErrRequestNotFound = errors.New("recruiting: no such accommodation request on this campaign")
 	// ErrNotGranted means a fulfilment was attempted for a request nobody
 	// granted, or whose grant was later withdrawn.
 	ErrNotGranted = errors.New("recruiting: the accommodation is not granted")

@@ -1610,6 +1610,126 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /screening/accommodations:
+    post:
+      tags: [recruiting]
+      operationId: requestAccommodation
+      x-prepeet-capability: session.participate
+      summary: Ask for an adjustment to how the interview is conducted
+      description: |
+        A candidate asks for a named adjustment: captions, push-to-talk, extra
+        thinking time, or the alternative path for when voice is not accessible.
+        It is requestable before the interview and during preparation; once the
+        interview is underway a need becomes an incident, not a request, and is
+        refused here with a route to that path. The adjustment is chosen from a
+        fixed vocabulary, never free text: a form that let a candidate explain
+        why is a form that asks for a medical condition, so there is no field
+        for one. The authority is the candidate's accepted invitation to the
+        campaign.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campaign_id, adjustment]
+              properties:
+                campaign_id: { type: string, format: uuid }
+                adjustment:
+                  type: string
+                  enum: [captions, push_to_talk, extra_time, alternative_path]
+      responses:
+        "201":
+          description: The request, recorded, with its state.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Accommodation"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The interview is underway or over; an accommodation need now goes to the incident path.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [recruiting]
+      operationId: listAccommodations
+      x-prepeet-capability: session.participate
+      summary: The candidate's own accommodation requests for a campaign
+      description: |
+        Each request the candidate made for the campaign, with its state:
+        requested until somebody answers, then granted or declined. The authority
+        is the candidate's accepted invitation.
+      parameters:
+        - name: campaignId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The candidate's accommodation requests.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccommodationList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /campaigns/{campaignId}/accommodations/{requestId}/decision:
+    post:
+      tags: [recruiting]
+      operationId: decideAccommodation
+      x-prepeet-capability: campaign.read
+      summary: Grant or decline an accommodation request
+      description: |
+        A recruiter on the campaign answers a request. The answer names the
+        human who made it, because an accommodation decision from nobody is not
+        one somebody can be accountable for; the session records the recruiter
+        from their session, never the body. A change of mind is a new decision,
+        not an edit: the latest answer stands, and the history remains. Scoped to
+        the campaign by the same join that scopes reading it.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: requestId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [granted]
+              properties:
+                granted: { type: boolean }
+      responses:
+        "204":
+          description: Recorded. The candidate's next read reflects it.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /screening/sessions:
     post:
       tags: [recruiting]
@@ -3236,6 +3356,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Invitation"
+
+    Accommodation:
+      type: object
+      description: |
+        One accommodation request as the candidate sees it. The adjustment is a
+        named change to how the interview runs, never a reason or a diagnosis.
+      required: [id, adjustment, state, requested_at]
+      properties:
+        id: { type: string, format: uuid }
+        campaign_id: { type: string, format: uuid }
+        adjustment:
+          type: string
+          enum: [captions, push_to_talk, extra_time, alternative_path]
+        state:
+          type: string
+          enum: [requested, granted, declined]
+          description: requested until a recruiter answers, then granted or declined.
+        requested_at: { type: string, format: date-time }
+        decided_at:
+          type: string
+          format: date-time
+          description: When somebody answered. Absent while the state is requested.
+
+    AccommodationList:
+      type: object
+      required: [accommodations]
+      properties:
+        accommodations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Accommodation"
 
     ScreeningSession:
       type: object

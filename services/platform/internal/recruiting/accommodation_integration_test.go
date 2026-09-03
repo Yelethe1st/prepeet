@@ -52,14 +52,14 @@ func requestFor(t *testing.T, tenantID string, adjustment recruiting.Adjustment)
 // decide records a decision through the store, waiting a beat first so that
 // two decisions on one request always carry distinct timestamps and "latest"
 // is never a coin toss.
-func decide(t *testing.T, tenantID, requestID string, granted bool) {
+func decide(t *testing.T, tenantID string, request recruiting.AccommodationRequest, granted bool) {
 	t.Helper()
 	time.Sleep(5 * time.Millisecond)
-	decision, err := recruiting.NewAccommodationDecision(requestID, granted, id.New().String())
+	decision, err := recruiting.NewAccommodationDecision(request.ID, granted, id.New().String())
 	if err != nil {
 		t.Fatalf("build decision: %v", err)
 	}
-	if err := recruiting.NewStore(pool).DecideAccommodation(context.Background(), tenantID, decision); err != nil {
+	if err := recruiting.NewStore(pool).DecideAccommodation(context.Background(), tenantID, request.CampaignID, decision); err != nil {
 		t.Fatalf("record decision: %v", err)
 	}
 }
@@ -106,7 +106,7 @@ func TestAnAccommodationRequestCannotBeDeleted(t *testing.T) {
 func TestADecisionCannotBeRewritten(t *testing.T) {
 	ctx := context.Background()
 	request := requestFor(t, tenantA, recruiting.AdjustmentCaptions)
-	decide(t, tenantA, request.ID, false)
+	decide(t, tenantA, request, false)
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -165,7 +165,7 @@ func TestFulfilmentWithoutAGrantIsRefusedInGo(t *testing.T) {
 		t.Fatalf("undecided: want ErrNotGranted, got %v", err)
 	}
 
-	decide(t, tenantA, request.ID, false)
+	decide(t, tenantA, request, false)
 	if _, err := store.FulfilAccommodation(ctx, tenantA, request.ID, id.New().String()); !errors.Is(err, recruiting.ErrNotGranted) {
 		t.Fatalf("declined: want ErrNotGranted, got %v", err)
 	}
@@ -202,7 +202,7 @@ func TestAGrantedAccommodationIsRecordedOnTheSession(t *testing.T) {
 	ctx := context.Background()
 	store := recruiting.NewStore(pool)
 	request := requestFor(t, tenantA, recruiting.AdjustmentCaptions)
-	decide(t, tenantA, request.ID, true)
+	decide(t, tenantA, request, true)
 
 	sessionID := id.New().String()
 	fulfilment, err := store.FulfilAccommodation(ctx, tenantA, request.ID, sessionID)
@@ -230,7 +230,7 @@ func TestTheAlternativePathIsGrantedAndRecordedLikeAnyAdjustment(t *testing.T) {
 	ctx := context.Background()
 	store := recruiting.NewStore(pool)
 	request := requestFor(t, tenantA, recruiting.AdjustmentAlternativePath)
-	decide(t, tenantA, request.ID, true)
+	decide(t, tenantA, request, true)
 
 	sessionID := id.New().String()
 	if _, err := store.FulfilAccommodation(ctx, tenantA, request.ID, sessionID); err != nil {
@@ -253,8 +253,8 @@ func TestAWithdrawnGrantStopsFurtherFulfilment(t *testing.T) {
 	store := recruiting.NewStore(pool)
 	request := requestFor(t, tenantA, recruiting.AdjustmentExtraTime)
 
-	decide(t, tenantA, request.ID, true)
-	decide(t, tenantA, request.ID, false)
+	decide(t, tenantA, request, true)
+	decide(t, tenantA, request, false)
 
 	if _, err := store.FulfilAccommodation(ctx, tenantA, request.ID, id.New().String()); !errors.Is(err, recruiting.ErrNotGranted) {
 		t.Fatalf("a withdrawn grant still fulfilled: %v", err)
@@ -289,8 +289,8 @@ func TestACandidateSeesTheStateOfTheirRequest(t *testing.T) {
 	pending := ask(recruiting.AdjustmentCaptions)
 	granted := ask(recruiting.AdjustmentPushToTalk)
 	declined := ask(recruiting.AdjustmentExtraTime)
-	decide(t, tenantA, granted.ID, true)
-	decide(t, tenantA, declined.ID, false)
+	decide(t, tenantA, granted, true)
+	decide(t, tenantA, declined, false)
 
 	views, err := store.AccommodationsFor(ctx, tenantA, campaign.ID, candidateID)
 	if err != nil {
@@ -340,5 +340,27 @@ func TestAnAccommodationIsInvisibleAcrossTenants(t *testing.T) {
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("want the row hidden, got a different failure: %v", err)
+	}
+}
+
+// A decision lands only on a request that belongs to the named campaign: a
+// recruiter cannot answer another campaign's request in the same tenant by its
+// id. The request is real under one campaign; deciding it against a different
+// campaign finds nothing.
+func TestDecideIsScopedToTheRequestsCampaign(t *testing.T) {
+	request := requestFor(t, tenantA, recruiting.AdjustmentCaptions)
+	otherCampaign := requestFor(t, tenantA, recruiting.AdjustmentExtraTime).CampaignID
+
+	decision, err := recruiting.NewAccommodationDecision(request.ID, true, id.New().String())
+	if err != nil {
+		t.Fatalf("build decision: %v", err)
+	}
+	if err := recruiting.NewStore(pool).DecideAccommodation(context.Background(), tenantA, otherCampaign, decision); !errors.Is(err, recruiting.ErrRequestNotFound) {
+		t.Fatalf("cross-campaign decide error = %v, want ErrRequestNotFound", err)
+	}
+
+	// Its own campaign decides it.
+	if err := recruiting.NewStore(pool).DecideAccommodation(context.Background(), tenantA, request.CampaignID, decision); err != nil {
+		t.Fatalf("same-campaign decide: %v", err)
 	}
 }

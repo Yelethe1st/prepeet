@@ -41,6 +41,7 @@ func newScreeningAdapter(store *recruiting.Store, id *identity.Service,
 }
 
 var _ api.ScreeningInvitations = screeningAdapter{}
+var _ api.CandidateAccommodations = screeningAdapter{}
 
 func (a screeningAdapter) Resolve(ctx context.Context, plaintext string) (api.ScreeningInvitationView, error) {
 	invitation, err := a.store.ResolveInvitationByToken(ctx, token.HashOf(plaintext))
@@ -198,7 +199,34 @@ func (a screeningAdapter) StartScreeningSession(ctx context.Context, candidateID
 	if err != nil {
 		return api.StartedScreeningSession{}, err
 	}
+
+	// Apply the accommodations already granted to this candidate onto the
+	// session, so a grant is exercised on the interview rather than left as a
+	// promise on a form. Each fulfilment re-checks the standing decision in the
+	// store, so one withdrawn between grant and start is not applied; a
+	// fulfilment that cannot be recorded does not fail the start, because the
+	// session exists and the accommodation can be re-applied, while a session
+	// lost to a fulfilment error could not.
+	a.fulfilGrantedAccommodations(ctx, accepted.TenantID, accepted.CampaignID, candidateID, composing.ID)
+
 	return api.StartedScreeningSession{SessionID: composing.ID, State: string(composing.State)}, nil
+}
+
+// fulfilGrantedAccommodations records every granted adjustment as applied to the
+// session. It is best-effort against the store's own guard: only granted
+// requests fulfil, and a failure is left for a later application rather than
+// undoing a created session.
+func (a screeningAdapter) fulfilGrantedAccommodations(ctx context.Context, tenantID, campaignID, candidateID, sessionID string) {
+	views, err := a.store.AccommodationsFor(ctx, tenantID, campaignID, candidateID)
+	if err != nil {
+		return
+	}
+	for _, view := range views {
+		if view.State != recruiting.RequestStateGranted {
+			continue
+		}
+		_, _ = a.store.FulfilAccommodation(ctx, tenantID, view.Request.ID, sessionID)
+	}
 }
 
 // Result composes SCR-07's read: the candidate's own screening session, the
@@ -281,4 +309,96 @@ func (a screeningAdapter) Result(ctx context.Context, candidateID, sessionID str
 		})
 	}
 	return outcome, nil
+}
+
+// screeningPhase maps a session's lifecycle state to the accommodation phase.
+// No session is the earliest phase; a session not yet started is preparation;
+// once it is running the interview is underway and a need is an incident; a
+// finished or abandoned session is complete.
+func screeningPhase(state interview.State, exists bool) recruiting.SessionPhase {
+	if !exists {
+		return recruiting.PhaseNoSession
+	}
+	switch string(state) {
+	case "draft", "composing", "ready", "connecting":
+		return recruiting.PhasePreparation
+	case "in_progress", "reconnecting":
+		return recruiting.PhaseUnderway
+	default:
+		return recruiting.PhaseComplete
+	}
+}
+
+// RequestAccommodation records a candidate's request, its phase derived from
+// where their own screening session for the campaign is. The authority is the
+// accepted invitation; the request is then written under the campaign's tenant,
+// the scope these rows live in, keyed to the candidate.
+func (a screeningAdapter) RequestAccommodation(ctx context.Context, candidateID, campaignID, adjustment string) (api.Accommodation, error) {
+	accepted, err := a.store.AcceptedInvitationForCandidate(ctx, campaignID, candidateID)
+	if errors.Is(err, recruiting.ErrInvitationNotFound) {
+		return api.Accommodation{}, api.ErrSessionMissing
+	}
+	if err != nil {
+		return api.Accommodation{}, err
+	}
+
+	state, exists, err := a.sessions.ScreeningPhaseForCandidate(ctx, campaignID, candidateID)
+	if err != nil {
+		return api.Accommodation{}, err
+	}
+
+	request, err := recruiting.NewAccommodationRequest(recruiting.AccommodationRequestInput{
+		TenantID: accepted.TenantID, CampaignID: campaignID, CandidateID: candidateID,
+		Adjustment: recruiting.Adjustment(adjustment), Phase: screeningPhase(state, exists),
+	})
+	if err != nil {
+		return api.Accommodation{}, accommodationError(err)
+	}
+	stored, err := a.store.RequestAccommodation(ctx, request)
+	if err != nil {
+		return api.Accommodation{}, err
+	}
+	return api.Accommodation{
+		ID: stored.ID, CampaignID: stored.CampaignID, Adjustment: string(stored.Adjustment),
+		State: string(recruiting.RequestStateRequested), RequestedAt: stored.RequestedAt,
+	}, nil
+}
+
+// ListAccommodations answers the candidate's own requests for a campaign.
+func (a screeningAdapter) ListAccommodations(ctx context.Context, candidateID, campaignID string) ([]api.Accommodation, error) {
+	accepted, err := a.store.AcceptedInvitationForCandidate(ctx, campaignID, candidateID)
+	if errors.Is(err, recruiting.ErrInvitationNotFound) {
+		return nil, api.ErrSessionMissing
+	}
+	if err != nil {
+		return nil, err
+	}
+	views, err := a.store.AccommodationsFor(ctx, accepted.TenantID, campaignID, candidateID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]api.Accommodation, 0, len(views))
+	for _, view := range views {
+		accommodation := api.Accommodation{
+			ID: view.Request.ID, CampaignID: view.Request.CampaignID,
+			Adjustment: string(view.Request.Adjustment), State: string(view.State),
+			RequestedAt: view.Request.RequestedAt,
+		}
+		if view.DecidedAt != nil {
+			accommodation.DecidedAt = view.DecidedAt
+		}
+		out = append(out, accommodation)
+	}
+	return out, nil
+}
+
+// accommodationError maps the domain's request refusals onto the surface.
+func accommodationError(err error) error {
+	switch {
+	case errors.Is(err, recruiting.ErrUnknownAdjustment):
+		return api.ErrAccommodationUnknownAdjustment
+	case errors.Is(err, recruiting.ErrRequestTooLate):
+		return api.ErrAccommodationTooLate
+	}
+	return err
 }

@@ -181,3 +181,23 @@ func invitationError(err error) error {
 	}
 	return err
 }
+
+var _ api.RecruiterAccommodations = invitationsAdapter{}
+
+// DecideAccommodation records a recruiter's grant or decline of a request on a
+// campaign they are on. The handler has already admitted the recruiter to the
+// campaign through the join; the store guards the decision to that campaign, so
+// a request on another campaign in the tenant is not found rather than decided.
+func (a invitationsAdapter) DecideAccommodation(ctx context.Context, tenantID, campaignID, requestID, decidedBy string, granted bool) error {
+	decision, err := recruiting.NewAccommodationDecision(requestID, granted, decidedBy)
+	if err != nil {
+		return err
+	}
+	if err := a.store.DecideAccommodation(ctx, tenantID, campaignID, decision); err != nil {
+		if errors.Is(err, recruiting.ErrRequestNotFound) {
+			return api.ErrAccommodationMissing
+		}
+		return err
+	}
+	return nil
+}

@@ -875,6 +875,35 @@ func (q *Queries) ResolveMediaTrack(ctx context.Context, arg ResolveMediaTrackPa
 	return result.RowsAffected(), nil
 }
 
+const screeningSessionForCandidate = `-- name: ScreeningSessionForCandidate :one
+SELECT id::text AS id, state
+FROM interview.sessions
+WHERE campaign_id = $1::uuid
+  AND candidate_id = $2::uuid
+  AND mode = 'screening'
+`
+
+type ScreeningSessionForCandidateParams struct {
+	CampaignID  string
+	CandidateID string
+}
+
+type ScreeningSessionForCandidateRow struct {
+	ID    string
+	State string
+}
+
+// The candidate's screening session for one campaign, read as the candidate
+// through the screening-owner policy. It answers the accommodation request's
+// phase question, "where is my interview", for a candidate who may not yet have
+// a session at all: no row means no session, which is the earliest phase.
+func (q *Queries) ScreeningSessionForCandidate(ctx context.Context, arg ScreeningSessionForCandidateParams) (ScreeningSessionForCandidateRow, error) {
+	row := q.db.QueryRow(ctx, screeningSessionForCandidate, arg.CampaignID, arg.CandidateID)
+	var i ScreeningSessionForCandidateRow
+	err := row.Scan(&i.ID, &i.State)
+	return i, err
+}
+
 const stampTimingPolicy = `-- name: StampTimingPolicy :exec
 UPDATE interview.sessions
 SET timing_policy_version = $1::integer

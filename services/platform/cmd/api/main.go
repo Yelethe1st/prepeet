@@ -159,6 +159,17 @@ func main() {
 		// which is what a deployment without OAuth should look like.
 		WithOAuth(identity.NewRepository(pool), oauthProviders(cfg))
 
+	invitations := newInvitationsAdapter(
+		recruiting.NewStore(pool), notification.NewQueue(pool),
+		tenantadmin.NewSettingsStore(pool),
+		catalog.NewService(registrySource{registry: content.NewStore(pool)}),
+		cfg.WebBaseURL)
+	screening := newScreeningAdapter(
+		recruiting.NewStore(pool), identityService,
+		tenantadmin.NewSettingsStore(pool),
+		catalog.NewService(registrySource{registry: content.NewStore(pool)}),
+		interview.NewStore(pool), evaluation.NewStore(pool))
+
 	handler, err := api.NewServer(api.ServerConfig{
 		Identity: identityAdapter{
 			service: identityService,
@@ -168,25 +179,19 @@ func main() {
 			health:             oidc.NewHealth(5 * time.Minute),
 			authorizeEndpoints: oauthAuthorizeEndpoints(cfg),
 		},
-		Candidates:     candidates,
-		Documents:      candidates,
-		Catalog:        newCatalogAdapter(content.NewStore(pool)),
-		Members:        membersAdapter{members: identity.NewMembers(identity.NewRepository(pool))},
-		Billing:        billingAdapter{ledger: billing.NewLedger(pool)},
-		Progression:    newProgressionAdapter(progression.NewStore(pool)),
-		SensitiveReads: identityAdapter{service: identityService},
-		Settings:       settingsAdapter{settings: tenantadmin.NewSettingsStore(pool)},
-		Recruiting:     newRecruitingAdapter(recruiting.NewStore(pool), content.NewStore(pool)),
-		Invitations: newInvitationsAdapter(
-			recruiting.NewStore(pool), notification.NewQueue(pool),
-			tenantadmin.NewSettingsStore(pool),
-			catalog.NewService(registrySource{registry: content.NewStore(pool)}),
-			cfg.WebBaseURL),
-		ScreeningInvitations: newScreeningAdapter(
-			recruiting.NewStore(pool), identityService,
-			tenantadmin.NewSettingsStore(pool),
-			catalog.NewService(registrySource{registry: content.NewStore(pool)}),
-			interview.NewStore(pool), evaluation.NewStore(pool)),
+		Candidates:              candidates,
+		Documents:               candidates,
+		Catalog:                 newCatalogAdapter(content.NewStore(pool)),
+		Members:                 membersAdapter{members: identity.NewMembers(identity.NewRepository(pool))},
+		Billing:                 billingAdapter{ledger: billing.NewLedger(pool)},
+		Progression:             newProgressionAdapter(progression.NewStore(pool)),
+		SensitiveReads:          identityAdapter{service: identityService},
+		Settings:                settingsAdapter{settings: tenantadmin.NewSettingsStore(pool)},
+		Recruiting:              newRecruitingAdapter(recruiting.NewStore(pool), content.NewStore(pool)),
+		Invitations:             invitations,
+		ScreeningInvitations:    screening,
+		CandidateAccommodations: screening,
+		RecruiterAccommodations: invitations,
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

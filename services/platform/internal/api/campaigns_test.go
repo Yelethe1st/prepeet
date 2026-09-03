@@ -107,7 +107,7 @@ func serveCampaigns(t *testing.T, stub *stubRecruiting) http.Handler {
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
-		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), Recruiting: stub, Environment: config.EnvironmentLocal,
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: stub, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

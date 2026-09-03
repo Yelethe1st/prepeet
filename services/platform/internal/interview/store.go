@@ -480,3 +480,35 @@ func (s *Store) ListMine(ctx context.Context, mode, candidateID, tenantID string
 	}
 	return sessions, nil
 }
+
+// ScreeningPhaseForCandidate says where a candidate's screening interview for a
+// campaign is, for the accommodation path that must know whether a need can
+// still be met before the interview or has become an incident during it.
+//
+// No session is the earliest phase, not an error: a candidate may ask for an
+// accommodation before they have started anything. The read is the candidate's
+// own, through the screening-owner policy, so it sees only their session.
+func (s *Store) ScreeningPhaseForCandidate(ctx context.Context, campaignID, candidateID string) (State, bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return "", false, fmt.Errorf("interview: beginning phase read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := database.SetUser(ctx, tx, candidateID); err != nil {
+		return "", false, err
+	}
+
+	row, err := db.New(tx).ScreeningSessionForCandidate(ctx, db.ScreeningSessionForCandidateParams{
+		CampaignID: campaignID, CandidateID: candidateID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("interview: reading the screening phase: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", false, fmt.Errorf("interview: committing the phase read: %w", err)
+	}
+	return State(row.State), true, nil
+}

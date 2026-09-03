@@ -219,12 +219,14 @@ func newServer() (http.Handler, error) {
 		Progression: undriven{},
 		// The real recorder, not a stub. This suite attacks real paths, and a
 		// sensitive read that wrote no row would be a hole it exists to find.
-		SensitiveReads:       liveIdentity{service: service},
-		Settings:             undriven{},
-		Recruiting:           undriven{},
-		Invitations:          undriven{},
-		ScreeningInvitations: undriven{},
-		Environment:          config.EnvironmentLocal,
+		SensitiveReads:          liveIdentity{service: service},
+		Settings:                undriven{},
+		Recruiting:              undriven{},
+		Invitations:             undriven{},
+		ScreeningInvitations:    undriven{},
+		CandidateAccommodations: undriven{},
+		RecruiterAccommodations: undriven{},
+		Environment:             config.EnvironmentLocal,
 	})
 }
 
@@ -251,6 +253,8 @@ type undriven struct {
 	api.Recruiting
 	api.Invitations
 	api.ScreeningInvitations
+	api.CandidateAccommodations
+	api.RecruiterAccommodations
 }
 
 // liveIdentity presents the identity context as the port the API declared,

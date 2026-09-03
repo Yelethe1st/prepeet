@@ -237,13 +237,31 @@ Captions, push-to-talk, extra thinking time, and an alternative assessment path 
 accessible — none of which change the rubric or the anchors.
 
 **Done when**
-- [ ] Accommodations are requestable before and during preparation, and are recorded on the session.
+- [x] Accommodations are requestable before and during preparation, and are recorded on the session.
 - [x] Response latency is excluded from evaluation for every candidate, accommodated or not.
-- [ ] An alternative path exists and is exercised, not merely promised.
+- [x] An alternative path exists and is exercised, not merely promised.
 
-**One of three. The domain, the schema and the store, not yet the server path: the two open boxes
-wait on the contract, exactly as TEN-01's did, because "requestable" and "exercised" are things a
-candidate does and no candidate can reach code that has no HTTP surface.**
+The surface the two open boxes waited on is built. A candidate requests a named
+adjustment at `POST /screening/accommodations`; the phase is derived from where
+their own screening session is, so a request before the interview or during
+preparation is admitted and one made while it is underway is refused with a
+route to the incident path. The adjustment is a fixed enum, never free text, so
+the form cannot ask for a reason. A recruiter on the campaign answers at
+`POST /campaigns/{id}/accommodations/{requestId}/decision`, which names the
+recruiter from their session and is scoped to the campaign by the store's own
+join, so a request on another campaign in the tenant is not found rather than
+decided. The alternative path is one of the four adjustments and is exercised
+the same way the rest are: when the candidate starts their session, every
+granted accommodation is recorded as applied to it, re-checking the standing
+decision so a grant withdrawn between decision and start is not applied. That
+fulfilment, request to session, is the "recorded on the session" the first box
+asks for and the "exercised, not merely promised" the third does.
+
+The authority throughout is the candidate's accepted invitation, read as the
+candidate themselves; the writes happen under the campaign's tenant, the scope
+these rows live in, which the invitation named. Response latency staying out of
+evaluation was already true and remains so: nothing here reaches the evaluation
+schema, which cannot name this one.
 
 Three facts, three append-only tables in migration 0055: what was requested, what was granted and by
 whom, and which session it was actually applied to. The state a candidate sees is derived from those

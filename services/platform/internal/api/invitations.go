@@ -74,9 +74,10 @@ type Invitations interface {
 // through the recruiter join, which is the per-campaign enforcement, and then
 // acts on its invitations.
 type invitationHandlers struct {
-	authentication *authentication
-	campaigns      Recruiting
-	invitations    Invitations
+	authentication          *authentication
+	campaigns               Recruiting
+	invitations             Invitations
+	recruiterAccommodations RecruiterAccommodations
 }
 
 func (h *invitationHandlers) caller(ctx context.Context) (Principal, *failure) {

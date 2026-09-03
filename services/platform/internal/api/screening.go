@@ -88,6 +88,7 @@ type StartedScreeningSession struct {
 type screeningHandlers struct {
 	authentication *authentication
 	invitations    ScreeningInvitations
+	accommodations CandidateAccommodations
 }
 
 // ResolveScreeningInvitation shows the candidate what their token points at.

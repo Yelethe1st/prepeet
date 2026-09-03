@@ -143,10 +143,16 @@ INSERT INTO recruiting.accommodation_request
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id, tenant_id, campaign_id, candidate_id, adjustment, requested_at;
 
--- name: RecordAccommodationDecision :exec
-INSERT INTO recruiting.accommodation_decision
-    (id, tenant_id, request_id, granted, decided_by)
-VALUES ($1, $2, $3, $4, $5);
+-- name: RecordAccommodationDecision :execrows
+-- The campaign guard is a join, not decoration: a decision lands only on a
+-- request that belongs to the named campaign, so a recruiter admitted to one
+-- campaign cannot answer another's request in the same tenant by its id. Zero
+-- rows means no such request on this campaign, which the store turns into a
+-- not-found rather than a silent no-op.
+INSERT INTO recruiting.accommodation_decision (id, tenant_id, request_id, granted, decided_by)
+SELECT sqlc.arg(id)::uuid, sqlc.arg(tenant_id)::uuid, r.id, sqlc.arg(granted)::boolean, sqlc.arg(decided_by)::uuid
+FROM recruiting.accommodation_request r
+WHERE r.id = sqlc.arg(request_id)::uuid AND r.campaign_id = sqlc.arg(campaign_id)::uuid;
 
 -- name: StandingAccommodationDecision :one
 -- The latest decision for one request, which is the standing answer: a grant

@@ -55,7 +55,7 @@ func serveScreeningResult(t *testing.T, stub *stubScreening) http.Handler {
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
 		Recruiting: &stubRecruiting{}, Invitations: defaultStubInvitations(),
-		ScreeningInvitations: stub, Environment: config.EnvironmentLocal,
+		ScreeningInvitations: stub, CandidateAccommodations: stub, RecruiterAccommodations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -245,7 +245,7 @@ func TestTheResultReadRequiresTheCapability(t *testing.T) {
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
 		Recruiting: &stubRecruiting{}, Invitations: defaultStubInvitations(),
-		ScreeningInvitations: stub, Environment: config.EnvironmentLocal,
+		ScreeningInvitations: stub, CandidateAccommodations: stub, RecruiterAccommodations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

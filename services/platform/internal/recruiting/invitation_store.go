@@ -222,14 +222,49 @@ func (s *Store) ResolveInvitationByToken(ctx context.Context, tokenHash string) 
 	return invitationFromResolve(row), nil
 }
 
-// AcceptInvitationByToken accepts single-use and not past expiry, returning the
-// accepted invitation. A guarded update that touches nothing is ErrInvitationNotLive:
-// the invitation is spent, revoked, superseded or expired, and the caller
-// re-reads to say which.
-func (s *Store) AcceptInvitationByToken(ctx context.Context, tokenHash string) (Invitation, error) {
+// AcceptInvitationByToken accepts single-use and not past expiry, recording the
+// candidate it resolved to, and returns the accepted invitation. A guarded
+// update that touches nothing is ErrInvitationNotLive: the invitation is spent,
+// revoked, superseded or expired, and the caller re-reads to say which.
+//
+// The candidate is recorded here, in the same update that sets the outcome, so
+// "accepted" and "by whom" are one fact: a row can never be accepted without
+// naming who accepted it, which the schema also refuses.
+func (s *Store) AcceptInvitationByToken(ctx context.Context, tokenHash, candidateID string) (Invitation, error) {
 	return s.consumeByToken(ctx, tokenHash, func(q *db.Queries) (db.AcceptInvitationByTokenRow, error) {
-		return q.AcceptInvitationByToken(ctx, tokenHash)
+		return q.AcceptInvitationByToken(ctx, db.AcceptInvitationByTokenParams{
+			TokenHash: tokenHash, Candidate: candidateID,
+		})
 	})
+}
+
+// AcceptedInvitationForCandidate reads the invitation this candidate accepted to
+// this campaign, as the candidate themselves. It is the authority the screening
+// session creation checks: no accepted invitation, no session. ErrInvitationNotFound
+// when the candidate accepted none.
+func (s *Store) AcceptedInvitationForCandidate(ctx context.Context, campaignID, candidateID string) (Invitation, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: beginning accepted read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := database.SetUser(ctx, tx, candidateID); err != nil {
+		return Invitation{}, err
+	}
+
+	row, err := db.New(tx).AcceptedInvitationForCandidate(ctx, db.AcceptedInvitationForCandidateParams{
+		CampaignID: campaignID, AcceptedCandidate: &candidateID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Invitation{}, ErrInvitationNotFound
+	}
+	if err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: reading the accepted invitation: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Invitation{}, fmt.Errorf("recruiting: committing the accepted read: %w", err)
+	}
+	return invitationFromAcceptedRead(row), nil
 }
 
 // DeclineInvitationByToken records the candidate's no, single-use and guarded
@@ -364,6 +399,15 @@ func invitationFromAccept(row db.AcceptInvitationByTokenRow) Invitation {
 }
 
 func invitationFromDecline(row db.DeclineInvitationByTokenRow) Invitation {
+	return Invitation{
+		ID: row.ID, TenantID: row.TenantID, CampaignID: row.CampaignID,
+		Recipient: row.Recipient, EmailID: row.EmailID, IssuedBy: row.IssuedBy,
+		IssuedAt: row.IssuedAt, ExpiresAt: row.ExpiresAt,
+		Outcome: outcomeFrom(row.Outcome.Valid, row.Outcome.String), OutcomeAt: row.OutcomeAt,
+	}
+}
+
+func invitationFromAcceptedRead(row db.AcceptedInvitationForCandidateRow) Invitation {
 	return Invitation{
 		ID: row.ID, TenantID: row.TenantID, CampaignID: row.CampaignID,
 		Recipient: row.Recipient, EmailID: row.EmailID, IssuedBy: row.IssuedBy,

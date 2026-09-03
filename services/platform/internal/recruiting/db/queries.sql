@@ -265,8 +265,8 @@ WHERE token_hash = $1;
 -- tells the candidate which of expired, revoked or already-answered it was, so
 -- this returning no row is an outcome to explain rather than an error.
 UPDATE recruiting.invitation
-SET outcome = 'accepted', outcome_at = now()
-WHERE token_hash = $1 AND outcome IS NULL AND expires_at > now()
+SET outcome = 'accepted', outcome_at = now(), accepted_candidate = sqlc.arg(candidate)::uuid
+WHERE token_hash = sqlc.arg(token_hash)::text AND outcome IS NULL AND expires_at > now()
 RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
           issued_at, expires_at, outcome, outcome_at;
 
@@ -293,3 +293,13 @@ SELECT id, tenant_id, name, status, role_reference, jurisdiction,
        determination_id, opened_at, closed_at, created_at, created_by
 FROM recruiting.campaign
 WHERE id = $1;
+
+-- name: AcceptedInvitationForCandidate :one
+-- The invitation this candidate accepted to this campaign, read as the
+-- candidate themselves through the owner policy 0059 added. It is how the
+-- screening session creation path proves authority: a candidate who did not
+-- accept an invitation to the campaign finds no row here and cannot start one.
+SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
+       issued_at, expires_at, outcome, outcome_at
+FROM recruiting.invitation
+WHERE campaign_id = $1 AND accepted_candidate = $2 AND outcome = 'accepted';

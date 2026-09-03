@@ -1008,6 +1008,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/screening/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin the screening interview an accepted invitation admits
+         * @description Creates the candidate's screening session for a campaign they accepted
+         *     an invitation to, and records the disclosure version they agreed to. The
+         *     authority is the accepted invitation, checked server-side: a candidate
+         *     who did not accept an invitation to the campaign is answered exactly like
+         *     one naming a campaign that does not exist, so a candidate cannot start a
+         *     session against a campaign they were never invited to, and existence is
+         *     not leaked to one who was not.
+         *
+         *     The session is composed against the campaign's pinned configuration, not
+         *     the platform default. The consent decisions the candidate makes are
+         *     recorded with the acceptance; the required-consent gate activates once a
+         *     campaign configures the purposes it asks about, which is its own work.
+         */
+        post: operations["startScreeningSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/screening/sessions/{sessionId}/result": {
         parameters: {
             query?: never;
@@ -1952,6 +1983,13 @@ export interface components {
         };
         InvitationList: {
             invitations: components["schemas"]["Invitation"][];
+        };
+        /** @description The candidate's screening session, just created. */
+        ScreeningSession: {
+            /** Format: uuid */
+            session_id: string;
+            /** @description The lifecycle state; a freshly created session is composing. */
+            state: string;
         };
         /**
          * @description A screening candidate's view of their own result, already filtered to
@@ -4354,6 +4392,56 @@ export interface operations {
                 };
             };
             /** @description The invitation is expired, revoked or already answered, so it cannot be declined. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startScreeningSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaign_id: string;
+                    disclosure_version: string;
+                    /** @description The sha256 digest of the exact disclosure text the candidate was shown. */
+                    disclosure_digest: string;
+                    /** @description The candidate's answer to each purpose the disclosure asked about. */
+                    consents?: {
+                        purpose: string;
+                        granted: boolean;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description The screening session, composing against the campaign's configuration. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreeningSession"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The campaign is not open, so it admits no new sessions. */
             409: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];

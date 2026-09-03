@@ -14,11 +14,16 @@ import (
 
 const acceptInvitationByToken = `-- name: AcceptInvitationByToken :one
 UPDATE recruiting.invitation
-SET outcome = 'accepted', outcome_at = now()
-WHERE token_hash = $1 AND outcome IS NULL AND expires_at > now()
+SET outcome = 'accepted', outcome_at = now(), accepted_candidate = $1::uuid
+WHERE token_hash = $2::text AND outcome IS NULL AND expires_at > now()
 RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
           issued_at, expires_at, outcome, outcome_at
 `
+
+type AcceptInvitationByTokenParams struct {
+	Candidate string
+	TokenHash string
+}
 
 type AcceptInvitationByTokenRow struct {
 	ID         string
@@ -39,8 +44,8 @@ type AcceptInvitationByTokenRow struct {
 // lapsed while it sat in an inbox; the caller reads the current state first and
 // tells the candidate which of expired, revoked or already-answered it was, so
 // this returning no row is an outcome to explain rather than an error.
-func (q *Queries) AcceptInvitationByToken(ctx context.Context, tokenHash string) (AcceptInvitationByTokenRow, error) {
-	row := q.db.QueryRow(ctx, acceptInvitationByToken, tokenHash)
+func (q *Queries) AcceptInvitationByToken(ctx context.Context, arg AcceptInvitationByTokenParams) (AcceptInvitationByTokenRow, error) {
+	row := q.db.QueryRow(ctx, acceptInvitationByToken, arg.Candidate, arg.TokenHash)
 	var i AcceptInvitationByTokenRow
 	err := row.Scan(
 		&i.ID,
@@ -106,6 +111,53 @@ func (q *Queries) AcceptancesFor(ctx context.Context, arg AcceptancesForParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const acceptedInvitationForCandidate = `-- name: AcceptedInvitationForCandidate :one
+SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
+       issued_at, expires_at, outcome, outcome_at
+FROM recruiting.invitation
+WHERE campaign_id = $1 AND accepted_candidate = $2 AND outcome = 'accepted'
+`
+
+type AcceptedInvitationForCandidateParams struct {
+	CampaignID        string
+	AcceptedCandidate *string
+}
+
+type AcceptedInvitationForCandidateRow struct {
+	ID         string
+	TenantID   string
+	CampaignID string
+	Recipient  string
+	EmailID    string
+	IssuedBy   string
+	IssuedAt   time.Time
+	ExpiresAt  time.Time
+	Outcome    pgtype.Text
+	OutcomeAt  *time.Time
+}
+
+// The invitation this candidate accepted to this campaign, read as the
+// candidate themselves through the owner policy 0059 added. It is how the
+// screening session creation path proves authority: a candidate who did not
+// accept an invitation to the campaign finds no row here and cannot start one.
+func (q *Queries) AcceptedInvitationForCandidate(ctx context.Context, arg AcceptedInvitationForCandidateParams) (AcceptedInvitationForCandidateRow, error) {
+	row := q.db.QueryRow(ctx, acceptedInvitationForCandidate, arg.CampaignID, arg.AcceptedCandidate)
+	var i AcceptedInvitationForCandidateRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.CampaignID,
+		&i.Recipient,
+		&i.EmailID,
+		&i.IssuedBy,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.Outcome,
+		&i.OutcomeAt,
+	)
+	return i, err
 }
 
 const accommodationRequestsFor = `-- name: AccommodationRequestsFor :many

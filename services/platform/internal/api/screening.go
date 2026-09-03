@@ -54,6 +54,34 @@ type ScreeningInvitations interface {
 	// before the wire. A session that is not the caller's own screening
 	// session is ErrSessionMissing, exactly like one that does not exist.
 	Result(ctx context.Context, candidateID, sessionID string) (ScreeningOutcome, error)
+	// StartScreeningSession creates the candidate's screening session for a
+	// campaign they accepted an invitation to, records the disclosure they
+	// agreed to, and returns the composing session. ErrSessionMissing when the
+	// candidate holds no accepted invitation to the campaign, ErrCampaignNotOpen
+	// when the campaign no longer admits sessions.
+	StartScreeningSession(ctx context.Context, candidateID string, input ScreeningStart) (StartedScreeningSession, error)
+}
+
+// ScreeningStart is what a candidate supplies to begin their interview: which
+// campaign, the disclosure version and digest they were shown, and their answer
+// to each purpose it asked about. The candidate is the session, never the body.
+type ScreeningStart struct {
+	CampaignID        string
+	DisclosureVersion string
+	DisclosureDigest  string
+	Consents          []ScreeningConsent
+}
+
+// ScreeningConsent is one candidate answer about one purpose.
+type ScreeningConsent struct {
+	Purpose string
+	Granted bool
+}
+
+// StartedScreeningSession is the created session as the wire reports it.
+type StartedScreeningSession struct {
+	SessionID string
+	State     string
 }
 
 // screeningHandlers serves SCR-05's candidate-facing surface.
@@ -176,3 +204,58 @@ func (f failure) VisitAcceptScreeningInvitationResponse(w http.ResponseWriter) e
 func (f failure) VisitDeclineScreeningInvitationResponse(w http.ResponseWriter) error {
 	return f.write(w)
 }
+
+// StartScreeningSession begins the interview an accepted invitation admits.
+func (h *screeningHandlers) StartScreeningSession(ctx context.Context, request prepeetapi.StartScreeningSessionRequestObject) (prepeetapi.StartScreeningSessionResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		refusal := h.authentication.rejectedSession(ctx)
+		return refusal, nil
+	}
+	principal, err := h.authentication.identity.Authorize(ctx, presented, requiredCapabilityFrom(ctx))
+	if err != nil {
+		return h.authentication.failed(ctx, err), nil
+	}
+
+	input := ScreeningStart{
+		CampaignID:        request.Body.CampaignID.String(),
+		DisclosureVersion: request.Body.DisclosureVersion,
+		DisclosureDigest:  request.Body.DisclosureDigest,
+	}
+	if request.Body.Consents != nil {
+		for _, consent := range *request.Body.Consents {
+			input.Consents = append(input.Consents, ScreeningConsent{Purpose: consent.Purpose, Granted: consent.Granted})
+		}
+	}
+
+	// The candidate is the session, never the body: a body-supplied candidate
+	// would let a signed-in person start an interview in someone else's name.
+	started, err := h.invitations.StartScreeningSession(ctx, principal.UserID, input)
+	if err != nil {
+		return h.startScreeningFailure(ctx, err), nil
+	}
+	return prepeetapi.StartScreeningSession201JSONResponse{
+		Body:    prepeetapi.ScreeningSession{SessionID: campaignUUID(started.SessionID), State: started.State},
+		Headers: prepeetapi.StartScreeningSession201ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// startScreeningFailure narrows the two refusals this start owns beyond the
+// shared mapping: no accepted invitation is a 404 that does not reveal the
+// campaign, and a campaign no longer open is a 409.
+func (h *screeningHandlers) startScreeningFailure(ctx context.Context, err error) failure {
+	base := h.authentication.failed(ctx, err)
+	switch {
+	case errors.Is(err, ErrSessionMissing):
+		base.status = http.StatusNotFound
+		base.code = string(prepeetapi.NOTFOUND)
+		base.message = "There is no such campaign to start."
+	case errors.Is(err, ErrCampaignNotOpen):
+		base.status = http.StatusConflict
+		base.code = "CAMPAIGN_NOT_OPEN"
+		base.message = "This campaign is not open, so it admits no new sessions."
+	}
+	return base
+}
+
+func (f failure) VisitStartScreeningSessionResponse(w http.ResponseWriter) error { return f.write(w) }

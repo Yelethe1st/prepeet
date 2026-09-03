@@ -381,15 +381,16 @@ func TestAcceptInvitationByTokenIsSingleUse(t *testing.T) {
 	store := recruiting.NewStore(pool)
 	ctx := context.Background()
 	hash := token.HashOf(plaintext)
+	candidateID := seedCandidate(t)
 
-	accepted, err := store.AcceptInvitationByToken(ctx, hash)
+	accepted, err := store.AcceptInvitationByToken(ctx, hash, candidateID)
 	if err != nil {
 		t.Fatalf("accept: %v", err)
 	}
 	if accepted.Outcome != recruiting.InvitationAccepted {
 		t.Fatalf("outcome = %q, want accepted", accepted.Outcome)
 	}
-	if _, err := store.AcceptInvitationByToken(ctx, hash); !errors.Is(err, recruiting.ErrInvitationNotLive) {
+	if _, err := store.AcceptInvitationByToken(ctx, hash, candidateID); !errors.Is(err, recruiting.ErrInvitationNotLive) {
 		t.Fatalf("second accept error = %v, want ErrInvitationNotLive", err)
 	}
 }
@@ -401,7 +402,7 @@ func TestAcceptRefusesAnExpiredInvitation(t *testing.T) {
 	inv, plaintext, _ := issue(t, campaign, "expired@example.com")
 	expireInvitation(t, inv.ID)
 
-	if _, err := recruiting.NewStore(pool).AcceptInvitationByToken(context.Background(), token.HashOf(plaintext)); !errors.Is(err, recruiting.ErrInvitationNotLive) {
+	if _, err := recruiting.NewStore(pool).AcceptInvitationByToken(context.Background(), token.HashOf(plaintext), seedCandidate(t)); !errors.Is(err, recruiting.ErrInvitationNotLive) {
 		t.Fatalf("accept of expired error = %v, want ErrInvitationNotLive", err)
 	}
 }
@@ -438,7 +439,7 @@ func TestAcceptRefusesARevokedInvitation(t *testing.T) {
 	if _, err := store.RevokeInvitation(ctx, tenantA, campaign.ID, inv.ID); err != nil {
 		t.Fatalf("revoke: %v", err)
 	}
-	if _, err := store.AcceptInvitationByToken(ctx, token.HashOf(plaintext)); !errors.Is(err, recruiting.ErrInvitationNotLive) {
+	if _, err := store.AcceptInvitationByToken(ctx, token.HashOf(plaintext), seedCandidate(t)); !errors.Is(err, recruiting.ErrInvitationNotLive) {
 		t.Fatalf("accept of revoked error = %v, want ErrInvitationNotLive", err)
 	}
 }
@@ -461,6 +462,46 @@ func TestCampaignByIDReadsWithinTheTenant(t *testing.T) {
 	if _, err := store.CampaignByID(ctx, tenantB, campaign.ID); !errors.Is(err, recruiting.ErrNoAccess) {
 		t.Fatalf("cross-tenant campaign read error = %v, want ErrNoAccess", err)
 	}
+}
+
+// An accepted invitation is readable by the candidate who accepted it, and by
+// no other candidate: the authority the screening session creation checks.
+func TestAcceptedInvitationIsReadableByItsCandidate(t *testing.T) {
+	campaign := openCampaignFor(t, tenantA)
+	_, plaintext, _ := issue(t, campaign, "accepted-read@example.com")
+	store := recruiting.NewStore(pool)
+	ctx := context.Background()
+	candidateID := seedCandidate(t)
+
+	if _, err := store.AcceptInvitationByToken(ctx, token.HashOf(plaintext), candidateID); err != nil {
+		t.Fatalf("accept: %v", err)
+	}
+
+	got, err := store.AcceptedInvitationForCandidate(ctx, campaign.ID, candidateID)
+	if err != nil {
+		t.Fatalf("accepted read: %v", err)
+	}
+	if got.CampaignID != campaign.ID || got.Outcome != recruiting.InvitationAccepted {
+		t.Fatalf("read back %+v", got)
+	}
+
+	// A candidate who accepted nothing here finds nothing, so they cannot
+	// start a session against a campaign they were never invited to.
+	if _, err := store.AcceptedInvitationForCandidate(ctx, campaign.ID, seedCandidate(t)); !errors.Is(err, recruiting.ErrInvitationNotFound) {
+		t.Fatalf("another candidate read the acceptance: %v", err)
+	}
+}
+
+// seedCandidate inserts a user so an accepted invitation's candidate FK resolves.
+func seedCandidate(t *testing.T) string {
+	t.Helper()
+	candidateID := id.New().String()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO identity.users (id, email) VALUES ($1, $2)`,
+		candidateID, "cand-"+candidateID+"@example.com"); err != nil {
+		t.Fatalf("seeding a candidate: %v", err)
+	}
+	return candidateID
 }
 
 // expireInvitation moves an invitation's expiry into the past, as the migrator,

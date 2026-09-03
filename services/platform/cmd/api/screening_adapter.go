@@ -12,6 +12,7 @@ import (
 	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/recruiting"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/tenantadmin"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/token"
 )
 
@@ -59,17 +60,22 @@ func (a screeningAdapter) Resolve(ctx context.Context, plaintext string) (api.Sc
 // the invitation's recipient, not anything the caller supplied.
 func (a screeningAdapter) Accept(ctx context.Context, plaintext string) (api.Session, error) {
 	hash := token.HashOf(plaintext)
-	if _, err := a.store.ResolveInvitationByToken(ctx, hash); err != nil {
-		return api.Session{}, screeningError(err)
-	}
-	accepted, err := a.store.AcceptInvitationByToken(ctx, hash)
+	invitation, err := a.store.ResolveInvitationByToken(ctx, hash)
 	if err != nil {
 		return api.Session{}, screeningError(err)
 	}
 
-	_, session, err := a.identity.ProvisionCandidateSession(ctx, accepted.Recipient)
+	// Provision before the consume, so the accept can record the candidate it
+	// resolved to in the same update that sets the outcome. Provisioning is
+	// idempotent and keyed to the recipient, so doing it before a consume that
+	// might lose the race strands nothing: the winning accept resolved the same
+	// address to the same account.
+	candidateID, session, err := a.identity.ProvisionCandidateSession(ctx, invitation.Recipient)
 	if err != nil {
 		return api.Session{}, err
+	}
+	if _, err := a.store.AcceptInvitationByToken(ctx, hash, candidateID); err != nil {
+		return api.Session{}, screeningError(err)
 	}
 	return sessionFrom(session), nil
 }
@@ -120,6 +126,79 @@ func screeningError(err error) error {
 		return api.ErrScreeningInvitationNotLive
 	}
 	return err
+}
+
+// StartScreeningSession creates the candidate's screening session for a
+// campaign they accepted an invitation to.
+//
+// The accepted invitation is the authority, read as the candidate themselves:
+// a candidate who accepted nothing here finds no invitation and is answered
+// exactly like one naming a campaign that does not exist, so a signed-in person
+// cannot start a session against a campaign they were never invited to. The
+// campaign is then read under its own tenant, which the invitation named, and
+// must still be open. The disclosure the candidate agreed to is recorded, and
+// the session is created and moved to composing in the same shape a practice
+// session is, so the worker composes it against the campaign's pins.
+func (a screeningAdapter) StartScreeningSession(ctx context.Context, candidateID string, input api.ScreeningStart) (api.StartedScreeningSession, error) {
+	accepted, err := a.store.AcceptedInvitationForCandidate(ctx, input.CampaignID, candidateID)
+	if errors.Is(err, recruiting.ErrInvitationNotFound) {
+		return api.StartedScreeningSession{}, api.ErrSessionMissing
+	}
+	if err != nil {
+		return api.StartedScreeningSession{}, err
+	}
+
+	campaign, err := a.store.CampaignByID(ctx, accepted.TenantID, accepted.CampaignID)
+	if err != nil {
+		return api.StartedScreeningSession{}, err
+	}
+	if campaign.Status != recruiting.StatusOpen {
+		return api.StartedScreeningSession{}, api.ErrCampaignNotOpen
+	}
+
+	// Record what the candidate agreed to before the session exists, so a
+	// crash between the two leaves an acceptance without a session rather than
+	// a session nobody consented to.
+	acceptance, err := recruiting.NewAcceptance(recruiting.AcceptanceRequest{
+		TenantID: accepted.TenantID, CampaignID: accepted.CampaignID, CandidateID: candidateID,
+		DisclosureVersion: input.DisclosureVersion, DisclosureDigest: input.DisclosureDigest,
+	})
+	if err != nil {
+		return api.StartedScreeningSession{}, api.Invalid("disclosure_digest", "DISCLOSURE_INVALID", err.Error())
+	}
+	decisions := make([]recruiting.ConsentDecision, 0, len(input.Consents))
+	for _, consent := range input.Consents {
+		decisions = append(decisions, recruiting.ConsentDecision{Purpose: consent.Purpose, Granted: consent.Granted})
+	}
+	if err := a.store.RecordAcceptance(ctx, acceptance, decisions); err != nil {
+		return api.StartedScreeningSession{}, err
+	}
+
+	// The session is created under the campaign's tenant, the scope screening
+	// sessions live in, and moved straight to composing: creation is the request
+	// to compose, and the worker starts the composition from the created event.
+	session := interview.Session{
+		ID: id.New().String(), Mode: "screening", CandidateID: candidateID,
+		TenantID: accepted.TenantID, CampaignID: accepted.CampaignID,
+		// The campaign's pinned plan is the plan the composer uses; the blueprint
+		// records which campaign the session belongs to rather than a second
+		// source of configuration.
+		BlueprintID:    "campaign/" + accepted.CampaignID,
+		ConsentVersion: input.DisclosureVersion,
+	}
+	actor := interview.Actor{ID: candidateID, Type: "user"}
+	if err := a.sessions.Create(ctx, session, actor); err != nil {
+		return api.StartedScreeningSession{}, err
+	}
+	created, err := a.sessions.Get(ctx, session.ID, "screening", candidateID, accepted.TenantID)
+	if err != nil {
+		return api.StartedScreeningSession{}, err
+	}
+	composing, err := a.sessions.Transition(ctx, created, interview.StateComposing, interview.Effects{}, actor)
+	if err != nil {
+		return api.StartedScreeningSession{}, err
+	}
+	return api.StartedScreeningSession{SessionID: composing.ID, State: string(composing.State)}, nil
 }
 
 // Result composes SCR-07's read: the candidate's own screening session, the

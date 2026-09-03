@@ -1610,6 +1610,72 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /screening/sessions:
+    post:
+      tags: [recruiting]
+      operationId: startScreeningSession
+      x-prepeet-capability: session.participate
+      summary: Begin the screening interview an accepted invitation admits
+      description: |
+        Creates the candidate's screening session for a campaign they accepted
+        an invitation to, and records the disclosure version they agreed to. The
+        authority is the accepted invitation, checked server-side: a candidate
+        who did not accept an invitation to the campaign is answered exactly like
+        one naming a campaign that does not exist, so a candidate cannot start a
+        session against a campaign they were never invited to, and existence is
+        not leaked to one who was not.
+
+        The session is composed against the campaign's pinned configuration, not
+        the platform default. The consent decisions the candidate makes are
+        recorded with the acceptance; the required-consent gate activates once a
+        campaign configures the purposes it asks about, which is its own work.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campaign_id, disclosure_version, disclosure_digest]
+              properties:
+                campaign_id: { type: string, format: uuid }
+                disclosure_version: { type: string, minLength: 1 }
+                disclosure_digest:
+                  type: string
+                  description: The sha256 digest of the exact disclosure text the candidate was shown.
+                  pattern: "^sha256:[0-9a-f]{64}$"
+                consents:
+                  type: array
+                  description: The candidate's answer to each purpose the disclosure asked about.
+                  items:
+                    type: object
+                    required: [purpose, granted]
+                    properties:
+                      purpose: { type: string }
+                      granted: { type: boolean }
+      responses:
+        "201":
+          description: The screening session, composing against the campaign's configuration.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreeningSession"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The campaign is not open, so it admits no new sessions.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /screening/sessions/{sessionId}/result:
     get:
       tags: [recruiting]
@@ -3170,6 +3236,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Invitation"
+
+    ScreeningSession:
+      type: object
+      description: The candidate's screening session, just created.
+      required: [session_id, state]
+      properties:
+        session_id: { type: string, format: uuid }
+        state:
+          type: string
+          description: The lifecycle state; a freshly created session is composing.
 
     ScreeningResult:
       type: object

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	api "github.com/Yelethe1st/prepeet/services/platform/internal/api"
+	"github.com/Yelethe1st/prepeet/services/platform/platform/authz"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/config"
 )
 
@@ -18,12 +19,15 @@ type stubScreening struct {
 	view    api.ScreeningInvitationView
 	session api.Session
 
-	outcome api.ScreeningOutcome
+	outcome  api.ScreeningOutcome
+	started  api.StartedScreeningSession
+	sawStart api.ScreeningStart
 
 	resolveErr error
 	acceptErr  error
 	declineErr error
 	resultErr  error
+	startErr   error
 
 	sawToken string
 }
@@ -57,6 +61,14 @@ func (s *stubScreening) Result(_ context.Context, candidateID, sessionID string)
 		return api.ScreeningOutcome{}, s.resultErr
 	}
 	return s.outcome, nil
+}
+
+func (s *stubScreening) StartScreeningSession(_ context.Context, candidateID string, input api.ScreeningStart) (api.StartedScreeningSession, error) {
+	s.sawStart = input
+	if s.startErr != nil {
+		return api.StartedScreeningSession{}, s.startErr
+	}
+	return s.started, nil
 }
 
 func defaultStubScreening() *stubScreening {
@@ -248,4 +260,110 @@ func TestAcceptAnswersTheSameForNewAndExistingAccounts(t *testing.T) {
 			}
 		})
 	}
+}
+
+const startPath = "/api/v1/screening/sessions"
+
+func startBody() string {
+	return `{"campaign_id":"00000000-0000-7000-8000-00000000c123","disclosure_version":"3","disclosure_digest":"sha256:` +
+		strings.Repeat("a", 64) + `","consents":[{"purpose":"model_improvement","granted":false}]}`
+}
+
+// Starting a screening session names the session as the caller's, not the
+// body's, and returns the composing session.
+func TestStartNamesTheSessionAsTheCaller(t *testing.T) {
+	stub := defaultStubScreening()
+	stub.started = api.StartedScreeningSession{SessionID: "00000000-0000-7000-8000-00000000dd01", State: "composing"}
+	handler := serveScreeningAuthed(t, stub)
+
+	status, body := jsonPost(t, handler, startPath, startBody())
+	if status != http.StatusCreated {
+		t.Fatalf("status = %d, want 201", status)
+	}
+	if body["state"] != "composing" {
+		t.Fatalf("state = %v", body["state"])
+	}
+	if stub.sawStart.CampaignID != "00000000-0000-7000-8000-00000000c123" {
+		t.Fatalf("campaign not forwarded: %q", stub.sawStart.CampaignID)
+	}
+	if len(stub.sawStart.Consents) != 1 || stub.sawStart.Consents[0].Granted {
+		t.Fatalf("consents not forwarded: %+v", stub.sawStart.Consents)
+	}
+}
+
+// A candidate who accepted no invitation to the campaign gets a 404, the same
+// answer a campaign that does not exist gets: no authority is not leaked as a
+// different status than no campaign.
+func TestStartWithoutAnAcceptedInvitationIs404(t *testing.T) {
+	stub := defaultStubScreening()
+	stub.startErr = api.ErrSessionMissing
+	handler := serveScreeningAuthed(t, stub)
+
+	status, _ := jsonPost(t, handler, startPath, startBody())
+	if status != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", status)
+	}
+}
+
+// A campaign no longer open is a 409 with its own code.
+func TestStartAgainstAClosedCampaignIs409(t *testing.T) {
+	stub := defaultStubScreening()
+	stub.startErr = api.ErrCampaignNotOpen
+	handler := serveScreeningAuthed(t, stub)
+
+	status, body := jsonPost(t, handler, startPath, startBody())
+	if status != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", status)
+	}
+	if code, _ := body["error"].(map[string]any)["code"].(string); code != "CAMPAIGN_NOT_OPEN" {
+		t.Fatalf("code = %q", code)
+	}
+}
+
+// Starting requires a session: it is the candidate's authenticated act, not a
+// token-bearing one like acceptance.
+func TestStartRequiresASession(t *testing.T) {
+	handler := serveScreeningAuthed(t, defaultStubScreening())
+	request := httptest.NewRequest(http.MethodPost, startPath, strings.NewReader(startBody()))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", recorder.Code)
+	}
+}
+
+// serveScreeningAuthed wires an identity holding session.participate, the
+// capability the start requires.
+func serveScreeningAuthed(t *testing.T, stub *stubScreening) http.Handler {
+	t.Helper()
+	identity := &fakeIdentity{
+		principal: api.Principal{UserID: progressionUser},
+		allowed:   []authz.Capability{authz.SessionParticipate},
+	}
+	handler, err := api.NewServer(api.ServerConfig{
+		Identity: identity, Candidates: &fakeCandidates{}, Documents: &fakeDocuments{},
+		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
+		Billing: &fakeBilling{}, Progression: &stubProgression{},
+		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
+		Recruiting: &stubRecruiting{}, Invitations: defaultStubInvitations(),
+		ScreeningInvitations: stub, Environment: config.EnvironmentLocal,
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	return handler
+}
+
+// jsonPost sends an authenticated JSON POST with the session cookie.
+func jsonPost(t *testing.T, handler http.Handler, path, body string) (int, map[string]any) {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	request.Header.Set("content-type", "application/json")
+	request.AddCookie(sessionCookie())
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	var decoded map[string]any
+	_ = json.Unmarshal(recorder.Body.Bytes(), &decoded)
+	return recorder.Code, decoded
 }

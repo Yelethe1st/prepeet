@@ -374,6 +374,38 @@ func (q *Queries) InsertControlEvent(ctx context.Context, arg InsertControlEvent
 	return err
 }
 
+const insertInterruption = `-- name: InsertInterruption :exec
+INSERT INTO interview.interruption
+    (id, session_id, candidate_id, tenant_id, cause, duration_seconds, connection_epoch)
+VALUES ($1::uuid, $2::uuid, $3::uuid,
+        nullif($4::text, '')::uuid, $5::text,
+        $6::integer, $7::integer)
+`
+
+type InsertInterruptionParams struct {
+	ID              string
+	SessionID       string
+	CandidateID     string
+	TenantID        string
+	Cause           string
+	DurationSeconds int32
+	ConnectionEpoch int32
+}
+
+// Records one interruption. Append-only: a later interruption is a new row.
+func (q *Queries) InsertInterruption(ctx context.Context, arg InsertInterruptionParams) error {
+	_, err := q.db.Exec(ctx, insertInterruption,
+		arg.ID,
+		arg.SessionID,
+		arg.CandidateID,
+		arg.TenantID,
+		arg.Cause,
+		arg.DurationSeconds,
+		arg.ConnectionEpoch,
+	)
+	return err
+}
+
 const insertMediaTrack = `-- name: InsertMediaTrack :execrows
 INSERT INTO interview.media_tracks
     (id, session_id, mode, candidate_id, tenant_id, track, storage_key, egress_id)
@@ -539,6 +571,49 @@ type InsertSessionBundleParams struct {
 func (q *Queries) InsertSessionBundle(ctx context.Context, arg InsertSessionBundleParams) error {
 	_, err := q.db.Exec(ctx, insertSessionBundle, arg.SessionID, arg.Digest, arg.Body)
 	return err
+}
+
+const interruptionsForSession = `-- name: InterruptionsForSession :many
+SELECT id::text AS id, cause, occurred_at, duration_seconds, connection_epoch
+FROM interview.interruption
+WHERE session_id = $1::uuid
+ORDER BY occurred_at
+`
+
+type InterruptionsForSessionRow struct {
+	ID              string
+	Cause           string
+	OccurredAt      time.Time
+	DurationSeconds int32
+	ConnectionEpoch int32
+}
+
+// The interruptions a session suffered, oldest first, read by whoever may read
+// the session through the table's own policies.
+func (q *Queries) InterruptionsForSession(ctx context.Context, sessionID string) ([]InterruptionsForSessionRow, error) {
+	rows, err := q.db.Query(ctx, interruptionsForSession, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []InterruptionsForSessionRow{}
+	for rows.Next() {
+		var i InterruptionsForSessionRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Cause,
+			&i.OccurredAt,
+			&i.DurationSeconds,
+			&i.ConnectionEpoch,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listMediaTracks = `-- name: ListMediaTracks :many

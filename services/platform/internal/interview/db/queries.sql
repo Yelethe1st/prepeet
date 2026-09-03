@@ -297,3 +297,19 @@ FROM interview.sessions
 WHERE campaign_id = sqlc.arg(campaign_id)::uuid
   AND candidate_id = sqlc.arg(candidate_id)::uuid
   AND mode = 'screening';
+
+-- name: InsertInterruption :exec
+-- Records one interruption. Append-only: a later interruption is a new row.
+INSERT INTO interview.interruption
+    (id, session_id, candidate_id, tenant_id, cause, duration_seconds, connection_epoch)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(session_id)::uuid, sqlc.arg(candidate_id)::uuid,
+        nullif(sqlc.arg(tenant_id)::text, '')::uuid, sqlc.arg(cause)::text,
+        sqlc.arg(duration_seconds)::integer, sqlc.arg(connection_epoch)::integer);
+
+-- name: InterruptionsForSession :many
+-- The interruptions a session suffered, oldest first, read by whoever may read
+-- the session through the table's own policies.
+SELECT id::text AS id, cause, occurred_at, duration_seconds, connection_epoch
+FROM interview.interruption
+WHERE session_id = sqlc.arg(session_id)::uuid
+ORDER BY occurred_at;

@@ -315,24 +315,23 @@ campaign cannot be asked to pin what nobody can yet publish.
 Whatever DEC-11 decided, the API enforces it. Hiding a link is not a control.
 
 **Done when**
-- [ ] Direct API access to an evaluation the policy does not permit fails, regardless of the interface.
-- [ ] URL manipulation cannot reach coaching, evidence, notes, comparison or decisions.
-- [ ] The permitted status view contains exactly what the approved policy allows and nothing more.
+- [x] Direct API access to an evaluation the policy does not permit fails, regardless of the interface.
+- [x] URL manipulation cannot reach coaching, evidence, notes, comparison or decisions.
+- [x] The permitted status view contains exactly what the approved policy allows and nothing more.
 
-**Not started, but half of the enforcement is already structural and worth recording so it is not
-rebuilt.** The candidate result reads, `getResults` and `getTranscript`, are gated on
-`session.read_own_practice` and their adapters hardcode `Mode: "practice"`: the session is looked up
-as practice owned by the caller, so a screening evaluation is not filtered out of the response, it is
-never found. URL manipulation cannot reach a screening evaluation through the candidate result path
-because that path only ever asks for practice.
-
-What is missing is the other direction: the permitted status view a screening candidate is allowed,
-driven by the campaign determination's `result_disclosure`. That cannot be built yet, and the reason
-is a fact rather than a choice: a session carries no `campaign_id`, so a screening session as a
-fully-wired concept does not exist until SCR-04 and SCR-05 issue and accept an invitation into one.
-Building the disclosure view now would mean inventing the session-to-campaign link those tickets own,
-and testing it would mean constructing a screening session there is no honest way to construct. The
-enforcement mechanism is ready; the thing it enforces on is not built.
+Both directions now hold. The structural half stands as it was: `getResults` and `getTranscript`
+hardcode `Mode: "practice"`, so a screening evaluation is never found through the practice result
+path, not filtered out of it. The other direction is `GET /screening/sessions/{id}/result`, gated on
+`session.read_screen_confirmation`: the candidate's own screening session, read through the
+screening-owner policy 0058 added, filtered to the `result_disclosure` of the exact determination
+version the campaign pinned at open, never the jurisdiction's current one. The filter is additive,
+built from the narrowest level up, so a field appears only when a level explicitly grants it and a new
+field fails closed by default; an unrecognised level is served as `submission_only`, because a
+disclosure decision the server cannot read is one it must not guess upward. Coaching, notes,
+comparison and decisions have no fields in the response schema at any level: their absence is
+structural, and a test pins it at the interface. Each level's response is asserted key-for-key against
+an allowlist, in both directions, and the adapter reads the wider evaluation data only when a level
+that can show it is in force.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md)
 

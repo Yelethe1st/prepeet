@@ -603,3 +603,22 @@ func TestUsageDoesNotReachAcrossTenants(t *testing.T) {
 		t.Fatalf("tenant A was told about tenant B's campaign: %v", using)
 	}
 }
+
+// DeterminationByID answers the exact version a campaign pinned, not the
+// jurisdiction's latest: the disclosure a running campaign's candidates get is
+// the one counsel approved when it opened.
+func TestDeterminationByIDReadsThePinnedVersion(t *testing.T) {
+	store := recruiting.NewStore(pool)
+	determinationID := seedDetermination(t, "DE")
+
+	got, err := store.DeterminationByID(context.Background(), determinationID)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if got.ID != determinationID || got.ResultDisclosure != "evidence_without_band" {
+		t.Fatalf("read back %+v", got)
+	}
+	if _, err := store.DeterminationByID(context.Background(), id.New().String()); !errors.Is(err, recruiting.ErrNoDetermination) {
+		t.Fatalf("unknown id error = %v, want ErrNoDetermination", err)
+	}
+}

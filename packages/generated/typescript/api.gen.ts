@@ -1008,6 +1008,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/screening/sessions/{sessionId}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a screening candidate may see of their own result
+         * @description The candidate's view of their screening interview, filtered server-side
+         *     to what the campaign's jurisdiction determination permits (ADR-0020).
+         *     The determination the campaign pinned at open decides the level, from
+         *     most to least disclosing: full_evaluation, evidence_without_band,
+         *     completion_status, submission_only. A level the server does not
+         *     recognise is served as submission_only, because a disclosure decision
+         *     this endpoint cannot read is one it must not guess upward.
+         *
+         *     Coaching, recruiter notes, comparison and hiring decisions are not
+         *     filtered out of this response; they are absent from its schema at every
+         *     level, so no level and no bug in level selection can include them.
+         *     A session that is not the caller's own screening session is not found,
+         *     and existence is not answered across candidates.
+         */
+        get: operations["getScreeningResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenant/settings": {
         parameters: {
             query?: never;
@@ -1920,6 +1952,45 @@ export interface components {
         };
         InvitationList: {
             invitations: components["schemas"]["Invitation"][];
+        };
+        /**
+         * @description A screening candidate's view of their own result, already filtered to
+         *     the campaign determination's disclosure level. Coaching, recruiter
+         *     notes, comparison and hiring decisions have no fields here at all:
+         *     their absence is structural, not a filter that could fail open.
+         */
+        ScreeningResult: {
+            /**
+             * @description How far the interview got, at the honesty the level permits:
+             *     submission_only always answers `submitted`, because even completion
+             *     is not disclosed there.
+             * @enum {string}
+             */
+            status: "submitted" | "in_progress" | "completed" | "evaluated";
+            /**
+             * @description The level that was applied, so the candidate is told why they see what they see.
+             * @enum {string}
+             */
+            disclosure: "submission_only" | "completion_status" | "evidence_without_band" | "full_evaluation";
+            /** @description Present from evidence_without_band up. Bands appear only at full_evaluation. */
+            competencies?: {
+                competency_id: string;
+                status: string;
+                evidence_count: number;
+                /** @description Only at full_evaluation, and only for assessed competencies. */
+                band?: string;
+            }[];
+            /** @description The candidate's own words behind the assessment, from evidence_without_band up. */
+            evidence?: {
+                competency_id: string;
+                quote: string;
+                disposition: string;
+            }[];
+            /** @description From evidence_without_band up. */
+            coverage?: {
+                covered: number;
+                total: number;
+            };
         };
         /**
          * @description An invitation as the candidate holding its token sees it: who invited
@@ -4292,6 +4363,32 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    getScreeningResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The permitted view, and nothing more. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreeningResult"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getTenantSettings: {

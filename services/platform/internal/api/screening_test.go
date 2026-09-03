@@ -18,9 +18,12 @@ type stubScreening struct {
 	view    api.ScreeningInvitationView
 	session api.Session
 
+	outcome api.ScreeningOutcome
+
 	resolveErr error
 	acceptErr  error
 	declineErr error
+	resultErr  error
 
 	sawToken string
 }
@@ -47,6 +50,13 @@ func (s *stubScreening) Decline(_ context.Context, token string) (api.ScreeningI
 		return api.ScreeningInvitationView{}, s.declineErr
 	}
 	return s.view, nil
+}
+
+func (s *stubScreening) Result(_ context.Context, candidateID, sessionID string) (api.ScreeningOutcome, error) {
+	if s.resultErr != nil {
+		return api.ScreeningOutcome{}, s.resultErr
+	}
+	return s.outcome, nil
 }
 
 func defaultStubScreening() *stubScreening {

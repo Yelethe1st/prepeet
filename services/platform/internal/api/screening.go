@@ -49,6 +49,11 @@ type ScreeningInvitations interface {
 	Accept(ctx context.Context, token string) (Session, error)
 	// Decline records the candidate's no and returns the invitation, declined.
 	Decline(ctx context.Context, token string) (ScreeningInvitationView, error)
+	// Result answers what one of the caller's own screening sessions may show
+	// them, unfiltered; the handler applies the determination's disclosure
+	// before the wire. A session that is not the caller's own screening
+	// session is ErrSessionMissing, exactly like one that does not exist.
+	Result(ctx context.Context, candidateID, sessionID string) (ScreeningOutcome, error)
 }
 
 // screeningHandlers serves SCR-05's candidate-facing surface.

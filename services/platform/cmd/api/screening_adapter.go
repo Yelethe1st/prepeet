@@ -7,7 +7,9 @@ import (
 
 	api "github.com/Yelethe1st/prepeet/services/platform/internal/api"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/catalog"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/evaluation"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/identity"
+	"github.com/Yelethe1st/prepeet/services/platform/internal/interview"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/recruiting"
 	"github.com/Yelethe1st/prepeet/services/platform/internal/tenantadmin"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/token"
@@ -26,11 +28,15 @@ type screeningAdapter struct {
 	identity  *identity.Service
 	settings  *tenantadmin.SettingsStore
 	catalogue *catalog.Service
+	sessions  *interview.Store
+	results   *evaluation.Store
 }
 
 func newScreeningAdapter(store *recruiting.Store, id *identity.Service,
-	settings *tenantadmin.SettingsStore, catalogue *catalog.Service) screeningAdapter {
-	return screeningAdapter{store: store, identity: id, settings: settings, catalogue: catalogue}
+	settings *tenantadmin.SettingsStore, catalogue *catalog.Service,
+	sessions *interview.Store, results *evaluation.Store) screeningAdapter {
+	return screeningAdapter{store: store, identity: id, settings: settings,
+		catalogue: catalogue, sessions: sessions, results: results}
 }
 
 var _ api.ScreeningInvitations = screeningAdapter{}
@@ -114,4 +120,86 @@ func screeningError(err error) error {
 		return api.ErrScreeningInvitationNotLive
 	}
 	return err
+}
+
+// Result composes SCR-07's read: the candidate's own screening session, the
+// disclosure level its campaign pinned, and only as much of the evaluation as
+// that level can ever show.
+//
+// The session read is the authority: GetScreeningForCandidate admits only the
+// caller's own screening session, so everything after it acts on a session the
+// candidate was already proven to own, and the tenant scope the evaluation
+// reads under is that session's own. The disclosure fails closed on data, not
+// on infrastructure: a campaign with no pinned determination, or one whose
+// determination row is gone, discloses submission_only, while a database that
+// cannot be read at all is an error, because an outage dressed as a narrow
+// policy would hide itself.
+func (a screeningAdapter) Result(ctx context.Context, candidateID, sessionID string) (api.ScreeningOutcome, error) {
+	session, err := a.sessions.GetScreeningForCandidate(ctx, sessionID, candidateID)
+	if errors.Is(err, interview.ErrNotFound) {
+		return api.ScreeningOutcome{}, api.ErrSessionMissing
+	}
+	if err != nil {
+		return api.ScreeningOutcome{}, err
+	}
+
+	outcome := api.ScreeningOutcome{State: string(session.State)}
+
+	campaign, err := a.store.CampaignByID(ctx, session.TenantID, session.CampaignID)
+	if err != nil {
+		return api.ScreeningOutcome{}, err
+	}
+	if campaign.DeterminationID != "" {
+		determination, err := a.store.DeterminationByID(ctx, campaign.DeterminationID)
+		switch {
+		case errors.Is(err, recruiting.ErrNoDetermination):
+			// The pinned determination is gone: a data fault that discloses
+			// nothing rather than everything. The empty level below is served
+			// as submission_only.
+		case err != nil:
+			return api.ScreeningOutcome{}, err
+		default:
+			outcome.Disclosure = determination.ResultDisclosure
+		}
+	}
+
+	ref := evaluation.SessionRef{
+		SessionID: sessionID, Mode: "screening",
+		CandidateID: candidateID, TenantID: session.TenantID,
+	}
+	result, err := a.results.ResultOf(ctx, ref)
+	if errors.Is(err, evaluation.ErrNoResult) {
+		return outcome, nil
+	}
+	if err != nil {
+		return api.ScreeningOutcome{}, err
+	}
+	outcome.Evaluated = true
+	outcome.Covered = result.Aggregation.CoveredCompetencies
+	outcome.Total = result.Aggregation.TotalCompetencies
+
+	// The wider data is read only when a level that can show it is in force:
+	// data minimisation as a read pattern, not only as a filter.
+	if outcome.Disclosure != api.DisclosureEvidenceWithoutBand &&
+		outcome.Disclosure != api.DisclosureFullEvaluation {
+		return outcome, nil
+	}
+	for _, competency := range result.Aggregation.Competencies {
+		outcome.Competencies = append(outcome.Competencies, api.ScreeningCompetency{
+			CompetencyID:  competency.CompetencyID,
+			Status:        competency.Status,
+			Band:          competency.Band,
+			EvidenceCount: competency.EvidenceCount,
+		})
+	}
+	spans, err := a.results.List(ctx, ref)
+	if err != nil {
+		return api.ScreeningOutcome{}, err
+	}
+	for _, span := range spans {
+		outcome.Evidence = append(outcome.Evidence, api.ScreeningEvidence{
+			CompetencyID: span.CompetencyID, Quote: span.Quote, Disposition: span.Kind,
+		})
+	}
+	return outcome, nil
 }

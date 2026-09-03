@@ -1610,6 +1610,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /screening/sessions/{sessionId}/result:
+    get:
+      tags: [recruiting]
+      operationId: getScreeningResult
+      x-prepeet-capability: session.read_screen_confirmation
+      summary: What a screening candidate may see of their own result
+      description: |
+        The candidate's view of their screening interview, filtered server-side
+        to what the campaign's jurisdiction determination permits (ADR-0020).
+        The determination the campaign pinned at open decides the level, from
+        most to least disclosing: full_evaluation, evidence_without_band,
+        completion_status, submission_only. A level the server does not
+        recognise is served as submission_only, because a disclosure decision
+        this endpoint cannot read is one it must not guess upward.
+
+        Coaching, recruiter notes, comparison and hiring decisions are not
+        filtered out of this response; they are absent from its schema at every
+        level, so no level and no bug in level selection can include them.
+        A session that is not the caller's own screening session is not found,
+        and existence is not answered across candidates.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: The permitted view, and nothing more.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreeningResult"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /tenant/settings:
     get:
       tags: [tenant]
@@ -3134,6 +3170,57 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Invitation"
+
+    ScreeningResult:
+      type: object
+      description: |
+        A screening candidate's view of their own result, already filtered to
+        the campaign determination's disclosure level. Coaching, recruiter
+        notes, comparison and hiring decisions have no fields here at all:
+        their absence is structural, not a filter that could fail open.
+      required: [status, disclosure]
+      properties:
+        status:
+          type: string
+          enum: [submitted, in_progress, completed, evaluated]
+          description: |
+            How far the interview got, at the honesty the level permits:
+            submission_only always answers `submitted`, because even completion
+            is not disclosed there.
+        disclosure:
+          type: string
+          enum: [submission_only, completion_status, evidence_without_band, full_evaluation]
+          description: The level that was applied, so the candidate is told why they see what they see.
+        competencies:
+          type: array
+          description: Present from evidence_without_band up. Bands appear only at full_evaluation.
+          items:
+            type: object
+            required: [competency_id, status, evidence_count]
+            properties:
+              competency_id: { type: string }
+              status: { type: string }
+              evidence_count: { type: integer }
+              band:
+                type: string
+                description: Only at full_evaluation, and only for assessed competencies.
+        evidence:
+          type: array
+          description: The candidate's own words behind the assessment, from evidence_without_band up.
+          items:
+            type: object
+            required: [competency_id, quote, disposition]
+            properties:
+              competency_id: { type: string }
+              quote: { type: string }
+              disposition: { type: string }
+        coverage:
+          type: object
+          description: From evidence_without_band up.
+          required: [covered, total]
+          properties:
+            covered: { type: integer }
+            total: { type: integer }
 
     ScreeningInvitationView:
       type: object

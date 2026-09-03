@@ -366,3 +366,25 @@ func (s *Store) LatestDetermination(ctx context.Context, jurisdiction string) (D
 		Approver: row.Approver, ApprovedAt: row.ApprovedAt,
 	}, nil
 }
+
+// DeterminationByID reads the exact determination a campaign pinned at open.
+//
+// By id rather than by jurisdiction, deliberately: the campaign froze a
+// specific version, and the disclosure its candidates get is that version's,
+// not whatever counsel has approved since. A newer determination changes what
+// campaigns opened after it may show; it never moves one already running,
+// which is the same promise every other pin makes.
+func (s *Store) DeterminationByID(ctx context.Context, determinationID string) (Determination, error) {
+	row, err := db.New(s.pool).DeterminationByID(ctx, determinationID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Determination{}, fmt.Errorf("%w: id %s", ErrNoDetermination, determinationID)
+	}
+	if err != nil {
+		return Determination{}, fmt.Errorf("recruiting: reading determination %s: %w", determinationID, err)
+	}
+	return Determination{
+		ID: row.ID, Jurisdiction: row.Jurisdiction, Version: int(row.Version),
+		ResultDisclosure: row.ResultDisclosure, AppealStatus: row.AppealStatus,
+		Approver: row.Approver, ApprovedAt: row.ApprovedAt,
+	}, nil
+}

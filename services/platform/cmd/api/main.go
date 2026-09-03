@@ -185,7 +185,8 @@ func main() {
 		ScreeningInvitations: newScreeningAdapter(
 			recruiting.NewStore(pool), identityService,
 			tenantadmin.NewSettingsStore(pool),
-			catalog.NewService(registrySource{registry: content.NewStore(pool)})),
+			catalog.NewService(registrySource{registry: content.NewStore(pool)}),
+			interview.NewStore(pool), evaluation.NewStore(pool)),
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

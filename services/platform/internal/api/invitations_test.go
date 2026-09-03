@@ -23,13 +23,20 @@ type stubInvitations struct {
 	revokeErr error
 	resendErr error
 
-	sawIssuedBy  string
-	sawRecipient string
-	sawCampaign  api.Campaign
-	sawRevokeID  string
-	sawResendID  string
-	sawDecideID  string
-	decideErr    error
+	sawIssuedBy       string
+	sawRecipient      string
+	sawCampaign       api.Campaign
+	sawRevokeID       string
+	sawResendID       string
+	sawDecideID       string
+	decideErr         error
+	sawReInviteReason string
+	reInviteErr       error
+}
+
+func (s *stubInvitations) AuthorizeReInvitation(_ context.Context, tenantID, campaignID, candidateID, reason, decidedBy, interruptedSession string) error {
+	s.sawReInviteReason = reason
+	return s.reInviteErr
 }
 
 func (s *stubInvitations) DecideAccommodation(_ context.Context, tenantID, campaignID, requestID, decidedBy string, granted bool) error {
@@ -105,7 +112,7 @@ func serveInvitations(t *testing.T, recruiting *stubRecruiting, invitations *stu
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
-		ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: invitations, Recruiting: recruiting, Invitations: invitations, Environment: config.EnvironmentLocal,
+		ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), ReInvitations: invitations, Requirements: defaultStubRequirements(), RecruiterAccommodations: invitations, Recruiting: recruiting, Invitations: invitations, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

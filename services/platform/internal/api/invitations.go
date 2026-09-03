@@ -79,6 +79,7 @@ type invitationHandlers struct {
 	invitations             Invitations
 	recruiterAccommodations RecruiterAccommodations
 	requirements            Requirements
+	reInvitations           ReInvitations
 }
 
 func (h *invitationHandlers) caller(ctx context.Context) (Principal, *failure) {

@@ -956,6 +956,8 @@ FROM interview.sessions
 WHERE campaign_id = $1::uuid
   AND candidate_id = $2::uuid
   AND mode = 'screening'
+ORDER BY created_at DESC
+LIMIT 1
 `
 
 type ScreeningSessionForCandidateParams struct {

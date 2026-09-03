@@ -296,7 +296,9 @@ SELECT id::text AS id, state
 FROM interview.sessions
 WHERE campaign_id = sqlc.arg(campaign_id)::uuid
   AND candidate_id = sqlc.arg(candidate_id)::uuid
-  AND mode = 'screening';
+  AND mode = 'screening'
+ORDER BY created_at DESC
+LIMIT 1;
 
 -- name: InsertInterruption :exec
 -- Records one interruption. Append-only: a later interruption is a new row.

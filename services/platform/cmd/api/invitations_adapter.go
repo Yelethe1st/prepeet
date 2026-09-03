@@ -201,3 +201,13 @@ func (a invitationsAdapter) DecideAccommodation(ctx context.Context, tenantID, c
 	}
 	return nil
 }
+
+var _ api.ReInvitations = invitationsAdapter{}
+
+// AuthorizeReInvitation records the recruiter's decision. The store refuses an
+// empty reason or decider, so the schema's requirement is met with a clean
+// error rather than a constraint violation.
+func (a invitationsAdapter) AuthorizeReInvitation(ctx context.Context, tenantID, campaignID, candidateID, reason, decidedBy, interruptedSession string) error {
+	_, err := a.store.AuthorizeReInvitation(ctx, tenantID, campaignID, candidateID, reason, decidedBy, interruptedSession)
+	return err
+}

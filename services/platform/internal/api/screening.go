@@ -34,6 +34,9 @@ var (
 	// ErrScreeningInvitationNotLive means the invitation cannot be acted on:
 	// expired, revoked, or already answered.
 	ErrScreeningInvitationNotLive = errors.New("api: the invitation is not live")
+	// ErrReInvitationRequired means the candidate already has a session for the
+	// campaign and holds no re-invitation authorizing another.
+	ErrReInvitationRequired = errors.New("api: a re-invitation is required to start again")
 )
 
 // ScreeningInvitations is what this package needs of the candidate side of
@@ -255,6 +258,10 @@ func (h *screeningHandlers) startScreeningFailure(ctx context.Context, err error
 		base.status = http.StatusConflict
 		base.code = "CAMPAIGN_NOT_OPEN"
 		base.message = "This campaign is not open, so it admits no new sessions."
+	case errors.Is(err, ErrReInvitationRequired):
+		base.status = http.StatusConflict
+		base.code = "RE_INVITATION_REQUIRED"
+		base.message = "You have already taken this interview. Starting again needs the employer to re-invite you."
 	}
 	return base
 }

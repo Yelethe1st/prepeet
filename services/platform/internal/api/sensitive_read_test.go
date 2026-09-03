@@ -57,7 +57,7 @@ func serveWithAuditor(t *testing.T, auditor api.SensitiveReadAuditor) http.Handl
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		Settings:    &stubSettings{},
-		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), ReInvitations: defaultStubInvitations(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
 		SensitiveReads: auditor, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -115,7 +115,7 @@ func TestAnActorRefusedByTheHandlerIsAuditedAsDenied(t *testing.T) {
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{err: api.ErrSessionMissing},
 		Members: &fakeMembers{}, Billing: &fakeBilling{}, Progression: &stubProgression{},
 		Settings:    &stubSettings{},
-		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), ReInvitations: defaultStubInvitations(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
 		SensitiveReads: auditor, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
@@ -192,7 +192,7 @@ func TestTheServerRefusesToStartWithoutAnAuditor(t *testing.T) {
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		Settings:    &stubSettings{},
-		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), ReInvitations: defaultStubInvitations(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
 		Environment: config.EnvironmentLocal,
 	})
 

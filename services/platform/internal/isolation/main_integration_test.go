@@ -227,6 +227,7 @@ func newServer() (http.Handler, error) {
 		CandidateAccommodations: undriven{},
 		RecruiterAccommodations: undriven{},
 		Requirements:            undriven{},
+		ReInvitations:           undriven{},
 		Environment:             config.EnvironmentLocal,
 	})
 }
@@ -257,6 +258,7 @@ type undriven struct {
 	api.CandidateAccommodations
 	api.RecruiterAccommodations
 	api.Requirements
+	api.ReInvitations
 }
 
 // liveIdentity presents the identity context as the port the API declared,

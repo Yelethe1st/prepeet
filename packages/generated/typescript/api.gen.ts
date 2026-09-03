@@ -1101,6 +1101,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/candidates/{candidateId}/re-invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let a candidate take the interview again
+         * @description A recruiter's decision to let one candidate take one further screening
+         *     session, with the reason recorded. The platform never re-invites on its
+         *     own initiative: this is the named human decision that authorizes a
+         *     restart, and each authorization admits exactly one further attempt. The
+         *     decider is the recruiter's own session, never the body. The interrupted
+         *     session's evidence is retained separately and never merged. Scoped to the
+         *     recruiters on the campaign by the same join that scopes the rest of it.
+         */
+        post: operations["authorizeReInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/accommodations/{requestId}/decision": {
         parameters: {
             query?: never;
@@ -4749,6 +4775,40 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    authorizeReInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    /** Format: uuid */
+                    interrupted_session?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Authorized. The candidate may take the interview once more. */
+            204: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     decideAccommodation: {

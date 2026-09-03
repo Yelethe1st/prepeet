@@ -78,7 +78,7 @@ func serveMembers(t *testing.T, identity *authorizingIdentity, members *fakeMemb
 		Members:     members,
 		Billing:     &fakeBilling{},
 		Settings:    &stubSettings{},
-		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), ReInvitations: defaultStubInvitations(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
 		SensitiveReads: &recordingAuditor{},
 		Progression:    &stubProgression{},
 		Environment:    config.EnvironmentLocal,
@@ -289,7 +289,7 @@ func serveBilling(t *testing.T, identity *authorizingIdentity, billing *fakeBill
 		Progression:    &stubProgression{},
 		SensitiveReads: &recordingAuditor{},
 		Settings:       &stubSettings{},
-		Invitations:    defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations:    defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), ReInvitations: defaultStubInvitations(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

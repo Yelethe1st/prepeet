@@ -205,7 +205,7 @@ func progressionRequest(t *testing.T, path string, stub *stubProgression, token 
 	handler, err := api.NewServer(api.ServerConfig{
 		Identity: identity, Candidates: &fakeCandidates{}, Documents: &fakeDocuments{},
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
-		Billing: &fakeBilling{}, Progression: stub, Settings: &stubSettings{}, Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Billing: &fakeBilling{}, Progression: stub, Settings: &stubSettings{}, Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), ReInvitations: defaultStubInvitations(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
 		SensitiveReads: &recordingAuditor{}, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

@@ -1830,6 +1830,50 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /campaigns/{campaignId}/candidates/{candidateId}/re-invitation:
+    post:
+      tags: [recruiting]
+      operationId: authorizeReInvitation
+      x-prepeet-capability: campaign.read
+      summary: Let a candidate take the interview again
+      description: |
+        A recruiter's decision to let one candidate take one further screening
+        session, with the reason recorded. The platform never re-invites on its
+        own initiative: this is the named human decision that authorizes a
+        restart, and each authorization admits exactly one further attempt. The
+        decider is the recruiter's own session, never the body. The interrupted
+        session's evidence is retained separately and never merged. Scoped to the
+        recruiters on the campaign by the same join that scopes the rest of it.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: candidateId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1 }
+                interrupted_session: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Authorized. The candidate may take the interview once more.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /campaigns/{campaignId}/accommodations/{requestId}/decision:
     post:
       tags: [recruiting]

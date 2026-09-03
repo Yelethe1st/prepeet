@@ -255,6 +255,60 @@ func (q *Queries) AccommodationsForSession(ctx context.Context, sessionID string
 	return items, nil
 }
 
+const authorizeReInvitation = `-- name: AuthorizeReInvitation :one
+INSERT INTO recruiting.re_invitation
+    (id, campaign_id, tenant_id, candidate_id, reason, decided_by, interrupted_session)
+VALUES ($1, $2, $3, $4, $5, $6, nullif($7::text, '')::uuid)
+RETURNING id, campaign_id, candidate_id, reason, decided_by, interrupted_session, consumed_session, created_at
+`
+
+type AuthorizeReInvitationParams struct {
+	ID                 string
+	CampaignID         string
+	TenantID           string
+	CandidateID        string
+	Reason             string
+	DecidedBy          string
+	InterruptedSession string
+}
+
+type AuthorizeReInvitationRow struct {
+	ID                 string
+	CampaignID         string
+	CandidateID        string
+	Reason             string
+	DecidedBy          string
+	InterruptedSession *string
+	ConsumedSession    *string
+	CreatedAt          time.Time
+}
+
+// Records a recruiter's decision to let a candidate take one further session.
+// The reason and decider are required by the table; this writes them.
+func (q *Queries) AuthorizeReInvitation(ctx context.Context, arg AuthorizeReInvitationParams) (AuthorizeReInvitationRow, error) {
+	row := q.db.QueryRow(ctx, authorizeReInvitation,
+		arg.ID,
+		arg.CampaignID,
+		arg.TenantID,
+		arg.CandidateID,
+		arg.Reason,
+		arg.DecidedBy,
+		arg.InterruptedSession,
+	)
+	var i AuthorizeReInvitationRow
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.CandidateID,
+		&i.Reason,
+		&i.DecidedBy,
+		&i.InterruptedSession,
+		&i.ConsumedSession,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const campaignByID = `-- name: CampaignByID :one
 SELECT id, tenant_id, name, status, role_reference, jurisdiction,
        determination_id, opened_at, closed_at, created_at, created_by
@@ -371,6 +425,48 @@ func (q *Queries) CampaignsUsingArtifact(ctx context.Context, reference string) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const claimReInvitation = `-- name: ClaimReInvitation :one
+UPDATE recruiting.re_invitation
+SET consumed_session = $1::uuid
+WHERE id = (
+    SELECT id FROM recruiting.re_invitation
+    WHERE campaign_id = $2::uuid
+      AND candidate_id = $3::uuid
+      AND consumed_session IS NULL
+    ORDER BY created_at
+    LIMIT 1
+)
+RETURNING id, campaign_id, candidate_id, consumed_session
+`
+
+type ClaimReInvitationParams struct {
+	SessionID   string
+	CampaignID  string
+	CandidateID string
+}
+
+type ClaimReInvitationRow struct {
+	ID              string
+	CampaignID      string
+	CandidateID     string
+	ConsumedSession *string
+}
+
+// The candidate claims their oldest unclaimed re-invitation, binding it to the
+// new session, so one authorization admits exactly one further attempt. Run as
+// the candidate through the claim policy; returns nothing when they hold none.
+func (q *Queries) ClaimReInvitation(ctx context.Context, arg ClaimReInvitationParams) (ClaimReInvitationRow, error) {
+	row := q.db.QueryRow(ctx, claimReInvitation, arg.SessionID, arg.CampaignID, arg.CandidateID)
+	var i ClaimReInvitationRow
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.CandidateID,
+		&i.ConsumedSession,
+	)
+	return i, err
 }
 
 const closeCampaign = `-- name: CloseCampaign :one
@@ -1025,6 +1121,60 @@ func (q *Queries) PinsForCampaign(ctx context.Context, campaignID string) ([]Pin
 			&i.Reference,
 			&i.Version,
 			&i.PinnedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reInvitationsForCandidate = `-- name: ReInvitationsForCandidate :many
+SELECT id, campaign_id, candidate_id, reason, decided_by, interrupted_session, consumed_session, created_at
+FROM recruiting.re_invitation
+WHERE campaign_id = $1 AND candidate_id = $2
+ORDER BY created_at
+`
+
+type ReInvitationsForCandidateParams struct {
+	CampaignID  string
+	CandidateID string
+}
+
+type ReInvitationsForCandidateRow struct {
+	ID                 string
+	CampaignID         string
+	CandidateID        string
+	Reason             string
+	DecidedBy          string
+	InterruptedSession *string
+	ConsumedSession    *string
+	CreatedAt          time.Time
+}
+
+// The re-invitations a candidate holds on a campaign, for the recruiter's
+// audit. Tenant scoping is the policy's.
+func (q *Queries) ReInvitationsForCandidate(ctx context.Context, arg ReInvitationsForCandidateParams) ([]ReInvitationsForCandidateRow, error) {
+	rows, err := q.db.Query(ctx, reInvitationsForCandidate, arg.CampaignID, arg.CandidateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReInvitationsForCandidateRow{}
+	for rows.Next() {
+		var i ReInvitationsForCandidateRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.CandidateID,
+			&i.Reason,
+			&i.DecidedBy,
+			&i.InterruptedSession,
+			&i.ConsumedSession,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

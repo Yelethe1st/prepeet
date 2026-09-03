@@ -54,7 +54,9 @@ type ServerConfig struct {
 	RecruiterAccommodations RecruiterAccommodations
 	// Requirements serves SCR-03's job-context capture and requirement review.
 	Requirements Requirements
-	Environment  config.Environment
+	// ReInvitations serves SCR-08's re-invitation authorization.
+	ReInvitations ReInvitations
+	Environment   config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
 	AgentToken string
@@ -123,6 +125,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.Requirements == nil {
 		return nil, errors.New("api: a Requirements is required")
 	}
+	if cfg.ReInvitations == nil {
+		return nil, errors.New("api: a ReInvitations is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -178,6 +183,7 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		invitations:             cfg.Invitations,
 		recruiterAccommodations: cfg.RecruiterAccommodations,
 		requirements:            cfg.Requirements,
+		reInvitations:           cfg.ReInvitations,
 	}
 	handlers.screeningHandlers = screeningHandlers{
 		authentication: &handlers.authentication,

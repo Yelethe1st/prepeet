@@ -157,6 +157,23 @@ func (a screeningAdapter) StartScreeningSession(ctx context.Context, candidateID
 		return api.StartedScreeningSession{}, api.ErrCampaignNotOpen
 	}
 
+	// One session per accepted invitation. A candidate who already has a
+	// screening session for this campaign is starting again, which the platform
+	// never lets them do on their own: a recruiter must have authorized a
+	// re-invitation, and starting claims it, so one authorization admits exactly
+	// one further attempt. Without one, the restart is refused.
+	newSessionID := id.New().String()
+	if _, hasSession, err := a.sessions.ScreeningPhaseForCandidate(ctx, accepted.CampaignID, candidateID); err != nil {
+		return api.StartedScreeningSession{}, err
+	} else if hasSession {
+		if err := a.store.ClaimReInvitation(ctx, accepted.CampaignID, candidateID, newSessionID); err != nil {
+			if errors.Is(err, recruiting.ErrNoReInvitation) {
+				return api.StartedScreeningSession{}, api.ErrReInvitationRequired
+			}
+			return api.StartedScreeningSession{}, err
+		}
+	}
+
 	// Record what the candidate agreed to before the session exists, so a
 	// crash between the two leaves an acceptance without a session rather than
 	// a session nobody consented to.
@@ -179,7 +196,7 @@ func (a screeningAdapter) StartScreeningSession(ctx context.Context, candidateID
 	// sessions live in, and moved straight to composing: creation is the request
 	// to compose, and the worker starts the composition from the created event.
 	session := interview.Session{
-		ID: id.New().String(), Mode: "screening", CandidateID: candidateID,
+		ID: newSessionID, Mode: "screening", CandidateID: candidateID,
 		TenantID: accepted.TenantID, CampaignID: accepted.CampaignID,
 		// The campaign's pinned plan is the plan the composer uses; the blueprint
 		// records which campaign the session belongs to rather than a second

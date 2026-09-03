@@ -79,7 +79,7 @@ func serveSettings(t *testing.T, settings *stubSettings, held ...authz.Capabilit
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: settings,
-		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
+		Invitations: defaultStubInvitations(), ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), ReInvitations: defaultStubInvitations(), Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Recruiting: &stubRecruiting{},
 		Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

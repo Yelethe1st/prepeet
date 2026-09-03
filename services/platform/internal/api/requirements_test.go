@@ -28,7 +28,7 @@ func serveRequirements(t *testing.T, rec *stubRecruiting, req *stubRequirements)
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
 		ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(),
-		Requirements: req, RecruiterAccommodations: defaultStubInvitations(),
+		ReInvitations: defaultStubInvitations(), Requirements: req, RecruiterAccommodations: defaultStubInvitations(),
 		Recruiting: rec, Invitations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
 	})
 	if err != nil {

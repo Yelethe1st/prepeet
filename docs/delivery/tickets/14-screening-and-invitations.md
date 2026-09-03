@@ -385,9 +385,28 @@ A connection or device failure in a screening interview goes to a human, not to 
 policy that quietly advantages whoever has better broadband.
 
 **Done when**
-- [ ] Interruptions are recorded with cause, duration and resulting coverage.
-- [ ] Re-invitation requires a named human decision and records the reason.
+- [x] Interruptions are recorded with cause, duration and resulting coverage.
+- [x] Re-invitation requires a named human decision and records the reason.
 - [ ] The candidate is told what happened and what happens next.
+
+**Two of three; the third waits on RTC-03.** Interruptions are recorded in
+`interview.interruption` with a cause from a closed vocabulary and a duration,
+as a fact independent of the session's state; resulting coverage is the
+session's own evaluation, tied by the session rather than restated here, because
+a coverage number in two places is a number that can disagree with the evidence.
+Recording refuses a session that is not running. Re-invitation is a named human
+decision with a recorded reason at `POST /campaigns/{id}/candidates/{cid}/re-invitation`:
+the decider is the recruiter's session never the body, reason and decider are
+required by the schema, and each authorization admits exactly one further
+attempt, which the start path claims. The platform never re-invites on its own,
+which the start gate enforces: a candidate who already has a session for the
+campaign is refused a second unless a re-invitation authorizes it.
+
+What is left is telling the candidate, and it is honestly blocked, not skipped:
+an interruption is triggered by a real connection drop, which is RTC-03's
+browser recovery chain, unbuilt. Until a drop can occur there is nothing to tell
+the candidate about; the notification is a template and an enqueue on that
+signal, and it lands with RTC-03.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md)
 

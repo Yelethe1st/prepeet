@@ -353,3 +353,35 @@ UPDATE recruiting.campaign_requirement
 SET text = COALESCE(NULLIF(sqlc.arg(text)::text, ''), text), status = sqlc.arg(status)::text
 WHERE id = sqlc.arg(id)::uuid AND campaign_id = sqlc.arg(campaign_id)::uuid
 RETURNING id, campaign_id, text, span_start, span_end, status, extraction_version, created_at;
+
+-- name: AuthorizeReInvitation :one
+-- Records a recruiter's decision to let a candidate take one further session.
+-- The reason and decider are required by the table; this writes them.
+INSERT INTO recruiting.re_invitation
+    (id, campaign_id, tenant_id, candidate_id, reason, decided_by, interrupted_session)
+VALUES ($1, $2, $3, $4, $5, $6, nullif(sqlc.arg(interrupted_session)::text, '')::uuid)
+RETURNING id, campaign_id, candidate_id, reason, decided_by, interrupted_session, consumed_session, created_at;
+
+-- name: ReInvitationsForCandidate :many
+-- The re-invitations a candidate holds on a campaign, for the recruiter's
+-- audit. Tenant scoping is the policy's.
+SELECT id, campaign_id, candidate_id, reason, decided_by, interrupted_session, consumed_session, created_at
+FROM recruiting.re_invitation
+WHERE campaign_id = $1 AND candidate_id = $2
+ORDER BY created_at;
+
+-- name: ClaimReInvitation :one
+-- The candidate claims their oldest unclaimed re-invitation, binding it to the
+-- new session, so one authorization admits exactly one further attempt. Run as
+-- the candidate through the claim policy; returns nothing when they hold none.
+UPDATE recruiting.re_invitation
+SET consumed_session = sqlc.arg(session_id)::uuid
+WHERE id = (
+    SELECT id FROM recruiting.re_invitation
+    WHERE campaign_id = sqlc.arg(campaign_id)::uuid
+      AND candidate_id = sqlc.arg(candidate_id)::uuid
+      AND consumed_session IS NULL
+    ORDER BY created_at
+    LIMIT 1
+)
+RETURNING id, campaign_id, candidate_id, consumed_session;

@@ -52,7 +52,9 @@ type ServerConfig struct {
 	CandidateAccommodations CandidateAccommodations
 	// RecruiterAccommodations serves SCR-06's recruiter decision.
 	RecruiterAccommodations RecruiterAccommodations
-	Environment             config.Environment
+	// Requirements serves SCR-03's job-context capture and requirement review.
+	Requirements Requirements
+	Environment  config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
 	AgentToken string
@@ -118,6 +120,9 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 	if cfg.RecruiterAccommodations == nil {
 		return nil, errors.New("api: a RecruiterAccommodations is required")
 	}
+	if cfg.Requirements == nil {
+		return nil, errors.New("api: a Requirements is required")
+	}
 
 	handlers := &server{
 		authentication: authentication{
@@ -172,6 +177,7 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		campaigns:               cfg.Recruiting,
 		invitations:             cfg.Invitations,
 		recruiterAccommodations: cfg.RecruiterAccommodations,
+		requirements:            cfg.Requirements,
 	}
 	handlers.screeningHandlers = screeningHandlers{
 		authentication: &handlers.authentication,

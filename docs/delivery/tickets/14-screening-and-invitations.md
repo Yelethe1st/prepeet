@@ -155,9 +155,31 @@ The job description or role context the interview draws on, extracted into requi
 report evidence against.
 
 **Done when**
-- [ ] Requirements are extracted with provenance and are reviewable by the recruiter before issue.
-- [ ] The recruiter can correct an extracted requirement.
-- [ ] Requirements are pinned into the campaign configuration.
+- [x] Requirements are extracted with provenance and are reviewable by the recruiter before issue.
+- [x] The recruiter can correct an extracted requirement.
+- [x] Requirements are pinned into the campaign configuration.
+
+A recruiter submits the job description at `PUT /campaigns/{id}/job-context`,
+which stores it verbatim and replaces the campaign's requirements with a fresh
+extraction. Each requirement carries the half-open span of the source it came
+from, in the same shape a candidate fact's provenance takes, and a test asserts
+those spans index back into the exact stored bytes. Extraction is the
+deterministic floor PRO-03 set for the CV side: rules over text, behind a
+`RequirementExtractor` port, so a model-backed extractor is a later swap of one
+argument in composition rather than a rewrite. The recruiter reviews at
+`GET /campaigns/{id}/requirements` and corrects or rejects one at
+`PATCH /campaigns/{id}/requirements/{reqId}`; a correction changes the wording
+and keeps the span, because where a requirement came from does not change when
+its wording is fixed. Everything is scoped to the recruiters on the campaign by
+the same join that scopes the rest of it.
+
+"Pinned into the campaign configuration" is a freeze rather than a copy: a
+draft campaign builds and corrects its requirements freely, and the moment it
+opens a trigger refuses any further change, exactly as `campaign_pin` freezes
+the artifacts. A test opens a campaign and asserts that neither a correction nor
+a resubmission can touch its requirements afterwards. EVL-06 reports evidence
+against these; a model-backed extractor is the honest next improvement, behind
+the same port and provenance contract.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md)
 

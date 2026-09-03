@@ -309,3 +309,47 @@ SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
        issued_at, expires_at, outcome, outcome_at
 FROM recruiting.invitation
 WHERE campaign_id = $1 AND accepted_candidate = $2 AND outcome = 'accepted';
+
+-- name: UpsertJobContext :exec
+-- The job context, one per campaign, replaced wholesale on resubmission. The
+-- source is stored verbatim so requirement spans index into the exact bytes.
+INSERT INTO recruiting.job_context (campaign_id, tenant_id, source_text, extraction_version)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (campaign_id) DO UPDATE
+SET source_text = EXCLUDED.source_text,
+    extraction_version = EXCLUDED.extraction_version,
+    submitted_at = now();
+
+-- name: JobContextFor :one
+SELECT campaign_id, source_text, extraction_version, submitted_at
+FROM recruiting.job_context
+WHERE campaign_id = $1;
+
+-- name: DeleteRequirementsForCampaign :exec
+-- Clears a draft campaign's requirements before a fresh extraction replaces
+-- them. The freeze trigger refuses this once the campaign has opened, so a
+-- running campaign's requirements cannot be cleared out from under it.
+DELETE FROM recruiting.campaign_requirement WHERE campaign_id = $1;
+
+-- name: InsertRequirement :one
+INSERT INTO recruiting.campaign_requirement
+    (id, campaign_id, tenant_id, text, span_start, span_end, extraction_version)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, campaign_id, text, span_start, span_end, status, extraction_version, created_at;
+
+-- name: RequirementsForCampaign :many
+-- The campaign's requirements, in the order they were extracted, so the recruiter
+-- reads them against the job description's own order. Tenant scoping is the policy's.
+SELECT id, campaign_id, text, span_start, span_end, status, extraction_version, created_at
+FROM recruiting.campaign_requirement
+WHERE campaign_id = $1
+ORDER BY created_at, id;
+
+-- name: CorrectRequirement :one
+-- Correct or reject one requirement on one campaign. Scoped by campaign_id so a
+-- recruiter admitted to one campaign cannot rewrite another's requirement by id;
+-- the freeze trigger refuses it once the campaign has opened.
+UPDATE recruiting.campaign_requirement
+SET text = COALESCE(NULLIF(sqlc.arg(text)::text, ''), text), status = sqlc.arg(status)::text
+WHERE id = sqlc.arg(id)::uuid AND campaign_id = sqlc.arg(campaign_id)::uuid
+RETURNING id, campaign_id, text, span_start, span_end, status, extraction_version, created_at;

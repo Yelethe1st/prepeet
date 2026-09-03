@@ -118,7 +118,7 @@ func serveScreening(t *testing.T, stub *stubScreening) http.Handler {
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
 		Recruiting: &stubRecruiting{}, Invitations: defaultStubInvitations(),
-		ScreeningInvitations: stub, CandidateAccommodations: stub, RecruiterAccommodations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
+		ScreeningInvitations: stub, CandidateAccommodations: stub, Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -368,7 +368,7 @@ func serveScreeningAuthed(t *testing.T, stub *stubScreening) http.Handler {
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
 		Recruiting: &stubRecruiting{}, Invitations: defaultStubInvitations(),
-		ScreeningInvitations: stub, CandidateAccommodations: stub, RecruiterAccommodations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
+		ScreeningInvitations: stub, CandidateAccommodations: stub, Requirements: defaultStubRequirements(), RecruiterAccommodations: defaultStubInvitations(), Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

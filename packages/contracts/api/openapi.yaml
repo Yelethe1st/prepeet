@@ -1279,6 +1279,147 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /campaigns/{campaignId}/job-context:
+    put:
+      tags: [recruiting]
+      operationId: submitJobContext
+      x-prepeet-capability: campaign.read
+      summary: Set the job description and extract its requirements
+      description: |
+        Stores the job description a screening campaign draws on and replaces its
+        requirements with a fresh extraction. Each requirement carries the span
+        of the source it came from, so it is reviewable in context and auditable
+        later. Resubmitting replaces both the source and the requirements
+        wholesale, because the old spans were measured in the old text. Only a
+        draft campaign accepts this: once the campaign opens its requirements are
+        frozen. Scoped to the recruiters on the campaign by the same join that
+        scopes reading it.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_text]
+              properties:
+                source_text: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: The requirements extracted from the job description.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementList"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The campaign has opened, so its requirements are frozen.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [recruiting]
+      operationId: listRequirements
+      x-prepeet-capability: campaign.read
+      summary: The requirements extracted for a campaign
+      description: |
+        The campaign's requirements in the order they were extracted, each with
+        its provenance span and its state: proposed until a recruiter acts,
+        corrected when they edit it, rejected when they remove it. Scoped to the
+        recruiters on the campaign.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The requirements, in source order.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /campaigns/{campaignId}/requirements/{requirementId}:
+    patch:
+      tags: [recruiting]
+      operationId: correctRequirement
+      x-prepeet-capability: campaign.read
+      summary: Correct or reject an extracted requirement
+      description: |
+        A recruiter fixes an extracted requirement's wording or rejects one that
+        should not be judged against. The provenance span is untouched: where a
+        requirement came from does not change when its wording is fixed. Only
+        while the campaign is a draft; once it opens the requirements are frozen.
+        Scoped to the campaign, so a recruiter cannot rewrite another campaign's
+        requirement by its id.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: requirementId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                text:
+                  type: string
+                  description: The corrected wording. Omitted or empty leaves the text unchanged.
+                status:
+                  type: string
+                  enum: [corrected, rejected]
+      responses:
+        "200":
+          description: The requirement, as it now stands.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Requirement"
+        "400": { $ref: "#/components/responses/ValidationFailed" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The campaign has opened, so its requirements are frozen.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /campaigns/{campaignId}/invitations:
     get:
       tags: [recruiting]
@@ -3301,6 +3442,32 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Campaign"
+
+    Requirement:
+      type: object
+      description: |
+        One requirement a screening interview draws on, linked to the span of the
+        job description it came from so its origin is auditable.
+      required: [id, text, span_start, span_end, status]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string }
+        span_start:
+          type: integer
+          description: Start of the half-open source span [span_start, span_end) this came from.
+        span_end: { type: integer }
+        status:
+          type: string
+          enum: [proposed, corrected, rejected]
+
+    RequirementList:
+      type: object
+      required: [requirements]
+      properties:
+        requirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Requirement"
 
     Invitation:
       type: object

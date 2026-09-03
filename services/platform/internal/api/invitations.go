@@ -78,6 +78,7 @@ type invitationHandlers struct {
 	campaigns               Recruiting
 	invitations             Invitations
 	recruiterAccommodations RecruiterAccommodations
+	requirements            Requirements
 }
 
 func (h *invitationHandlers) caller(ctx context.Context) (Principal, *failure) {

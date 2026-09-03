@@ -105,7 +105,7 @@ func serveInvitations(t *testing.T, recruiting *stubRecruiting, invitations *stu
 		Catalog: &fakeCatalog{}, Interviews: &fakeInterviews{}, Members: &fakeMembers{},
 		Billing: &fakeBilling{}, Progression: &stubProgression{},
 		SensitiveReads: &recordingAuditor{}, Settings: &stubSettings{},
-		ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), RecruiterAccommodations: invitations, Recruiting: recruiting, Invitations: invitations, Environment: config.EnvironmentLocal,
+		ScreeningInvitations: defaultStubScreening(), CandidateAccommodations: defaultStubScreening(), Requirements: defaultStubRequirements(), RecruiterAccommodations: invitations, Recruiting: recruiting, Invitations: invitations, Environment: config.EnvironmentLocal,
 	})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -280,3 +280,40 @@ func TestResendReturnsAFreshInvitation(t *testing.T) {
 		t.Fatalf("resend issuer = %q, want session user", inv.sawIssuedBy)
 	}
 }
+
+// stubRequirements records what the requirement handlers asked and returns what
+// the test set.
+type stubRequirements struct {
+	requirements []api.Requirement
+	corrected    api.Requirement
+	sawSource    string
+	sawCorrectID string
+	submitErr    error
+	listErr      error
+	correctErr   error
+}
+
+func (s *stubRequirements) SubmitJobContext(_ context.Context, tenantID, campaignID, sourceText string) ([]api.Requirement, error) {
+	s.sawSource = sourceText
+	if s.submitErr != nil {
+		return nil, s.submitErr
+	}
+	return s.requirements, nil
+}
+
+func (s *stubRequirements) ListRequirements(_ context.Context, tenantID, campaignID string) ([]api.Requirement, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	return s.requirements, nil
+}
+
+func (s *stubRequirements) CorrectRequirement(_ context.Context, tenantID, campaignID, requirementID, text, status string) (api.Requirement, error) {
+	s.sawCorrectID = requirementID
+	if s.correctErr != nil {
+		return api.Requirement{}, s.correctErr
+	}
+	return s.corrected, nil
+}
+
+func defaultStubRequirements() *stubRequirements { return &stubRequirements{} }

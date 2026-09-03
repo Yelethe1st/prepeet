@@ -400,6 +400,55 @@ func (q *Queries) CloseCampaign(ctx context.Context, id string) (RecruitingCampa
 	return i, err
 }
 
+const correctRequirement = `-- name: CorrectRequirement :one
+UPDATE recruiting.campaign_requirement
+SET text = COALESCE(NULLIF($1::text, ''), text), status = $2::text
+WHERE id = $3::uuid AND campaign_id = $4::uuid
+RETURNING id, campaign_id, text, span_start, span_end, status, extraction_version, created_at
+`
+
+type CorrectRequirementParams struct {
+	Text       string
+	Status     string
+	ID         string
+	CampaignID string
+}
+
+type CorrectRequirementRow struct {
+	ID                string
+	CampaignID        string
+	Text              string
+	SpanStart         int32
+	SpanEnd           int32
+	Status            string
+	ExtractionVersion string
+	CreatedAt         time.Time
+}
+
+// Correct or reject one requirement on one campaign. Scoped by campaign_id so a
+// recruiter admitted to one campaign cannot rewrite another's requirement by id;
+// the freeze trigger refuses it once the campaign has opened.
+func (q *Queries) CorrectRequirement(ctx context.Context, arg CorrectRequirementParams) (CorrectRequirementRow, error) {
+	row := q.db.QueryRow(ctx, correctRequirement,
+		arg.Text,
+		arg.Status,
+		arg.ID,
+		arg.CampaignID,
+	)
+	var i CorrectRequirementRow
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Text,
+		&i.SpanStart,
+		&i.SpanEnd,
+		&i.Status,
+		&i.ExtractionVersion,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createCampaign = `-- name: CreateCampaign :one
 INSERT INTO recruiting.campaign (id, tenant_id, name, role_reference, jurisdiction, created_by)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -486,6 +535,18 @@ func (q *Queries) DeclineInvitationByToken(ctx context.Context, tokenHash string
 	return i, err
 }
 
+const deleteRequirementsForCampaign = `-- name: DeleteRequirementsForCampaign :exec
+DELETE FROM recruiting.campaign_requirement WHERE campaign_id = $1
+`
+
+// Clears a draft campaign's requirements before a fresh extraction replaces
+// them. The freeze trigger refuses this once the campaign has opened, so a
+// running campaign's requirements cannot be cleared out from under it.
+func (q *Queries) DeleteRequirementsForCampaign(ctx context.Context, campaignID string) error {
+	_, err := q.db.Exec(ctx, deleteRequirementsForCampaign, campaignID)
+	return err
+}
+
 const determinationByID = `-- name: DeterminationByID :one
 SELECT id, jurisdiction, version, result_disclosure, appeal_status, approver, approved_at
 FROM recruiting.jurisdiction_determination
@@ -538,6 +599,58 @@ func (q *Queries) GrantCampaignAccess(ctx context.Context, arg GrantCampaignAcce
 		arg.GrantedBy,
 	)
 	return err
+}
+
+const insertRequirement = `-- name: InsertRequirement :one
+INSERT INTO recruiting.campaign_requirement
+    (id, campaign_id, tenant_id, text, span_start, span_end, extraction_version)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, campaign_id, text, span_start, span_end, status, extraction_version, created_at
+`
+
+type InsertRequirementParams struct {
+	ID                string
+	CampaignID        string
+	TenantID          string
+	Text              string
+	SpanStart         int32
+	SpanEnd           int32
+	ExtractionVersion string
+}
+
+type InsertRequirementRow struct {
+	ID                string
+	CampaignID        string
+	Text              string
+	SpanStart         int32
+	SpanEnd           int32
+	Status            string
+	ExtractionVersion string
+	CreatedAt         time.Time
+}
+
+func (q *Queries) InsertRequirement(ctx context.Context, arg InsertRequirementParams) (InsertRequirementRow, error) {
+	row := q.db.QueryRow(ctx, insertRequirement,
+		arg.ID,
+		arg.CampaignID,
+		arg.TenantID,
+		arg.Text,
+		arg.SpanStart,
+		arg.SpanEnd,
+		arg.ExtractionVersion,
+	)
+	var i InsertRequirementRow
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Text,
+		&i.SpanStart,
+		&i.SpanEnd,
+		&i.Status,
+		&i.ExtractionVersion,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const invitationByID = `-- name: InvitationByID :one
@@ -701,6 +814,31 @@ func (q *Queries) IssueInvitation(ctx context.Context, arg IssueInvitationParams
 		&i.ExpiresAt,
 		&i.Outcome,
 		&i.OutcomeAt,
+	)
+	return i, err
+}
+
+const jobContextFor = `-- name: JobContextFor :one
+SELECT campaign_id, source_text, extraction_version, submitted_at
+FROM recruiting.job_context
+WHERE campaign_id = $1
+`
+
+type JobContextForRow struct {
+	CampaignID        string
+	SourceText        string
+	ExtractionVersion string
+	SubmittedAt       time.Time
+}
+
+func (q *Queries) JobContextFor(ctx context.Context, campaignID string) (JobContextForRow, error) {
+	row := q.db.QueryRow(ctx, jobContextFor, campaignID)
+	var i JobContextForRow
+	err := row.Scan(
+		&i.CampaignID,
+		&i.SourceText,
+		&i.ExtractionVersion,
+		&i.SubmittedAt,
 	)
 	return i, err
 }
@@ -1072,6 +1210,55 @@ func (q *Queries) RequestAccommodation(ctx context.Context, arg RequestAccommoda
 	return i, err
 }
 
+const requirementsForCampaign = `-- name: RequirementsForCampaign :many
+SELECT id, campaign_id, text, span_start, span_end, status, extraction_version, created_at
+FROM recruiting.campaign_requirement
+WHERE campaign_id = $1
+ORDER BY created_at, id
+`
+
+type RequirementsForCampaignRow struct {
+	ID                string
+	CampaignID        string
+	Text              string
+	SpanStart         int32
+	SpanEnd           int32
+	Status            string
+	ExtractionVersion string
+	CreatedAt         time.Time
+}
+
+// The campaign's requirements, in the order they were extracted, so the recruiter
+// reads them against the job description's own order. Tenant scoping is the policy's.
+func (q *Queries) RequirementsForCampaign(ctx context.Context, campaignID string) ([]RequirementsForCampaignRow, error) {
+	rows, err := q.db.Query(ctx, requirementsForCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RequirementsForCampaignRow{}
+	for rows.Next() {
+		var i RequirementsForCampaignRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.Text,
+			&i.SpanStart,
+			&i.SpanEnd,
+			&i.Status,
+			&i.ExtractionVersion,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveInvitationByToken = `-- name: ResolveInvitationByToken :one
 SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
        issued_at, expires_at, outcome, outcome_at
@@ -1281,5 +1468,33 @@ type SupersedeLiveInvitationsParams struct {
 // keeps the ending it already has.
 func (q *Queries) SupersedeLiveInvitations(ctx context.Context, arg SupersedeLiveInvitationsParams) error {
 	_, err := q.db.Exec(ctx, supersedeLiveInvitations, arg.CampaignID, arg.Recipient)
+	return err
+}
+
+const upsertJobContext = `-- name: UpsertJobContext :exec
+INSERT INTO recruiting.job_context (campaign_id, tenant_id, source_text, extraction_version)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (campaign_id) DO UPDATE
+SET source_text = EXCLUDED.source_text,
+    extraction_version = EXCLUDED.extraction_version,
+    submitted_at = now()
+`
+
+type UpsertJobContextParams struct {
+	CampaignID        string
+	TenantID          string
+	SourceText        string
+	ExtractionVersion string
+}
+
+// The job context, one per campaign, replaced wholesale on resubmission. The
+// source is stored verbatim so requirement spans index into the exact bytes.
+func (q *Queries) UpsertJobContext(ctx context.Context, arg UpsertJobContextParams) error {
+	_, err := q.db.Exec(ctx, upsertJobContext,
+		arg.CampaignID,
+		arg.TenantID,
+		arg.SourceText,
+		arg.ExtractionVersion,
+	)
 	return err
 }

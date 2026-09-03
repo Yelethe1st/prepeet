@@ -839,6 +839,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/job-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The requirements extracted for a campaign
+         * @description The campaign's requirements in the order they were extracted, each with
+         *     its provenance span and its state: proposed until a recruiter acts,
+         *     corrected when they edit it, rejected when they remove it. Scoped to the
+         *     recruiters on the campaign.
+         */
+        get: operations["listRequirements"];
+        /**
+         * Set the job description and extract its requirements
+         * @description Stores the job description a screening campaign draws on and replaces its
+         *     requirements with a fresh extraction. Each requirement carries the span
+         *     of the source it came from, so it is reviewable in context and auditable
+         *     later. Resubmitting replaces both the source and the requirements
+         *     wholesale, because the old spans were measured in the old text. Only a
+         *     draft campaign accepts this: once the campaign opens its requirements are
+         *     frozen. Scoped to the recruiters on the campaign by the same join that
+         *     scopes reading it.
+         */
+        put: operations["submitJobContext"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/requirements/{requirementId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Correct or reject an extracted requirement
+         * @description A recruiter fixes an extracted requirement's wording or rejects one that
+         *     should not be judged against. The provenance span is untouched: where a
+         *     requirement came from does not change when its wording is fixed. Only
+         *     while the campaign is a draft; once it opens the requirements are frozen.
+         *     Scoped to the campaign, so a recruiter cannot rewrite another campaign's
+         *     requirement by its id.
+         */
+        patch: operations["correctRequirement"];
+        trace?: never;
+    };
     "/campaigns/{campaignId}/invitations": {
         parameters: {
             query?: never;
@@ -1997,6 +2056,23 @@ export interface components {
         };
         CampaignList: {
             campaigns: components["schemas"]["Campaign"][];
+        };
+        /**
+         * @description One requirement a screening interview draws on, linked to the span of the
+         *     job description it came from so its origin is auditable.
+         */
+        Requirement: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            /** @description Start of the half-open source span [span_start, span_end) this came from. */
+            span_start: number;
+            span_end: number;
+            /** @enum {string} */
+            status: "proposed" | "corrected" | "rejected";
+        };
+        RequirementList: {
+            requirements: components["schemas"]["Requirement"][];
         };
         Invitation: {
             /** Format: uuid */
@@ -4206,6 +4282,122 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listRequirements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requirements, in source order. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    submitJobContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    source_text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The requirements extracted from the job description. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementList"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The campaign has opened, so its requirements are frozen. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    correctRequirement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                requirementId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The corrected wording. Omitted or empty leaves the text unchanged. */
+                    text?: string;
+                    /** @enum {string} */
+                    status: "corrected" | "rejected";
+                };
+            };
+        };
+        responses: {
+            /** @description The requirement, as it now stands. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Requirement"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The campaign has opened, so its requirements are frozen. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     listInvitations: {

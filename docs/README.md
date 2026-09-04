@@ -32,6 +32,14 @@ The [coverage manifest](COVERAGE.md) maps the earlier consolidated subjects to t
 9. Delivery sequencing and gates under `delivery/`
 10. The implementation backlog under [delivery/tickets/](delivery/tickets/README.md)
 
+For the planned evolution from the deterministic evaluation floor to governed,
+multi-provider model-backed evaluation, read
+[Model-Backed Evaluation, Rubric Composition, and Provider-Neutral Inference](architecture/model-backed-evaluation.md).
+
+For the planned evolution of the live voice loop into a durable, plan-aware,
+coverage-aware interview brain, read
+[Durable, Plan-Aware, Coverage-Aware Interview Controller](architecture/structured-interview-controller.md).
+
 ## Source-of-truth rules
 
 - User-visible behavior belongs in `product/`.

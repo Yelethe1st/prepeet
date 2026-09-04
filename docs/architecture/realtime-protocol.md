@@ -4,6 +4,11 @@
 **Owner:** Web, Go interview, and Python runtime teams  
 **Last updated:** 2026-08-23
 
+The implementable target for durable runtime state, candidate-turn assembly,
+typed model proposals, plan and coverage control, recovery, and server-owned
+completion is specified in the
+[Durable, Plan-Aware, Coverage-Aware Interview Controller](structured-interview-controller.md).
+
 ## Topology
 
 The browser connects directly to the approved realtime provider over WebRTC. Go authorizes the attempt, validates control events, persists authoritative state, and approves Python action proposals. The backend does not proxy audio by default.

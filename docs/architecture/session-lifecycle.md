@@ -4,6 +4,10 @@
 **Owner:** Go interview module  
 **Last updated:** 2026-08-23
 
+The live controller that requests and executes these lifecycle transitions is
+specified in the
+[Durable, Plan-Aware, Coverage-Aware Interview Controller](structured-interview-controller.md).
+
 ## State machine
 
 ```mermaid
@@ -94,4 +98,3 @@ Practice may expose results, coaching, redo, and progression. Screen exposes con
 - quota change after start;
 - practice/screen visibility attempts;
 - retry without duplicate evaluation, usage, or notification.
-

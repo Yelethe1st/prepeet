@@ -276,7 +276,12 @@ export function Wizard({
             Continue
           </Button>
         ) : (
-          <Button type="button" onClick={submit} busy={create.isPending}>
+          <Button
+            type="button"
+            size="lg"
+            onClick={submit}
+            busy={create.isPending}
+          >
             Start composing
           </Button>
         )}

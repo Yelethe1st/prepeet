@@ -155,6 +155,9 @@ describe("the gate", () => {
       name: /start interview/i,
     });
     expect(start).toBeDisabled();
+    // A11Y-01: the journey's primary control is the prototype's btn-lg, a
+    // 44px-plus target, not the 40px default.
+    expect(start.className).toContain("min-h-12");
     expect(screen.getByText(/run the microphone check/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /test microphone/i }));

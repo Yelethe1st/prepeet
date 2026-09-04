@@ -149,4 +149,39 @@ test.describe("accessibility", () => {
 
     expect(visible, `focus styles were ${JSON.stringify(outline)}`).toBe(true);
   });
+
+  /**
+   * A11Y-01: the reduced-motion preference is honoured globally, so it is
+   * honoured by every animation including whichever one is added last. The
+   * blanket collapses durations rather than removing animations, which is
+   * asserted on a real control's transition: per-component checks would
+   * only ever cover the components somebody remembered.
+   */
+  test("reduced motion collapses every animation and transition", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/login");
+
+    const durations = await page
+      .getByRole("button", { name: /continue|sign in/i })
+      .first()
+      .evaluate((node) => {
+        const style = window.getComputedStyle(node);
+        return {
+          transition: style.transitionDuration,
+          animation: style.animationDuration,
+        };
+      });
+
+    for (const duration of [
+      ...durations.transition.split(", "),
+      ...durations.animation.split(", "),
+    ]) {
+      expect(
+        parseFloat(duration),
+        JSON.stringify(durations),
+      ).toBeLessThanOrEqual(0.01);
+    }
+  });
 });

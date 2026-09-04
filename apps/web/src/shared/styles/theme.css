@@ -232,6 +232,34 @@
   }
 
   /*
+   * Reduced motion, ported whole from base.css and global by design
+   * (A11Y-01): a preference honoured per animation is a preference missing
+   * from whichever animation was added last. Durations collapse rather
+   * than animations being removed, so anything waiting on animationend
+   * still fires. The attribute variant is the product's own motion
+   * setting, which wins without the person having to change their whole
+   * operating system.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  [data-motion="reduced"] *,
+  [data-motion="reduced"] *::before,
+  [data-motion="reduced"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /*
    * One focus ring for everything, because a focus style applied per component
    * is a focus style missing from whichever component was added last.
    */

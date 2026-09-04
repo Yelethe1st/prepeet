@@ -463,6 +463,7 @@ function Prepared({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button
             type="button"
+            size="lg"
             disabled={blocked !== null}
             aria-describedby="start-blocked"
             busy={start.isPending}

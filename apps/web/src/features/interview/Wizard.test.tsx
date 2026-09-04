@@ -245,7 +245,11 @@ describe("review and creation", () => {
 
     await walkToReview(user);
     expect(screen.getByText(/senior backend engineer/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /start composing/i }));
+    const submit = screen.getByRole("button", { name: /start composing/i });
+    // A11Y-01: the journey's terminal control is the prototype's btn-lg, a
+    // 44px-plus target, not the 40px default.
+    expect(submit.className).toContain("min-h-12");
+    await user.click(submit);
 
     expect(api.createInterview).toHaveBeenCalledWith({
       mode: "practice",

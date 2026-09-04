@@ -396,6 +396,7 @@ export function LiveScreen({ sessionId }: { sessionId: string }) {
       </p>
       <Button
         type="button"
+        size="lg"
         variant="secondary"
         onClick={() => void endInterview()}
       >

@@ -16,9 +16,27 @@ Focus management, contrast, target sizes, motion preferences and semantic struct
 components rather than retrofitted per page.
 
 **Done when**
-- [ ] Every interactive component is operable by keyboard with a visible focus state.
-- [ ] Minimum 24px targets throughout, 44px for primary candidate controls.
-- [ ] Reduced-motion preference is honoured by every animation.
+- [x] Every interactive component is operable by keyboard with a visible focus state.
+- [x] Minimum 24px targets throughout, 44px for primary candidate controls.
+- [x] Reduced-motion preference is honoured by every animation.
+
+**Done, as global rules rather than per-component effort, because a rule applied per
+component is a rule missing from whichever component was added last.** Keyboard
+operability comes from every interactive element being a native control, and the one
+shared :focus-visible ring in theme.css covers them all; the browser suite pins both
+the visible ring and the skip link against rendered styles, where jsdom is blind.
+Reduced motion is the prototype's base.css blanket, now ported whole: durations
+collapse globally under prefers-reduced-motion (and under the product's own
+data-motion attribute), rather than animations being removed, so anything waiting on
+animationend still fires; a browser test asserts the collapse on a real control's
+computed style. Targets: the smallest control in the system is the 32px small button
+and the 36px theme toggle, both above the 24px floor; inline text links carry the
+inline exception. The journey's primary controls are the prototype's own btn-lg at
+48px, and the audit found two ported screens that had silently dropped to the 40px
+default against the prototype - the prepare screen's start and the wizard's terminal
+submit - both now restored to lg with the size pinned in their tests. The live
+surface's real controls (icon-btn-lg per the prototype) land with RTC-06, which
+A11Y-02 gates.
 
 **Spec** [information-architecture.md](../../product/information-architecture.md)
 

@@ -191,9 +191,26 @@ A dropped connection resumes where it left off, or expires into finalization wit
 recorded as coverage rather than as poor performance.
 
 **Done when**
-- [ ] Resume restores the conversational cursor, the timer snapshot and the phase.
-- [ ] Grace expiry finalizes cleanly and records why.
+- [x] Resume restores the conversational cursor, the timer snapshot and the phase.
+- [x] Grace expiry finalizes cleanly and records why.
 - [ ] The interruption appears in evidence as reduced coverage, never as a low score.
+
+**Two of three; the third is the evaluation-side proof.** The drop is the server's state: an
+accepted connection.lost folds a running session into reconnecting and publishes the catalogue's
+session_interrupted announcement, and recovery - connection.resumed for a same-epoch blip,
+connection.established for a fresh attempt - folds it back, so the machine follows the timeline
+rather than any tab's memory. POST /interviews/{id}/resume opens the next epoch and answers the
+recovery cursor (what the superseded epoch durably holds, the exact gaps owed), a fresh room
+grant, and the timing policy stamped at start, read by version so a policy published mid-session
+never moves a window the candidate is inside; the superseded tab's next batch refuses whole with
+EPOCH_STALE. Expiry is a Temporal timer per drop, started from the session_interrupted event
+("grace-{session}-{attempt}", REJECT_DUPLICATE): when the stamped window lapses without a
+resume, the interruption is recorded with grace_expired as its cause and how long the candidate
+had been gone, and the session seals through the same completion path a candidate's own complete
+runs, announced as expired rather than completed. What remains is proving the sealed-short
+record reaches evaluation as coverage not reached rather than as a low score, which is an
+assertion against the evaluation pipeline, and the browser recovery chain itself, which is
+RTC-03's.
 
 **Spec** [session-lifecycle.md](../../architecture/session-lifecycle.md) · [screen-mode.md](../../product/screen-mode.md)
 

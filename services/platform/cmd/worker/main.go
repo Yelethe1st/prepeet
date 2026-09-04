@@ -85,6 +85,7 @@ func main() {
 	var evaluationFailure outbox.HandlerFunc
 	var evaluationCompleted outbox.HandlerFunc
 	var mediaStart outbox.HandlerFunc
+	var grace outbox.HandlerFunc
 
 	shutdownTelemetry, err := telemetry.Setup(ctx, telemetryConfig)
 	if err != nil {
@@ -157,12 +158,21 @@ func main() {
 			interviewWorker.RegisterActivity(activities.Compose)
 			interviewWorker.RegisterActivity(activities.MarkReady)
 			interviewWorker.RegisterActivity(activities.MarkFailed)
+			// SES-06: the grace timer that finalizes a reconnection window
+			// nobody came back through, sealing with the same completion
+			// path a candidate's own complete runs.
+			interviewWorker.RegisterWorkflow(interview.GraceWorkflow)
+			graceActivities := interview.NewGraceActivities(interview.NewStore(pool),
+				graceCompleter(ctx, cfg, pool, log))
+			interviewWorker.RegisterActivity(graceActivities.RemainingGrace)
+			interviewWorker.RegisterActivity(graceActivities.ExpireGrace)
 			if err := interviewWorker.Start(); err != nil {
 				log.Error("the interview worker did not start", slog.String("error", err.Error()))
 				os.Exit(1)
 			}
 			defer interviewWorker.Stop()
 			composition = startComposition(workflows, interview.NewStore(pool))
+			grace = startGraceTimer(workflows)
 			evaluationFailure = recordEvaluationFailure(interview.NewStore(pool))
 			transition := recordEvaluationCompleted(interview.NewStore(pool))
 			project := appendObservations(evaluation.NewStore(pool), progression.NewStore(pool))
@@ -269,7 +279,7 @@ func main() {
 		}
 	}
 
-	router := routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted, mediaStart)
+	router := routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted, mediaStart, grace)
 	for eventType, disposition := range router.Routes() {
 		log.Info("outbox route registered",
 			slog.String("event_type", eventType),
@@ -351,7 +361,7 @@ func main() {
 // Handlers are registered here rather than by the packages that own them,
 // because a bounded context must not know that another one consumes its events.
 // See ADR-0005.
-func routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted, mediaStart outbox.HandlerFunc) *outbox.Router {
+func routes(extraction, composition, evidence, evaluationFailure, evaluationCompleted, mediaStart, grace outbox.HandlerFunc) *outbox.Router {
 	router := outbox.NewRouter()
 
 	// PRO-03: an uploaded document starts its extraction workflow. Registered
@@ -382,6 +392,13 @@ func routes(extraction, composition, evidence, evaluationFailure, evaluationComp
 	}
 	if mediaStart != nil {
 		router.Handle("interview.session_started.v1", mediaStart)
+	}
+
+	// SES-06: an interrupted session's grace timer, one per drop. Without a
+	// worker the events dead letter, which is the visible form of "nothing
+	// is timing reconnection windows here".
+	if grace != nil {
+		router.Handle("interview.session_interrupted.v1", grace)
 	}
 
 	// Further registrations land with the tickets that produce the events:

@@ -132,8 +132,17 @@ func (c *Completer) WithMedia(recorder Recorder, prober Prober) *Completer {
 }
 
 // Complete seals a running session at the given final cursor and moves it
-// through finalizing into evaluating.
+// through finalizing into evaluating, as the candidate's own act.
 func (c *Completer) Complete(ctx context.Context, sessionID, mode, candidateID, tenantID string, finalEpoch, finalSequence int) (Receipt, error) {
+	return c.complete(ctx, sessionID, mode, candidateID, tenantID, finalEpoch, finalSequence,
+		Actor{ID: candidateID, Type: "user"}, "completed")
+}
+
+// complete is the sealing path every completion shares. The actor and the
+// completion kind are the callers' only real difference: the candidate
+// completes as themselves, and SES-06's grace expiry completes as the
+// service acting for them, announced as expired rather than completed.
+func (c *Completer) complete(ctx context.Context, sessionID, mode, candidateID, tenantID string, finalEpoch, finalSequence int, actor Actor, completion string) (Receipt, error) {
 	session, err := c.store.Get(ctx, sessionID, mode, candidateID, tenantID)
 	if err != nil {
 		return Receipt{}, err
@@ -225,10 +234,9 @@ func (c *Completer) Complete(ctx context.Context, sessionID, mode, candidateID, 
 	// The transitions carry the machine's own idempotency: a crash between
 	// seal and transition retries into the receipt path above, and a stale
 	// version means a concurrent completion won.
-	actor := Actor{ID: candidateID, Type: "user"}
-	event, err := completedEvent(session, transcript)
-	if err != nil {
-		return Receipt{}, err
+	event, eventErr := completedEvent(session, transcript, completion)
+	if eventErr != nil {
+		return Receipt{}, eventErr
 	}
 	finalizing, err := c.store.Transition(ctx, session, StateFinalizing, Effects{Event: event}, actor)
 	if err != nil && !errors.Is(err, ErrStaleVersion) {
@@ -437,8 +445,10 @@ func transcriptDigest(transcript Transcript) (string, error) {
 	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
-// completedEvent builds the catalogue's session_completed event.
-func completedEvent(session Session, transcript Transcript) (*outbox.Event, error) {
+// completedEvent builds the catalogue's session_completed event. The
+// completion names how it ended - completed by the candidate, or expired by
+// the grace window - from the schema's own closed set.
+func completedEvent(session Session, transcript Transcript, completion string) (*outbox.Event, error) {
 	turns := 0
 	for _, segment := range transcript.EffectiveText() {
 		if segment.Speaker == "candidate" {
@@ -451,7 +461,7 @@ func completedEvent(session Session, transcript Transcript) (*outbox.Event, erro
 	duration := ActiveSeconds(transcript.EffectiveText())
 	payload, err := json.Marshal(map[string]any{
 		"session_id":       session.ID,
-		"completion":       "completed",
+		"completion":       completion,
 		"turn_count":       turns,
 		"duration_seconds": duration,
 	})

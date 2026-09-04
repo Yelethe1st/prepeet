@@ -110,6 +110,38 @@ func workflowStartingRoutes() map[string]struct {
 			},
 			wantID: "articulation-ses-1",
 		},
+		"grace": {
+			handler: startGraceTimer,
+			event: func(t *testing.T) outbox.Pending {
+				return event(t, "interview.session_interrupted.v1", map[string]any{
+					"session_id": "ses-1", "reason": "network",
+					"resumable": true, "attempt": 1,
+				})
+			},
+			// Session AND attempt: a later drop restarts the window and must
+			// get its own timer, while a redelivery of the same drop joins
+			// the running one.
+			wantID: "grace-ses-1-1",
+		},
+	}
+}
+
+// An announcement that is not resumable carries no window to time: handled
+// by doing nothing, because for screening the platform never re-invites on
+// its own and an error here would retry the event into a dead letter.
+func TestGraceIgnoresAnUnresumableInterruption(t *testing.T) {
+	workflows := &fakeWorkflows{}
+
+	if err := startGraceTimer(workflows)(context.Background(),
+		event(t, "interview.session_interrupted.v1", map[string]any{
+			"session_id": "ses-1", "reason": "candidate_left",
+			"resumable": false, "attempt": 1,
+		})); err != nil {
+		t.Fatalf("unresumable interruption: %v", err)
+	}
+
+	if len(workflows.started) != 0 {
+		t.Fatalf("a timer started for a window that does not exist: %v", workflows.started)
 	}
 }
 

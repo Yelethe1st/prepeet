@@ -159,7 +159,7 @@ func TestRetryingFailedWorkTwiceEvaluatesOnce(t *testing.T) {
 	// path: the console only moves the row, and delivery happens where it
 	// always happens.
 	firstRun, stopFirst := context.WithCancel(ctx)
-	go outbox.NewDispatcher(store, routes(nil, nil, route, nil, nil, nil), nil,
+	go outbox.NewDispatcher(store, routes(nil, nil, route, nil, nil, nil, nil), nil,
 		outbox.DispatcherOptions{PollInterval: 50 * time.Millisecond, Logger: quiet}).Run(firstRun)
 
 	if err := console.Retry(ctx, operator, eventID, "the evaluation worker is back"); err != nil {
@@ -194,7 +194,7 @@ func TestRetryingFailedWorkTwiceEvaluatesOnce(t *testing.T) {
 
 	secondRun, stopSecond := context.WithCancel(ctx)
 	defer stopSecond()
-	go outbox.NewDispatcher(store, routes(nil, nil, route, nil, nil, nil), nil,
+	go outbox.NewDispatcher(store, routes(nil, nil, route, nil, nil, nil, nil), nil,
 		outbox.DispatcherOptions{PollInterval: 50 * time.Millisecond, Logger: quiet}).Run(secondRun)
 
 	if err := console.Retry(ctx, operator, eventID, "trying again after the follow-on step was fixed"); err != nil {

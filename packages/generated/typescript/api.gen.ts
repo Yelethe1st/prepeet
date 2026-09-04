@@ -1000,6 +1000,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/sessions/{sessionId}/re-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The appeals raised on one screening
+         * @description Every re-review on the session, oldest first: who asked and why,
+         *     the evidence and configuration frozen at the moment of raising,
+         *     who is assigned, the answer-by time, and the resolution once one
+         *     exists.
+         */
+        get: operations["listReReviews"];
+        put?: never;
+        /**
+         * Raise a re-review of the latest decision
+         * @description Opens an appeal against the session's latest recorded decision,
+         *     freezing what that decision was informed by at this very moment:
+         *     the evaluation's identity and digests, and the bundle the session
+         *     ran. A later re-evaluation or a newer decision never moves the
+         *     freeze - a re-review that read newer evidence than the decision
+         *     did would be reviewing a different question and calling it the
+         *     same one. The requester is the session, never the body.
+         */
+        post: operations["raiseReReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/re-reviews/{reReviewId}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign who answers an open re-review
+         * @description Names the reviewer who answers. The original reviewer is refused
+         *     by name and by the schema's own constraint: the one person who
+         *     cannot re-review a decision is the person who made it.
+         */
+        post: operations["assignReReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/re-reviews/{reReviewId}/resolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve an open re-review, once
+         * @description The assigned reviewer's answer, whole or not recorded: the outcome
+         *     (upheld or revised), the rationale, and the disclosure the
+         *     candidate is permitted. Only the assigned reviewer resolves, the
+         *     original reviewer never can, and a resolved re-review is immutable
+         *     by trigger. A revision changes nothing here: the revised outcome
+         *     is a NEW decision recorded through the append-only decision path.
+         */
+        post: operations["resolveReReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/invitations": {
         parameters: {
             query?: never;
@@ -2388,6 +2468,50 @@ export interface components {
         };
         ReviewDecisionList: {
             decisions: components["schemas"]["ReviewDecisionView"][];
+        };
+        ReReviewView: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            session_id: string;
+            /** Format: uuid */
+            requested_by: string;
+            reason: string;
+            /** Format: uuid */
+            appealed_decision: string;
+            /**
+             * Format: uuid
+             * @description The one person who cannot answer this appeal.
+             */
+            original_reviewer: string;
+            /** @description What the appealed decision was informed by, frozen at raise. */
+            frozen: {
+                /** Format: uuid */
+                evaluation_id: string;
+                result_digest: string;
+                rubric_digest: string;
+                bundle_digest: string;
+            };
+            /** Format: uuid */
+            assigned_to?: string;
+            /** Format: date-time */
+            raised_at: string;
+            /** Format: date-time */
+            due_at: string;
+            /** @description Present exactly when the appeal is answered. */
+            resolution?: {
+                /** @enum {string} */
+                outcome: "upheld" | "revised";
+                rationale: string;
+                candidate_disclosure: string;
+                /** Format: uuid */
+                resolved_by: string;
+                /** Format: date-time */
+                resolved_at: string;
+            };
+        };
+        ReReviewList: {
+            re_reviews: components["schemas"]["ReReviewView"][];
         };
         /**
          * @description Where one invited candidate stands, as a closed vocabulary the
@@ -4871,6 +4995,173 @@ export interface operations {
              *     OVERRIDE_INCOMPLETE for an override missing its rationale or
              *     band, OVERRIDE_UNKNOWN_COMPETENCY for one naming a competency
              *     the evaluation did not assess.
+             */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listReReviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The appeals, oldest first. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReReviewList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    raiseReReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The appeal, raised with its freeze. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReReviewView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description APPEAL_NO_DECISION when nothing has been decided to appeal, or
+             *     REASON_REQUIRED.
+             */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    assignReReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                reReviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    assignee: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The appeal, assigned. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReReviewView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description SELF_REVIEW_FORBIDDEN or APPEAL_RESOLVED. */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resolveReReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                reReviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    outcome: "upheld" | "revised";
+                    rationale: string;
+                    /** @description What the candidate is permitted to be told. */
+                    disclosure: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The appeal, resolved. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReReviewView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description APPEAL_RESOLVED, RESOLVER_NOT_ASSIGNED, SELF_REVIEW_FORBIDDEN
+             *     or RESOLUTION_INCOMPLETE.
              */
             409: {
                 headers: {

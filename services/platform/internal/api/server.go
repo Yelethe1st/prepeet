@@ -63,7 +63,9 @@ type ServerConfig struct {
 	// interview, evaluation and recruiting.
 	Reviews ScreeningReviews
 	// Decisions serves REV-03's named human decisions.
-	Decisions   ReviewDecisions
+	Decisions ReviewDecisions
+	// Appeals serves REV-06's re-review workflow.
+	Appeals     Appeals
 	Environment config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
@@ -208,6 +210,11 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		campaigns:      cfg.Recruiting,
 		decisions:      cfg.Decisions,
 	}
+	handlers.appealHandlers = appealHandlers{
+		authentication: &handlers.authentication,
+		campaigns:      cfg.Recruiting,
+		appeals:        cfg.Appeals,
+	}
 	handlers.screeningHandlers = screeningHandlers{
 		authentication: &handlers.authentication,
 		invitations:    cfg.ScreeningInvitations,
@@ -320,6 +327,7 @@ type server struct {
 	rosterHandlers
 	reviewHandlers
 	decisionHandlers
+	appealHandlers
 	screeningHandlers
 	health *health.Registry
 }

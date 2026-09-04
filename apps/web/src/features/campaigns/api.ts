@@ -73,3 +73,56 @@ export async function recordDecision(
     { method: "POST", body: request },
   );
 }
+
+export type ReReview = components["schemas"]["ReReviewView"];
+
+/** The appeals on one screening, oldest first. */
+export async function fetchAppeals(
+  campaignId: string,
+  sessionId: string,
+): Promise<ReReview[]> {
+  const list = await apiFetch<components["schemas"]["ReReviewList"]>(
+    `/campaigns/${campaignId}/sessions/${sessionId}/re-reviews`,
+  );
+  return list.re_reviews;
+}
+
+/** Raise an appeal against the latest decision. The requester is the session. */
+export async function raiseAppeal(
+  campaignId: string,
+  sessionId: string,
+  reason: string,
+): Promise<ReReview> {
+  return apiFetch<ReReview>(
+    `/campaigns/${campaignId}/sessions/${sessionId}/re-reviews`,
+    { method: "POST", body: { reason } },
+  );
+}
+
+/** Seat the reviewer who answers. Never the original reviewer. */
+export async function assignAppeal(
+  campaignId: string,
+  reReviewId: string,
+  assignee: string,
+): Promise<ReReview> {
+  return apiFetch<ReReview>(
+    `/campaigns/${campaignId}/re-reviews/${reReviewId}/assignment`,
+    { method: "POST", body: { assignee } },
+  );
+}
+
+/** Answer an open appeal, once, whole. The resolver is the session. */
+export async function resolveAppeal(
+  campaignId: string,
+  reReviewId: string,
+  resolution: {
+    outcome: "upheld" | "revised";
+    rationale: string;
+    disclosure: string;
+  },
+): Promise<ReReview> {
+  return apiFetch<ReReview>(
+    `/campaigns/${campaignId}/re-reviews/${reReviewId}/resolution`,
+    { method: "POST", body: resolution },
+  );
+}

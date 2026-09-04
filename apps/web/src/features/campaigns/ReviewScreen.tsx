@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api/client";
 import { Button } from "@/shared/components";
 import { ErrorState, LoadingSurface, SkeletonText } from "@/shared/states";
 
+import { AppealsPanel } from "./AppealsPanel";
 import { DecisionPanel } from "./DecisionPanel";
 import { fetchReview, type ScreeningReview } from "./api";
 
@@ -96,6 +97,7 @@ export function ReviewScreen({
             band: competency.band ?? "",
           }))}
       />
+      <AppealsPanel campaignId={campaignId} sessionId={sessionId} />
     </div>
   );
 }

@@ -1614,6 +1614,208 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /campaigns/{campaignId}/sessions/{sessionId}/re-reviews:
+    get:
+      tags: [recruiting]
+      operationId: listReReviews
+      x-prepeet-capability: evaluation.read_screen
+      summary: The appeals raised on one screening
+      description: |
+        Every re-review on the session, oldest first: who asked and why,
+        the evidence and configuration frozen at the moment of raising,
+        who is assigned, the answer-by time, and the resolution once one
+        exists.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The appeals, oldest first.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReReviewList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [recruiting]
+      operationId: raiseReReview
+      x-prepeet-capability: appeal.raise
+      summary: Raise a re-review of the latest decision
+      description: |
+        Opens an appeal against the session's latest recorded decision,
+        freezing what that decision was informed by at this very moment:
+        the evaluation's identity and digests, and the bundle the session
+        ran. A later re-evaluation or a newer decision never moves the
+        freeze - a re-review that read newer evidence than the decision
+        did would be reviewing a different question and calling it the
+        same one. The requester is the session, never the body.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        "201":
+          description: The appeal, raised with its freeze.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReReviewView"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            APPEAL_NO_DECISION when nothing has been decided to appeal, or
+            REASON_REQUIRED.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /campaigns/{campaignId}/re-reviews/{reReviewId}/assignment:
+    post:
+      tags: [recruiting]
+      operationId: assignReReview
+      x-prepeet-capability: appeal.manage
+      summary: Assign who answers an open re-review
+      description: |
+        Names the reviewer who answers. The original reviewer is refused
+        by name and by the schema's own constraint: the one person who
+        cannot re-review a decision is the person who made it.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: reReviewId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignee]
+              properties:
+                assignee: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The appeal, assigned.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReReviewView"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: SELF_REVIEW_FORBIDDEN or APPEAL_RESOLVED.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /campaigns/{campaignId}/re-reviews/{reReviewId}/resolution:
+    post:
+      tags: [recruiting]
+      operationId: resolveReReview
+      x-prepeet-capability: appeal.manage
+      summary: Resolve an open re-review, once
+      description: |
+        The assigned reviewer's answer, whole or not recorded: the outcome
+        (upheld or revised), the rationale, and the disclosure the
+        candidate is permitted. Only the assigned reviewer resolves, the
+        original reviewer never can, and a resolved re-review is immutable
+        by trigger. A revision changes nothing here: the revised outcome
+        is a NEW decision recorded through the append-only decision path.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: reReviewId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome, rationale, disclosure]
+              properties:
+                outcome:
+                  type: string
+                  enum: [upheld, revised]
+                rationale: { type: string }
+                disclosure:
+                  type: string
+                  description: What the candidate is permitted to be told.
+      responses:
+        "200":
+          description: The appeal, resolved.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReReviewView"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            APPEAL_RESOLVED, RESOLVER_NOT_ASSIGNED, SELF_REVIEW_FORBIDDEN
+            or RESOLUTION_INCOMPLETE.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /campaigns/{campaignId}/invitations:
     get:
       tags: [recruiting]
@@ -3969,6 +4171,55 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ReviewDecisionView"
+
+    ReReviewView:
+      type: object
+      required:
+        [id, session_id, requested_by, reason, appealed_decision,
+         original_reviewer, frozen, raised_at, due_at]
+      properties:
+        id: { type: string, format: uuid }
+        session_id: { type: string, format: uuid }
+        requested_by: { type: string, format: uuid }
+        reason: { type: string }
+        appealed_decision: { type: string, format: uuid }
+        original_reviewer:
+          type: string
+          format: uuid
+          description: The one person who cannot answer this appeal.
+        frozen:
+          type: object
+          description: What the appealed decision was informed by, frozen at raise.
+          required: [evaluation_id, result_digest, rubric_digest, bundle_digest]
+          properties:
+            evaluation_id: { type: string, format: uuid }
+            result_digest: { type: string }
+            rubric_digest: { type: string }
+            bundle_digest: { type: string }
+        assigned_to: { type: string, format: uuid }
+        raised_at: { type: string, format: date-time }
+        due_at: { type: string, format: date-time }
+        resolution:
+          type: object
+          description: Present exactly when the appeal is answered.
+          required: [outcome, rationale, candidate_disclosure, resolved_by, resolved_at]
+          properties:
+            outcome:
+              type: string
+              enum: [upheld, revised]
+            rationale: { type: string }
+            candidate_disclosure: { type: string }
+            resolved_by: { type: string, format: uuid }
+            resolved_at: { type: string, format: date-time }
+
+    ReReviewList:
+      type: object
+      required: [re_reviews]
+      properties:
+        re_reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReReviewView"
 
     RosterStanding:
       type: string

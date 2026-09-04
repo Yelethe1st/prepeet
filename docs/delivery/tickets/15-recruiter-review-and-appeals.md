@@ -179,9 +179,27 @@ Eligibility, request reason, frozen original inputs, assigned reviewer, independ
 SLA, outcome, permitted disclosure and append-only history.
 
 **Done when**
-- [ ] The original evidence and configuration are frozen at the moment the appeal is raised.
-- [ ] Independent assignment is enforced where policy requires it — the original reviewer cannot self-review.
-- [ ] Outcome, rationale and disclosure are recorded and delivered to the permitted parties.
+- [x] The original evidence and configuration are frozen at the moment the appeal is raised.
+- [x] Independent assignment is enforced where policy requires it — the original reviewer cannot self-review.
+- [x] Outcome, rationale and disclosure are recorded and delivered to the permitted parties.
+
+**Done; the candidate's own channel is REV-07's, by this epic's own structure.** Raising an
+appeal (migration 0064) reads the session's latest decision and freezes, in the appeal row
+itself, exactly what that decision was informed by: the evaluation's identity and digests
+from the decision record, and the bundle the session ran - a later re-evaluation or a newer
+decision never moves the freeze, proven by test. Independence is enforced three deep: the
+store refuses seating or resolving by the original reviewer, the schema's own CHECKs refuse
+both even when code is bypassed (the integration test seats them as the migrator and is
+refused), and only the assigned reviewer may resolve. A resolution is whole - outcome from
+the closed upheld/revised set, rationale, and the disclosure the candidate is permitted -
+written once, immutable by trigger thereafter, with a provisional seven-day answer-by time
+that becomes a versioned policy the moment DEC-14's screening policy lands. A revised
+outcome is a NEW decision through REV-03's append-only path, never an edit. Delivery: the
+tenant's reviewers read outcome, rationale and disclosure in the appeal panel on the review
+screen; the candidate's disclosure text is recorded on the row for exactly one consumer,
+REV-07's candidate-facing appeal surface, which this epic already names as the remaining
+gap - and whether the candidate may be told at all remains the jurisdiction determination's
+to decide, which is why the text is recorded rather than pushed.
 
 **Spec** [responsible-hiring.md](../../security/responsible-hiring.md)
 

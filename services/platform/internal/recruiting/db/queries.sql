@@ -415,3 +415,74 @@ FROM recruiting.review_decision
 WHERE session_id = sqlc.arg(session_id)::uuid
   AND campaign_id = sqlc.arg(campaign_id)::uuid
 ORDER BY created_at;
+
+-- ── REV-06: re-review, the appeal against a recorded decision.
+
+-- name: LatestReviewDecision :one
+-- The decision an appeal is raised against: the newest on the session.
+SELECT id, session_id, decided_by, decision, reason, evaluation_id,
+       result_digest, rubric_digest, overrides, created_at
+FROM recruiting.review_decision
+WHERE session_id = sqlc.arg(session_id)::uuid
+  AND campaign_id = sqlc.arg(campaign_id)::uuid
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: RaiseReReview :one
+INSERT INTO recruiting.re_review
+    (id, campaign_id, tenant_id, session_id, requested_by, reason,
+     appealed_decision, original_reviewer, evaluation_id, result_digest,
+     rubric_digest, bundle_digest, due_at)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(campaign_id)::uuid, sqlc.arg(tenant_id)::uuid,
+        sqlc.arg(session_id)::uuid, sqlc.arg(requested_by)::uuid, sqlc.arg(reason)::text,
+        sqlc.arg(appealed_decision)::uuid, sqlc.arg(original_reviewer)::uuid,
+        sqlc.arg(evaluation_id)::uuid, sqlc.arg(result_digest)::text,
+        sqlc.arg(rubric_digest)::text, sqlc.arg(bundle_digest)::text,
+        sqlc.arg(due_at)::timestamptz)
+RETURNING id, session_id, requested_by, reason, appealed_decision,
+          original_reviewer, evaluation_id, result_digest, rubric_digest,
+          bundle_digest, assigned_to, raised_at, due_at, outcome,
+          outcome_rationale, candidate_disclosure, resolved_by, resolved_at;
+
+-- name: AssignReReview :execrows
+-- Assignment while open. The independence CHECK refuses the original
+-- reviewer at the schema; zero rows means no such open appeal on the
+-- campaign, which the store names.
+UPDATE recruiting.re_review
+SET assigned_to = sqlc.arg(assigned_to)::uuid
+WHERE id = sqlc.arg(id)::uuid
+  AND campaign_id = sqlc.arg(campaign_id)::uuid
+  AND outcome IS NULL;
+
+-- name: ResolveReReview :execrows
+-- Resolution, once, by the assigned reviewer themselves. The guards are
+-- the WHERE clause: unresolved, and resolver = assignee; the trigger and
+-- the CHECKs back them at the schema.
+UPDATE recruiting.re_review
+SET outcome = sqlc.arg(outcome)::text,
+    outcome_rationale = sqlc.arg(rationale)::text,
+    candidate_disclosure = sqlc.arg(disclosure)::text,
+    resolved_by = sqlc.arg(resolved_by)::uuid,
+    resolved_at = now()
+WHERE id = sqlc.arg(id)::uuid
+  AND campaign_id = sqlc.arg(campaign_id)::uuid
+  AND outcome IS NULL
+  AND assigned_to = sqlc.arg(resolved_by)::uuid;
+
+-- name: ReReviewByID :one
+SELECT id, session_id, requested_by, reason, appealed_decision,
+       original_reviewer, evaluation_id, result_digest, rubric_digest,
+       bundle_digest, assigned_to, raised_at, due_at, outcome,
+       outcome_rationale, candidate_disclosure, resolved_by, resolved_at
+FROM recruiting.re_review
+WHERE id = sqlc.arg(id)::uuid AND campaign_id = sqlc.arg(campaign_id)::uuid;
+
+-- name: ReReviewsForSession :many
+SELECT id, session_id, requested_by, reason, appealed_decision,
+       original_reviewer, evaluation_id, result_digest, rubric_digest,
+       bundle_digest, assigned_to, raised_at, due_at, outcome,
+       outcome_rationale, candidate_disclosure, resolved_by, resolved_at
+FROM recruiting.re_review
+WHERE session_id = sqlc.arg(session_id)::uuid
+  AND campaign_id = sqlc.arg(campaign_id)::uuid
+ORDER BY raised_at;

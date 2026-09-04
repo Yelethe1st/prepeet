@@ -255,6 +255,31 @@ func (q *Queries) AccommodationsForSession(ctx context.Context, sessionID string
 	return items, nil
 }
 
+const assignReReview = `-- name: AssignReReview :execrows
+UPDATE recruiting.re_review
+SET assigned_to = $1::uuid
+WHERE id = $2::uuid
+  AND campaign_id = $3::uuid
+  AND outcome IS NULL
+`
+
+type AssignReReviewParams struct {
+	AssignedTo string
+	ID         string
+	CampaignID string
+}
+
+// Assignment while open. The independence CHECK refuses the original
+// reviewer at the schema; zero rows means no such open appeal on the
+// campaign, which the store names.
+func (q *Queries) AssignReReview(ctx context.Context, arg AssignReReviewParams) (int64, error) {
+	result, err := q.db.Exec(ctx, assignReReview, arg.AssignedTo, arg.ID, arg.CampaignID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const authorizeReInvitation = `-- name: AuthorizeReInvitation :one
 INSERT INTO recruiting.re_invitation
     (id, campaign_id, tenant_id, candidate_id, reason, decided_by, interrupted_session)
@@ -980,6 +1005,55 @@ func (q *Queries) LatestDeterminationFor(ctx context.Context, jurisdiction strin
 	return i, err
 }
 
+const latestReviewDecision = `-- name: LatestReviewDecision :one
+
+SELECT id, session_id, decided_by, decision, reason, evaluation_id,
+       result_digest, rubric_digest, overrides, created_at
+FROM recruiting.review_decision
+WHERE session_id = $1::uuid
+  AND campaign_id = $2::uuid
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type LatestReviewDecisionParams struct {
+	SessionID  string
+	CampaignID string
+}
+
+type LatestReviewDecisionRow struct {
+	ID           string
+	SessionID    string
+	DecidedBy    string
+	Decision     string
+	Reason       string
+	EvaluationID string
+	ResultDigest string
+	RubricDigest string
+	Overrides    []byte
+	CreatedAt    time.Time
+}
+
+// ── REV-06: re-review, the appeal against a recorded decision.
+// The decision an appeal is raised against: the newest on the session.
+func (q *Queries) LatestReviewDecision(ctx context.Context, arg LatestReviewDecisionParams) (LatestReviewDecisionRow, error) {
+	row := q.db.QueryRow(ctx, latestReviewDecision, arg.SessionID, arg.CampaignID)
+	var i LatestReviewDecisionRow
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.DecidedBy,
+		&i.Decision,
+		&i.Reason,
+		&i.EvaluationID,
+		&i.ResultDigest,
+		&i.RubricDigest,
+		&i.Overrides,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listCampaigns = `-- name: ListCampaigns :many
 SELECT id, tenant_id, name, status, role_reference, jurisdiction,
        determination_id, opened_at, closed_at, created_at, created_by
@@ -1137,6 +1211,100 @@ func (q *Queries) PinsForCampaign(ctx context.Context, campaignID string) ([]Pin
 	return items, nil
 }
 
+const raiseReReview = `-- name: RaiseReReview :one
+INSERT INTO recruiting.re_review
+    (id, campaign_id, tenant_id, session_id, requested_by, reason,
+     appealed_decision, original_reviewer, evaluation_id, result_digest,
+     rubric_digest, bundle_digest, due_at)
+VALUES ($1::uuid, $2::uuid, $3::uuid,
+        $4::uuid, $5::uuid, $6::text,
+        $7::uuid, $8::uuid,
+        $9::uuid, $10::text,
+        $11::text, $12::text,
+        $13::timestamptz)
+RETURNING id, session_id, requested_by, reason, appealed_decision,
+          original_reviewer, evaluation_id, result_digest, rubric_digest,
+          bundle_digest, assigned_to, raised_at, due_at, outcome,
+          outcome_rationale, candidate_disclosure, resolved_by, resolved_at
+`
+
+type RaiseReReviewParams struct {
+	ID               string
+	CampaignID       string
+	TenantID         string
+	SessionID        string
+	RequestedBy      string
+	Reason           string
+	AppealedDecision string
+	OriginalReviewer string
+	EvaluationID     string
+	ResultDigest     string
+	RubricDigest     string
+	BundleDigest     string
+	DueAt            time.Time
+}
+
+type RaiseReReviewRow struct {
+	ID                  string
+	SessionID           string
+	RequestedBy         string
+	Reason              string
+	AppealedDecision    string
+	OriginalReviewer    string
+	EvaluationID        string
+	ResultDigest        string
+	RubricDigest        string
+	BundleDigest        string
+	AssignedTo          *string
+	RaisedAt            time.Time
+	DueAt               time.Time
+	Outcome             pgtype.Text
+	OutcomeRationale    pgtype.Text
+	CandidateDisclosure pgtype.Text
+	ResolvedBy          *string
+	ResolvedAt          *time.Time
+}
+
+func (q *Queries) RaiseReReview(ctx context.Context, arg RaiseReReviewParams) (RaiseReReviewRow, error) {
+	row := q.db.QueryRow(ctx, raiseReReview,
+		arg.ID,
+		arg.CampaignID,
+		arg.TenantID,
+		arg.SessionID,
+		arg.RequestedBy,
+		arg.Reason,
+		arg.AppealedDecision,
+		arg.OriginalReviewer,
+		arg.EvaluationID,
+		arg.ResultDigest,
+		arg.RubricDigest,
+		arg.BundleDigest,
+		arg.DueAt,
+	)
+	var i RaiseReReviewRow
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.RequestedBy,
+		&i.Reason,
+		&i.AppealedDecision,
+		&i.OriginalReviewer,
+		&i.EvaluationID,
+		&i.ResultDigest,
+		&i.RubricDigest,
+		&i.BundleDigest,
+		&i.AssignedTo,
+		&i.RaisedAt,
+		&i.DueAt,
+		&i.Outcome,
+		&i.OutcomeRationale,
+		&i.CandidateDisclosure,
+		&i.ResolvedBy,
+		&i.ResolvedAt,
+	)
+	return i, err
+}
+
 const reInvitationsForCandidate = `-- name: ReInvitationsForCandidate :many
 SELECT id, campaign_id, candidate_id, reason, decided_by, interrupted_session, consumed_session, created_at
 FROM recruiting.re_invitation
@@ -1180,6 +1348,143 @@ func (q *Queries) ReInvitationsForCandidate(ctx context.Context, arg ReInvitatio
 			&i.InterruptedSession,
 			&i.ConsumedSession,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reReviewByID = `-- name: ReReviewByID :one
+SELECT id, session_id, requested_by, reason, appealed_decision,
+       original_reviewer, evaluation_id, result_digest, rubric_digest,
+       bundle_digest, assigned_to, raised_at, due_at, outcome,
+       outcome_rationale, candidate_disclosure, resolved_by, resolved_at
+FROM recruiting.re_review
+WHERE id = $1::uuid AND campaign_id = $2::uuid
+`
+
+type ReReviewByIDParams struct {
+	ID         string
+	CampaignID string
+}
+
+type ReReviewByIDRow struct {
+	ID                  string
+	SessionID           string
+	RequestedBy         string
+	Reason              string
+	AppealedDecision    string
+	OriginalReviewer    string
+	EvaluationID        string
+	ResultDigest        string
+	RubricDigest        string
+	BundleDigest        string
+	AssignedTo          *string
+	RaisedAt            time.Time
+	DueAt               time.Time
+	Outcome             pgtype.Text
+	OutcomeRationale    pgtype.Text
+	CandidateDisclosure pgtype.Text
+	ResolvedBy          *string
+	ResolvedAt          *time.Time
+}
+
+func (q *Queries) ReReviewByID(ctx context.Context, arg ReReviewByIDParams) (ReReviewByIDRow, error) {
+	row := q.db.QueryRow(ctx, reReviewByID, arg.ID, arg.CampaignID)
+	var i ReReviewByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.RequestedBy,
+		&i.Reason,
+		&i.AppealedDecision,
+		&i.OriginalReviewer,
+		&i.EvaluationID,
+		&i.ResultDigest,
+		&i.RubricDigest,
+		&i.BundleDigest,
+		&i.AssignedTo,
+		&i.RaisedAt,
+		&i.DueAt,
+		&i.Outcome,
+		&i.OutcomeRationale,
+		&i.CandidateDisclosure,
+		&i.ResolvedBy,
+		&i.ResolvedAt,
+	)
+	return i, err
+}
+
+const reReviewsForSession = `-- name: ReReviewsForSession :many
+SELECT id, session_id, requested_by, reason, appealed_decision,
+       original_reviewer, evaluation_id, result_digest, rubric_digest,
+       bundle_digest, assigned_to, raised_at, due_at, outcome,
+       outcome_rationale, candidate_disclosure, resolved_by, resolved_at
+FROM recruiting.re_review
+WHERE session_id = $1::uuid
+  AND campaign_id = $2::uuid
+ORDER BY raised_at
+`
+
+type ReReviewsForSessionParams struct {
+	SessionID  string
+	CampaignID string
+}
+
+type ReReviewsForSessionRow struct {
+	ID                  string
+	SessionID           string
+	RequestedBy         string
+	Reason              string
+	AppealedDecision    string
+	OriginalReviewer    string
+	EvaluationID        string
+	ResultDigest        string
+	RubricDigest        string
+	BundleDigest        string
+	AssignedTo          *string
+	RaisedAt            time.Time
+	DueAt               time.Time
+	Outcome             pgtype.Text
+	OutcomeRationale    pgtype.Text
+	CandidateDisclosure pgtype.Text
+	ResolvedBy          *string
+	ResolvedAt          *time.Time
+}
+
+func (q *Queries) ReReviewsForSession(ctx context.Context, arg ReReviewsForSessionParams) ([]ReReviewsForSessionRow, error) {
+	rows, err := q.db.Query(ctx, reReviewsForSession, arg.SessionID, arg.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReReviewsForSessionRow{}
+	for rows.Next() {
+		var i ReReviewsForSessionRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.RequestedBy,
+			&i.Reason,
+			&i.AppealedDecision,
+			&i.OriginalReviewer,
+			&i.EvaluationID,
+			&i.ResultDigest,
+			&i.RubricDigest,
+			&i.BundleDigest,
+			&i.AssignedTo,
+			&i.RaisedAt,
+			&i.DueAt,
+			&i.Outcome,
+			&i.OutcomeRationale,
+			&i.CandidateDisclosure,
+			&i.ResolvedBy,
+			&i.ResolvedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1531,6 +1836,46 @@ func (q *Queries) ResolveInvitationByToken(ctx context.Context, tokenHash string
 		&i.OutcomeAt,
 	)
 	return i, err
+}
+
+const resolveReReview = `-- name: ResolveReReview :execrows
+UPDATE recruiting.re_review
+SET outcome = $1::text,
+    outcome_rationale = $2::text,
+    candidate_disclosure = $3::text,
+    resolved_by = $4::uuid,
+    resolved_at = now()
+WHERE id = $5::uuid
+  AND campaign_id = $6::uuid
+  AND outcome IS NULL
+  AND assigned_to = $4::uuid
+`
+
+type ResolveReReviewParams struct {
+	Outcome    string
+	Rationale  string
+	Disclosure string
+	ResolvedBy string
+	ID         string
+	CampaignID string
+}
+
+// Resolution, once, by the assigned reviewer themselves. The guards are
+// the WHERE clause: unresolved, and resolver = assignee; the trigger and
+// the CHECKs back them at the schema.
+func (q *Queries) ResolveReReview(ctx context.Context, arg ResolveReReviewParams) (int64, error) {
+	result, err := q.db.Exec(ctx, resolveReReview,
+		arg.Outcome,
+		arg.Rationale,
+		arg.Disclosure,
+		arg.ResolvedBy,
+		arg.ID,
+		arg.CampaignID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const reviewDecisionsForSession = `-- name: ReviewDecisionsForSession :many

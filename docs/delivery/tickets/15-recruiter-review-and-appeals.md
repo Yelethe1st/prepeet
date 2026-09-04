@@ -15,9 +15,25 @@ Candidates for the campaigns a reviewer is scoped to, with filters, states and p
 never a bare leaderboard.
 
 **Done when**
-- [ ] The roster is filtered server-side by campaign scope, not hidden in the browser.
-- [ ] Insufficient-evidence candidates are shown as such, not sorted to the bottom as low scorers.
-- [ ] No ranking or sort presents candidates as ordered by quality.
+- [x] The roster is filtered server-side by campaign scope, not hidden in the browser.
+- [x] Insufficient-evidence candidates are shown as such, not sorted to the bottom as low scorers.
+- [x] No ranking or sort presents candidates as ordered by quality.
+
+**Done, and the first recruiter surface in the product.** GET /campaigns/{id}/candidates
+composes in cmd, the one place recruiting, interview and evaluation may meet: recruiting's
+list reads back the candidate each acceptance resolved to (its own recorded join key),
+interview answers a campaign's sessions as narrow rows under the tenant's scope, and
+evaluation is asked one question about one reviewable session, could the record support
+assessment at all. Access is the campaign join, answered as absence across campaigns; the
+standing filter is a query parameter the server serves; and the pending-review count includes
+the insufficient-evidence screenings, because absence of evidence is still a decision a
+person has to make. On the web, /campaigns and /campaigns/{id} land behind the navigation
+entries that already pointed at them, and the roster deliberately drops the one thing the
+prototype offered that the ticket forbids: the sortable competency-signal column. Rows keep
+invitation recency, no header sorts, no row carries a band, score, ratio or confidence, the
+insufficient-evidence standing is words in place, and both the wire tests and the screen
+tests pin each of those by name. What the row deliberately does not carry - coverage numbers,
+confidence, evidence links - is REV-02's audited evidence screen, behind evaluation.read.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md)
 

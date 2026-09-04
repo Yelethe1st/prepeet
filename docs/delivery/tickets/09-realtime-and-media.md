@@ -197,9 +197,30 @@ microphone state, connection state, timer, captions, caption history, push-to-ta
 mode-aware end confirmation — with no live scoring of any kind.
 
 **Done when**
-- [ ] Every state is conveyed as text as well as visually, and colour alone carries nothing.
-- [ ] Push-to-talk works by pointer and by keyboard, and is announced.
-- [ ] No articulation score, filler count or correction appears during an answer.
+- [x] Every state is conveyed as text as well as visually, and colour alone carries nothing.
+- [x] Push-to-talk works by pointer and by keyboard, and is announced.
+- [x] No articulation score, filler count or correction appears during an answer.
+
+**Done, with the deliberate residue named.** The surface (InterviewSurface.tsx) rides RTC-01's
+shell and RTC-03's recovery: the persona, role and shape resolve from the catalogue because the
+session's config records only ids; captions are the durable timeline read back through replay,
+never a parallel channel that could disagree with the evidence, with a correction replacing the
+line it names and the whole history in a drawer; and the clock ticks only while the connection
+stands, because reconnecting does not count against the candidate. Every state is words - the
+speaking pills, the voice-activity note, the microphone's own label, the connection line, the
+timer - and a candidate speaking while not transmitting gets an alert with the way out.
+Push-to-talk holds by pointer or by Space, announces open and closed through one polite live
+region, and the shortcuts (M, C, Space, Escape) match the help panel that also states, in
+words, that nothing on this screen is scored. Ending is the prototype's explicit mode-aware
+confirmation: practice names the retry, screening names the finality.
+
+The residue, named rather than faked: the phase chip and question-count progress need a
+candidate-facing plan summary with human phase names (the plan artifact records machine stage
+ids and no question count, and the brief is the agent's internal surface); skip-question needs
+a browser-to-agent directive path that does not exist yet; and the waveform bars and input
+level meter are decoration whose text ("Voice activity: ...") is already carried, so they wait
+for the same pass that brings the persona orb's animation. Each belongs to the surface that
+introduces its data, not to a guess here.
 
 **Spec** [realtime-protocol.md](../../architecture/realtime-protocol.md) · [practice-mode.md](../../product/practice-mode.md)
 

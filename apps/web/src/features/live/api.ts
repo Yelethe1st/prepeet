@@ -56,6 +56,46 @@ export async function sendEvents(
   };
 }
 
+/**
+ * Replay the durable timeline after a cursor. The caption fold consumes
+ * this: captions are the transcript read back, never a parallel channel
+ * that could disagree with the evidence.
+ */
+export async function replayEvents(
+  sessionId: string,
+  afterEpoch: number,
+  afterSequence: number,
+): Promise<components["schemas"]["ControlEventList"]["events"]> {
+  const list = await apiFetch<components["schemas"]["ControlEventList"]>(
+    `/interviews/${sessionId}/events?after_epoch=${afterEpoch}&after_sequence=${afterSequence}`,
+  );
+  return list.events;
+}
+
+/**
+ * What the live surface names: the persona speaking, the role and shape
+ * the session was configured from. The catalogue is the resolver because
+ * the session's config records ids, and only ids.
+ */
+export interface LiveContext {
+  personas: components["schemas"]["Persona"][];
+  roles: components["schemas"]["CatalogRole"][];
+  shapes: components["schemas"]["InterviewShape"][];
+}
+
+export async function fetchLiveContext(): Promise<LiveContext> {
+  const [personas, roles, shapes] = await Promise.all([
+    apiFetch<components["schemas"]["PersonaList"]>("/catalog/personas"),
+    apiFetch<components["schemas"]["RoleList"]>("/catalog/roles"),
+    apiFetch<components["schemas"]["ShapeList"]>("/catalog/interview-shapes"),
+  ]);
+  return {
+    personas: personas.personas,
+    roles: roles.roles,
+    shapes: shapes.shapes,
+  };
+}
+
 /** Seal the session. Idempotent to the receipt. */
 export async function completeInterview(
   sessionId: string,

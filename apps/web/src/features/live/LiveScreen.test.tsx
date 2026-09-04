@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -112,14 +112,20 @@ describe("joining", () => {
     const { connection } = liveConnection();
     connectLive.mockResolvedValue(connection);
     vi.mocked(liveApi.resumeInterview).mockResolvedValue({
-      session: { cursor: { connection_epoch: 2, accepted_sequence: 3 } },
+      session: {
+        mode: "practice",
+        config: { minutes: 40, role: "rl", shape: "sh", persona: "pe" },
+        cursor: { connection_epoch: 2, accepted_sequence: 3 },
+      },
       realtime: { url: "wss://rtc.test", token: "tok-2" },
       recovery: { previous_epoch: 1, accepted_sequence: 3, missing: [] },
     } as never);
 
     render(<LiveScreen sessionId="ses-1" />);
 
-    expect(await screen.findByText(/you are live/i)).toBeInTheDocument();
+    // The full surface comes back, not the fallback: the resumed session
+    // carries everything the framing needs.
+    expect(await screen.findByRole("timer")).toBeInTheDocument();
     expect(connectLive).toHaveBeenCalledWith(
       expect.objectContaining({ url: "wss://rtc.test", token: "tok-2" }),
       expect.anything(),
@@ -176,11 +182,13 @@ describe("failures are named with recovery steps", () => {
 });
 
 describe("leaving releases everything", () => {
-  it("the end button ends the connection, seals at the cursor, and lands on the receipt", async () => {
+  it("the end button confirms mode-aware, ends the connection, seals at the cursor, and lands on the receipt", async () => {
     freshGrant();
     const { connection, endCalls } = liveConnection();
     connectLive.mockResolvedValue(connection);
     vi.mocked(liveApi.getInterview).mockResolvedValue({
+      mode: "practice",
+      config: { minutes: 40, role: "rl", shape: "sh", persona: "pe" },
       cursor: { connection_epoch: 1, accepted_sequence: 7 },
     } as Awaited<ReturnType<typeof liveApi.getInterview>>);
     vi.mocked(liveApi.completeInterview).mockResolvedValue(
@@ -189,8 +197,17 @@ describe("leaving releases everything", () => {
     const user = userEvent.setup();
 
     render(<LiveScreen sessionId="ses-1" />);
-    await screen.findByText(/you are live/i);
+    await screen.findByRole("timer");
     await user.click(screen.getByRole("button", { name: /end interview/i }));
+
+    // Ending is an explicit, mode-aware confirmation, never one tap.
+    const dialog = await screen.findByRole("alertdialog", {
+      name: /end this interview early/i,
+    });
+    expect(dialog).toHaveTextContent(/retry this interview as many times/i);
+    await user.click(
+      within(dialog).getByRole("button", { name: /end interview/i }),
+    );
 
     await waitFor(() => expect(endCalls()).toBe(1));
     await waitFor(() =>

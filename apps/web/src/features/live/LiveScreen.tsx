@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/shared/components";
 import { ApiError } from "@/lib/api/client";
@@ -12,15 +12,22 @@ import {
 } from "@/lib/rtc/connection";
 import { consumeGrant } from "@/lib/rtc/grant";
 import { Recovery, type RecoveryPhase } from "@/lib/rtc/recovery";
+import {
+  observeSpeakers,
+  type Speaker,
+  type SpeakerRoom,
+} from "@/lib/rtc/speakers";
 import { claimLiveTab, type Claim } from "@/lib/rtc/tab-lock";
 import { Timeline } from "@/lib/rtc/timeline";
 
+import { InterviewSurface } from "./InterviewSurface";
 import { ReconnectionOverlay } from "./ReconnectionOverlay";
 import {
   completeInterview,
   getInterview,
   resumeInterview,
   sendEvents,
+  type InterviewSession,
 } from "./api";
 
 /**
@@ -55,10 +62,43 @@ export function LiveScreen({ sessionId }: { sessionId: string }) {
   > | null>(null);
   const [recovered, setRecovered] = useState(false);
 
+  const [session, setSession] = useState<InterviewSession | null>(null);
   const connection = useRef<LiveConnection | null>(null);
   const timeline = useRef<Timeline | null>(null);
   const recovery = useRef<Recovery | null>(null);
   const claim = useRef<Claim | null>(null);
+
+  // What the surface needs from the room: the microphone, and who the SFU
+  // hears. Both indirect through the ref so a recovery's fresh connection
+  // is picked up without re-rendering the surface.
+  const micControl = useMemo(
+    () => ({
+      setMicrophoneEnabled: async (enabled: boolean): Promise<void> => {
+        await connection.current?.room.localParticipant?.setMicrophoneEnabled(
+          enabled,
+        );
+      },
+    }),
+    [],
+  );
+  const subscribeSpeakers = useCallback(
+    (onChange: (speaker: Speaker) => void): (() => void) => {
+      const room = connection.current?.room;
+      if (!room || typeof room.on !== "function") {
+        // A room with no event surface has no speakers to report; the
+        // pills stay at their waiting state, which is at least honest.
+        return () => undefined;
+      }
+      // The agent joins as "interviewer"; the candidate's identity is a
+      // user id the page never sees, so the agent's name is the anchor.
+      return observeSpeakers(
+        room as unknown as SpeakerRoom,
+        "interviewer",
+        onChange,
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -153,8 +193,11 @@ export function LiveScreen({ sessionId }: { sessionId: string }) {
       // read that fails does not block joining; start opens epoch one.
       let epoch = 1;
       try {
-        const session = await getInterview(sessionId);
-        epoch = session?.cursor?.connection_epoch ?? 1;
+        const current = await getInterview(sessionId);
+        epoch = current?.cursor?.connection_epoch ?? 1;
+        if (current && !cancelled) {
+          setSession(current);
+        }
       } catch {
         // The default stands.
       }
@@ -185,6 +228,9 @@ export function LiveScreen({ sessionId }: { sessionId: string }) {
         url: resumed.realtime.url,
         token: resumed.realtime.token,
       });
+      if (!cancelled) {
+        setSession(resumed.session);
+      }
       open(resumed.session.cursor?.connection_epoch ?? 1);
       setPhase({ kind: "live" });
     };
@@ -379,29 +425,44 @@ export function LiveScreen({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="max-w-[560px] space-y-4">
-      <p className="rounded-md border border-success-border bg-success-soft px-4 py-3 text-sm text-success-fg">
-        You are live. Recording is on, exactly as you consented on the prepare
-        screen.
-      </p>
+    <div className="space-y-4">
       {recovered ? (
         <p role="status" className="text-sm text-fg-2">
           Connection restored. Everything you said before the drop was already
           recorded; the interview picks up where it left off.
         </p>
       ) : null}
-      <p className="text-sm text-fg-2">
-        The interviewer joins here as the live surface is built out. Your
-        microphone releases the moment you end or leave, whichever comes first.
-      </p>
-      <Button
-        type="button"
-        size="lg"
-        variant="secondary"
-        onClick={() => void endInterview()}
-      >
-        End interview
-      </Button>
+      {session ? (
+        <InterviewSurface
+          sessionId={sessionId}
+          session={session}
+          mic={micControl}
+          subscribeSpeakers={subscribeSpeakers}
+          paused={recovering !== null}
+          onEndConfirmed={() => void endInterview()}
+        />
+      ) : (
+        // The session read failed but the room is up: the interview works,
+        // the framing is missing. A minimal surface beats a refusal.
+        <div className="max-w-[560px] space-y-4">
+          <p className="rounded-md border border-success-border bg-success-soft px-4 py-3 text-sm text-success-fg">
+            You are live. Recording is on, exactly as you consented on the
+            prepare screen.
+          </p>
+          <p className="text-sm text-fg-2">
+            Your microphone releases the moment you end or leave, whichever
+            comes first.
+          </p>
+          <Button
+            type="button"
+            size="lg"
+            variant="secondary"
+            onClick={() => void endInterview()}
+          >
+            End interview
+          </Button>
+        </div>
+      )}
       {recovering ? (
         <ReconnectionOverlay
           phase={recovering}

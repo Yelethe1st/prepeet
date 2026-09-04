@@ -51,8 +51,17 @@ var policyBody = json.RawMessage(`{"stages":[` +
 
 // rubricBody mirrors the shipped practice-default artifact: composition
 // pins it, aggregation later judges by it.
+//
+// min_ratio is 0.0 rather than 0 because the shipped artifact writes it
+// that way, and the difference is not cosmetic. Go canonicalises the two
+// identically - both are float64 and both encode as 0 - but Python's
+// encoder writes 0.0, so an earlier version of this fixture that wrote a
+// bare 0 agreed with Go for the wrong reason and let a real digest
+// disagreement reach a running stack, where every composition against the
+// shipped rubric was refused. A fixture that claims to mirror an artifact
+// has to mirror its spelling too.
 var rubricBody = json.RawMessage(`{"sufficiency":{"min_supporting":2},"bands":[` +
-	`{"id":"developing","min_ratio":0},{"id":"solid","min_ratio":0.55},{"id":"strong","min_ratio":0.8}],` +
+	`{"id":"developing","min_ratio":0.0},{"id":"solid","min_ratio":0.55},{"id":"strong","min_ratio":0.8}],` +
 	`"confidence":{"high":{"min_supporting":4,"max_contradictory":0},` +
 	`"medium":{"min_supporting":2,"max_contradictory":1}}}`)
 

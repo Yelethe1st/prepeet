@@ -463,6 +463,20 @@ LOCAL_ENV = set -a; [ -f infrastructure/local/.env ] && . infrastructure/local/.
 	export PREPEET_MIGRATOR_URL="postgres://prepeet:local-development-only@localhost:$$PORT/prepeet?sslmode=disable"; \
 	export PREPEET_OTLP_ENDPOINT="localhost:$${PREPEET_OTLP_PORT:-4317}"
 
+# AGENT_ENV is what the voice interviewer needs beyond the provider keys the
+# developer supplies themselves.
+#
+# LIVEKIT_* rather than PREPEET_LIVEKIT_*: those three names are the LiveKit
+# agents SDK's own, read by its CLI before any of our code runs, so they are
+# its vocabulary and not ours. The Go side keeps the prefixed pair because it
+# mints grants itself. The values are the local stack's, from
+# docker-compose.yml, and are not secret.
+AGENT_ENV = LIVEKIT_URL="ws://localhost:$${PREPEET_LIVEKIT_PORT:-7880}" \
+	LIVEKIT_API_KEY="devkey" \
+	LIVEKIT_API_SECRET="devsecret-devsecret-devsecret" \
+	PREPEET_API_URL="http://localhost:8080" \
+	PREPEET_AGENT_TOKEN="dev-agent-token-dev-agent-token"
+
 .PHONY: local-up
 local-up: ## Start PostgreSQL, LocalStack and Temporal locally
 	@$(COMPOSE) up -d --wait || { \
@@ -552,7 +566,7 @@ local-ports: ## Show which local stack host ports are free and which are taken
 # ------------------------------------------------------------------ run local
 
 .PHONY: dev
-dev: ## Start the whole stack: infrastructure, migrations, and all three deployables
+dev: ## Start the whole stack: infrastructure, migrations, deployables, interviewer
 	@$(MAKE) --no-print-directory local-up
 	@$(MAKE) --no-print-directory migrate
 	@echo
@@ -599,6 +613,17 @@ dev: ## Start the whole stack: infrastructure, migrations, and all three deploya
 	( cd $(WEB_DIR) && pnpm dev 2>&1 | awk '{ print "[web]    " $$0; fflush() }' ) & \
 	( cd $(PY_DIR) && uv run python -m prepeet_ai.transport.server --port 50051 2>&1 \
 		| awk '{ print "[intel]  " $$0; fflush() }' ) & \
+	if [ -n "$$PREPEET_DEEPGRAM_API_KEY" ] && [ -n "$$PREPEET_CARTESIA_API_KEY" ]; then \
+		( cd $(PY_DIR) && $(AGENT_ENV) uv run python -m prepeet_ai.agent.worker dev 2>&1 \
+			| awk '{ print "[agent]  " $$0; fflush() }' ) & \
+	else \
+		echo "  no interviewer: PREPEET_DEEPGRAM_API_KEY and PREPEET_CARTESIA_API_KEY are unset."; \
+		echo "  The room, the timeline and evaluation all work; nobody speaks or listens in"; \
+		echo "  the room, so the transcript stays empty and every competency comes back"; \
+		echo "  unassessed - which is the honest reading of an interview nobody conducted."; \
+		echo "  Set both keys and re-run, or run 'make dev-agent' beside this stack."; \
+		echo; \
+	fi; \
 	wait
 
 .PHONY: dev-api
@@ -642,6 +667,20 @@ dev-worker: ## Run the worker alone
 .PHONY: dev-web
 dev-web: ## Run the Next.js application alone
 	cd $(WEB_DIR) && pnpm dev
+
+.PHONY: dev-agent
+dev-agent: ## Run the voice interviewer alone (needs Deepgram and Cartesia keys)
+	@$(LOCAL_ENV); \
+	if [ -z "$$PREPEET_DEEPGRAM_API_KEY" ] || [ -z "$$PREPEET_CARTESIA_API_KEY" ]; then \
+		echo "  The interviewer needs both PREPEET_DEEPGRAM_API_KEY and"; \
+		echo "  PREPEET_CARTESIA_API_KEY. Without them it joins the room and neither"; \
+		echo "  speaks nor hears, which is a silence that looks like a bug."; \
+		echo; \
+		echo "  Set them and try again:"; \
+		echo "    PREPEET_DEEPGRAM_API_KEY=... PREPEET_CARTESIA_API_KEY=... make dev-agent"; \
+		exit 1; \
+	fi; \
+	cd $(PY_DIR) && $(AGENT_ENV) uv run python -m prepeet_ai.agent.worker dev
 
 .PHONY: migrate
 migrate: ## Apply database migrations to the local stack

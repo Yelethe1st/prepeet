@@ -23,6 +23,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 
+from prepeet_ai.composition.canonical import canonical_digest
 from prepeet_ai.transport.envelope import Failure, FailureCode, FailureError
 
 SCHEMA_VERSION = "0.2"
@@ -58,13 +59,12 @@ class ComposedBundle:
 def _digest_of(body: bytes) -> str:
     """The registry's canonical digest, recomputed here for verification.
 
-    Canonicalisation must match Go's: JSON re-encoded with sorted keys and no
-    whitespace. The cross-language test in cmd/worker is what holds the two
-    implementations to each other.
+    Delegated to canonical.py, which mirrors Go's encoder rather than
+    Python's defaults. The two disagree about whole-number floats,
+    non-ASCII and HTML characters, and each disagreement refuses a body the
+    registry considers correct; that module documents all three.
     """
-    decoded = json.loads(body)
-    canonical = json.dumps(decoded, sort_keys=True, separators=(",", ":"))
-    return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
+    return canonical_digest(body)
 
 
 def compose(

@@ -1325,6 +1325,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interviews/{sessionId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a dropped session into a fresh connection attempt
+         * @description Opens the next connection epoch for a session the caller lost:
+         *     a reconnecting session inside its grace window, an in-progress
+         *     session whose drop the server has not seen yet (a refresh, a
+         *     sleeping laptop), or a connecting one whose first attempt died
+         *     before it opened. The answer carries a fresh short-lived room
+         *     grant, the stamped timing policy, and the recovery cursor: the
+         *     epoch the browser must speak now, plus what the previous epoch
+         *     durably holds and the exact gaps still owed, so the client
+         *     resends missing durable events and rebuilds itself by replay
+         *     rather than trusting its own memory. The superseded tab's next
+         *     batch is refused whole with EPOCH_STALE; one candidate holds one
+         *     live connection. A reconnecting session past its grace window is
+         *     refused with GRACE_EXPIRED: expiry finalizes what was captured,
+         *     it does not restart the interview.
+         */
+        post: operations["resumeInterview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/interviews/{sessionId}/events": {
         parameters: {
             query?: never;
@@ -2672,6 +2705,31 @@ export interface components {
             session: components["schemas"]["InterviewSession"];
             realtime: components["schemas"]["RoomGrant"];
             timing: components["schemas"]["TimingPolicyView"];
+        };
+        /**
+         * @description The resume command's answer. The session already carries the new
+         *     epoch; recovery says what the previous epoch durably holds, so
+         *     the client can resend exactly what is missing and replay the
+         *     rest instead of pretending its own buffer is the record.
+         */
+        ResumedInterview: {
+            session: components["schemas"]["InterviewSession"];
+            realtime: components["schemas"]["RoomGrant"];
+            timing: components["schemas"]["TimingPolicyView"];
+            recovery: {
+                /**
+                 * @description The epoch that was superseded; zero when the first
+                 *     attempt died before opening.
+                 */
+                previous_epoch: number;
+                /** @description Highest contiguous sequence the previous epoch durably holds. */
+                accepted_sequence: number;
+                /** @description Gaps under the previous epoch's highest stored sequence, for the client to resend. */
+                missing: {
+                    from: number;
+                    to: number;
+                }[];
+            };
         };
         /**
          * @description The timing rules stamped on this session at start, versioned in
@@ -5055,6 +5113,45 @@ export interface operations {
             /**
              * @description Refused with a distinct code: SESSION_EXPIRED,
              *     SESSION_ALREADY_STARTED, SESSION_NOT_READY or QUOTA_EXHAUSTED.
+             */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resumeInterview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The next attempt, with its recovery cursor. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumedInterview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description Refused with a distinct code: SESSION_NOT_RESUMABLE for a
+             *     session with no interview in flight, GRACE_EXPIRED for one
+             *     whose reconnection window has lapsed.
              */
             409: {
                 headers: {

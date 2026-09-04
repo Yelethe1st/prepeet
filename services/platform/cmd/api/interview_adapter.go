@@ -27,6 +27,7 @@ type interviewAdapter struct {
 	sessions  *interview.Store
 	registry  *content.Store
 	starter   *interview.Starter
+	resumer   *interview.Resumer
 	events    *interview.Events
 	completer *interview.Completer
 	results   *evaluation.Store
@@ -688,6 +689,55 @@ func (a interviewAdapter) StartPractice(ctx context.Context, userID, sessionID s
 			ExpiresAt: started.Grant.ExpiresAt,
 		},
 	}, nil
+}
+
+// ResumePractice opens the next connection attempt for the owner's practice
+// session, translating each refusal onto the wire's stable codes.
+func (a interviewAdapter) ResumePractice(ctx context.Context, userID, sessionID string) (api.ResumedInterview, error) {
+	resumed, err := a.resumer.Resume(ctx, sessionID, "practice", userID, "")
+	switch {
+	case errors.Is(err, interview.ErrNotFound):
+		return api.ResumedInterview{}, api.ErrSessionMissing
+	case errors.Is(err, interview.ErrResumeNotResumable):
+		return api.ResumedInterview{}, &api.StartRefusedError{Code: "SESSION_NOT_RESUMABLE",
+			Message: "No interview is in flight to resume. Start the session, or review what it already holds."}
+	case errors.Is(err, interview.ErrResumeGraceExpired):
+		return api.ResumedInterview{}, &api.StartRefusedError{Code: "GRACE_EXPIRED",
+			Message: "The reconnection window has passed. What you said was kept and is being finalized; nothing you did caused this."}
+	case errors.Is(err, interview.ErrEpochStale):
+		return api.ResumedInterview{}, &api.StartRefusedError{Code: "EPOCH_STALE",
+			Message: "Another connection resumed this session first. That connection owns it now."}
+	case err != nil:
+		return api.ResumedInterview{}, err
+	}
+
+	session, err := a.GetPractice(ctx, userID, sessionID)
+	if err != nil {
+		return api.ResumedInterview{}, err
+	}
+	view := api.ResumedInterview{
+		Session: session,
+		Realtime: api.RoomGrantView{
+			URL:       resumed.Grant.URL,
+			Room:      resumed.Grant.Room,
+			Token:     resumed.Grant.Token,
+			ExpiresAt: resumed.Grant.ExpiresAt,
+		},
+		Timing: api.TimingPolicyView{
+			PolicyVersion:         resumed.Timing.Version,
+			ReconnectGraceSeconds: resumed.Timing.ReconnectGraceSeconds,
+			MaxOverrunSeconds:     resumed.Timing.MaxOverrunSeconds,
+		},
+		Recovery: api.RecoveryView{
+			PreviousEpoch:    resumed.PreviousEpoch,
+			AcceptedSequence: resumed.AcceptedSequence,
+			Missing:          make([][2]int, 0, len(resumed.Missing)),
+		},
+	}
+	for _, gap := range resumed.Missing {
+		view.Recovery.Missing = append(view.Recovery.Missing, [2]int{gap.From, gap.To})
+	}
+	return view, nil
 }
 
 // PracticeConsent answers the currently published consent text.

@@ -441,6 +441,22 @@ func (e *Events) cursor(ctx context.Context, q *db.Queries, sessionID string, ep
 	return accepted, missing, nil
 }
 
+// CursorOf answers one epoch's recovery cursor under the session's own
+// scope: the highest contiguous accepted sequence and the gaps under the
+// highest stored one. Resume reads it for the epoch it is about to
+// supersede, so the client learns exactly what to resend.
+func (e *Events) CursorOf(ctx context.Context, session Session, epoch int) (int, []SequenceRange, error) {
+	tx, err := e.store.pool.Begin(ctx)
+	if err != nil {
+		return 0, nil, fmt.Errorf("interview: beginning cursor read: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := scope(ctx, tx, session.Mode, session.CandidateID, session.TenantID); err != nil {
+		return 0, nil, err
+	}
+	return e.cursor(ctx, db.New(tx), session.ID, epoch)
+}
+
 // Replay answers everything after a cursor, in the one authoritative order.
 // Replaying twice from the same cursor answers identically; that property
 // is what the client rebuilds itself on after a reconnect.

@@ -200,6 +200,7 @@ func main() {
 			registry:  content.NewStore(pool),
 			starter: interview.NewStarter(interview.NewStore(pool),
 				ledgerPort{ledger: billing.NewLedger(pool)}, grantsPort{grants: grants}),
+			resumer:   interview.NewResumer(interview.NewStore(pool), grantsPort{grants: grants}),
 			events:    interview.NewEvents(interview.NewStore(pool)),
 			completer: completerWith(cfg, grants, uploads, pool),
 			results:   evaluation.NewStore(pool),

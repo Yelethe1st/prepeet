@@ -427,6 +427,22 @@ func (s *Store) CurrentTimingPolicy(ctx context.Context) (TimingPolicy, error) {
 	}, nil
 }
 
+// TimingPolicyByVersion answers the exact policy a session was stamped
+// with. Resume and grace expiry read this rather than the current policy,
+// because a policy published mid-session must not move a window the
+// candidate is already inside.
+func (s *Store) TimingPolicyByVersion(ctx context.Context, version int) (TimingPolicy, error) {
+	row, err := db.New(s.pool).TimingPolicyByVersion(ctx, int32(version))
+	if err != nil {
+		return TimingPolicy{}, fmt.Errorf("interview: reading timing policy v%d: %w", version, err)
+	}
+	return TimingPolicy{
+		Version:               int(row.Version),
+		ReconnectGraceSeconds: int(row.ReconnectGraceSeconds),
+		MaxOverrunSeconds:     int(row.MaxOverrunSeconds),
+	}, nil
+}
+
 // StampTimingPolicy records which policy governs a session, once: the
 // stamp is first-write-wins so a later policy publish never rewrites a
 // session already running.

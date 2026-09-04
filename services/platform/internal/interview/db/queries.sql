@@ -158,6 +158,14 @@ UPDATE interview.sessions
 SET timing_policy_version = sqlc.arg(version)::integer
 WHERE id = sqlc.arg(id)::uuid AND timing_policy_version IS NULL;
 
+-- name: TimingPolicyByVersion :one
+-- The rules a running session was stamped with. Resume and grace expiry
+-- read this, never the current policy: a policy published mid-session
+-- must not shrink or stretch a window the candidate is already inside.
+SELECT version, reconnect_grace_seconds, max_overrun_seconds
+FROM interview.timing_policies
+WHERE version = sqlc.arg(version)::integer;
+
 -- name: InsertMediaTrack :execrows
 -- Idempotent per (session, track): a reconnection retrying the start must
 -- converge on the one egress already running, never begin a second.

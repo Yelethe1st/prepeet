@@ -40,6 +40,11 @@ type Interviews interface {
 	// StartPractice starts a ready session and mints its room grant. Each
 	// refusal is a *StartRefusedError with its own stable code.
 	StartPractice(ctx context.Context, userID, sessionID string) (StartedInterview, error)
+	// ResumePractice opens the next connection attempt for a session the
+	// caller lost, answering the recovery cursor the client rebuilds on.
+	// Refusals arrive as *StartRefusedError: SESSION_NOT_RESUMABLE when no
+	// interview is in flight, GRACE_EXPIRED when the window lapsed.
+	ResumePractice(ctx context.Context, userID, sessionID string) (ResumedInterview, error)
 	// IngestEvents accepts one control event batch for the current epoch.
 	// A superseded epoch refuses whole with a *StartRefusedError carrying
 	// EPOCH_STALE or NO_ATTEMPT.
@@ -415,6 +420,23 @@ type StartedInterview struct {
 	Timing   TimingPolicyView
 }
 
+// ResumedInterview is the resume command's answer at the port: the session
+// on its new epoch, a fresh grant, the stamped timing, and the recovery
+// cursor naming what the superseded epoch durably holds.
+type ResumedInterview struct {
+	Session  InterviewSession
+	Realtime RoomGrantView
+	Timing   TimingPolicyView
+	Recovery RecoveryView
+}
+
+// RecoveryView is the cursor a reconnecting client reconciles against.
+type RecoveryView struct {
+	PreviousEpoch    int
+	AcceptedSequence int
+	Missing          [][2]int
+}
+
 // TimingPolicyView is the versioned timing rules stamped at start. The
 // client renders grace countdowns from these; it compiles in none.
 type TimingPolicyView struct {
@@ -681,6 +703,58 @@ func (i *interviews) StartInterview(ctx context.Context, request prepeetapi.Star
 			},
 		},
 		Headers: prepeetapi.StartInterview200ResponseHeaders{CacheControl: NoStore},
+	}, nil
+}
+
+// ResumeInterview opens the next connection attempt for a dropped session
+// and answers with the recovery cursor and a fresh room grant.
+func (i *interviews) ResumeInterview(ctx context.Context, request prepeetapi.ResumeInterviewRequestObject) (prepeetapi.ResumeInterviewResponseObject, error) {
+	presented := sessionTokenFromContext(ctx)
+	if presented == "" {
+		return i.authentication.rejectedSession(ctx), nil
+	}
+	principal, err := i.authentication.identity.Lookup(ctx, presented)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+
+	resumed, err := i.flows.ResumePractice(ctx, principal.UserID, request.SessionID.String())
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	session, err := interviewSessionBody(resumed.Session)
+	if err != nil {
+		return i.authentication.failed(ctx, err), nil
+	}
+	body := prepeetapi.ResumedInterview{
+		Session: session,
+		Realtime: prepeetapi.RoomGrant{
+			URL:       resumed.Realtime.URL,
+			Room:      resumed.Realtime.Room,
+			Token:     resumed.Realtime.Token,
+			ExpiresAt: resumed.Realtime.ExpiresAt,
+		},
+		Timing: prepeetapi.TimingPolicyView{
+			PolicyVersion:         resumed.Timing.PolicyVersion,
+			ReconnectGraceSeconds: resumed.Timing.ReconnectGraceSeconds,
+			MaxOverrunSeconds:     resumed.Timing.MaxOverrunSeconds,
+		},
+	}
+	body.Recovery.PreviousEpoch = resumed.Recovery.PreviousEpoch
+	body.Recovery.AcceptedSequence = resumed.Recovery.AcceptedSequence
+	body.Recovery.Missing = make([]struct {
+		From int `json:"from"`
+		To   int `json:"to"`
+	}, 0, len(resumed.Recovery.Missing))
+	for _, gap := range resumed.Recovery.Missing {
+		body.Recovery.Missing = append(body.Recovery.Missing, struct {
+			From int `json:"from"`
+			To   int `json:"to"`
+		}{From: gap[0], To: gap[1]})
+	}
+	return prepeetapi.ResumeInterview200JSONResponse{
+		Body:    body,
+		Headers: prepeetapi.ResumeInterview200ResponseHeaders{CacheControl: NoStore},
 	}, nil
 }
 
@@ -1515,6 +1589,7 @@ func (f failure) VisitCreateInterviewResponse(w http.ResponseWriter) error     {
 func (f failure) VisitGetPracticeConsentResponse(w http.ResponseWriter) error  { return f.write(w) }
 func (f failure) VisitGetInterviewResponse(w http.ResponseWriter) error        { return f.write(w) }
 func (f failure) VisitStartInterviewResponse(w http.ResponseWriter) error      { return f.write(w) }
+func (f failure) VisitResumeInterviewResponse(w http.ResponseWriter) error     { return f.write(w) }
 func (f failure) VisitIngestControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitReplayControlEventsResponse(w http.ResponseWriter) error { return f.write(w) }
 func (f failure) VisitGetTranscriptResponse(w http.ResponseWriter) error       { return f.write(w) }

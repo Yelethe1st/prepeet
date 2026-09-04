@@ -1042,6 +1042,28 @@ func (q *Queries) SupersedeAttempts(ctx context.Context, sessionID string) error
 	return err
 }
 
+const timingPolicyByVersion = `-- name: TimingPolicyByVersion :one
+SELECT version, reconnect_grace_seconds, max_overrun_seconds
+FROM interview.timing_policies
+WHERE version = $1::integer
+`
+
+type TimingPolicyByVersionRow struct {
+	Version               int32
+	ReconnectGraceSeconds int32
+	MaxOverrunSeconds     int32
+}
+
+// The rules a running session was stamped with. Resume and grace expiry
+// read this, never the current policy: a policy published mid-session
+// must not shrink or stretch a window the candidate is already inside.
+func (q *Queries) TimingPolicyByVersion(ctx context.Context, version int32) (TimingPolicyByVersionRow, error) {
+	row := q.db.QueryRow(ctx, timingPolicyByVersion, version)
+	var i TimingPolicyByVersionRow
+	err := row.Scan(&i.Version, &i.ReconnectGraceSeconds, &i.MaxOverrunSeconds)
+	return i, err
+}
+
 const transitionSession = `-- name: TransitionSession :execrows
 UPDATE interview.sessions
 SET state = $1::text,

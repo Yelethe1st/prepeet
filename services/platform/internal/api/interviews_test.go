@@ -26,6 +26,7 @@ type fakeInterviews struct {
 	givenFeedback []api.InsightVerdictView
 	created       api.InterviewSession
 	started       api.StartedInterview
+	resumed       api.ResumedInterview
 	ack           api.ControlAck
 	ingested      []api.ControlEventIn
 	epoch         int
@@ -58,6 +59,11 @@ func (f *fakeInterviews) GetPractice(_ context.Context, userID, sessionID string
 func (f *fakeInterviews) StartPractice(_ context.Context, userID, sessionID string) (api.StartedInterview, error) {
 	f.users = append(f.users, "start:"+userID+":"+sessionID)
 	return f.started, f.err
+}
+
+func (f *fakeInterviews) ResumePractice(_ context.Context, userID, sessionID string) (api.ResumedInterview, error) {
+	f.users = append(f.users, "resume:"+userID+":"+sessionID)
+	return f.resumed, f.err
 }
 
 func (f *fakeInterviews) IngestEvents(_ context.Context, userID, sessionID string, epoch int, events []api.ControlEventIn) (api.ControlAck, error) {
@@ -463,6 +469,101 @@ func TestEachStartRefusalKeepsItsCodeOnTheWire(t *testing.T) {
 
 		response := doJSON(t, handler, http.MethodPost,
 			"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/start", "", sessionCookie())
+		if response.Code != http.StatusConflict {
+			t.Errorf("%s answered %d, want 409", test.want, response.Code)
+			continue
+		}
+		var body struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		decodeInto(t, response, &body)
+		if body.Error.Code != test.want {
+			t.Errorf("code = %q, want %q", body.Error.Code, test.want)
+		}
+	}
+}
+
+func TestResumeAnswersWithTheRecoveryCursor(t *testing.T) {
+	expires := time.Date(2026, 8, 26, 12, 8, 0, 0, time.UTC)
+	interviews := &fakeInterviews{resumed: api.ResumedInterview{
+		Session: api.InterviewSession{
+			ID: "00000000-0000-7000-8000-0000000000e1", Mode: "practice", State: "reconnecting",
+			ConnectionEpoch: 2, AcceptedSequence: 0,
+			CreatedAt: time.Date(2026, 8, 26, 10, 0, 0, 0, time.UTC),
+		},
+		Realtime: api.RoomGrantView{
+			URL: "wss://rtc.local", Room: "00000000-0000-7000-8000-0000000000e1",
+			Token: "tok-2", ExpiresAt: expires,
+		},
+		Timing: api.TimingPolicyView{
+			PolicyVersion: 1, ReconnectGraceSeconds: 120, MaxOverrunSeconds: 300,
+		},
+		Recovery: api.RecoveryView{
+			PreviousEpoch: 1, AcceptedSequence: 2, Missing: [][2]int{{3, 3}},
+		},
+	}}
+	handler := serveInterviews(t, interviews)
+
+	response := doJSON(t, handler, http.MethodPost,
+		"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/resume", "", sessionCookie())
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body)
+	}
+
+	var body struct {
+		Session struct {
+			State string `json:"state"`
+		} `json:"session"`
+		Realtime struct {
+			Token string `json:"token"`
+			Room  string `json:"room"`
+		} `json:"realtime"`
+		Timing struct {
+			ReconnectGraceSeconds int `json:"reconnect_grace_seconds"`
+		} `json:"timing"`
+		Recovery struct {
+			PreviousEpoch    int `json:"previous_epoch"`
+			AcceptedSequence int `json:"accepted_sequence"`
+			Missing          []struct {
+				From int `json:"from"`
+				To   int `json:"to"`
+			} `json:"missing"`
+		} `json:"recovery"`
+	}
+	decodeInto(t, response, &body)
+	// The recovery cursor is the answer's whole point: the epoch the tab
+	// must speak now, what the last one durably holds, and the exact gaps
+	// still owed for resend.
+	if body.Recovery.PreviousEpoch != 1 || body.Recovery.AcceptedSequence != 2 {
+		t.Fatalf("recovery = %+v", body.Recovery)
+	}
+	if len(body.Recovery.Missing) != 1 || body.Recovery.Missing[0].From != 3 || body.Recovery.Missing[0].To != 3 {
+		t.Fatalf("missing = %+v", body.Recovery.Missing)
+	}
+	if body.Realtime.Token != "tok-2" || body.Timing.ReconnectGraceSeconds != 120 {
+		t.Fatalf("body = %+v: the fresh grant and the stamped policy ride the answer", body)
+	}
+	if interviews.users[0] != "resume:00000000-0000-7000-8000-0000000000f9:00000000-0000-7000-8000-0000000000e1" {
+		t.Fatalf("the port saw %v", interviews.users)
+	}
+}
+
+func TestEachResumeRefusalKeepsItsCodeOnTheWire(t *testing.T) {
+	cases := []struct {
+		err  error
+		want string
+	}{
+		{&api.StartRefusedError{Code: "SESSION_NOT_RESUMABLE", Message: "m"}, "SESSION_NOT_RESUMABLE"},
+		{&api.StartRefusedError{Code: "GRACE_EXPIRED", Message: "m"}, "GRACE_EXPIRED"},
+		{&api.StartRefusedError{Code: "EPOCH_STALE", Message: "m"}, "EPOCH_STALE"},
+	}
+	for _, test := range cases {
+		handler := serveInterviews(t, &fakeInterviews{err: test.err})
+
+		response := doJSON(t, handler, http.MethodPost,
+			"/api/v1/interviews/00000000-0000-7000-8000-0000000000e1/resume", "", sessionCookie())
 		if response.Code != http.StatusConflict {
 			t.Errorf("%s answered %d, want 409", test.want, response.Code)
 			continue

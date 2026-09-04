@@ -2182,6 +2182,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /interviews/{sessionId}/resume:
+    post:
+      tags: [interview]
+      operationId: resumeInterview
+      x-prepeet-capability: session.participate
+      summary: Resume a dropped session into a fresh connection attempt
+      description: |
+        Opens the next connection epoch for a session the caller lost:
+        a reconnecting session inside its grace window, an in-progress
+        session whose drop the server has not seen yet (a refresh, a
+        sleeping laptop), or a connecting one whose first attempt died
+        before it opened. The answer carries a fresh short-lived room
+        grant, the stamped timing policy, and the recovery cursor: the
+        epoch the browser must speak now, plus what the previous epoch
+        durably holds and the exact gaps still owed, so the client
+        resends missing durable events and rebuilds itself by replay
+        rather than trusting its own memory. The superseded tab's next
+        batch is refused whole with EPOCH_STALE; one candidate holds one
+        live connection. A reconnecting session past its grace window is
+        refused with GRACE_EXPIRED: expiry finalizes what was captured,
+        it does not restart the interview.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: The next attempt, with its recovery cursor.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumedInterview"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            Refused with a distinct code: SESSION_NOT_RESUMABLE for a
+            session with no interview in flight, GRACE_EXPIRED for one
+            whose reconnection window has lapsed.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /interviews/{sessionId}/events:
     post:
       tags: [interview]
@@ -4303,6 +4351,43 @@ components:
           $ref: "#/components/schemas/RoomGrant"
         timing:
           $ref: "#/components/schemas/TimingPolicyView"
+
+    ResumedInterview:
+      type: object
+      description: |
+        The resume command's answer. The session already carries the new
+        epoch; recovery says what the previous epoch durably holds, so
+        the client can resend exactly what is missing and replay the
+        rest instead of pretending its own buffer is the record.
+      required: [session, realtime, timing, recovery]
+      properties:
+        session:
+          $ref: "#/components/schemas/InterviewSession"
+        realtime:
+          $ref: "#/components/schemas/RoomGrant"
+        timing:
+          $ref: "#/components/schemas/TimingPolicyView"
+        recovery:
+          type: object
+          required: [previous_epoch, accepted_sequence, missing]
+          properties:
+            previous_epoch:
+              type: integer
+              description: |
+                The epoch that was superseded; zero when the first
+                attempt died before opening.
+            accepted_sequence:
+              type: integer
+              description: Highest contiguous sequence the previous epoch durably holds.
+            missing:
+              type: array
+              description: Gaps under the previous epoch's highest stored sequence, for the client to resend.
+              items:
+                type: object
+                required: [from, to]
+                properties:
+                  from: { type: integer }
+                  to: { type: integer }
 
     TimingPolicyView:
       type: object

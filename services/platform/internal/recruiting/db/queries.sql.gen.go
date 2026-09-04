@@ -798,28 +798,32 @@ func (q *Queries) InvitationByID(ctx context.Context, arg InvitationByIDParams) 
 
 const invitationsForCampaign = `-- name: InvitationsForCampaign :many
 SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
-       issued_at, expires_at, outcome, outcome_at
+       issued_at, expires_at, outcome, outcome_at,
+       COALESCE(accepted_candidate::text, '')::text AS accepted_candidate
 FROM recruiting.invitation
 WHERE campaign_id = $1
 ORDER BY issued_at DESC
 `
 
 type InvitationsForCampaignRow struct {
-	ID         string
-	TenantID   string
-	CampaignID string
-	Recipient  string
-	EmailID    string
-	IssuedBy   string
-	IssuedAt   time.Time
-	ExpiresAt  time.Time
-	Outcome    pgtype.Text
-	OutcomeAt  *time.Time
+	ID                string
+	TenantID          string
+	CampaignID        string
+	Recipient         string
+	EmailID           string
+	IssuedBy          string
+	IssuedAt          time.Time
+	ExpiresAt         time.Time
+	Outcome           pgtype.Text
+	OutcomeAt         *time.Time
+	AcceptedCandidate string
 }
 
 // The recruiter's roster for one campaign, newest first. email_id rides along
 // so cmd can join delivery status from notification, which this context does
-// not read. Tenant scoping is the policy's.
+// not read, and accepted_candidate rides along so cmd can join the candidate's
+// interview from the interview context, which this context does not read
+// either. Tenant scoping is the policy's.
 func (q *Queries) InvitationsForCampaign(ctx context.Context, campaignID string) ([]InvitationsForCampaignRow, error) {
 	rows, err := q.db.Query(ctx, invitationsForCampaign, campaignID)
 	if err != nil {
@@ -840,6 +844,7 @@ func (q *Queries) InvitationsForCampaign(ctx context.Context, campaignID string)
 			&i.ExpiresAt,
 			&i.Outcome,
 			&i.OutcomeAt,
+			&i.AcceptedCandidate,
 		); err != nil {
 			return nil, err
 		}

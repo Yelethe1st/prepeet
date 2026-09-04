@@ -449,6 +449,7 @@ func invitationFromList(row db.InvitationsForCampaignRow) Invitation {
 		Recipient: row.Recipient, EmailID: row.EmailID, IssuedBy: row.IssuedBy,
 		IssuedAt: row.IssuedAt, ExpiresAt: row.ExpiresAt,
 		Outcome: outcomeFrom(row.Outcome.Valid, row.Outcome.String), OutcomeAt: row.OutcomeAt,
+		AcceptedCandidate: row.AcceptedCandidate,
 	}
 }
 

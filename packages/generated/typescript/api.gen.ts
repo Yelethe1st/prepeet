@@ -898,6 +898,39 @@ export interface paths {
         patch: operations["correctRequirement"];
         trace?: never;
     };
+    "/campaigns/{campaignId}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The candidate roster for a campaign
+         * @description Every candidate the campaign has invited, each with where they stand:
+         *     from the invitation's own state, through an interview in progress, to
+         *     a completed screening awaiting a human review. Scoped to the
+         *     recruiters on the campaign by the same join that scopes the campaign
+         *     itself, and filtered server-side by the standing parameter, never by
+         *     hiding rows in a browser.
+         *
+         *     This is a roster, not a ranking. Rows order by invitation recency
+         *     alone; a candidate whose session produced insufficient evidence is
+         *     shown as exactly that, its own named standing awaiting the same
+         *     human review, never a low scorer sorted to the bottom; and no field
+         *     here orders candidates by quality, because REV-01's rule is the
+         *     product's: evidence first, decision second, and the decision belongs
+         *     to a named person.
+         */
+        get: operations["listCampaignCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/invitations": {
         parameters: {
             query?: never;
@@ -2174,6 +2207,48 @@ export interface components {
             attempts?: number;
             /** @description The most recent transport failure, when there is one. */
             last_error?: string;
+        };
+        /**
+         * @description Where one invited candidate stands, as a closed vocabulary the
+         *     roster filters on. States before an interview come from the
+         *     invitation (invited, expired, declined, revoked); accepted means an
+         *     account exists and no interview has begun; in_progress and
+         *     processing are the interview's own phases; session_expired is a
+         *     started interview whose session lapsed; awaiting_review is a
+         *     completed screening a human has yet to decide on; and
+         *     insufficient_evidence is a completed screening whose record could
+         *     not support assessment, its own named standing awaiting the same
+         *     human review, never a low score.
+         * @enum {string}
+         */
+        RosterStanding: "invited" | "expired" | "declined" | "revoked" | "accepted" | "in_progress" | "processing" | "session_expired" | "awaiting_review" | "insufficient_evidence";
+        RosterEntry: {
+            /** Format: uuid */
+            invitation_id: string;
+            /** Format: email */
+            recipient: string;
+            standing: components["schemas"]["RosterStanding"];
+            /** Format: date-time */
+            invited_at: string;
+            /**
+             * Format: uuid
+             * @description Present once the candidate's screening session exists.
+             */
+            session_id?: string;
+            /**
+             * Format: date-time
+             * @description When the completed screening became reviewable.
+             */
+            submitted_at?: string;
+        };
+        CampaignRoster: {
+            /**
+             * @description How many completed screenings await a human review, the
+             *     insufficient-evidence ones included: absence of evidence is
+             *     still a decision a person has to make.
+             */
+            pending_review: number;
+            candidates: components["schemas"]["RosterEntry"][];
         };
         InvitationList: {
             invitations: components["schemas"]["Invitation"][];
@@ -4482,6 +4557,35 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    listCampaignCandidates: {
+        parameters: {
+            query?: {
+                /** @description Answer only the candidates at this standing. */
+                standing?: components["schemas"]["RosterStanding"];
+            };
+            header?: never;
+            path: {
+                campaignId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roster, newest invitation first. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignRoster"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listInvitations: {

@@ -129,3 +129,45 @@ func TestScreeningCandidateReadDoesNotReachPractice(t *testing.T) {
 		t.Fatalf("the screening read reached a practice session: %v", err)
 	}
 }
+
+// REV-01's read: the campaign's sessions under the tenant's own scope, one
+// narrow row per interview, ordered by creation and never by anything like
+// quality.
+func TestCampaignSessionsAnswerTheRosterRows(t *testing.T) {
+	ctx := context.Background()
+	store := interview.NewStore(pool)
+	campaignID := seedCampaign(t)
+
+	first := id.New().String()
+	if err := store.Create(ctx, interview.Session{
+		ID: first, Mode: "screening", CandidateID: candidateID,
+		TenantID: tenantID, CampaignID: campaignID, BlueprintID: "bp_screen",
+	}, candidate); err != nil {
+		t.Fatalf("create first: %v", err)
+	}
+	// A second campaign's session must not appear in the first's roster.
+	elsewhere := seedCampaign(t)
+	if err := store.Create(ctx, interview.Session{
+		ID: id.New().String(), Mode: "screening", CandidateID: candidateID,
+		TenantID: tenantID, CampaignID: elsewhere, BlueprintID: "bp_screen",
+	}, candidate); err != nil {
+		t.Fatalf("create elsewhere: %v", err)
+	}
+
+	rows, err := store.CampaignSessions(ctx, tenantID, campaignID)
+	if err != nil {
+		t.Fatalf("campaign sessions: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want exactly the campaign's own", len(rows))
+	}
+	if rows[0].ID != first || rows[0].CandidateID != candidateID {
+		t.Fatalf("row = %+v", rows[0])
+	}
+	if rows[0].State != interview.StateDraft {
+		t.Fatalf("state = %s, want the lifecycle's own vocabulary", rows[0].State)
+	}
+	if rows[0].StateChangedAt.IsZero() {
+		t.Fatalf("state_changed_at missing: the roster reads submission time from it")
+	}
+}

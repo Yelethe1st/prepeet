@@ -56,7 +56,10 @@ type ServerConfig struct {
 	Requirements Requirements
 	// ReInvitations serves SCR-08's re-invitation authorization.
 	ReInvitations ReInvitations
-	Environment   config.Environment
+	// Roster serves REV-01's candidate roster, composed in cmd from the
+	// invitations, the interviews and the evaluation standing.
+	Roster      RosterReads
+	Environment config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
 	AgentToken string
@@ -185,6 +188,11 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		requirements:            cfg.Requirements,
 		reInvitations:           cfg.ReInvitations,
 	}
+	handlers.rosterHandlers = rosterHandlers{
+		authentication: &handlers.authentication,
+		campaigns:      cfg.Recruiting,
+		roster:         cfg.Roster,
+	}
 	handlers.screeningHandlers = screeningHandlers{
 		authentication: &handlers.authentication,
 		invitations:    cfg.ScreeningInvitations,
@@ -294,6 +302,7 @@ type server struct {
 	settingsHandlers
 	campaignHandlers
 	invitationHandlers
+	rosterHandlers
 	screeningHandlers
 	health *health.Registry
 }

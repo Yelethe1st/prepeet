@@ -981,6 +981,48 @@ func (q *Queries) ScreeningSessionForCandidate(ctx context.Context, arg Screenin
 	return i, err
 }
 
+const screeningSessionsForCampaign = `-- name: ScreeningSessionsForCampaign :many
+SELECT id::text AS id, candidate_id::text AS candidate_id, state, state_changed_at
+FROM interview.sessions
+WHERE campaign_id = $1::uuid
+ORDER BY created_at
+`
+
+type ScreeningSessionsForCampaignRow struct {
+	ID             string
+	CandidateID    string
+	State          string
+	StateChangedAt time.Time
+}
+
+// The campaign's interviews as its tenant sees them, one row per session:
+// what the recruiter roster joins onto the invitations, through cmd. The
+// tenant policy scopes the read; the ordering is creation, never quality.
+func (q *Queries) ScreeningSessionsForCampaign(ctx context.Context, campaignID string) ([]ScreeningSessionsForCampaignRow, error) {
+	rows, err := q.db.Query(ctx, screeningSessionsForCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ScreeningSessionsForCampaignRow{}
+	for rows.Next() {
+		var i ScreeningSessionsForCampaignRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CandidateID,
+			&i.State,
+			&i.StateChangedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const stampTimingPolicy = `-- name: StampTimingPolicy :exec
 UPDATE interview.sessions
 SET timing_policy_version = $1::integer

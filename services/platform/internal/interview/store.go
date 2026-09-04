@@ -497,6 +497,46 @@ func (s *Store) ListMine(ctx context.Context, mode, candidateID, tenantID string
 	return sessions, nil
 }
 
+// CampaignSession is one campaign interview as the roster reads it: the
+// candidate it belongs to, where it stands, and when it last moved. A
+// deliberately narrow row, because the roster needs standing and nothing
+// about the interview's content.
+type CampaignSession struct {
+	ID             string
+	CandidateID    string
+	State          State
+	StateChangedAt time.Time
+}
+
+// CampaignSessions answers every interview a campaign has run, under the
+// tenant's own scope, ordered by creation and never by quality: what cmd
+// joins onto the invitations for REV-01's roster.
+func (s *Store) CampaignSessions(ctx context.Context, tenantID, campaignID string) ([]CampaignSession, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("interview: beginning campaign session list: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := database.SetTenant(ctx, tx, tenantID); err != nil {
+		return nil, err
+	}
+	rows, err := db.New(tx).ScreeningSessionsForCampaign(ctx, campaignID)
+	if err != nil {
+		return nil, fmt.Errorf("interview: listing campaign sessions: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("interview: committing the campaign session list: %w", err)
+	}
+	out := make([]CampaignSession, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, CampaignSession{
+			ID: row.ID, CandidateID: row.CandidateID,
+			State: State(row.State), StateChangedAt: row.StateChangedAt,
+		})
+	}
+	return out, nil
+}
+
 // ScreeningPhaseForCandidate says where a candidate's screening interview for a
 // campaign is, for the accommodation path that must know whether a need can
 // still be met before the interview or has become an incident during it.

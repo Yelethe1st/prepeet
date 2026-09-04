@@ -81,7 +81,7 @@ func discloseScreening(outcome ScreeningOutcome) prepeetapi.ScreeningResult {
 		Disclosure: level,
 		// submission_only's whole answer: something was submitted. Even
 		// whether the interview completed is not disclosed at this level.
-		Status: prepeetapi.Submitted,
+		Status: prepeetapi.ScreeningResultStatusSubmitted,
 	}
 	if level == prepeetapi.SubmissionOnly {
 		return response
@@ -146,13 +146,13 @@ func discloseScreening(outcome ScreeningOutcome) prepeetapi.ScreeningResult {
 // screeningStatus derives the honest status for the levels that disclose it.
 func screeningStatus(outcome ScreeningOutcome) prepeetapi.ScreeningResultStatus {
 	if outcome.Evaluated {
-		return prepeetapi.Evaluated
+		return prepeetapi.ScreeningResultStatusEvaluated
 	}
 	switch outcome.State {
 	case "finalizing", "evaluating", "review_ready", "archived", "evaluation_failed":
-		return prepeetapi.Completed
+		return prepeetapi.ScreeningResultStatusCompleted
 	}
-	return prepeetapi.InProgress
+	return prepeetapi.ScreeningResultStatusInProgress
 }
 
 // GetScreeningResult serves the candidate their permitted view.

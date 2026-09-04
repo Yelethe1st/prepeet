@@ -194,6 +194,8 @@ func main() {
 		RecruiterAccommodations: invitations,
 		Requirements:            newRequirementsAdapter(recruiting.NewStore(pool), recruiting.NewRuleExtractor()),
 		ReInvitations:           invitations,
+		Roster: newRosterAdapter(recruiting.NewStore(pool),
+			interview.NewStore(pool), evaluation.NewStore(pool)),
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

@@ -158,6 +158,15 @@ UPDATE interview.sessions
 SET timing_policy_version = sqlc.arg(version)::integer
 WHERE id = sqlc.arg(id)::uuid AND timing_policy_version IS NULL;
 
+-- name: ScreeningSessionsForCampaign :many
+-- The campaign's interviews as its tenant sees them, one row per session:
+-- what the recruiter roster joins onto the invitations, through cmd. The
+-- tenant policy scopes the read; the ordering is creation, never quality.
+SELECT id::text AS id, candidate_id::text AS candidate_id, state, state_changed_at
+FROM interview.sessions
+WHERE campaign_id = sqlc.arg(campaign_id)::uuid
+ORDER BY created_at;
+
 -- name: TimingPolicyByVersion :one
 -- The rules a running session was stamped with. Resume and grace expiry
 -- read this, never the current policy: a policy published mid-session

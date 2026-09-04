@@ -393,6 +393,28 @@ func TestAcceptInvitationByTokenIsSingleUse(t *testing.T) {
 	if _, err := store.AcceptInvitationByToken(ctx, hash, candidateID); !errors.Is(err, recruiting.ErrInvitationNotLive) {
 		t.Fatalf("second accept error = %v, want ErrInvitationNotLive", err)
 	}
+
+	// The campaign list reads the accepting candidate back: it is REV-01's
+	// join key, how the roster ties this invitation to an interview without
+	// this context ever reading the interview's tables.
+	listed, err := store.InvitationsForCampaign(ctx, tenantA, campaign.ID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	found := false
+	for _, invitation := range listed {
+		if invitation.ID == accepted.ID {
+			found = true
+			if invitation.AcceptedCandidate != candidateID {
+				t.Fatalf("accepted candidate = %q, want %q", invitation.AcceptedCandidate, candidateID)
+			}
+		} else if invitation.AcceptedCandidate != "" {
+			t.Fatalf("an unaccepted invitation named a candidate: %+v", invitation)
+		}
+	}
+	if !found {
+		t.Fatalf("the accepted invitation is missing from its campaign's list")
+	}
 }
 
 // An expired invitation cannot be accepted, even though its outcome is still

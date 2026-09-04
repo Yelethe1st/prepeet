@@ -1420,6 +1420,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /campaigns/{campaignId}/candidates:
+    get:
+      tags: [recruiting]
+      operationId: listCampaignCandidates
+      x-prepeet-capability: campaign.read
+      summary: The candidate roster for a campaign
+      description: |
+        Every candidate the campaign has invited, each with where they stand:
+        from the invitation's own state, through an interview in progress, to
+        a completed screening awaiting a human review. Scoped to the
+        recruiters on the campaign by the same join that scopes the campaign
+        itself, and filtered server-side by the standing parameter, never by
+        hiding rows in a browser.
+
+        This is a roster, not a ranking. Rows order by invitation recency
+        alone; a candidate whose session produced insufficient evidence is
+        shown as exactly that, its own named standing awaiting the same
+        human review, never a low scorer sorted to the bottom; and no field
+        here orders candidates by quality, because REV-01's rule is the
+        product's: evidence first, decision second, and the decision belongs
+        to a named person.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: standing
+          in: query
+          required: false
+          description: Answer only the candidates at this standing.
+          schema:
+            $ref: "#/components/schemas/RosterStanding"
+      responses:
+        "200":
+          description: The roster, newest invitation first.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignRoster"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /campaigns/{campaignId}/invitations:
     get:
       tags: [recruiting]
@@ -3606,6 +3652,64 @@ components:
         last_error:
           type: string
           description: The most recent transport failure, when there is one.
+
+    RosterStanding:
+      type: string
+      description: |
+        Where one invited candidate stands, as a closed vocabulary the
+        roster filters on. States before an interview come from the
+        invitation (invited, expired, declined, revoked); accepted means an
+        account exists and no interview has begun; in_progress and
+        processing are the interview's own phases; session_expired is a
+        started interview whose session lapsed; awaiting_review is a
+        completed screening a human has yet to decide on; and
+        insufficient_evidence is a completed screening whose record could
+        not support assessment, its own named standing awaiting the same
+        human review, never a low score.
+      enum:
+        - invited
+        - expired
+        - declined
+        - revoked
+        - accepted
+        - in_progress
+        - processing
+        - session_expired
+        - awaiting_review
+        - insufficient_evidence
+
+    RosterEntry:
+      type: object
+      required: [invitation_id, recipient, standing, invited_at]
+      properties:
+        invitation_id: { type: string, format: uuid }
+        recipient: { type: string, format: email }
+        standing:
+          $ref: "#/components/schemas/RosterStanding"
+        invited_at: { type: string, format: date-time }
+        session_id:
+          type: string
+          format: uuid
+          description: Present once the candidate's screening session exists.
+        submitted_at:
+          type: string
+          format: date-time
+          description: When the completed screening became reviewable.
+
+    CampaignRoster:
+      type: object
+      required: [candidates, pending_review]
+      properties:
+        pending_review:
+          type: integer
+          description: |
+            How many completed screenings await a human review, the
+            insufficient-evidence ones included: absence of evidence is
+            still a decision a person has to make.
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/RosterEntry"
 
     InvitationList:
       type: object

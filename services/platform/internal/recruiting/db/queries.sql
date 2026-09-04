@@ -234,9 +234,12 @@ RETURNING id, tenant_id, campaign_id, recipient, email_id, issued_by,
 -- name: InvitationsForCampaign :many
 -- The recruiter's roster for one campaign, newest first. email_id rides along
 -- so cmd can join delivery status from notification, which this context does
--- not read. Tenant scoping is the policy's.
+-- not read, and accepted_candidate rides along so cmd can join the candidate's
+-- interview from the interview context, which this context does not read
+-- either. Tenant scoping is the policy's.
 SELECT id, tenant_id, campaign_id, recipient, email_id, issued_by,
-       issued_at, expires_at, outcome, outcome_at
+       issued_at, expires_at, outcome, outcome_at,
+       COALESCE(accepted_candidate::text, '')::text AS accepted_candidate
 FROM recruiting.invitation
 WHERE campaign_id = $1
 ORDER BY issued_at DESC;

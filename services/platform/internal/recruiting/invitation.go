@@ -26,6 +26,11 @@ type Invitation struct {
 	Outcome   InvitationOutcome
 	// OutcomeAt is nil exactly when the invitation is still live.
 	OutcomeAt *time.Time
+	// AcceptedCandidate is the account acceptance resolved the recipient to,
+	// set exactly when the outcome is accepted and empty otherwise. It is how
+	// cmd joins the candidate's interview onto the roster without this
+	// context ever reading the interview's tables.
+	AcceptedCandidate string
 }
 
 // InvitationOutcome is how an invitation ended, or the empty string while it

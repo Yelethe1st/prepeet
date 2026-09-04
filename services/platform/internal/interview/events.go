@@ -85,7 +85,7 @@ type EventOutcome struct {
 	// Status is accepted, duplicate, or refused.
 	Status string
 	// Reason names a refusal: EVENT_TYPE_UNKNOWN, SEQUENCE_CONFLICT,
-	// SEQUENCE_INVALID.
+	// SEQUENCE_INVALID, INTERRUPTION_INVALID, INTERRUPTION_NOT_IN_FLIGHT.
 	Reason string
 }
 
@@ -230,7 +230,17 @@ func (e *Events) ingest(ctx context.Context, sessionID, mode, candidateID, tenan
 		return Acknowledgment{}, fmt.Errorf("interview: checking the seal: %w", err)
 	}
 
-	sawEstablished := false
+	// The actor every effect of this batch is recorded under: the browser
+	// acts as the candidate, the agent path as automation acting for them.
+	actor := Actor{ID: candidateID, Type: "user"}
+	if assign {
+		actor.Type = "service"
+	}
+
+	// The accepted connection lifecycle, in batch order. The fold into the
+	// state machine happens after the events commit, because the events are
+	// the record and the machine follows the record, never the reverse.
+	var lifecycle []string
 	outcomes := make([]EventOutcome, 0, len(events))
 	for _, event := range events {
 		if sealed && conversationalEventTypes[event.Type] {
@@ -239,9 +249,12 @@ func (e *Events) ingest(ctx context.Context, sessionID, mode, candidateID, tenan
 			})
 			continue
 		}
-		outcome := e.apply(ctx, tx, session, event)
-		if outcome.Status == "accepted" && event.Type == "connection.established" {
-			sawEstablished = true
+		outcome := e.apply(ctx, tx, session, event, actor)
+		if outcome.Status == "accepted" {
+			switch event.Type {
+			case "connection.established", "connection.resumed", "connection.lost":
+				lifecycle = append(lifecycle, event.Type)
+			}
 		}
 		outcomes = append(outcomes, outcome)
 	}
@@ -262,20 +275,50 @@ func (e *Events) ingest(ctx context.Context, sessionID, mode, candidateID, tenan
 		return Acknowledgment{}, err
 	}
 
-	// The first established connection is what moves connecting to
-	// in_progress: the interview is genuinely happening from here. Its own
-	// transaction, after the events committed, and idempotent by the
-	// machine's own guard: a session already in progress stays there.
-	if sawEstablished && session.State == StateConnecting {
-		actor := Actor{ID: candidateID, Type: "user"}
-		event, err := startedEvent(session)
+	// Fold the accepted lifecycle into the machine, in the order the batch
+	// spoke it, each transition its own transaction after the events
+	// committed. The first established connection moves connecting to
+	// in_progress - the interview is genuinely happening from here - and the
+	// same signal returns a reconnecting session to progress, because a
+	// recovered interview resumed rather than started twice. A loss while in
+	// progress moves the session to reconnecting and announces it, so the
+	// drop is the server's state, never only the tab's memory. A stale
+	// version means a concurrent ingest folded first; its fold stands.
+	current := session
+	for _, kind := range lifecycle {
+		var to State
+		effects := Effects{}
+		switch {
+		case (kind == "connection.established" || kind == "connection.resumed") &&
+			(current.State == StateConnecting || current.State == StateReconnecting):
+			to = StateInProgress
+			if current.State == StateConnecting {
+				// Only the first arrival is the start; a recovery announces
+				// nothing new, the session already started.
+				event, err := startedEvent(current)
+				if err != nil {
+					return Acknowledgment{}, err
+				}
+				effects.Event = event
+			}
+		case kind == "connection.lost" && current.State == StateInProgress:
+			to = StateReconnecting
+			event, err := interruptedEvent(current)
+			if err != nil {
+				return Acknowledgment{}, err
+			}
+			effects.Event = event
+		default:
+			continue
+		}
+		next, err := e.store.Transition(ctx, current, to, effects, actor)
+		if errors.Is(err, ErrStaleVersion) {
+			break
+		}
 		if err != nil {
 			return Acknowledgment{}, err
 		}
-		if _, err := e.store.Transition(ctx, session, StateInProgress, Effects{Event: event}, actor); err != nil &&
-			!errors.Is(err, ErrStaleVersion) {
-			return Acknowledgment{}, err
-		}
+		current = next
 	}
 	return Acknowledgment{Epoch: epoch, Accepted: accepted, Missing: missing, Outcomes: outcomes}, nil
 }
@@ -286,7 +329,7 @@ func (e *Events) ingest(ctx context.Context, sessionID, mode, candidateID, tenan
 // The insert runs inside a savepoint, because a unique violation poisons
 // the enclosing PostgreSQL transaction and one duplicate must not abort
 // the rest of the batch.
-func (e *Events) apply(ctx context.Context, tx pgx.Tx, session Session, event ControlEvent) EventOutcome {
+func (e *Events) apply(ctx context.Context, tx pgx.Tx, session Session, event ControlEvent, actor Actor) EventOutcome {
 	if ephemeralEventTypes[event.Type] {
 		// Validated and waved through: never stored, never a sequence slot,
 		// because a slot that vanishes on restart is a manufactured gap.
@@ -305,6 +348,26 @@ func (e *Events) apply(ctx context.Context, tx pgx.Tx, session Session, event Co
 			return EventOutcome{EventID: event.EventID, Status: "refused", Reason: "TRANSCRIPT_INVALID"}
 		}
 	}
+	var interruption *interruptionPayload
+	if event.Type == "interruption" {
+		// The interruption fact rides the timeline's own event (SES-06): the
+		// realtime layer that saw the drop is the only party that knows its
+		// cause and duration, and the event's dedup identity is what keeps a
+		// resent report from inventing a second fact. Refused before it can
+		// take a slot when it could not serve the human decision it exists
+		// for, exactly as a malformed transcript segment is.
+		parsed, err := parseInterruptionPayload(event.Payload)
+		if err != nil {
+			return EventOutcome{EventID: event.EventID, Status: "refused", Reason: "INTERRUPTION_INVALID"}
+		}
+		switch session.State {
+		case StateInProgress, StateReconnecting:
+			// The states an interruption can befall: an interview in flight.
+		default:
+			return EventOutcome{EventID: event.EventID, Status: "refused", Reason: "INTERRUPTION_NOT_IN_FLIGHT"}
+		}
+		interruption = &parsed
+	}
 
 	payload := event.Payload
 	if len(payload) == 0 {
@@ -322,6 +385,17 @@ func (e *Events) apply(ctx context.Context, tx pgx.Tx, session Session, event Co
 		EventType: event.Type, Payload: payload, OccurredAt: event.OccurredAt,
 	})
 	if err == nil {
+		if interruption != nil {
+			// Inside the same savepoint as the event, so the fact and the
+			// record that reported it commit together or neither does: a
+			// duplicate event never reaches here, which is what keeps one
+			// drop from becoming two facts.
+			if _, err := e.store.recordInterruptionIn(ctx, savepoint, session,
+				interruption.Cause, interruption.DurationSeconds, actor); err != nil {
+				_ = savepoint.Rollback(ctx)
+				return EventOutcome{EventID: event.EventID, Status: "refused", Reason: "EVENT_STORE_FAILED"}
+			}
+		}
 		if err := savepoint.Commit(ctx); err != nil {
 			return EventOutcome{EventID: event.EventID, Status: "refused", Reason: "EVENT_STORE_FAILED"}
 		}
@@ -405,6 +479,34 @@ func isUniqueViolation(err error) bool {
 		return pgErr.SQLState() == "23505"
 	}
 	return errors.Is(err, pgx.ErrTxCommitRollback)
+}
+
+// interruptedEvent is the catalogue's session_interrupted notification,
+// published atomically with the transition to reconnecting. Reason "network"
+// is the closed set's name for a lost connection; resumable is true because
+// the grace window opens with this very transition, and SES-06's expiry is
+// what later says otherwise; attempt names which interruption this is, and
+// the connection epoch is exactly that ordinal - each resume opens the next
+// epoch, so the pattern operations aggregates on needs no second counter.
+func interruptedEvent(session Session) (*outbox.Event, error) {
+	payload, err := json.Marshal(map[string]any{
+		"session_id": session.ID,
+		"reason":     "network",
+		"resumable":  true,
+		"attempt":    session.ConnectionEpoch,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("interview: encoding the interrupted event: %w", err)
+	}
+	return &outbox.Event{
+		Type:          "interview.session_interrupted.v1",
+		SchemaVersion: "1.0",
+		TenantID:      session.TenantID,
+		Producer:      "interview",
+		Actor:         outbox.Actor{Type: "user", ID: session.CandidateID},
+		Purpose:       session.Mode,
+		Payload:       payload,
+	}, nil
 }
 
 // startedEvent is the catalogue's session_started notification, published

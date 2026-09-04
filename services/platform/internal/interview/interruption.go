@@ -2,9 +2,12 @@ package interview
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	db "github.com/Yelethe1st/prepeet/services/platform/internal/interview/db"
 	"github.com/Yelethe1st/prepeet/services/platform/platform/id"
@@ -47,6 +50,31 @@ type Interruption struct {
 	ConnectionEpoch int
 }
 
+// interruptionPayload is the durable interruption event's body: what the
+// realtime layer that saw the drop reports about it.
+type interruptionPayload struct {
+	Cause           InterruptionCause `json:"cause"`
+	DurationSeconds int               `json:"duration_seconds"`
+}
+
+// parseInterruptionPayload validates the report at the door, the same way a
+// transcript segment is: a cause outside the vocabulary or a nonsensical
+// duration is refused before it can take a slot, never discovered later by
+// the human deciding on re-invitation.
+func parseInterruptionPayload(raw json.RawMessage) (interruptionPayload, error) {
+	var payload interruptionPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return interruptionPayload{}, fmt.Errorf("interview: decoding the interruption: %w", err)
+	}
+	if !validCauses[payload.Cause] {
+		return interruptionPayload{}, fmt.Errorf("%w: %q", ErrUnknownCause, payload.Cause)
+	}
+	if payload.DurationSeconds < 0 {
+		return interruptionPayload{}, errors.New("interview: an interruption cannot have negative duration")
+	}
+	return payload, nil
+}
+
 // RecordInterruption records that an interview stopped, as a fact independent
 // of the session's state.
 //
@@ -85,15 +113,8 @@ func (s *Store) RecordInterruption(ctx context.Context, session Session, cause I
 		return Interruption{}, err
 	}
 
-	interruptionID := id.New().String()
-	if err := db.New(tx).InsertInterruption(ctx, db.InsertInterruptionParams{
-		ID: interruptionID, SessionID: session.ID, CandidateID: session.CandidateID,
-		TenantID: session.TenantID, Cause: string(cause),
-		DurationSeconds: int32(durationSeconds), ConnectionEpoch: int32(session.ConnectionEpoch),
-	}); err != nil {
-		return Interruption{}, fmt.Errorf("interview: recording the interruption: %w", err)
-	}
-	if err := s.audit(ctx, tx, session, actor, "interview.session_interrupted", "allowed"); err != nil {
+	interruptionID, err := s.recordInterruptionIn(ctx, tx, session, cause, durationSeconds, actor)
+	if err != nil {
 		return Interruption{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -104,6 +125,25 @@ func (s *Store) RecordInterruption(ctx context.Context, session Session, cause I
 		ID: interruptionID, Cause: cause, OccurredAt: time.Now(),
 		DurationSeconds: durationSeconds, ConnectionEpoch: session.ConnectionEpoch,
 	}, nil
+}
+
+// recordInterruptionIn writes the fact and its audit row inside the caller's
+// transaction, so an interruption reported through the control timeline
+// commits with the event that reported it. The caller owns the scope and the
+// state guard; this owns only what every path must write identically.
+func (s *Store) recordInterruptionIn(ctx context.Context, tx pgx.Tx, session Session, cause InterruptionCause, durationSeconds int, actor Actor) (string, error) {
+	if durationSeconds < 0 {
+		durationSeconds = 0
+	}
+	interruptionID := id.New().String()
+	if err := db.New(tx).InsertInterruption(ctx, db.InsertInterruptionParams{
+		ID: interruptionID, SessionID: session.ID, CandidateID: session.CandidateID,
+		TenantID: session.TenantID, Cause: string(cause),
+		DurationSeconds: int32(durationSeconds), ConnectionEpoch: int32(session.ConnectionEpoch),
+	}); err != nil {
+		return "", fmt.Errorf("interview: recording the interruption: %w", err)
+	}
+	return interruptionID, s.audit(ctx, tx, session, actor, "interview.session_interrupted", "allowed")
 }
 
 // Interruptions reads what interrupted a session, for whoever may read it.

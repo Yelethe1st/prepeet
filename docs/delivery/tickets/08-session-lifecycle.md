@@ -193,9 +193,15 @@ recorded as coverage rather than as poor performance.
 **Done when**
 - [x] Resume restores the conversational cursor, the timer snapshot and the phase.
 - [x] Grace expiry finalizes cleanly and records why.
-- [ ] The interruption appears in evidence as reduced coverage, never as a low score.
+- [x] The interruption appears in evidence as reduced coverage, never as a low score.
 
-**Two of three; the third is the evaluation-side proof.** The drop is the server's state: an
+**Done.** The third box is proven at the rule that decides it: aggregation over a
+truncated record keeps the earned band on everything answered before the drop, and lands
+everything the drop cut off in unassessed with NOT_DISCUSSED and no band or confidence,
+named in coverage's NotReached - a reviewer sees an interview that stopped, never a
+candidate who failed. The expiry path composes into that by construction: the seal
+carries the record only as far as it truly went, and no code path converts absence into
+a score. The drop is the server's state: an
 accepted connection.lost folds a running session into reconnecting and publishes the catalogue's
 session_interrupted announcement, and recovery - connection.resumed for a same-epoch blip,
 connection.established for a fresh attempt - folds it back, so the machine follows the timeline

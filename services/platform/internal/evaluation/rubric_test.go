@@ -98,6 +98,61 @@ func TestUnassessedIsNotPoor(t *testing.T) {
 	}
 }
 
+func TestAnInterruptedSessionReadsAsReducedCoverageNeverALowScore(t *testing.T) {
+	// SES-06's third box, at the rule that decides it. A session grace
+	// expiry sealed short stopped mid-plan: the competencies the
+	// conversation reached before the drop keep exactly the evidence they
+	// earned, and the ones after the stopping point have none. What the
+	// truncation must never do is show up as poor performance - the
+	// unreached competencies are named in NotReached with no band and no
+	// confidence, so a reviewer sees an interview that stopped, not a
+	// candidate who failed.
+	competencies := []evaluation.Competency{
+		{ID: "reached-before-drop", Name: "Reached"},
+		{ID: "planned-after-drop", Name: "Never reached"},
+		{ID: "also-after-drop", Name: "Never reached either"},
+	}
+	spans := append(
+		evidence("reached-before-drop", "supporting", 3),
+		evidence("reached-before-drop", "contradictory", 1)...,
+	)
+
+	result := evaluation.Aggregate(rubricFixture(t), competencies, spans)
+	byID := map[string]evaluation.CompetencyResult{}
+	for _, competency := range result.Competencies {
+		byID[competency.CompetencyID] = competency
+	}
+
+	// What was answered before the drop is assessed on its own merits,
+	// untouched by how the session ended.
+	reached := byID["reached-before-drop"]
+	if reached.Status != "assessed" || reached.Band != "solid" {
+		t.Fatalf("reached = %+v; the answered part keeps its earned band", reached)
+	}
+
+	// What the drop cut off is absence, in its own fields.
+	for _, id := range []string{"planned-after-drop", "also-after-drop"} {
+		cut := byID[id]
+		if cut.Status != "unassessed" || cut.Band != "" {
+			t.Fatalf("%s = %+v; truncation showed up as a score", id, cut)
+		}
+		if cut.Confidence != "not_assessable" {
+			t.Fatalf("%s confidence = %q", id, cut.Confidence)
+		}
+		if !hasReason(cut, "NOT_DISCUSSED") {
+			t.Fatalf("%s reasons = %v", id, cut.ReasonCodes)
+		}
+	}
+	if !reflect.DeepEqual(result.Coverage.NotReached,
+		[]string{"also-after-drop", "planned-after-drop"}) {
+		t.Fatalf("not reached = %v; the cut competencies are named, not counted away",
+			result.Coverage.NotReached)
+	}
+	if result.CoveredCompetencies != 1 || result.TotalCompetencies != 3 {
+		t.Fatalf("coverage = %d/%d", result.CoveredCompetencies, result.TotalCompetencies)
+	}
+}
+
 func TestBandsAreEarnedByTheRubricsOwnThresholds(t *testing.T) {
 	competencies := []evaluation.Competency{{ID: "sd", Name: "Systems design"}}
 	cases := []struct {

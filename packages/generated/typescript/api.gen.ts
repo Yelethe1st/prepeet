@@ -965,6 +965,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/sessions/{sessionId}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The decision history for one screening
+         * @description Every decision ever recorded on the session, oldest first, each
+         *     with its true actor, its reason, its overrides and the evidence
+         *     version it was informed by. Append-only by trigger: a change of
+         *     mind is a new decision, and the history keeps them all - which is
+         *     what an appeal reads.
+         */
+        get: operations["listReviewDecisions"];
+        put?: never;
+        /**
+         * Record a named human's decision on one screening
+         * @description Advance, reject or hold, with a required reason. The decider is
+         *     the session, never the body: no code path can produce an outcome
+         *     without a named human actor. The evidence version - the published
+         *     evaluation's identity and digests - is captured server-side at the
+         *     moment of deciding, and where the reviewer disagrees with an
+         *     assessed band the override carries the reviewer's band and a
+         *     required rationale; the band disagreed with is recorded from the
+         *     stored result, never taken from the request.
+         */
+        post: operations["recordReviewDecision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/invitations": {
         parameters: {
             query?: never;
@@ -2306,6 +2341,53 @@ export interface components {
              *     of evidenced.
              */
             follow_up?: string;
+        };
+        ReviewDecisionRequest: {
+            /** @enum {string} */
+            decision: "advance" | "reject" | "hold";
+            /** @description Why. Required, with no default. */
+            reason: string;
+            /**
+             * @description Where the reviewer disagrees with an assessed band. Each names
+             *     the competency, the reviewer's own band and a required
+             *     rationale; the band disagreed with is captured server-side.
+             */
+            overrides?: {
+                competency_id: string;
+                band: string;
+                rationale: string;
+            }[];
+        };
+        BandOverrideView: {
+            competency_id: string;
+            /** @description The band the aggregation assessed, captured at decision time. */
+            recorded_band: string;
+            override_band: string;
+            rationale: string;
+        };
+        ReviewDecisionView: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            session_id: string;
+            /**
+             * Format: uuid
+             * @description The person. A user, never a service.
+             */
+            decided_by: string;
+            /** @enum {string} */
+            decision: "advance" | "reject" | "hold";
+            reason: string;
+            /** Format: uuid */
+            evaluation_id: string;
+            result_digest: string;
+            rubric_digest: string;
+            overrides: components["schemas"]["BandOverrideView"][];
+            /** Format: date-time */
+            decided_at: string;
+        };
+        ReviewDecisionList: {
+            decisions: components["schemas"]["ReviewDecisionView"][];
         };
         /**
          * @description Where one invited candidate stands, as a closed vocabulary the
@@ -4715,6 +4797,80 @@ export interface operations {
             /**
              * @description REVIEW_NOT_READY: the session exists on this campaign and its
              *     evaluation has not been published yet.
+             */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listReviewDecisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The history, oldest first. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDecisionList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recordReviewDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description The decision, recorded and announced. */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDecisionView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description Refused with a distinct code: REVIEW_NOT_READY when no
+             *     evaluation is published to decide against, REASON_REQUIRED,
+             *     OVERRIDE_INCOMPLETE for an override missing its rationale or
+             *     band, OVERRIDE_UNKNOWN_COMPETENCY for one naming a competency
+             *     the evaluation did not assess.
              */
             409: {
                 headers: {

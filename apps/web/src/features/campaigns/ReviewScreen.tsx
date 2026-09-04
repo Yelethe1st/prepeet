@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api/client";
 import { Button } from "@/shared/components";
 import { ErrorState, LoadingSurface, SkeletonText } from "@/shared/states";
 
+import { DecisionPanel } from "./DecisionPanel";
 import { fetchReview, type ScreeningReview } from "./api";
 
 /**
@@ -80,7 +81,23 @@ export function ReviewScreen({
     );
   }
 
-  return <ReviewDocument review={review.data} />;
+  return (
+    <div className="space-y-8">
+      <ReviewDocument review={review.data} />
+      <DecisionPanel
+        campaignId={campaignId}
+        sessionId={sessionId}
+        assessed={review.data.competencies
+          .filter(
+            (competency) => competency.status === "assessed" && competency.band,
+          )
+          .map((competency) => ({
+            competencyID: competency.competency_id,
+            band: competency.band ?? "",
+          }))}
+      />
+    </div>
+  );
 }
 
 function ReviewDocument({ review }: { review: ScreeningReview }) {

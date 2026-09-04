@@ -198,6 +198,8 @@ func main() {
 			interview.NewStore(pool), evaluation.NewStore(pool)),
 		Reviews: newReviewAdapter(interview.NewStore(pool),
 			evaluation.NewStore(pool), recruiting.NewStore(pool), uploads),
+		Decisions: newDecisionAdapter(interview.NewStore(pool),
+			evaluation.NewStore(pool), recruiting.NewStore(pool)),
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

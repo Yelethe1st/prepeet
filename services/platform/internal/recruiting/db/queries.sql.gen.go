@@ -1311,6 +1311,81 @@ func (q *Queries) RecordConsentDecision(ctx context.Context, arg RecordConsentDe
 	return err
 }
 
+const recordReviewDecision = `-- name: RecordReviewDecision :one
+
+INSERT INTO recruiting.review_decision
+    (id, campaign_id, tenant_id, session_id, decided_by, decision, reason,
+     evaluation_id, result_digest, rubric_digest, overrides)
+VALUES ($1::uuid, $2::uuid, $3::uuid,
+        $4::uuid, $5::uuid,
+        $6::text, $7::text,
+        $8::uuid, $9::text,
+        $10::text, $11::jsonb)
+RETURNING id, session_id, decided_by, decision, reason, evaluation_id,
+          result_digest, rubric_digest, overrides, created_at
+`
+
+type RecordReviewDecisionParams struct {
+	ID           string
+	CampaignID   string
+	TenantID     string
+	SessionID    string
+	DecidedBy    string
+	Decision     string
+	Reason       string
+	EvaluationID string
+	ResultDigest string
+	RubricDigest string
+	Overrides    []byte
+}
+
+type RecordReviewDecisionRow struct {
+	ID           string
+	SessionID    string
+	DecidedBy    string
+	Decision     string
+	Reason       string
+	EvaluationID string
+	ResultDigest string
+	RubricDigest string
+	Overrides    []byte
+	CreatedAt    time.Time
+}
+
+// ── REV-03: the hiring decision, append-only.
+// One named human's decision, with the evidence version it was informed
+// by. Append-only: there is no update to converge with, a new decision is
+// a new row and the history keeps them all.
+func (q *Queries) RecordReviewDecision(ctx context.Context, arg RecordReviewDecisionParams) (RecordReviewDecisionRow, error) {
+	row := q.db.QueryRow(ctx, recordReviewDecision,
+		arg.ID,
+		arg.CampaignID,
+		arg.TenantID,
+		arg.SessionID,
+		arg.DecidedBy,
+		arg.Decision,
+		arg.Reason,
+		arg.EvaluationID,
+		arg.ResultDigest,
+		arg.RubricDigest,
+		arg.Overrides,
+	)
+	var i RecordReviewDecisionRow
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.DecidedBy,
+		&i.Decision,
+		&i.Reason,
+		&i.EvaluationID,
+		&i.ResultDigest,
+		&i.RubricDigest,
+		&i.Overrides,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const recruiterMayAccess = `-- name: RecruiterMayAccess :one
 SELECT EXISTS (
     SELECT 1 FROM recruiting.campaign_recruiter
@@ -1456,6 +1531,66 @@ func (q *Queries) ResolveInvitationByToken(ctx context.Context, tokenHash string
 		&i.OutcomeAt,
 	)
 	return i, err
+}
+
+const reviewDecisionsForSession = `-- name: ReviewDecisionsForSession :many
+SELECT id, session_id, decided_by, decision, reason, evaluation_id,
+       result_digest, rubric_digest, overrides, created_at
+FROM recruiting.review_decision
+WHERE session_id = $1::uuid
+  AND campaign_id = $2::uuid
+ORDER BY created_at
+`
+
+type ReviewDecisionsForSessionParams struct {
+	SessionID  string
+	CampaignID string
+}
+
+type ReviewDecisionsForSessionRow struct {
+	ID           string
+	SessionID    string
+	DecidedBy    string
+	Decision     string
+	Reason       string
+	EvaluationID string
+	ResultDigest string
+	RubricDigest string
+	Overrides    []byte
+	CreatedAt    time.Time
+}
+
+// The whole history, oldest first: every decision ever recorded on the
+// session, each with its true actor and the evidence version it read.
+func (q *Queries) ReviewDecisionsForSession(ctx context.Context, arg ReviewDecisionsForSessionParams) ([]ReviewDecisionsForSessionRow, error) {
+	rows, err := q.db.Query(ctx, reviewDecisionsForSession, arg.SessionID, arg.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReviewDecisionsForSessionRow{}
+	for rows.Next() {
+		var i ReviewDecisionsForSessionRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.DecidedBy,
+			&i.Decision,
+			&i.Reason,
+			&i.EvaluationID,
+			&i.ResultDigest,
+			&i.RubricDigest,
+			&i.Overrides,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const revokeCampaignAccess = `-- name: RevokeCampaignAccess :exec

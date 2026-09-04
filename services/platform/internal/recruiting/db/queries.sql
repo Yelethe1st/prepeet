@@ -388,3 +388,30 @@ WHERE id = (
     LIMIT 1
 )
 RETURNING id, campaign_id, candidate_id, consumed_session;
+
+-- ── REV-03: the hiring decision, append-only.
+
+-- name: RecordReviewDecision :one
+-- One named human's decision, with the evidence version it was informed
+-- by. Append-only: there is no update to converge with, a new decision is
+-- a new row and the history keeps them all.
+INSERT INTO recruiting.review_decision
+    (id, campaign_id, tenant_id, session_id, decided_by, decision, reason,
+     evaluation_id, result_digest, rubric_digest, overrides)
+VALUES (sqlc.arg(id)::uuid, sqlc.arg(campaign_id)::uuid, sqlc.arg(tenant_id)::uuid,
+        sqlc.arg(session_id)::uuid, sqlc.arg(decided_by)::uuid,
+        sqlc.arg(decision)::text, sqlc.arg(reason)::text,
+        sqlc.arg(evaluation_id)::uuid, sqlc.arg(result_digest)::text,
+        sqlc.arg(rubric_digest)::text, sqlc.arg(overrides)::jsonb)
+RETURNING id, session_id, decided_by, decision, reason, evaluation_id,
+          result_digest, rubric_digest, overrides, created_at;
+
+-- name: ReviewDecisionsForSession :many
+-- The whole history, oldest first: every decision ever recorded on the
+-- session, each with its true actor and the evidence version it read.
+SELECT id, session_id, decided_by, decision, reason, evaluation_id,
+       result_digest, rubric_digest, overrides, created_at
+FROM recruiting.review_decision
+WHERE session_id = sqlc.arg(session_id)::uuid
+  AND campaign_id = sqlc.arg(campaign_id)::uuid
+ORDER BY created_at;

@@ -1523,6 +1523,97 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /campaigns/{campaignId}/sessions/{sessionId}/decisions:
+    get:
+      tags: [recruiting]
+      operationId: listReviewDecisions
+      x-prepeet-capability: evaluation.read_screen
+      summary: The decision history for one screening
+      description: |
+        Every decision ever recorded on the session, oldest first, each
+        with its true actor, its reason, its overrides and the evidence
+        version it was informed by. Append-only by trigger: a change of
+        mind is a new decision, and the history keeps them all - which is
+        what an appeal reads.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The history, oldest first.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewDecisionList"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [recruiting]
+      operationId: recordReviewDecision
+      x-prepeet-capability: evaluation.review
+      summary: Record a named human's decision on one screening
+      description: |
+        Advance, reject or hold, with a required reason. The decider is
+        the session, never the body: no code path can produce an outcome
+        without a named human actor. The evidence version - the published
+        evaluation's identity and digests - is captured server-side at the
+        moment of deciding, and where the reviewer disagrees with an
+        assessed band the override carries the reviewer's band and a
+        required rationale; the band disagreed with is recorded from the
+        stored result, never taken from the request.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewDecisionRequest"
+      responses:
+        "201":
+          description: The decision, recorded and announced.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewDecisionView"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            Refused with a distinct code: REVIEW_NOT_READY when no
+            evaluation is published to decide against, REASON_REQUIRED,
+            OVERRIDE_INCOMPLETE for an override missing its rationale or
+            band, OVERRIDE_UNKNOWN_COMPETENCY for one naming a competency
+            the evaluation did not assess.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /campaigns/{campaignId}/invitations:
     get:
       tags: [recruiting]
@@ -3809,6 +3900,75 @@ components:
           description: |
             The suggested human question, present for every status short
             of evidenced.
+
+    ReviewDecisionRequest:
+      type: object
+      required: [decision, reason]
+      properties:
+        decision:
+          type: string
+          enum: [advance, reject, hold]
+        reason:
+          type: string
+          description: Why. Required, with no default.
+        overrides:
+          type: array
+          description: |
+            Where the reviewer disagrees with an assessed band. Each names
+            the competency, the reviewer's own band and a required
+            rationale; the band disagreed with is captured server-side.
+          items:
+            type: object
+            required: [competency_id, band, rationale]
+            properties:
+              competency_id: { type: string }
+              band: { type: string }
+              rationale: { type: string }
+
+    BandOverrideView:
+      type: object
+      required: [competency_id, recorded_band, override_band, rationale]
+      properties:
+        competency_id: { type: string }
+        recorded_band:
+          type: string
+          description: The band the aggregation assessed, captured at decision time.
+        override_band: { type: string }
+        rationale: { type: string }
+
+    ReviewDecisionView:
+      type: object
+      required:
+        [id, session_id, decided_by, decision, reason, evaluation_id,
+         result_digest, rubric_digest, overrides, decided_at]
+      properties:
+        id: { type: string, format: uuid }
+        session_id: { type: string, format: uuid }
+        decided_by:
+          type: string
+          format: uuid
+          description: The person. A user, never a service.
+        decision:
+          type: string
+          enum: [advance, reject, hold]
+        reason: { type: string }
+        evaluation_id: { type: string, format: uuid }
+        result_digest: { type: string }
+        rubric_digest: { type: string }
+        overrides:
+          type: array
+          items:
+            $ref: "#/components/schemas/BandOverrideView"
+        decided_at: { type: string, format: date-time }
+
+    ReviewDecisionList:
+      type: object
+      required: [decisions]
+      properties:
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewDecisionView"
 
     RosterStanding:
       type: string

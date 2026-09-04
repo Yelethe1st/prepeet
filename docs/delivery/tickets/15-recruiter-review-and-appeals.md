@@ -82,9 +82,28 @@ Advance, hold, decline or request re-review, each with a named actor and a reaso
 rationale required when the reviewer disagrees with the suggested band.
 
 **Done when**
-- [ ] No code path can produce an outcome without a named human actor.
-- [ ] Override requires a rationale and records the band it disagreed with.
-- [ ] Decision history is append-only and preserves the true actor and evidence version.
+- [x] No code path can produce an outcome without a named human actor.
+- [x] Override requires a rationale and records the band it disagreed with.
+- [x] Decision history is append-only and preserves the true actor and evidence version.
+
+**Done, enforced at every layer that could cheat.** The first box holds three times over:
+the contract has no decider field for a body to forge (the handler writes the session's
+user), the domain refuses a blank actor, and the schema's decided_by is NOT NULL
+referencing identity.users - while the catalogued review.decision_recorded.v1 event, whose
+schema already said "a user, never a service", publishes in the decision's own transaction
+with no reasoning text, because that is restricted content read from the record by somebody
+authorised. Overrides: the reviewer supplies their band and a required rationale; the band
+they disagreed with is captured by the composition from the stored result, never the
+request, and an override naming a competency the evaluation did not assess is refused by
+name, since there is no band to disagree with. The history is append-only by trigger, not
+convention - the integration test proves even the migrator cannot UPDATE or DELETE a
+decision row - and every row keeps its true actor plus the evidence version it was informed
+by (evaluation id, result digest, rubric digest), which is exactly what REV-06's appeal
+reads. On the screen, the decision panel sits below the evidence it is about, requires an
+outcome and a reason before the button enables, and renders the whole history with each
+actor and disagreement in words. The wording is the ticket's: Advance, Hold, Decline on the
+screen, the event catalogue's advance/hold/reject on the wire; request re-review is
+REV-06's appeal path, deliberately not a fourth button here.
 
 **Spec** [responsible-hiring.md](../../security/responsible-hiring.md)
 

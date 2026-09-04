@@ -44,3 +44,32 @@ export async function fetchReview(
     `/campaigns/${campaignId}/sessions/${sessionId}/review`,
   );
 }
+
+export type ReviewDecision = components["schemas"]["ReviewDecisionView"];
+export type DecisionRequest = components["schemas"]["ReviewDecisionRequest"];
+
+/** The decision history, oldest first: what an appeal reads. */
+export async function fetchDecisions(
+  campaignId: string,
+  sessionId: string,
+): Promise<ReviewDecision[]> {
+  const list = await apiFetch<components["schemas"]["ReviewDecisionList"]>(
+    `/campaigns/${campaignId}/sessions/${sessionId}/decisions`,
+  );
+  return list.decisions;
+}
+
+/**
+ * Record a named human's decision. The decider is the session server-side;
+ * the request cannot even try to supply one.
+ */
+export async function recordDecision(
+  campaignId: string,
+  sessionId: string,
+  request: DecisionRequest,
+): Promise<ReviewDecision> {
+  return apiFetch<ReviewDecision>(
+    `/campaigns/${campaignId}/sessions/${sessionId}/decisions`,
+    { method: "POST", body: request },
+  );
+}

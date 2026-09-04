@@ -194,9 +194,26 @@ Each job requirement is reported as evidenced, partial, not discussed, or not as
 evidence attached and no headline compatibility number anywhere.
 
 **Done when**
-- [ ] Requirements are reported per requirement, with evidence, never as a single percentage.
-- [ ] "Not discussed" and "not assessable" are distinguishable from "not evidenced".
-- [ ] Missing evidence produces suggested human follow-up questions.
+- [x] Requirements are reported per requirement, with evidence, never as a single percentage.
+- [x] "Not discussed" and "not assessable" are distinguishable from "not evidenced".
+- [x] Missing evidence produces suggested human follow-up questions.
+
+**Done as the mapping engine; REV-02 is the wire and the screen.** MapRequirements
+(evaluation/requirements.go, requirement-map-1) reports each frozen requirement against the
+aggregation and the stored spans: evidenced only when every linked competency is assessed
+with nothing contradicting it, partial when something was heard but not that, not_discussed
+when the linked competencies were never reached (the plan's gap), and not_assessable when
+nothing the interview measured maps to the requirement at all (the interview's gap) - both
+of which are about the process, never about the candidate. The linking is deliberately
+conservative: a competency links only when its whole name appears in the requirement's text
+on word boundaries, because a fragment match invents a connection nobody stated and an
+invented link becomes invented evidence; the finding names its links so a reviewer can see
+why it says what it says. Every status short of evidenced hands the reviewer a suggested
+human follow-up naming the requirement itself, and the report type has no aggregate field
+at all - a test marshals the whole document and refuses percent, match, score, ratio and
+compatibility by name, because a headline number is the decision the platform must not
+make. cmd hands recruiting's frozen requirements to this vocabulary when REV-02 composes
+the review screen.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md)
 

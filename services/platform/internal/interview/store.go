@@ -506,6 +506,9 @@ type CampaignSession struct {
 	CandidateID    string
 	State          State
 	StateChangedAt time.Time
+	// BundleDigest names what the session actually ran, empty before
+	// composition pinned it: the review's pinned block starts here.
+	BundleDigest string
 }
 
 // CampaignSessions answers every interview a campaign has run, under the
@@ -532,6 +535,7 @@ func (s *Store) CampaignSessions(ctx context.Context, tenantID, campaignID strin
 		out = append(out, CampaignSession{
 			ID: row.ID, CandidateID: row.CandidateID,
 			State: State(row.State), StateChangedAt: row.StateChangedAt,
+			BundleDigest: row.BundleDigest.String,
 		})
 	}
 	return out, nil

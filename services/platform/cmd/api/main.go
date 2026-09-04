@@ -196,6 +196,8 @@ func main() {
 		ReInvitations:           invitations,
 		Roster: newRosterAdapter(recruiting.NewStore(pool),
 			interview.NewStore(pool), evaluation.NewStore(pool)),
+		Reviews: newReviewAdapter(interview.NewStore(pool),
+			evaluation.NewStore(pool), recruiting.NewStore(pool), uploads),
 		Interviews: interviewAdapter{
 			catalogue: catalog.NewService(registrySource{registry: content.NewStore(pool)}),
 			sessions:  interview.NewStore(pool),

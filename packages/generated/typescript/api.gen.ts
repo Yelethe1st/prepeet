@@ -931,6 +931,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/sessions/{sessionId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The evidence-first review of one completed screening
+         * @description Everything a reviewer weighs, framed as evidence rather than a
+         *     verdict: the pinned configuration the session actually ran,
+         *     competencies with their confidence and reason codes beside every
+         *     band rather than in a footnote, the evidence spans with quotes and
+         *     room-clock timestamps, coverage by name, neutral contradictions and
+         *     unverified claims, and each job requirement as evidenced, partial,
+         *     not discussed or not assessable with a suggested human follow-up
+         *     where evidence is missing.
+         *
+         *     Deliberately absent, by contract: any recommendation, suggestion,
+         *     advance/decline hint or headline number. The decision belongs to
+         *     the reviewer, and a response field that hinted at one would be the
+         *     platform quietly making it. Reading this is a recorded event
+         *     (REV-04): the audit row commits before the response is written, and
+         *     a read that cannot be recorded is refused.
+         */
+        get: operations["getScreeningReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/invitations": {
         parameters: {
             query?: never;
@@ -2207,6 +2241,71 @@ export interface components {
             attempts?: number;
             /** @description The most recent transport failure, when there is one. */
             last_error?: string;
+        };
+        /**
+         * @description The evidence-first review document. It has no recommendation field
+         *     and no aggregate number across competencies or requirements, by
+         *     design rather than by omission.
+         */
+        ScreeningReview: {
+            /** Format: uuid */
+            session_id: string;
+            /** @description What this session actually ran, by digest. */
+            pinned: {
+                bundle_digest: string;
+                rubric: {
+                    reference: string;
+                    version: string;
+                    digest: string;
+                };
+                aggregation_version: string;
+                extraction_version: string;
+                model_version: string;
+                policy_version: string;
+            };
+            /**
+             * @description Each with its confidence, sufficiency counts and reason codes
+             *     in the same object as its band: uncertainty rides beside every
+             *     score, never in a footnote.
+             */
+            competencies: components["schemas"]["CompetencyResultView"][];
+            evidence: components["schemas"]["EvidenceSpanView"][];
+            coverage: {
+                reached: string[];
+                not_reached: string[];
+                covered: number;
+                total: number;
+            };
+            contradictions: components["schemas"]["ContradictionView"][];
+            requirements: components["schemas"]["RequirementsReport"];
+        };
+        /**
+         * @description EVL-06's mapping: each job requirement on its own, never a match
+         *     percentage. The report has no aggregate field at all.
+         */
+        RequirementsReport: {
+            map_version: string;
+            requirements: components["schemas"]["RequirementFinding"][];
+        };
+        RequirementFinding: {
+            /** Format: uuid */
+            requirement_id: string;
+            text: string;
+            /**
+             * @description evidenced is earned; partial means heard but not settled;
+             *     not_discussed is the interview plan's gap and not_assessable
+             *     the interview's - both about the process, never the candidate.
+             * @enum {string}
+             */
+            status: "evidenced" | "partial" | "not_discussed" | "not_assessable";
+            /** @description The links the mapping made, inspectable by name. */
+            competencies: string[];
+            evidence_ids: string[];
+            /**
+             * @description The suggested human question, present for every status short
+             *     of evidenced.
+             */
+            follow_up?: string;
         };
         /**
          * @description Where one invited candidate stands, as a closed vocabulary the
@@ -4586,6 +4685,46 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getScreeningReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The review, evidence first. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreeningReview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /**
+             * @description REVIEW_NOT_READY: the session exists on this campaign and its
+             *     evaluation has not been published yet.
+             */
+            409: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     listInvitations: {

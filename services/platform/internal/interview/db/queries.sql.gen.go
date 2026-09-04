@@ -8,6 +8,8 @@ package interviewdb
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const advanceSessionEpoch = `-- name: AdvanceSessionEpoch :execrows
@@ -982,7 +984,8 @@ func (q *Queries) ScreeningSessionForCandidate(ctx context.Context, arg Screenin
 }
 
 const screeningSessionsForCampaign = `-- name: ScreeningSessionsForCampaign :many
-SELECT id::text AS id, candidate_id::text AS candidate_id, state, state_changed_at
+SELECT id::text AS id, candidate_id::text AS candidate_id, state,
+       state_changed_at, bundle_digest
 FROM interview.sessions
 WHERE campaign_id = $1::uuid
 ORDER BY created_at
@@ -993,11 +996,15 @@ type ScreeningSessionsForCampaignRow struct {
 	CandidateID    string
 	State          string
 	StateChangedAt time.Time
+	BundleDigest   pgtype.Text
 }
 
 // The campaign's interviews as its tenant sees them, one row per session:
-// what the recruiter roster joins onto the invitations, through cmd. The
-// tenant policy scopes the read; the ordering is creation, never quality.
+// what the recruiter roster joins onto the invitations, through cmd, and
+// what the review screen resolves a session against. The bundle digest
+// rides along because the review's pinned block names what actually ran.
+// The tenant policy scopes the read; the ordering is creation, never
+// quality.
 func (q *Queries) ScreeningSessionsForCampaign(ctx context.Context, campaignID string) ([]ScreeningSessionsForCampaignRow, error) {
 	rows, err := q.db.Query(ctx, screeningSessionsForCampaign, campaignID)
 	if err != nil {
@@ -1012,6 +1019,7 @@ func (q *Queries) ScreeningSessionsForCampaign(ctx context.Context, campaignID s
 			&i.CandidateID,
 			&i.State,
 			&i.StateChangedAt,
+			&i.BundleDigest,
 		); err != nil {
 			return nil, err
 		}

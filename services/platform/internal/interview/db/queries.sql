@@ -160,9 +160,13 @@ WHERE id = sqlc.arg(id)::uuid AND timing_policy_version IS NULL;
 
 -- name: ScreeningSessionsForCampaign :many
 -- The campaign's interviews as its tenant sees them, one row per session:
--- what the recruiter roster joins onto the invitations, through cmd. The
--- tenant policy scopes the read; the ordering is creation, never quality.
-SELECT id::text AS id, candidate_id::text AS candidate_id, state, state_changed_at
+-- what the recruiter roster joins onto the invitations, through cmd, and
+-- what the review screen resolves a session against. The bundle digest
+-- rides along because the review's pinned block names what actually ran.
+-- The tenant policy scopes the read; the ordering is creation, never
+-- quality.
+SELECT id::text AS id, candidate_id::text AS candidate_id, state,
+       state_changed_at, bundle_digest
 FROM interview.sessions
 WHERE campaign_id = sqlc.arg(campaign_id)::uuid
 ORDER BY created_at;

@@ -1466,6 +1466,63 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /campaigns/{campaignId}/sessions/{sessionId}/review:
+    get:
+      tags: [recruiting]
+      operationId: getScreeningReview
+      x-prepeet-capability: evaluation.read_screen
+      x-prepeet-sensitive-read: true
+      summary: The evidence-first review of one completed screening
+      description: |
+        Everything a reviewer weighs, framed as evidence rather than a
+        verdict: the pinned configuration the session actually ran,
+        competencies with their confidence and reason codes beside every
+        band rather than in a footnote, the evidence spans with quotes and
+        room-clock timestamps, coverage by name, neutral contradictions and
+        unverified claims, and each job requirement as evidenced, partial,
+        not discussed or not assessable with a suggested human follow-up
+        where evidence is missing.
+
+        Deliberately absent, by contract: any recommendation, suggestion,
+        advance/decline hint or headline number. The decision belongs to
+        the reviewer, and a response field that hinted at one would be the
+        platform quietly making it. Reading this is a recorded event
+        (REV-04): the audit row commits before the response is written, and
+        a read that cannot be recorded is refused.
+      parameters:
+        - name: campaignId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The review, evidence first.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreeningReview"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            REVIEW_NOT_READY: the session exists on this campaign and its
+            evaluation has not been published yet.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /campaigns/{campaignId}/invitations:
     get:
       tags: [recruiting]
@@ -3652,6 +3709,106 @@ components:
         last_error:
           type: string
           description: The most recent transport failure, when there is one.
+
+    ScreeningReview:
+      type: object
+      description: |
+        The evidence-first review document. It has no recommendation field
+        and no aggregate number across competencies or requirements, by
+        design rather than by omission.
+      required:
+        [session_id, pinned, competencies, evidence, coverage,
+         contradictions, requirements]
+      properties:
+        session_id: { type: string, format: uuid }
+        pinned:
+          type: object
+          description: What this session actually ran, by digest.
+          required:
+            [bundle_digest, rubric, aggregation_version, extraction_version,
+             model_version, policy_version]
+          properties:
+            bundle_digest: { type: string }
+            rubric:
+              type: object
+              required: [reference, version, digest]
+              properties:
+                reference: { type: string }
+                version: { type: string }
+                digest: { type: string }
+            aggregation_version: { type: string }
+            extraction_version: { type: string }
+            model_version: { type: string }
+            policy_version: { type: string }
+        competencies:
+          type: array
+          description: |
+            Each with its confidence, sufficiency counts and reason codes
+            in the same object as its band: uncertainty rides beside every
+            score, never in a footnote.
+          items:
+            $ref: "#/components/schemas/CompetencyResultView"
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvidenceSpanView"
+        coverage:
+          type: object
+          required: [reached, not_reached, covered, total]
+          properties:
+            reached:
+              type: array
+              items: { type: string }
+            not_reached:
+              type: array
+              items: { type: string }
+            covered: { type: integer }
+            total: { type: integer }
+        contradictions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContradictionView"
+        requirements:
+          $ref: "#/components/schemas/RequirementsReport"
+
+    RequirementsReport:
+      type: object
+      description: |
+        EVL-06's mapping: each job requirement on its own, never a match
+        percentage. The report has no aggregate field at all.
+      required: [map_version, requirements]
+      properties:
+        map_version: { type: string }
+        requirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequirementFinding"
+
+    RequirementFinding:
+      type: object
+      required: [requirement_id, text, status, competencies, evidence_ids]
+      properties:
+        requirement_id: { type: string, format: uuid }
+        text: { type: string }
+        status:
+          type: string
+          description: |
+            evidenced is earned; partial means heard but not settled;
+            not_discussed is the interview plan's gap and not_assessable
+            the interview's - both about the process, never the candidate.
+          enum: [evidenced, partial, not_discussed, not_assessable]
+        competencies:
+          type: array
+          items: { type: string }
+          description: The links the mapping made, inspectable by name.
+        evidence_ids:
+          type: array
+          items: { type: string }
+        follow_up:
+          type: string
+          description: |
+            The suggested human question, present for every status short
+            of evidenced.
 
     RosterStanding:
       type: string

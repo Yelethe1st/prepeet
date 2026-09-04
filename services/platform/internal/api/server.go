@@ -58,7 +58,10 @@ type ServerConfig struct {
 	ReInvitations ReInvitations
 	// Roster serves REV-01's candidate roster, composed in cmd from the
 	// invitations, the interviews and the evaluation standing.
-	Roster      RosterReads
+	Roster RosterReads
+	// Reviews serves REV-02's evidence-first review, composed in cmd from
+	// interview, evaluation and recruiting.
+	Reviews     ScreeningReviews
 	Environment config.Environment
 	// AgentToken authenticates the voice agent's internal writes. Empty
 	// disables the internal operations: they answer 401 to everything.
@@ -193,6 +196,11 @@ func NewServer(cfg ServerConfig) (http.Handler, error) {
 		campaigns:      cfg.Recruiting,
 		roster:         cfg.Roster,
 	}
+	handlers.reviewHandlers = reviewHandlers{
+		authentication: &handlers.authentication,
+		campaigns:      cfg.Recruiting,
+		reviews:        cfg.Reviews,
+	}
 	handlers.screeningHandlers = screeningHandlers{
 		authentication: &handlers.authentication,
 		invitations:    cfg.ScreeningInvitations,
@@ -303,6 +311,7 @@ type server struct {
 	campaignHandlers
 	invitationHandlers
 	rosterHandlers
+	reviewHandlers
 	screeningHandlers
 	health *health.Registry
 }

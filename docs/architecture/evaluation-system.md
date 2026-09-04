@@ -8,6 +8,10 @@
 
 Turn a pinned session bundle and sealed conversation into typed, evidence-linked practice feedback or screening evidence. The system does not predict job performance or make hiring decisions.
 
+The provider-neutral model integration, rich rubric evolution, job-context
+composition, validation boundary, rollout, and edge-case roadmap are specified
+in [Model-Backed Evaluation, Rubric Composition, and Provider-Neutral Inference](model-backed-evaluation.md).
+
 ## Immutable inputs
 
 Session/tenant/purpose, bundle digest, sealed transcript cursor/digest, media manifest/status, mode/disclosure policy, pipeline/model policy, idempotency key, and requested capabilities.
@@ -130,4 +134,6 @@ Timeout: bounded retry. Invalid output: validate/repair/retry without silent coe
 
 ## Open decisions
 
-Score/band semantics, confidence, evidence thresholds, historical re-evaluation, provider fallback equivalence, supported languages/accents, independent-review policy, and any employer-facing communication criterion.
+Confidence, evidence thresholds, historical re-evaluation, provider fallback equivalence, supported languages/accents, independent-review policy, and any employer-facing communication criterion.
+
+Band semantics are settled by [ADR-0022](decisions/0022-band-is-a-rubric-anchored-judgement-under-deterministic-law.md): a band is a model's judgement against published anchors, and deterministic code validates it, may lower it to unassessed or reject it, and may never raise it. `aggregate-1`'s arithmetic derivation remains the implemented, labelled fallback. Confidence stays as [ADR-0015](decisions/0015-confidence-is-qualitative-evidence-sufficiency.md) defines it and is unaffected.

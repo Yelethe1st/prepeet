@@ -42,6 +42,7 @@ This directory contains approved Architecture Decision Records (ADRs). Proposed 
 10. ~~Model providers, routing, regional policy, fallback, and budgets.~~ Accepted as [ADR-0019](0019-model-providers-routing-and-budgets.md).
 11. Screening disclosure, appeals, and human-decision semantics. The mechanism is accepted as [ADR-0020](0020-screening-disclosure-access-and-appeal.md); the per-jurisdiction legal determination it reads remains open under DEC-11.
 12. Next.js deployment and strict Go backend boundary.
+13. ~~Whether a band is derived arithmetically or judged against published anchors.~~ Accepted as [ADR-0022](0022-band-is-a-rubric-anchored-judgement-under-deterministic-law.md).
 
 ## ADR template
 

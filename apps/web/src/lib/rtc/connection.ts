@@ -51,6 +51,13 @@ export interface ConnectOptions {
   createRoom?: () => RoomLike;
   /** Called once when the connection is over, whoever ended it. */
   onEnded?: () => void;
+  /**
+   * Called instead of onEnded when the server drops the connection and the
+   * caller can recover: RTC-03's chain resumes into a fresh connection, so
+   * an unexpected drop is a recovery trigger rather than an ending. A
+   * deliberate end never lands here.
+   */
+  onDropped?: () => void;
 }
 
 export async function connectLive(
@@ -87,7 +94,11 @@ export async function connectLive(
       ended = true;
       window.removeEventListener("pagehide", onPageHide);
       room.off("disconnected", onServerDisconnect);
-      options.onEnded?.();
+      if (options.onDropped) {
+        options.onDropped();
+      } else {
+        options.onEnded?.();
+      }
     }
   };
 

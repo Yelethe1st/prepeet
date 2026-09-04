@@ -88,9 +88,31 @@ Refresh, duplicate tab, sleep and wake, network handover, device removal and sta
 recovered into the same session rather than into a new one.
 
 **Done when**
-- [ ] All six interruptions are tested and recover into the same session.
-- [ ] A duplicate tab is detected and refused rather than producing two live connections.
-- [ ] The reconnection overlay announces state changes to assistive technology.
+- [x] All six interruptions are tested and recover into the same session.
+- [x] A duplicate tab is detected and refused rather than producing two live connections.
+- [x] The reconnection overlay announces state changes to assistive technology.
+
+**Done, at the protocol level; the real-stack matrix rides RTC-06.** The browser's recovery is
+three lib pieces and their wiring. The resend buffer (lib/rtc/timeline.ts) holds only what the
+server has not confirmed: identity survives retries and takeovers, a refusal is dropped by name
+rather than resent forever, and a resume rebases the survivors into the new epoch keeping their
+ids so anything that did land converges to a duplicate. The chain (lib/rtc/recovery.ts) makes
+one attempt the whole story - resume, rejoin, rebase, then the interruption report and the new
+epoch's established event - and any link failing retries the whole chain, because a
+half-recovered state would leave the grace timer running toward a finalization the candidate
+cannot see. The server's refusals end it by name: GRACE_EXPIRED, EPOCH_STALE and
+SESSION_NOT_RESUMABLE each land on their own explanation with a way forward.
+
+The six interruptions map onto that machinery and each is tested recovering into the same
+session: refresh and stale credentials resume from the mount path (a missing or expired grant
+asks the server rather than bouncing to prepare), sleep/wake recovers on the first chain, a
+network handover on a later one, a removed device once it is back, and a duplicate tab asks on
+a per-session broadcast channel before joining and refuses on an answer - advisory, with the
+server's epoch takeover as the authority. The overlay is the prototype's
+(candidate-session-live.html), an alertdialog whose attempt counter is a live region, so each
+state change is announced without the dialog re-announcing itself. The tests run against the
+protocol with structural fakes for the room and the channel; driving the six through a real
+SFU belongs to the live surface build-out, which is why RTC-06 stays open behind this.
 
 **Spec** [realtime-protocol.md](../../architecture/realtime-protocol.md)
 

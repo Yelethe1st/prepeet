@@ -166,4 +166,38 @@ describe("teardown always releases the microphone", () => {
     // And ending again after the server already dropped us is quiet.
     await live.end();
   });
+
+  it("an unexpected drop goes to recovery when the caller can recover", async () => {
+    const room = new FakeRoom();
+    const ended = vi.fn();
+    const dropped = vi.fn();
+    const live = await connectLive(grant, {
+      createRoom: () => room,
+      onEnded: ended,
+      onDropped: dropped,
+    });
+
+    room.emit("disconnected");
+
+    // RTC-03: the drop is a recovery trigger, not an ending.
+    expect(dropped).toHaveBeenCalledTimes(1);
+    expect(ended).not.toHaveBeenCalled();
+    await live.end();
+  });
+
+  it("a deliberate end never lands in recovery", async () => {
+    const room = new FakeRoom();
+    const ended = vi.fn();
+    const dropped = vi.fn();
+    const live = await connectLive(grant, {
+      createRoom: () => room,
+      onEnded: ended,
+      onDropped: dropped,
+    });
+
+    await live.end();
+
+    expect(ended).toHaveBeenCalledTimes(1);
+    expect(dropped).not.toHaveBeenCalled();
+  });
 });

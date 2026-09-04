@@ -66,9 +66,23 @@ Every chart in the product carries a written summary of what it shows and a tabl
 data.
 
 **Done when**
-- [ ] No chart conveys information available nowhere else.
-- [ ] Summaries state the finding, not just the axes.
-- [ ] Colour never carries status or score without an accompanying word.
+- [x] No chart conveys information available nowhere else.
+- [x] Summaries state the finding, not just the axes.
+- [x] Colour never carries status or score without an accompanying word.
+
+**Done - satisfied where each chart was built, recorded here after the audit.** The
+product currently has two data charts and both carried their alternatives from birth:
+the skills screen's standings chart (PRG-04) renders its summary and a competency
+table beside it, and the delivery screen's pace chart (ART-05) is a role="img"
+labelled by a summary that states the finding, each bar carrying its words-per-minute
+as text, with the full table behind a disclosure. Both are pinned by tests that ask
+for the summary and the table by role. The marketing page's illustrative charts are
+aria-hidden with their content in the surrounding text. Status and score are words
+everywhere: bands render as their names, lifecycle states as their vocabulary
+(states.ts), and the audit found no colour-only conveyance. The rule stays cheap to
+keep because the browser suite's axe run and these per-chart tests fail before a
+silent chart ships; a new chart adds its summary, its table and their tests as part
+of its own ticket.
 
 **Spec** [information-architecture.md](../../product/information-architecture.md)
 

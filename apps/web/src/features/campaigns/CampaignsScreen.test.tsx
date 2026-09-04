@@ -88,5 +88,11 @@ describe("the campaign list", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/campaigns could not be loaded/i);
     expect(alert).toHaveTextContent("req-42");
+
+    // Retry asks again and the list replaces the alert.
+    vi.mocked(api.listCampaigns).mockResolvedValue(campaigns);
+    const user = (await import("@testing-library/user-event")).default.setup();
+    await user.click(within(alert).getByRole("button", { name: /retry/i }));
+    expect(await screen.findByRole("table")).toBeInTheDocument();
   });
 });

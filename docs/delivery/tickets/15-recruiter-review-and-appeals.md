@@ -48,9 +48,27 @@ competencies with anchors and sufficiency, transcript spans, audio, coverage, co
 claims, job-requirement evidence, missing evidence and suggested follow-ups.
 
 **Done when**
-- [ ] Every material conclusion links to the evidence behind it.
-- [ ] Uncertainty and coverage appear beside every score, not in a footnote.
-- [ ] The screen states that the decision belongs to the reviewer, and never presents a recommendation as one.
+- [x] Every material conclusion links to the evidence behind it.
+- [x] Uncertainty and coverage appear beside every score, not in a footnote.
+- [x] The screen states that the decision belongs to the reviewer, and never presents a recommendation as one.
+
+**Done, wire and screen.** GET /campaigns/{id}/sessions/{id}/review composes in cmd:
+interview names the session and the bundle it pinned, evaluation the published result with
+its rubric pin, evidence spans and neutral contradictions, recruiting the frozen
+requirements, and the sealed input document from the object store names the competencies
+EVL-06's mapping links against - the same bytes Python evaluated. Every competency entry
+carries its confidence, sufficiency counts and reason codes in the same object and card as
+its band, its evidence ids resolve to quoted spans with room-clock timestamps in the same
+document, and unassessed renders in words with "not a low score" beside it. The screen
+opens with whose decision this is; the contract promises what is absent (no recommendation,
+suggested band, advance or decline hint, no aggregate number) and both a wire test and a
+screen test refuse those words by name. Reading is a recorded event through REV-04's
+interlock: the audit row commits before the response, and a read that cannot be recorded
+answers AUDIT_UNAVAILABLE - tested in both directions. The roster offers the review link
+exactly where a decision is owed, insufficient evidence included. The one open question the
+spec names - whether the suggested band appears before evidence is reviewed - stays decided
+in the conservative direction by there being no suggested band at all until DEC-12/DEC-17
+say otherwise. REV-03's decision recording is next.
 
 **Spec** [screen-mode.md](../../product/screen-mode.md)
 

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
-import { Button } from "@/shared/components";
+import { Button, TextLink } from "@/shared/components";
 import {
   EmptyState,
   ErrorState,
@@ -135,6 +135,9 @@ export function RosterScreen({ campaignId }: { campaignId: string }) {
                 <th scope="col" className="px-4 py-3">
                   Standing
                 </th>
+                <th scope="col" className="px-4 py-3">
+                  <span className="sr-only">Review</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -153,6 +156,15 @@ export function RosterScreen({ campaignId }: { campaignId: string }) {
                   <td className="px-4 py-3 text-fg-2">
                     {STANDINGS[entry.standing] ?? entry.standing}
                   </td>
+                  <td className="px-4 py-3">
+                    {reviewable(entry.standing) && entry.session_id ? (
+                      <TextLink
+                        href={`/campaigns/${campaignId}/review/${entry.session_id}`}
+                      >
+                        Review
+                      </TextLink>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -167,6 +179,14 @@ export function RosterScreen({ campaignId }: { campaignId: string }) {
       </p>
     </div>
   );
+}
+
+/**
+ * Reviewable standings are the two that await a person: the review link is
+ * offered exactly where a decision is owed, insufficient evidence included.
+ */
+function reviewable(standing: string): boolean {
+  return standing === "awaiting_review" || standing === "insufficient_evidence";
 }
 
 function day(timestamp: string): string {

@@ -39,3 +39,14 @@ describe("the recruiter surface's calls", () => {
     );
   });
 });
+
+it("fetches the review from the audited route", async () => {
+  const { fetchReview } = await import("./api");
+  vi.mocked(apiFetch).mockResolvedValue({} as never);
+
+  await fetchReview("cmp-1", "ses-1");
+
+  expect(apiFetch).toHaveBeenLastCalledWith(
+    "/campaigns/cmp-1/sessions/ses-1/review",
+  );
+});

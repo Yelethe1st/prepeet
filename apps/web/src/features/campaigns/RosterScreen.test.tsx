@@ -138,6 +138,46 @@ describe("the roster", () => {
     );
   });
 
+  it("an empty filtered standing names the filter's truth", async () => {
+    renderRoster();
+    await screen.findByRole("table");
+
+    vi.mocked(api.fetchRoster).mockResolvedValue({
+      pending_review: 2,
+      candidates: [],
+    });
+    const user = userEvent.setup();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /standing/i }),
+      "declined",
+    );
+
+    expect(
+      await screen.findByText(/no candidate currently stands there/i),
+    ).toBeInTheDocument();
+  });
+
+  it("offers the review link exactly where a decision is owed", async () => {
+    renderRoster();
+    const table = await screen.findByRole("table");
+    const rows = within(table).getAllByRole("row").slice(1);
+
+    // Awaiting review and insufficient evidence both link; a candidate
+    // still mid-journey offers nothing to review.
+    expect(
+      within(rows[0] as HTMLElement).getByRole("link", { name: /review/i }),
+    ).toHaveAttribute(
+      "href",
+      "/campaigns/cmp-1/review/00000000-0000-7000-8000-00000000a001",
+    );
+    expect(
+      within(rows[1] as HTMLElement).getByRole("link", { name: /review/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(rows[2] as HTMLElement).queryByRole("link"),
+    ).not.toBeInTheDocument();
+  });
+
   it("a failed load names what failed and what is safe", async () => {
     vi.mocked(api.fetchRoster).mockRejectedValue(
       new ApiError({
@@ -156,5 +196,12 @@ describe("the roster", () => {
     expect(alert).toHaveTextContent(/roster could not be loaded/i);
     expect(alert).toHaveTextContent(/unaffected/i);
     expect(alert).toHaveTextContent("req-77");
+
+    // Retry asks again and the roster replaces the alert.
+    vi.mocked(api.fetchRoster).mockResolvedValue(roster);
+    await userEvent
+      .setup()
+      .click(within(alert).getByRole("button", { name: /retry/i }));
+    expect(await screen.findByRole("table")).toBeInTheDocument();
   });
 });

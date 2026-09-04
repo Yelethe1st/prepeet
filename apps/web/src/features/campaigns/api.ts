@@ -29,3 +29,18 @@ export async function fetchRoster(
     `/campaigns/${campaignId}/candidates${query}`,
   );
 }
+
+export type ScreeningReview = components["schemas"]["ScreeningReview"];
+
+/**
+ * The evidence-first review of one completed screening. Reading it is a
+ * recorded event server-side; a read that cannot be recorded is refused.
+ */
+export async function fetchReview(
+  campaignId: string,
+  sessionId: string,
+): Promise<ScreeningReview> {
+  return apiFetch<ScreeningReview>(
+    `/campaigns/${campaignId}/sessions/${sessionId}/review`,
+  );
+}

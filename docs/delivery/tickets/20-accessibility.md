@@ -50,9 +50,21 @@ The hardest screen in the product: realtime state changes, a timer, captions, pu
 reconnection overlay, all announced correctly and none of it stealing focus mid-answer.
 
 **Done when**
-- [ ] Every state change is announced once, at the right politeness level, without interrupting speech.
-- [ ] Push-to-talk works by keyboard with clear instructions and no timing trap.
-- [ ] The reconnection overlay takes focus appropriately and returns it on recovery.
+- [x] Every state change is announced once, at the right politeness level, without interrupting speech.
+- [x] Push-to-talk works by keyboard with clear instructions and no timing trap.
+- [x] The reconnection overlay takes focus appropriately and returns it on recovery.
+
+**Done as built behaviour; the real-AT verification is A11Y-04's, which exists for exactly
+that.** Announcements flow through one polite live region on the surface, one message at a
+time, so a state change is heard once and a caption being read is not cut off; the two
+assertive exceptions are earned - the not-transmitting warning while the candidate speaks,
+and the overlay's own alertdialog - because both are situations where interrupting IS the
+right politeness. Push-to-talk is hold-based with no timeout of any kind: hold Space or hold
+the button, release to stop, with the instructions in text beside the control and open/closed
+announced. The overlay moves focus to Retry now when it opens - the one decision the person
+can act on - and returns focus to wherever it was when recovery closes it, pinned by a test
+either way. What this ticket cannot honestly claim is how VoiceOver, NVDA and JAWS actually
+render all of it on the real journey; that walk, with findings recorded, is A11Y-04.
 
 **Spec** [realtime-protocol.md](../../architecture/realtime-protocol.md)
 

@@ -43,6 +43,30 @@ describe("the reconnection overlay", () => {
     );
   });
 
+  it("takes focus on opening and returns it on recovery", () => {
+    // A control the person was on when the connection dropped.
+    const before = document.createElement("button");
+    before.textContent = "End interview";
+    document.body.appendChild(before);
+    before.focus();
+
+    const { unmount } = render(
+      <ReconnectionOverlay
+        phase={{ kind: "reconnecting", attempt: 1, maxAttempts: 5 }}
+        onRetryNow={() => undefined}
+        onEndInterview={() => undefined}
+      />,
+    );
+
+    // The one decision the person can act on holds focus while the chain
+    // runs; recovery closing the overlay puts them back where they were.
+    expect(screen.getByRole("button", { name: /retry now/i })).toHaveFocus();
+
+    unmount();
+    expect(before).toHaveFocus();
+    before.remove();
+  });
+
   it("keeps both decisions in the person's hands", async () => {
     const retry = vi.fn();
     const end = vi.fn();

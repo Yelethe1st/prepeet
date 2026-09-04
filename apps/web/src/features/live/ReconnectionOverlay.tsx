@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { Button } from "@/shared/components";
 import type { RecoveryPhase } from "@/lib/rtc/recovery";
 
@@ -10,6 +12,12 @@ import type { RecoveryPhase } from "@/lib/rtc/recovery";
  * reader hears each state change without the dialog re-announcing itself.
  * The copy tells the truth the spec requires: the interview is paused, the
  * timer stopped with it, and what was said is already recorded.
+ *
+ * Focus moves to the retry button when the overlay opens - the one
+ * decision the person can act on - and returns to wherever it was when
+ * recovery closes the overlay, exactly as the prototype does, so a
+ * keyboard or screen-reader user is never stranded on a control that no
+ * longer exists (A11Y-02).
  *
  * Only the states with a decision still open render here; the terminal
  * verdicts (expired, superseded, unresumable) replace the live surface
@@ -25,6 +33,19 @@ export function ReconnectionOverlay({
   onRetryNow: () => void;
   onEndInterview: () => void;
 }) {
+  const retry = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const before =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    retry.current?.focus();
+    return () => {
+      before?.focus();
+    };
+  }, []);
+
   const attempts =
     phase.kind === "reconnecting"
       ? `Reconnection attempt ${phase.attempt} of ${phase.maxAttempts}`
@@ -54,7 +75,7 @@ export function ReconnectionOverlay({
           {attempts}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button type="button" size="sm" onClick={onRetryNow}>
+          <Button ref={retry} type="button" size="sm" onClick={onRetryNow}>
             Retry now
           </Button>
           <Button

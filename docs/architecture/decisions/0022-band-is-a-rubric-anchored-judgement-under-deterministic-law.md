@@ -210,7 +210,7 @@ their pins, so history stays readable whichever route produced it, and a
 reverted boundary does not invalidate results already published under the
 model route.
 
-Migration is Phases 1 and 4 through 7 of
+Migration is Phases 1a and 4 through 7 of
 [model-backed-evaluation.md](../model-backed-evaluation.md): rich rubric
 first, extraction in shadow, practice release, then screening only with
 its own approval. No result reaches a candidate from a boundary that has

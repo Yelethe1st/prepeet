@@ -1143,16 +1143,36 @@ promotion while leaving safe rollback available.
 
 **Exit:** approved contracts and threat model; no provider call required.
 
-### Phase 1: enrich artifacts and authoring
+### Phase 1a: the rubric an evaluator can read
 
-- Add role standards, competency criteria, anchors, and feasibility rules.
+Phase 1 was originally one phase, and it was the longest pole with every
+later phase behind it. Most of that length was authoring surface, which no
+technical phase needs. The split is between what makes a rubric readable by
+an evaluation stage and what makes it authorable by a tenant.
+
+This half is authored the way platform artifacts are authored today — in
+Git, loaded through `contentctl` — so no new user-facing surface gates any
+model work.
+
+- Add role standards, competency criteria, anchors, and feasibility rules to
+  the rubric schema, contract-first.
 - Implement rubric schema validation in the evaluation context.
-- Complete tenant rubric HTTP APIs and web authoring/version-history UI.
-- Implement preview without mutating historical results.
-- Add requirement-to-competency review and explicit mappings.
+- Add explicit reviewed requirement-to-competency mappings.
 - Make campaign opening validate plan coverage against required rubric scope.
 
-**Exit:** humans can create, review, publish, pin, and roll back a rich rubric.
+**Exit:** a rich rubric can be authored, validated, published and pinned,
+and an evaluation stage can read an anchor. Phases 2, 3 and 4 depend on this
+half and nothing more.
+
+### Phase 1b: tenant self-service authoring
+
+- Complete tenant rubric HTTP APIs and web authoring/version-history UI.
+- Implement preview without mutating historical results.
+
+**Exit:** a tenant administrator can create, review, publish, pin and roll
+back a rich rubric without platform involvement. Required before a tenant
+authors its own screening rubric in Phase 6. Required by no earlier phase,
+and deliberately not allowed to hold one up.
 
 ### Phase 2: implement the model gateway
 
@@ -1167,6 +1187,42 @@ promotion while leaving safe rollback available.
 
 ### Phase 3: model-assisted job blueprint
 
+**Requirement extraction becomes asynchronous, and the composition edge
+lives in the worker.**
+
+This is a product decision, not an implementation detail, and it has to be
+made before the phase starts. Today `requirements-rule-1` runs
+synchronously inside the API request that submits a job context: recruiting
+holds no dependency on the intelligence plane, and only the worker holds a
+gRPC client. Routing extraction to a model through the existing synchronous
+path would do two things the product should refuse. It would make a
+recruiter's submission wait on provider latency, and it would give the
+campaign-creation flow a failure mode it does not have today — a provider
+outage becoming an inability to record a job description.
+
+So the flow changes shape rather than the boundary:
+
+- Submitting a job context records the context and starts extraction. The
+  requirement set carries a visible extraction status, so a recruiter reads
+  "reading the job description" rather than an empty list that looks like a
+  failure.
+- Extraction runs in the worker, driven from the outbox, exactly as
+  composition already runs. Recruiting keeps zero intelligence dependency;
+  the worker composes recruiting and intelligence the way it already
+  composes interview and intelligence.
+- The path is asynchronous whichever extractor the route names. The
+  deterministic floor finishes in milliseconds and the wait is
+  imperceptible, but one control flow means switching routes is a policy
+  change rather than a change of shape, and the deterministic path stays
+  continuously exercised.
+- One extractor runs per campaign, chosen by route, with
+  `requirements-rule-1` as the fallback. Both do not run in production:
+  two sources proposing overlapping requirements is a deduplication problem
+  and a review burden for no benefit. Shadow comparison is a benchmarking
+  mode with no user-visible output, as in Phase 4.
+
+The remaining work:
+
 - Replace `requirements-rule-1` optionally behind `RequirementExtractor`.
 - Require exact source ranges and structured ambiguity flags.
 - Generate only drafts; preserve recruiter correction and freeze behavior.
@@ -1174,12 +1230,49 @@ promotion while leaving safe rollback available.
 - Measure extraction quality against reviewed requirements.
 
 **Exit:** approved tenants can opt into reviewed model-assisted requirement
-extraction; the deterministic floor remains selectable.
+extraction; the deterministic floor remains selectable; a provider outage
+degrades extraction without blocking campaign creation.
 
 ### Phase 4: shadow model evidence extraction
 
-- Extend sealed evaluation input or the RPC to include verified pinned rubric,
-  role-standard, prompt, and reviewed-requirement content.
+**The sealed input does not change. The RPC carries the policy.**
+
+The model stage needs the rubric, role standard, plan and reviewed
+requirements, and today it can see none of them: the sealed evaluation
+input is `{session_id, competencies, turns}`, where each competency is an
+identifier and a name. There is no anchor in it to reason against.
+
+The tempting fix is to widen that document, and it is the wrong one. The
+sealed input is the conversation as evaluated. Its digest is recorded on
+the seal as the evidence that these exact turns produced this result, and
+five separate readers already depend on its shape: evidence extraction,
+articulation, the practice coaching derivation, the recruiter review
+screen, and the grace-expiry completion path. Widening it would be a
+breaking change to an immutable record with five consumers, and it would
+conflate two things that version independently — what the candidate said,
+which is fixed forever, and which policy was applied to it, which is
+revised deliberately.
+
+The bundle already solves this. It pins every artifact by type, reference,
+version, schema version and digest, which is exactly what CAT-02 built it
+to do. So:
+
+- Go resolves the rubric, role standard and plan **from the session
+  bundle's own pins**, verifies each body against its pinned digest, and
+  passes the verified bodies on the RPC.
+- Reviewed job requirements come from recruiting, where they were frozen
+  when the campaign opened, so reading them at evaluation time is safe by
+  construction.
+- The sealed input keeps its current shape and its current digest meaning.
+  No stored document is rewritten and no reader changes.
+
+This is a request-shape change to a gRPC contract, governed by the existing
+codegen and compatibility gates, rather than a migration of immutable
+stored state. Should a future stage genuinely require something the bundle
+cannot pin and recruiting cannot supply, that is the point to write the
+migration — with a new sealed-input schema version, both versions readable,
+and every one of the five readers named in the plan.
+
 - Implement structured model evidence extraction behind the existing Extractor
   boundary.
 - Run it in shadow beside `evidence-1` with no user-visible output.
@@ -1323,6 +1416,21 @@ Rollback must be rehearsed with synthetic traffic before release.
    appeal possible.
 10. Build the user-facing rubric authoring surface around "new version, preview,
     approve, publish," never a generic JSON editor or in-place edit.
+11. Split the rubric work by who needs it. A rubric an evaluation stage can
+    read is the prerequisite for every model phase and needs no authoring
+    surface, because platform artifacts are authored in Git today. Tenant
+    self-service is required only when a tenant authors its own rubric.
+    Sequencing them together makes authoring UI the gate on model work it has
+    no technical relationship to.
+12. Reach the intelligence plane from the worker, never from a synchronous
+    recruiter or candidate request. Composition already works this way. The
+    rule it encodes: a provider outage may degrade a proposal, and may never
+    prevent recording what a human submitted.
+13. Resolve pinned policy from the bundle rather than widening the sealed
+    input. The sealed input is the conversation as evaluated and has five
+    readers; the bundle exists to pin artifacts by digest. Keeping the two
+    apart is what lets a rubric be revised while a transcript stays fixed
+    forever.
 
 ## Acceptance criteria for the improvement
 
